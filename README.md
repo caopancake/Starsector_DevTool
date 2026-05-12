@@ -31,8 +31,6 @@ npm run tauri -- dev
 
 ## 构建
 
-本项目只发布单文件 exe，不发布安装包。
-
 ```powershell
 .\build.ps1
 ```
@@ -46,22 +44,26 @@ build.bat
 构建完成后产物位于：
 
 ```text
-release\Starsector_DevTool.exe
+src-tauri\target\release\starsector-devtool.exe
 ```
 
-构建脚本内部使用 `tauri build --no-bundle`，会把前端资源嵌入 exe，但不会生成 MSI/NSIS 安装包。
+构建脚本内部使用 `tauri build --no-bundle`，不生成 MSI/NSIS 安装包。
 
 ## 验证
 
-```bash
-npm run build
-cargo test --manifest-path src-tauri/Cargo.toml
+```powershell
+npm.cmd run encoding:check
+npm.cmd run format:check
+npm.cmd run lint
+npm.cmd run typecheck
+cargo test --manifest-path src-tauri\Cargo.toml
+cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings
 ```
 
 ## 文档
 
 - 项目入口：[AGENTS.md](./AGENTS.md)
-- 旧版参考：[old_program/](./old_program/)
+- 细则文档：[.trae/](./.trae/)
 
 ## 许可
 

@@ -12,12 +12,14 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 ## 读取顺序
 
 1. `AGENTS.md`
-2. `.trae/workflow.md`
-3. 相关专题文档：
-   - `.trae/`
-4. 术语、命名、API：
-   - `.trae/`
+2. `.trae/overview.md`
+3. `.trae/workflow.md`
+4. 相关专题文档：
+   - `.trae/frontend-guidelines.md`
+   - `.trae/backend-guidelines.md`
+   - `.trae/module-map.md`
 5. 任务文档：
+   - `.trae/todo.md`
    - `.trae/specs/`
 
 ## 绝对规则
@@ -35,11 +37,15 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 ## 常用命令
 
 - 安装依赖：`npm install`
-- 前端类型检查：`.\\node_modules\\.bin\\vue-tsc.cmd --noEmit`
+- 前端类型检查：`npm.cmd run typecheck`
+- 前端规范：`npm.cmd run lint`
+- 前端格式检查：`npm.cmd run format:check`
+- 编码检查：`npm.cmd run encoding:check`
 - 前端构建：`npm.cmd run build`
-- Rust 检查：`cargo check`
-- Rust 规范：`cargo clippy -- -D warnings`
-- 单文件构建：`.\build.ps1` 或 `build.bat`
+- Rust 测试：`cargo test --manifest-path src-tauri\Cargo.toml`
+- Rust 规范：`cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings`
+- Rust 格式检查：`cargo fmt --manifest-path src-tauri\Cargo.toml --check`
+- 构建：`.\build.ps1` 或 `build.bat`
 
 ## 当前状态
 
@@ -53,10 +59,17 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
   - 武器编辑器
   - 弹丸/导弹编辑器
   - 弹道/光束预览
+- 接下来要做的：
+  - 开始执行 `.trae/todo.md` 里的 Phase 1
 
 ## 改动前先看
 
-- 暂无
+- `.trae/workflow.md`
+- `.trae/overview.md`
+- 前端改动看 `.trae/frontend-guidelines.md`
+- 后端改动看 `.trae/backend-guidelines.md`
+- 模块边界调整看 `.trae/module-map.md`
+- 后续阶段看 `.trae/todo.md`
 
 ## 关键提醒
 
