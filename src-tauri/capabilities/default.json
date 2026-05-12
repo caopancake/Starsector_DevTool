@@ -3,8 +3,5 @@
   "identifier": "default",
   "description": "Default permissions for the Starsector DevTool main window.",
   "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "dialog:allow-open"
-  ]
+  "permissions": ["core:default", "dialog:allow-open"]
 }

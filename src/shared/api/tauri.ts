@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { AppData, RowData, TableKey } from './types';
+import type { AppData, RowData, TableKey } from '../types';
 
 export function loadModData(modRoot: string): Promise<AppData> {
   return invoke('load_mod_data', { modRoot });

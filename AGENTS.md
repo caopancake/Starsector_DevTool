@@ -3,12 +3,14 @@
 Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的细则。
 
 ## 最首要最绝对的规则
+
 - 所有文件都必须以 UTF-8 无 BOM 编码读取
 - 所有文件都必须以 UTF-8 无 BOM 编码写入
 - 绝对不允许用 Raw 方式获取文件内容
 - 本小节不得简化，必须严格遵守
 
 ## 读取顺序
+
 1. `AGENTS.md`
 2. `.trae/workflow.md`
 3. 相关专题文档：
@@ -19,6 +21,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
    - `.trae/specs/`
 
 ## 绝对规则
+
 - 修改前先读对应文档，修改后同步更新相关文档
 - Rust / Vue 改动都要保持构建可过
 - Rust `clippy` 目标是零 warning
@@ -30,6 +33,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 - 优先缩短调用链路、简化调用方式
 
 ## 常用命令
+
 - 安装依赖：`npm install`
 - 前端类型检查：`.\\node_modules\\.bin\\vue-tsc.cmd --noEmit`
 - 前端构建：`npm.cmd run build`
@@ -39,6 +43,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 - 单文件构建：`.\build.ps1` 或 `build.bat`
 
 ## 当前状态
+
 - 已迁移为 Tauri 2 + Vue 3 + TypeScript + Rust。
 - 前端使用 Naive UI，画布编辑器使用 Canvas 2D。
 - Rust 负责 Starsector 宽松 JSON、CSV、mod 文件扫描、保存、删除和贴图上传。
@@ -51,9 +56,11 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
   - 弹道/光束预览
 
 ## 改动前先看
+
 - 暂无
 
 ## 关键提醒
+
 - `old_program/` 只是迁移参考，不是运行入口。
 - 保存 JSON 时采用结构保真，不承诺保留原注释、尾逗号或手写格式。
 - 保存 CSV 时应保留表头和注释行。
