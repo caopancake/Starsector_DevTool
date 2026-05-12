@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Starsector Mod 配置工具</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <div class="top-bar">
+    <span class="logo" id="toolTitle">Mod 配置工具</span>
+    <button class="tab-btn active" data-tab="ships">舰船</button>
+    <button class="tab-btn" data-tab="weapons">武器</button>
+    <button class="tab-btn" data-tab="wings">联队</button>
+    <button class="tab-btn" data-tab="hullmods">船插</button>
+    <button class="tab-btn" data-tab="industries">工业</button>
+    <span class="faction-sep"></span>
+    <span id="factionBtns"></span>
+  </div>
+  <div class="main-content">
+    <div class="toolbar">
+      <input type="text" id="searchInput" placeholder="搜索 (ID / 名称)..." oninput="onSearch()">
+      <button class="tab-btn" onclick="addNewRow()" style="background:#22c55e;color:#fff;border-color:#22c55e;font-size:11px">+ 新建</button>
+      <button class="tab-btn" onclick="deleteSelectedRow()" style="background:#ef4444;color:#fff;border-color:#ef4444;font-size:11px">- 删除</button>
+      <span class="info" id="tableInfo"></span>
+    </div>
+    <div class="table-wrap" id="tableWrap">
+      <div class="loading">加载数据中</div>
+    </div>
+  </div>
+</div>
+
+<div class="float-actions" id="floatActions" style="display:none;">
+  <button class="btn-revert" onclick="revertChanges()">撤销修改</button>
+  <button class="btn-save" onclick="saveChanges()">保存</button>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Ship Editor Modal -->
+<div class="modal-overlay" id="shipEditorModal">
+  <div class="ship-editor">
+    <div class="ship-editor-top">
+      <span class="title" id="editorTitle">编辑舰船</span>
+      <span style="flex:1"></span>
+      <button class="mode-btn active" data-mode="weapon" onclick="setEditorMode('weapon')">武器</button>
+      <button class="mode-btn" data-mode="engine" onclick="setEditorMode('engine')">引擎</button>
+      <button class="mode-btn" data-mode="bounds" onclick="setEditorMode('bounds')">边界</button>
+      <button class="mode-btn" data-mode="props" onclick="setEditorMode('props')">属性</button>
+    </div>
+    <div class="ship-editor-body">
+      <div class="canvas-panel" id="canvasPanel">
+        <canvas id="shipCanvas"></canvas>
+      </div>
+      <div class="sidebar-panel" id="sidebarPanel"></div>
+    </div>
+    <div class="ship-editor-bottom">
+      <span style="color:var(--text-dim);font-size:11px;margin-right:auto">Ctrl+Z 撤销 | Ctrl+Y 重做</span>
+      <button class="btn-close-editor" onclick="closeShipEditor()">关闭</button>
+      <button class="btn-save-ship" onclick="saveShipFile()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Weapon Editor Modal -->
+<div class="modal-overlay" id="weaponEditorModal">
+  <div class="ship-editor">
+    <div class="ship-editor-top">
+      <span class="title" id="weaponEditorTitle">编辑武器</span>
+      <span style="flex:1"></span>
+      <button class="mode-btn active" data-wmode="turret" onclick="setWeaponViewMode('turret')">炮台视图</button>
+      <button class="mode-btn" data-wmode="hardpoint" onclick="setWeaponViewMode('hardpoint')">固定视图</button>
+    </div>
+    <div class="ship-editor-body">
+      <div class="canvas-panel" id="weaponCanvasPanel">
+        <canvas id="weaponCanvas"></canvas>
+      </div>
+      <div class="sidebar-panel" id="weaponSidebarPanel"></div>
+    </div>
+    <div class="ship-editor-bottom">
+      <span style="color:var(--text-dim);font-size:11px;margin-right:auto">Ctrl+Z 撤销 | Ctrl+Y 重做</span>
+      <button class="btn-close-editor" onclick="closeWeaponEditor()">关闭</button>
+      <button class="btn-save-ship" onclick="saveWeaponFile()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Projectile Editor Modal -->
+<div class="modal-overlay" id="projectileEditorModal">
+  <div class="ship-editor">
+    <div class="ship-editor-top">
+      <span class="title" id="projEditorTitle">编辑弹道</span>
+      <span style="flex:1"></span>
+    </div>
+    <div class="ship-editor-body">
+      <div class="sidebar-panel" id="projEditorPanel" style="width:100%;max-width:700px;margin:0 auto"></div>
+    </div>
+    <div class="ship-editor-bottom">
+      <button class="btn-close-editor" onclick="closeProjectileEditor()">关闭</button>
+      <button class="btn-save-ship" onclick="saveProjectileFile()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ballistic Preview Modal -->
+<div class="modal-overlay" id="ballisticPreviewModal">
+  <div class="ship-editor">
+    <div class="ship-editor-top">
+      <span class="title" id="previewTitle">弹道预览</span>
+      <span style="flex:1"></span>
+      <span id="previewStats" style="color:var(--text-dim);font-size:12px"></span>
+    </div>
+    <div style="flex:1;background:#080c14;position:relative">
+      <canvas id="previewCanvas" style="width:100%;height:100%"></canvas>
+    </div>
+    <div class="ship-editor-bottom">
+      <button class="mode-btn" onclick="togglePreview()" id="previewPlayBtn">暂停</button>
+      <button class="mode-btn" onclick="setPreviewSpeed(0.25)">0.25x</button>
+      <button class="mode-btn active" onclick="setPreviewSpeed(1)">1x</button>
+      <button class="mode-btn" onclick="setPreviewSpeed(2)">2x</button>
+      <button class="mode-btn" onclick="setPreviewSpeed(4)">4x</button>
+      <button class="mode-btn" onclick="resetPreview()">重置</button>
+      <span style="flex:1"></span>
+      <button class="btn-close-editor" onclick="closeBallisticPreview()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/table.js"></script>
+<script src="js/ship-editor.js"></script>
+<script src="js/weapon-editor.js"></script>
+<script src="js/projectile-editor.js"></script>
+<script src="js/ballistic-preview.js"></script>
+</body>
+</html>
