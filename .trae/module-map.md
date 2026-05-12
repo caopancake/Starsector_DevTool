@@ -5,7 +5,10 @@
 ## Frontend
 
 - `src/main.ts`：应用挂载入口。
-- `src/app/App.vue`：应用壳、主布局、全局弹窗编排。
+- `src/app/App.vue`：应用壳、导航栏、顶栏操作、全局编排。
+- `src/app/DataTable.vue`：主数据表格视图，包含单元格编辑和 Vue ref 聚焦。
+- `src/app/DetailPane.vue`：右侧记录详情面板，包含缩略图、操作按钮、KV 列表。
+- `src/app/EditorsHost.vue`：编辑器弹窗宿主，管理舰船/武器/弹丸/预览编辑器。
 - `src/app/providers/`：全局 provider 初始化。
 - `src/features/project/`：项目打开、加载状态、项目级数据入口。
 - `src/features/tables/`：CSV 表格状态、dirty tracking、保存/新建/删除流程。

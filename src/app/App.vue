@@ -59,156 +59,27 @@
             </section>
 
             <section v-else class="content-grid">
-              <div class="table-panel">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th v-for="col in tables.visibleColumns" :key="col">{{ col }}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="(row, rowIndex) in tables.filteredRows"
-                      :key="tables.tableRowKey(row, rowIndex)"
-                      :class="{ selected: tables.selectedRowKey === tables.rowSelectionKey(row) }"
-                      @click="tables.selectRow(row)"
-                    >
-                      <td
-                        v-for="col in tables.visibleColumns"
-                        :key="col"
-                        :class="{ dirty: tables.isDirty(rowId(row), col) }"
-                        @dblclick.stop="startCellEdit(row, col)"
-                      >
-                        <input
-                          v-if="
-                            tables.editing?.tab === tables.currentTab && tables.editing?.id === rowId(row) && tables.editing?.col === col
-                          "
-                          v-model="tables.editing.value"
-                          class="cell-input"
-                          autofocus
-                          @blur="tables.finishCellEdit"
-                          @keydown.enter.prevent="tables.finishCellEdit"
-                          @keydown.esc.prevent="tables.cancelCellEdit"
-                        />
-                        <span v-else>{{ cell(row[col]) }}</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-                <div v-if="tables.rows.length > 0 && tables.visibleColumns.length === 0" class="table-empty-note">
-                  当前表有 {{ tables.rows.length }} 行，但没有可显示列。请检查 CSV 表头。
-                </div>
-                <div v-else-if="tables.rows.length > 0 && tables.filteredRows.length === 0" class="table-empty-note">
-                  当前表有 {{ tables.rows.length }} 行，但被搜索或阵营过滤隐藏。
-                </div>
-              </div>
-
-              <aside class="detail-pane">
-                <div class="pane-title">当前记录</div>
-                <template v-if="tables.selectedRow">
-                  <div class="detail-id">{{ rowId(tables.selectedRow) }}</div>
-                  <div class="detail-name">{{ cell(tables.selectedRow.name) || cell(tables.selectedRow.hullName) }}</div>
-                  <div class="detail-thumbnail">
-                    <img
-                      v-if="tables.currentTab === 'ships' && project.data?.shipSprites[rowId(tables.selectedRow)]"
-                      :src="project.data.shipSprites[rowId(tables.selectedRow)]"
-                      :alt="rowId(tables.selectedRow)"
-                    />
-                    <img
-                      v-else-if="tables.currentTab === 'weapons' && project.data?.weaponSpritesData[rowId(tables.selectedRow)]"
-                      :src="project.data.weaponSpritesData[rowId(tables.selectedRow)]"
-                      :alt="rowId(tables.selectedRow)"
-                    />
-                    <img
-                      v-else-if="tables.currentTab === 'hullmods' && project.data?.hullmodSprites[rowId(tables.selectedRow)]"
-                      :src="project.data.hullmodSprites[rowId(tables.selectedRow)]"
-                      :alt="rowId(tables.selectedRow)"
-                    />
-                    <div v-else class="thumbnail-placeholder">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <rect x="3" y="3" width="18" height="18" rx="2" />
-                        <circle cx="8.5" cy="8.5" r="1.5" />
-                        <path d="M21 15l-5-5L5 21" />
-                      </svg>
-                      <span>无预览</span>
-                    </div>
-                  </div>
-                  <div class="detail-actions">
-                    <n-button v-if="tables.currentTab === 'ships'" block @click="openShip(rowId(tables.selectedRow))">舰船编辑器</n-button>
-                    <n-button v-if="tables.currentTab === 'weapons'" block @click="editors.openWeapon(rowId(tables.selectedRow))"
-                      >武器编辑器</n-button
-                    >
-                    <n-button v-if="tables.currentTab === 'weapons'" block tertiary @click="editors.openPreview(rowId(tables.selectedRow))"
-                      >弹道预览</n-button
-                    >
-                  </div>
-                  <div class="kv-list">
-                    <div v-for="col in tables.visibleColumns.slice(0, 12)" :key="col" class="kv-row">
-                      <span>{{ col }}</span>
-                      <strong>{{ cell(tables.selectedRow[col]) }}</strong>
-                    </div>
-                  </div>
-                </template>
-                <div v-else class="muted">点击一行查看详情，双击单元格编辑。</div>
-              </aside>
+              <DataTable />
+              <DetailPane @open-ship="openShip" />
             </section>
           </main>
         </div>
 
-        <ShipEditor
-          v-if="project.data && editors.shipEditorId"
-          :mod-root="project.data.modRoot"
-          :hull-id="editors.shipEditorId"
-          :ship="project.data.shipFiles[editors.shipEditorId]"
-          :sprite-data="project.data.shipSprites[editors.shipEditorId]"
-          :available-sprites="project.data.availableSprites"
-          @close="editors.closeShip"
-          @saved="onShipSaved"
-        />
-        <WeaponEditor
-          v-if="project.data && editors.weaponEditorId"
-          :mod-root="project.data.modRoot"
-          :weapon-id="editors.weaponEditorId"
-          :weapon="editors.weaponForEditor(project.data, tables.tables.weapons)"
-          :projectiles="project.data.projFiles"
-          @close="editors.closeWeapon"
-          @saved="onWeaponSaved"
-          @edit-projectile="editors.openProjectile"
-          @preview="editors.openPreview"
-        />
-        <ProjectileEditor
-          v-if="project.data && editors.projectileEditorId"
-          :mod-root="project.data.modRoot"
-          :projectile-id="editors.projectileEditorId"
-          :projectile="project.data.projFiles[editors.projectileEditorId]"
-          @close="editors.closeProjectile"
-          @saved="onProjectileSaved"
-        />
-        <BallisticPreview
-          v-if="project.data && editors.previewWeaponId"
-          :weapon-id="editors.previewWeaponId"
-          :weapons="tables.tables.weapons"
-          :wpn-files="project.data.wpnFiles"
-          :proj-files="project.data.projFiles"
-          @close="editors.closePreview"
-        />
+        <EditorsHost />
       </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick } from 'vue';
+import { computed } from 'vue';
 import { createDiscreteApi, darkTheme, type GlobalThemeOverrides } from 'naive-ui';
-import ShipEditor from '../features/editors/components/ShipEditor.vue';
-import WeaponEditor from '../features/editors/components/WeaponEditor.vue';
-import ProjectileEditor from '../features/editors/components/ProjectileEditor.vue';
-import BallisticPreview from '../features/editors/components/BallisticPreview.vue';
+import DataTable from './DataTable.vue';
+import DetailPane from './DetailPane.vue';
+import EditorsHost from './EditorsHost.vue';
 import { useEditorsStore } from '../features/editors/editors.store';
 import { useProjectStore } from '../features/project/project.store';
 import { MODULE_LABELS, TABLE_KEYS, useTablesStore } from '../features/tables/tables.store';
-import type { RowData } from '../shared/types';
-import { cell, rowId } from '../shared/lib/starsector';
 
 const { message, dialog } = createDiscreteApi(['message', 'dialog'], {
   configProviderProps: { theme: darkTheme },
@@ -243,11 +114,6 @@ async function openProject() {
   } catch (err) {
     message.error(String(err));
   }
-}
-
-function startCellEdit(row: RowData, col: string) {
-  tables.startCellEdit(row, col);
-  nextTick(() => document.querySelector<HTMLInputElement>('.cell-input')?.focus());
 }
 
 async function saveChanges() {
@@ -299,20 +165,5 @@ function openShip(id: string) {
     return;
   }
   editors.openShip(id);
-}
-
-function onShipSaved(id: string, ship: RowData) {
-  editors.onShipSaved(project.data, id, ship);
-  message.success(`${id}.ship 已保存`);
-}
-
-function onWeaponSaved(id: string, weapon: RowData) {
-  editors.onWeaponSaved(project.data, id, weapon);
-  message.success(`${id}.wpn 已保存`);
-}
-
-function onProjectileSaved(id: string, projectile: RowData) {
-  editors.onProjectileSaved(project.data, id, projectile);
-  message.success(`${id}.proj 已保存`);
 }
 </script>
