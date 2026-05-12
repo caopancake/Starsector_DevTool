@@ -9,7 +9,7 @@
         </div>
       </header>
       <div class="editor-body">
-        <div class="canvas-stage">
+        <div ref="stageRef" class="canvas-stage">
           <canvas
             ref="canvasRef"
             class="editor-canvas"
@@ -160,6 +160,7 @@ const emit = defineEmits<{ close: []; saved: [id: string, weapon: RowData]; edit
 const message = useMessage();
 const dialog = useDialog();
 const localWeapon = ref<RowData>(normalizeWeaponSpec(props.weapon));
+const stageRef = ref<HTMLElement>();
 const canvasRef = ref<HTMLCanvasElement>();
 const viewMode = ref<'turret' | 'hardpoint'>('turret');
 const selected = ref(-1);
@@ -247,7 +248,8 @@ function toWeapon(px: number, py: number) {
   return { x: snapToStep(point.x), y: snapToStep(point.y) };
 }
 function resizeCanvas() {
-  if (viewport.resize()) draw();
+  const rect = stageRef.value?.getBoundingClientRect();
+  if (viewport.resize(rect?.width, rect?.height)) draw();
 }
 function currentSpriteField() {
   return viewMode.value === 'turret' ? 'turretSprite' : 'hardpointSprite';
@@ -265,7 +267,8 @@ function draw() {
   drawing.drawGrid(ctx, { center: cc, height: c.height, scale: scale.value, width: c.width });
   if (img.width) {
     ctx.globalAlpha = 0.72;
-    ctx.drawImage(
+    drawing.drawPixelImage(
+      ctx,
       img,
       cc.x - (img.width * scale.value) / 2,
       cc.y - (img.height * scale.value) / 2,

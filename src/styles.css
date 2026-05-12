@@ -351,17 +351,14 @@ textarea {
   inset: 0 360px 0 0;
   min-width: 0;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   background: #08111f;
-  scrollbar-gutter: stable both-edges;
 }
 
 .editor-canvas {
   display: block;
-  width: 1600px;
-  height: 1100px;
-  max-width: none;
-  max-height: none;
+  width: 100%;
+  height: 100%;
 }
 
 .editor-side {
@@ -397,16 +394,13 @@ textarea {
 .preview-scroll {
   min-width: 0;
   min-height: 0;
-  overflow: auto;
-  scrollbar-gutter: stable both-edges;
+  overflow: hidden;
 }
 
 .preview-canvas {
   display: block;
-  width: 1400px;
-  height: 760px;
-  max-width: none;
-  max-height: none;
+  width: 100%;
+  height: 100%;
 }
 
 .segmented {

@@ -50,10 +50,18 @@ export function useCanvasDrawing() {
     ctx.stroke();
   }
 
+  function drawPixelImage(ctx: CanvasRenderingContext2D, image: CanvasImageSource, x: number, y: number, width: number, height: number) {
+    const smoothing = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, x, y, width, height);
+    ctx.imageSmoothingEnabled = smoothing;
+  }
+
   return {
     clear,
     drawCrosshair,
     drawDot,
     drawGrid,
+    drawPixelImage,
   };
 }

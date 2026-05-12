@@ -17,11 +17,12 @@ export function useCanvasViewport(canvasRef: Ref<HTMLCanvasElement | undefined>,
     return { x: canvas.width / 2 + pan.value.x, y: canvas.height / 2 + pan.value.y };
   }
 
-  function resize(width = 1600, height = 1100) {
+  function resize(width?: number, height?: number) {
     const canvas = canvasRef.value;
     if (!canvas) return false;
-    canvas.width = width;
-    canvas.height = height;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.floor(width ?? rect.width));
+    canvas.height = Math.max(1, Math.floor(height ?? rect.height));
     return true;
   }
 

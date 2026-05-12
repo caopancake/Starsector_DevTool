@@ -5,7 +5,7 @@
         <strong>弹道预览: {{ weaponId }}</strong>
         <span>{{ stats }}</span>
       </header>
-      <div class="preview-scroll">
+      <div ref="previewStageRef" class="preview-scroll">
         <canvas ref="canvasRef" class="preview-canvas" />
       </div>
       <footer class="editor-footer">
@@ -32,6 +32,7 @@ const props = defineProps<{
 }>();
 defineEmits<{ close: [] }>();
 const canvasRef = ref<HTMLCanvasElement>();
+const previewStageRef = ref<HTMLElement>();
 const running = ref(true);
 const speed = ref(1);
 let anim = 0;
@@ -272,8 +273,9 @@ function frame(ts: number) {
 function resize() {
   const c = canvasRef.value;
   if (!c) return;
-  c.width = 1400;
-  c.height = 760;
+  const rect = previewStageRef.value?.getBoundingClientRect();
+  c.width = Math.max(1, Math.floor(rect?.width ?? 1400));
+  c.height = Math.max(1, Math.floor(rect?.height ?? 760));
   draw();
 }
 onMounted(() => {

@@ -70,8 +70,8 @@
                     <tr
                       v-for="(row, rowIndex) in tables.filteredRows"
                       :key="tables.tableRowKey(row, rowIndex)"
-                      :class="{ selected: tables.selectedRowId === rowId(row) }"
-                      @click="tables.selectedRowId = rowId(row)"
+                      :class="{ selected: tables.selectedRowKey === tables.rowSelectionKey(row) }"
+                      @click="tables.selectRow(row)"
                     >
                       <td
                         v-for="col in tables.visibleColumns"

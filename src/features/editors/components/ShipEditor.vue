@@ -8,7 +8,7 @@
         </div>
       </header>
       <div class="editor-body">
-        <div class="canvas-stage">
+        <div ref="stageRef" class="canvas-stage">
           <canvas
             ref="canvasRef"
             class="editor-canvas"
@@ -189,6 +189,7 @@ const props = defineProps<{ modRoot: string; hullId: string; ship: RowData; spri
 const emit = defineEmits<{ close: []; saved: [id: string, ship: RowData] }>();
 const message = useMessage();
 const dialog = useDialog();
+const stageRef = ref<HTMLElement>();
 const canvasRef = ref<HTMLCanvasElement>();
 const localShip = ref<RowData>(normalizeShipSpec(props.ship));
 const mode = ref<'weapon' | 'engine' | 'bounds' | 'props'>('weapon');
@@ -267,7 +268,8 @@ function canvasToShip(x: number, y: number) {
   return [snapToStep(point.x), snapToStep(point.y)];
 }
 function resizeCanvas() {
-  if (viewport.resize()) draw();
+  const rect = stageRef.value?.getBoundingClientRect();
+  if (viewport.resize(rect?.width, rect?.height)) draw();
 }
 function loadSprite() {
   img.src = props.spriteData || '';
@@ -285,7 +287,14 @@ function draw() {
   if (img.width) {
     const cen = center.value;
     ctx.globalAlpha = 0.72;
-    ctx.drawImage(img, cc.x - cen[0] * scale.value, cc.y - cen[1] * scale.value, img.width * scale.value, img.height * scale.value);
+    drawing.drawPixelImage(
+      ctx,
+      img,
+      cc.x - cen[0] * scale.value,
+      cc.y - cen[1] * scale.value,
+      img.width * scale.value,
+      img.height * scale.value,
+    );
     ctx.globalAlpha = 1;
   }
   if (bounds.value.length >= 4 && (mode.value === 'bounds' || mode.value === 'props')) {

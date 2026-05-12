@@ -16,7 +16,7 @@ export const useTablesStore = defineStore('tables', () => {
   const currentTab = ref<TableKey>('ships');
   const currentFaction = ref('all');
   const searchText = ref('');
-  const selectedRowId = ref('');
+  const selectedRowKey = ref('');
   const editing = ref<EditingCell>(null);
   const saving = ref(false);
 
@@ -47,7 +47,8 @@ export const useTablesStore = defineStore('tables', () => {
     }
     return list;
   });
-  const selectedRow = computed(() => rows.value.find((row) => rowId(row) === selectedRowId.value));
+  const selectedRow = computed(() => rows.value.find((row, index) => tableRowKey(row, index) === selectedRowKey.value));
+  const selectedRowId = computed(() => (selectedRow.value ? rowId(selectedRow.value) : ''));
   const tableInfo = computed(() => `显示 ${filteredRows.value.length} / ${rows.value.length} 行`);
   const hasDirtyChanges = computed(() => TABLE_KEYS.some((key) => Object.keys(dirty[key]).length > 0));
   const hasChanges = computed(() => hasDirtyChanges.value || editing.value !== null);
@@ -62,7 +63,7 @@ export const useTablesStore = defineStore('tables', () => {
     currentTab.value = 'ships';
     currentFaction.value = 'all';
     searchText.value = '';
-    selectedRowId.value = '';
+    selectedRowKey.value = '';
     editing.value = null;
     syncCurrentHeaders(appData);
   }
@@ -78,7 +79,7 @@ export const useTablesStore = defineStore('tables', () => {
   function switchTab(tab: TableKey, appData: AppData | null) {
     finishCellEdit();
     currentTab.value = tab;
-    selectedRowId.value = '';
+    selectedRowKey.value = '';
     searchText.value = '';
     currentFaction.value = 'all';
     syncCurrentHeaders(appData);
@@ -86,7 +87,16 @@ export const useTablesStore = defineStore('tables', () => {
 
   function tableRowKey(row: RowData, index: number): string {
     const id = rowId(row);
-    return `${currentTab.value}:${id || 'row'}:${index}`;
+    return id ? `${currentTab.value}:id:${id}` : `${currentTab.value}:row:${index}`;
+  }
+
+  function rowSelectionKey(row: RowData): string {
+    const index = rows.value.indexOf(row);
+    return index >= 0 ? tableRowKey(row, index) : '';
+  }
+
+  function selectRow(row: RowData) {
+    selectedRowKey.value = rowSelectionKey(row);
   }
 
   function isDirty(id: string, col: string): boolean {
@@ -165,7 +175,7 @@ export const useTablesStore = defineStore('tables', () => {
       appData.shipFiles[id] = ship;
       await createShipSpec(appData.modRoot, id, ship);
     }
-    selectedRowId.value = id;
+    selectedRowKey.value = rowSelectionKey(row);
   }
 
   async function deleteSelected(appData: AppData) {
@@ -181,7 +191,7 @@ export const useTablesStore = defineStore('tables', () => {
       delete appData.shipSprites[id];
       await removeShipSpec(appData.modRoot, id);
     }
-    selectedRowId.value = '';
+    selectedRowKey.value = '';
   }
 
   return {
@@ -197,6 +207,7 @@ export const useTablesStore = defineStore('tables', () => {
     searchText,
     selectedRow,
     selectedRowId,
+    selectedRowKey,
     tableInfo,
     tables,
     visibleColumns,
@@ -207,8 +218,10 @@ export const useTablesStore = defineStore('tables', () => {
     hydrate,
     revertChanges,
     rowId,
+    rowSelectionKey,
     rowsFor,
     saveChanges,
+    selectRow,
     startCellEdit,
     switchTab,
     syncCurrentHeaders,
