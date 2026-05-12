@@ -1,0 +1,148 @@
+import type { JsonValue, RowData, TableKey } from './types';
+
+export const TABLE_COLUMNS: Record<TableKey, string[]> = {
+  ships: ['name', 'id', 'designation', 'system id', 'hitpoints', 'armor rating', 'shield type', 'shield arc', 'shield efficiency', 'max flux', 'flux dissipation', 'max speed', 'ordnance points', 'fleet pts', 'fighter bays', 'cargo', 'fuel', 'min crew', 'max crew', 'tags'],
+  weapons: ['name', 'id', 'type', 'range', 'damage/shot', 'damage/second', 'emp', 'OPs', 'proj speed', 'ammo', 'ammo/sec', 'reload size', 'energy/shot', 'energy/second', 'chargeup', 'chargedown', 'burst size', 'burst delay', 'min spread', 'max spread', 'beam speed', 'launch speed', 'flight time', 'hints', 'tags'],
+  wings: ['id', 'variant', 'tags', 'op cost', 'num', 'role', 'role desc', 'refit', 'formation', 'range'],
+  hullmods: ['name', 'id', 'tier', 'tags', 'uiTags', 'cost_frigate', 'cost_dest', 'cost_cruiser', 'cost_capital', 'script', 'desc', 'short', 'sModDesc', 'sprite'],
+  industries: ['name', 'id', 'build time', 'upkeep', 'tags', 'desc', 'order'],
+};
+
+export const MODULE_LABELS: Record<TableKey, string> = {
+  ships: '舰船',
+  weapons: '武器',
+  wings: '联队',
+  hullmods: '船插',
+  industries: '工业',
+};
+
+export const WEAPON_COLORS: Record<string, string> = {
+  BALLISTIC: '#f59e0b',
+  ENERGY: '#3b82f6',
+  MISSILE: '#22c55e',
+  HYBRID: '#eab308',
+  UNIVERSAL: '#e5e7eb',
+  LAUNCH_BAY: '#a855f7',
+  SYNERGY: '#06b6d4',
+  COMPOSITE: '#f97316',
+  DECORATIVE: '#6b7280',
+  SYSTEM: '#6b7280',
+  STATION_MODULE: '#6b7280',
+};
+
+export const SLOT_RADIUS: Record<string, number> = { LARGE: 12, MEDIUM: 8, SMALL: 5 };
+
+export function deepClone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value));
+}
+
+export function cell(value: JsonValue | undefined): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
+}
+
+export function num(value: JsonValue | undefined, fallback = 0): number {
+  const n = typeof value === 'number' ? value : parseFloat(cell(value));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+export function str(value: JsonValue | undefined, fallback = ''): string {
+  const s = cell(value);
+  return s || fallback;
+}
+
+export function arr(value: JsonValue | undefined, fallback: number[] = []): number[] {
+  return Array.isArray(value) ? value.map((v) => num(v)) : [...fallback];
+}
+
+export function rowId(row: RowData): string {
+  return str(row.id) || str(row.hullId) || str(row.name);
+}
+
+export function getColumns(tab: TableKey, headers: string[]): string[] {
+  const priority = TABLE_COLUMNS[tab] || [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const col of priority) {
+    if (headers.includes(col) && !seen.has(col)) {
+      result.push(col);
+      seen.add(col);
+    }
+  }
+  for (const col of headers) {
+    if (col && !col.startsWith('_') && !seen.has(col)) {
+      result.push(col);
+      seen.add(col);
+    }
+  }
+  return result;
+}
+
+export function defaultShip(id: string): RowData {
+  return {
+    hullId: id,
+    hullName: id,
+    hullSize: 'FRIGATE',
+    style: 'LOW_TECH',
+    width: 100,
+    height: 150,
+    center: [50, 75],
+    collisionRadius: 80,
+    shieldCenter: [0, 0],
+    shieldRadius: 60,
+    spriteName: '',
+    viewOffset: 0,
+    weaponSlots: [],
+    engineSlots: [],
+    bounds: [-60, -30, -60, 30, 60, 30, 60, -30],
+    builtInMods: [],
+    builtInWeapons: {},
+    builtInWings: [],
+  };
+}
+
+export function defaultWeapon(id: string, csvRow?: RowData): RowData {
+  const hasBeam = Boolean(str(csvRow?.['beam speed']));
+  const data: RowData = {
+    id,
+    specClass: hasBeam ? 'beam' : 'projectile',
+    type: str(csvRow?.type, 'BALLISTIC').toUpperCase(),
+    size: 'SMALL',
+    turretSprite: '',
+    turretGunSprite: '',
+    hardpointSprite: '',
+    hardpointGunSprite: '',
+    turretOffsets: [10, 0],
+    turretAngleOffsets: [0],
+    hardpointOffsets: [15, 0],
+    hardpointAngleOffsets: [0],
+    barrelMode: 'ALTERNATING',
+    animationType: 'MUZZLE_FLASH',
+    projectileSpecId: '',
+    fireSoundTwo: '',
+  };
+  if (hasBeam) {
+    data.fringeColor = [100, 200, 255, 200];
+    data.coreColor = [255, 255, 255, 255];
+    data.glowColor = [100, 200, 255, 100];
+    data.width = 10;
+  }
+  return data;
+}
+
+export function rgba(color: unknown, alpha = 1): string {
+  const c = Array.isArray(color) ? color : [255, 255, 255, 255];
+  const a = ((Number(c[3] ?? 255) / 255) * alpha).toFixed(3);
+  return `rgba(${Number(c[0] ?? 255)},${Number(c[1] ?? 255)},${Number(c[2] ?? 255)},${a})`;
+}
+
+export function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.readAsDataURL(file);
+  });
+}
