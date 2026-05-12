@@ -108,6 +108,31 @@
                 <template v-if="tables.selectedRow">
                   <div class="detail-id">{{ rowId(tables.selectedRow) }}</div>
                   <div class="detail-name">{{ cell(tables.selectedRow.name) || cell(tables.selectedRow.hullName) }}</div>
+                  <div class="detail-thumbnail">
+                    <img
+                      v-if="tables.currentTab === 'ships' && project.data?.shipSprites[rowId(tables.selectedRow)]"
+                      :src="project.data.shipSprites[rowId(tables.selectedRow)]"
+                      :alt="rowId(tables.selectedRow)"
+                    />
+                    <img
+                      v-else-if="tables.currentTab === 'weapons' && project.data?.weaponSpritesData[rowId(tables.selectedRow)]"
+                      :src="project.data.weaponSpritesData[rowId(tables.selectedRow)]"
+                      :alt="rowId(tables.selectedRow)"
+                    />
+                    <img
+                      v-else-if="tables.currentTab === 'hullmods' && project.data?.hullmodSprites[rowId(tables.selectedRow)]"
+                      :src="project.data.hullmodSprites[rowId(tables.selectedRow)]"
+                      :alt="rowId(tables.selectedRow)"
+                    />
+                    <div v-else class="thumbnail-placeholder">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <path d="M21 15l-5-5L5 21" />
+                      </svg>
+                      <span>无预览</span>
+                    </div>
+                  </div>
                   <div class="detail-actions">
                     <n-button v-if="tables.currentTab === 'ships'" block @click="openShip(rowId(tables.selectedRow))">舰船编辑器</n-button>
                     <n-button v-if="tables.currentTab === 'weapons'" block @click="editors.openWeapon(rowId(tables.selectedRow))"

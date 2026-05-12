@@ -82,6 +82,50 @@ pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
         }
     }
 
+    let wpn_files = load_json_dir_by_id(&mod_root.join("data/weapons"), "wpn", "id");
+    let mut weapon_sprites_data = BTreeMap::new();
+    for (id, value) in &wpn_files {
+        let sprite_path = value
+            .get("turretSprite")
+            .or_else(|| value.get("hardpointSprite"))
+            .and_then(Value::as_str);
+        if let Some(sprite) = sprite_path {
+            let path = mod_root.join(sprite.replace('\\', "/"));
+            if path.exists() {
+                if let Ok(bytes) = fs::read(&path) {
+                    weapon_sprites_data.insert(
+                        id.clone(),
+                        format!(
+                            "data:image/png;base64,{}",
+                            general_purpose::STANDARD.encode(bytes)
+                        ),
+                    );
+                }
+            }
+        }
+    }
+
+    let hullmods = tables.get("hullmods").cloned().unwrap_or_default();
+    let mut hullmod_sprites = BTreeMap::new();
+    for row in &hullmods {
+        let id = str_field(row, "id");
+        let sprite = str_field(row, "sprite");
+        if !id.is_empty() && !sprite.is_empty() {
+            let path = mod_root.join(sprite.replace('\\', "/"));
+            if path.exists() {
+                if let Ok(bytes) = fs::read(&path) {
+                    hullmod_sprites.insert(
+                        id,
+                        format!(
+                            "data:image/png;base64,{}",
+                            general_purpose::STANDARD.encode(bytes)
+                        ),
+                    );
+                }
+            }
+        }
+    }
+
     Ok(AppData {
         mod_root: mod_root.to_string_lossy().to_string(),
         starsector_root: starsector_root.map(|p| p.to_string_lossy().to_string()),
@@ -99,12 +143,14 @@ pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
         variants,
         ship_sprites,
         available_sprites: list_sprites(mod_root, &["graphics/ships"]),
-        wpn_files: load_json_dir_by_id(&mod_root.join("data/weapons"), "wpn", "id"),
+        wpn_files,
         proj_files: load_proj_files(mod_root, core_dir.as_deref()),
         weapon_sprites: list_sprites(
             mod_root,
             &["graphics/weapons", "graphics/missiles", "graphics/fx"],
         ),
+        weapon_sprites_data,
+        hullmod_sprites,
     })
 }
 

@@ -39,6 +39,8 @@ pub struct AppData {
     pub wpn_files: BTreeMap<String, Value>,
     pub proj_files: BTreeMap<String, Value>,
     pub weapon_sprites: Vec<String>,
+    pub weapon_sprites_data: BTreeMap<String, String>,
+    pub hullmod_sprites: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

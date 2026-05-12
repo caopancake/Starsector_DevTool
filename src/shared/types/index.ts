@@ -28,6 +28,8 @@ export interface AppData {
   wpnFiles: Record<string, RowData>;
   projFiles: Record<string, RowData>;
   weaponSprites: string[];
+  weaponSpritesData: Record<string, string>;
+  hullmodSprites: Record<string, string>;
 }
 
 export type TableKey = 'ships' | 'weapons' | 'wings' | 'hullmods' | 'industries';
