@@ -167,14 +167,18 @@ export const useTablesStore = defineStore('tables', () => {
     if ('id' in row) row.id = id;
     if ('name' in row) row.name = id;
     row._faction = 'other';
-    rowsFor(tab).push(row);
-    originalTables[tab].push(deepClone(row));
+
+    // Backend first — throws on failure, no frontend mutation yet
     await createTableRow(appData.modRoot, tab, header, row);
     if (tab === 'ships') {
       const ship = defaultShip(id);
-      appData.shipFiles[id] = ship;
       await createShipSpec(appData.modRoot, id, ship);
+      appData.shipFiles[id] = ship;
     }
+
+    // Backend succeeded — commit to frontend
+    rowsFor(tab).push(row);
+    originalTables[tab].push(deepClone(row));
     selectedRowKey.value = rowSelectionKey(row);
   }
 
@@ -182,15 +186,19 @@ export const useTablesStore = defineStore('tables', () => {
     const tab = currentTab.value;
     const id = selectedRowId.value;
     if (!id) return;
+
+    // Backend first — throws on failure, no frontend mutation yet
+    await removeTableRow(appData.modRoot, tab, id);
+    if (tab === 'ships') {
+      await removeShipSpec(appData.modRoot, id);
+      delete appData.shipFiles[id];
+      delete appData.shipSprites[id];
+    }
+
+    // Backend succeeded — commit to frontend
     tables[tab] = rowsFor(tab).filter((row) => rowId(row) !== id);
     originalTables[tab] = originalTables[tab].filter((row) => rowId(row) !== id);
     delete dirty[tab][id];
-    await removeTableRow(appData.modRoot, tab, id);
-    if (tab === 'ships') {
-      delete appData.shipFiles[id];
-      delete appData.shipSprites[id];
-      await removeShipSpec(appData.modRoot, id);
-    }
     selectedRowKey.value = '';
   }
 

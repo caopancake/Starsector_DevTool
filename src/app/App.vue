@@ -145,7 +145,6 @@
           :mod-root="project.data.modRoot"
           :weapon-id="editors.weaponEditorId"
           :weapon="editors.weaponForEditor(project.data, tables.tables.weapons)"
-          :csv-row="tables.tables.weapons.find((weapon) => rowId(weapon) === editors.weaponEditorId)"
           :projectiles="project.data.projFiles"
           @close="editors.closeWeapon"
           @saved="onWeaponSaved"

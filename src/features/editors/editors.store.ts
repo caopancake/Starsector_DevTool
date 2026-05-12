@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import type { AppData, RowData } from '../../shared/types';
 import { deepClone, defaultWeapon, rowId } from '../../shared/lib/starsector';
 
@@ -8,8 +8,6 @@ export const useEditorsStore = defineStore('editors', () => {
   const weaponEditorId = ref('');
   const projectileEditorId = ref('');
   const previewWeaponId = ref('');
-
-  const weaponCsvRow = computed(() => null as RowData | null);
 
   function openShip(id: string) {
     shipEditorId.value = id;
@@ -68,7 +66,6 @@ export const useEditorsStore = defineStore('editors', () => {
     projectileEditorId,
     previewWeaponId,
     shipEditorId,
-    weaponCsvRow,
     weaponEditorId,
     closePreview,
     closeProjectile,

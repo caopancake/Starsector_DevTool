@@ -155,7 +155,7 @@ import { useObjectField } from '../composables/useObjectField';
 import { useSpriteUpload } from '../composables/useSpriteUpload';
 import { snapToStep, toOptions as opts } from '../lib/editor-utils';
 
-const props = defineProps<{ modRoot: string; weaponId: string; weapon: RowData; csvRow?: RowData; projectiles: Record<string, RowData> }>();
+const props = defineProps<{ modRoot: string; weaponId: string; weapon: RowData; projectiles: Record<string, RowData> }>();
 const emit = defineEmits<{ close: []; saved: [id: string, weapon: RowData]; editProjectile: [id: string]; preview: [id: string] }>();
 const message = useMessage();
 const dialog = useDialog();
