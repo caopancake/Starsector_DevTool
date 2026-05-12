@@ -39,8 +39,32 @@ let last = 0;
 let fireTimer = 0;
 let burst = 0;
 let barrelIndex = 0;
-let projectiles: any[] = [];
-let beams: any[] = [];
+interface TrailPoint {
+  x: number;
+  y: number;
+}
+
+interface ProjectilePreviewState {
+  x: number;
+  y: number;
+  angle: number;
+  speed: number;
+  age: number;
+  trail: TrailPoint[];
+  exploding: boolean;
+  explosionAge: number;
+  missile: boolean;
+}
+
+interface BeamPreviewState {
+  phase: 'chargeup';
+  timer: number;
+  width: number;
+  offset: number;
+}
+
+let projectiles: ProjectilePreviewState[] = [];
+let beams: BeamPreviewState[] = [];
 const csv = computed(() => props.weapons.find((w) => str(w.id) === props.weaponId) || {});
 const wpn = computed(() => props.wpnFiles[props.weaponId] || {});
 const proj = computed(() => props.projFiles[str(wpn.value.projectileSpecId)] || {});

@@ -1,6 +1,6 @@
 pub mod project;
-pub mod tables;
 pub mod specs;
+pub mod tables;
 
 pub use project::*;
 pub use specs::*;

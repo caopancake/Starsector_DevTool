@@ -106,24 +106,30 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useDialog, useMessage } from 'naive-ui';
-import { saveProjectile, uploadSprite } from '../../../shared/api/tauri';
+import ColorArray from './common/ColorArray.vue';
+import ObjectEditor from './common/ObjectEditor.vue';
+import { saveProjectileSpec } from '../editor.service';
 import type { RowData } from '../../../shared/types';
-import { arr, deepClone, fileToBase64, str } from '../../../shared/lib/starsector';
+import { arr, str } from '../../../shared/lib/starsector';
+import { normalizeProjectileSpec } from '../lib/normalize';
+import { useObjectField } from '../composables/useObjectField';
+import { useSpriteUpload } from '../composables/useSpriteUpload';
+import { toOptions as opts } from '../lib/editor-utils';
 
 const props = defineProps<{ modRoot: string; projectileId: string; projectile?: RowData }>();
 const emit = defineEmits<{ close: []; saved: [id: string, projectile: RowData] }>();
 const message = useMessage();
 const dialog = useDialog();
-const localProjectile = ref<RowData>(deepClone(props.projectile || { id: props.projectileId, specClass: 'projectile' }));
+const localProjectile = ref<RowData>(normalizeProjectileSpec(props.projectile || { id: props.projectileId, specClass: 'projectile' }));
+const { bindObjectField } = useObjectField(localProjectile);
+const { uploadSpriteFile: uploadSpriteInput } = useSpriteUpload();
 const specClass = computed(() => str(localProjectile.value.specClass, 'projectile'));
 const size = computed(() => arr(localProjectile.value.size, [0, 0]));
 const center = computed(() => arr(localProjectile.value.center, [0, 0]));
 const engineSlots = computed<RowData[]>(() =>
-  Array.isArray(localProjectile.value.engineSlots)
-    ? (localProjectile.value.engineSlots as RowData[])
-    : ((localProjectile.value.engineSlots = []) as RowData[]),
+  Array.isArray(localProjectile.value.engineSlots) ? (localProjectile.value.engineSlots as RowData[]) : [],
 );
 const genericJson = ref(JSON.stringify(localProjectile.value, null, 2));
 const fringeColor = computed({
@@ -138,17 +144,9 @@ const explosionColor = computed({
   get: () => arr(localProjectile.value.explosionColor, [255, 200, 50, 255]),
   set: (v) => (localProjectile.value.explosionColor = v),
 });
-const engineSpec = computed({ get: () => objectField('engineSpec'), set: (v) => (localProjectile.value.engineSpec = v) });
-const explosionSpec = computed({ get: () => objectField('explosionSpec'), set: (v) => (localProjectile.value.explosionSpec = v) });
+const engineSpec = bindObjectField('engineSpec');
+const explosionSpec = bindObjectField('explosionSpec');
 
-function opts(values: string[]) {
-  return values.map((value) => ({ label: value, value }));
-}
-function objectField(key: string): RowData {
-  return localProjectile.value[key] && typeof localProjectile.value[key] === 'object' && !Array.isArray(localProjectile.value[key])
-    ? (localProjectile.value[key] as RowData)
-    : {};
-}
 function setArray(key: string, idx: number, value: number | null) {
   const v = arr(localProjectile.value[key], [0, 0]);
   v[idx] = value || 0;
@@ -164,74 +162,24 @@ function setSlotLoc(i: number, axis: number, value: number | null) {
 }
 function applyGeneric() {
   try {
-    localProjectile.value = JSON.parse(genericJson.value);
+    localProjectile.value = normalizeProjectileSpec(JSON.parse(genericJson.value));
   } catch {
     message.error('JSON 无效');
   }
 }
 async function uploadSpriteFile(field: string, event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0];
-  if (!file) return;
-  const b64 = await fileToBase64(file);
-  let result = await uploadSprite(props.modRoot, file.name, b64, 'missiles', false);
-  if (result.exists) {
-    dialog.warning({
-      title: '覆盖贴图？',
-      content: result.message,
-      positiveText: '覆盖',
-      negativeText: '取消',
-      onPositiveClick: async () => {
-        result = await uploadSprite(props.modRoot, file.name, b64, 'missiles', true);
-        localProjectile.value[field] = result.path;
-        message.success('贴图已上传');
-      },
-    });
-  } else {
-    localProjectile.value[field] = result.path;
-    message.success('贴图已上传');
-  }
+  await uploadSpriteInput(event, {
+    dialog,
+    message,
+    modRoot: props.modRoot,
+    subfolder: 'missiles',
+    onUploaded: (result) => {
+      localProjectile.value[field] = result.path;
+    },
+  });
 }
 async function save() {
-  await saveProjectile(props.modRoot, props.projectileId, localProjectile.value);
+  await saveProjectileSpec(props.modRoot, props.projectileId, localProjectile.value);
   emit('saved', props.projectileId, localProjectile.value);
 }
-
-const ColorArray = defineComponent({
-  props: { label: { type: String, required: true }, modelValue: { type: Array, default: () => [255, 255, 255, 255] } },
-  emits: ['update:modelValue'],
-  setup(p, { emit }) {
-    const set = (i: number, v: number | null) => {
-      const next = [...(p.modelValue as number[])];
-      next[i] = v || 0;
-      emit('update:modelValue', next);
-    };
-    return () =>
-      h('div', { class: 'color-array' }, [
-        h('strong', p.label),
-        [0, 1, 2, 3].map((i) =>
-          h('input', {
-            type: 'number',
-            min: 0,
-            max: 255,
-            value: (p.modelValue as number[])[i] ?? 255,
-            onInput: (e: Event) => set(i, Number((e.target as HTMLInputElement).value)),
-          }),
-        ),
-      ]);
-  },
-});
-const ObjectEditor = defineComponent({
-  props: { modelValue: { type: Object, default: () => ({}) } },
-  emits: ['update:modelValue'],
-  setup(p, { emit }) {
-    const text = ref(JSON.stringify(p.modelValue || {}, null, 2));
-    const apply = () => {
-      try {
-        emit('update:modelValue', JSON.parse(text.value || '{}'));
-      } catch {}
-    };
-    return () =>
-      h('textarea', { value: text.value, onInput: (e: Event) => (text.value = (e.target as HTMLTextAreaElement).value), onChange: apply });
-  },
-});
 </script>

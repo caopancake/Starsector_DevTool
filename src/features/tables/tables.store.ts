@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia';
 import { computed, reactive, ref } from 'vue';
-import { addCsvRow, deleteCsvRow, deleteShip, saveCsv, saveShip } from '../../shared/api/tauri';
 import type { AppData, RowData, TableKey } from '../../shared/types';
 import { cell, deepClone, defaultShip, getColumns, MODULE_LABELS, rowId } from '../../shared/lib/starsector';
+import { createShipSpec, createTableRow, removeShipSpec, removeTableRow, saveTableRows } from './table.service';
 
 type DirtyState = Record<TableKey, Record<string, Record<string, string>>>;
 type EditingCell = { tab: TableKey; id: string; col: string; value: string } | null;
@@ -130,7 +130,7 @@ export const useTablesStore = defineStore('tables', () => {
       if (!hasDirtyChanges.value) return 'noop';
       for (const key of TABLE_KEYS) {
         if (Object.keys(dirty[key]).length === 0) continue;
-        await saveCsv(appData.modRoot, key, appData.csvHeaders[key], rowsFor(key));
+        await saveTableRows(appData.modRoot, key, appData.csvHeaders[key], rowsFor(key));
         originalTables[key] = deepClone(rowsFor(key));
         dirty[key] = {};
       }
@@ -159,11 +159,11 @@ export const useTablesStore = defineStore('tables', () => {
     row._faction = 'other';
     rowsFor(tab).push(row);
     originalTables[tab].push(deepClone(row));
-    await addCsvRow(appData.modRoot, tab, header, row);
+    await createTableRow(appData.modRoot, tab, header, row);
     if (tab === 'ships') {
       const ship = defaultShip(id);
       appData.shipFiles[id] = ship;
-      await saveShip(appData.modRoot, id, ship);
+      await createShipSpec(appData.modRoot, id, ship);
     }
     selectedRowId.value = id;
   }
@@ -175,11 +175,11 @@ export const useTablesStore = defineStore('tables', () => {
     tables[tab] = rowsFor(tab).filter((row) => rowId(row) !== id);
     originalTables[tab] = originalTables[tab].filter((row) => rowId(row) !== id);
     delete dirty[tab][id];
-    await deleteCsvRow(appData.modRoot, tab, id);
+    await removeTableRow(appData.modRoot, tab, id);
     if (tab === 'ships') {
       delete appData.shipFiles[id];
       delete appData.shipSprites[id];
-      await deleteShip(appData.modRoot, id);
+      await removeShipSpec(appData.modRoot, id);
     }
     selectedRowId.value = '';
   }

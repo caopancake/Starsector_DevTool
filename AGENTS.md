@@ -6,7 +6,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 
 - 所有文件都必须以 UTF-8 无 BOM 编码读取
 - 所有文件都必须以 UTF-8 无 BOM 编码写入
-- 绝对不允许用 Raw 方式获取文件内容
+- Get-Content 必须带 -Encoding utf8 参数
 - 本小节不得简化，必须严格遵守
 
 ## 读取顺序
@@ -39,7 +39,6 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 - 前端构建：`npm.cmd run build`
 - Rust 检查：`cargo check`
 - Rust 规范：`cargo clippy -- -D warnings`
-- 开发运行：`npm run tauri -- dev`
 - 单文件构建：`.\build.ps1` 或 `build.bat`
 
 ## 当前状态

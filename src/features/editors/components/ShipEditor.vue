@@ -174,26 +174,34 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useDialog, useMessage } from 'naive-ui';
-import { saveShip, uploadSprite } from '../../../shared/api/tauri';
+import { saveShipSpec } from '../editor.service';
 import type { RowData } from '../../../shared/types';
-import { arr, deepClone, fileToBase64, num, SLOT_RADIUS, str, WEAPON_COLORS } from '../../../shared/lib/starsector';
+import { arr, num, SLOT_RADIUS, str, WEAPON_COLORS } from '../../../shared/lib/starsector';
+import { normalizeShipSpec } from '../lib/normalize';
+import { useHistory } from '../composables/useHistory';
+import { useCanvasDrawing } from '../composables/useCanvasDrawing';
+import { useCanvasViewport } from '../composables/useCanvasViewport';
+import { useEditorShortcuts } from '../composables/useEditorShortcuts';
+import { useSpriteUpload } from '../composables/useSpriteUpload';
+import { snapToStep, toOptions as opts } from '../lib/editor-utils';
 
 const props = defineProps<{ modRoot: string; hullId: string; ship: RowData; spriteData?: string; availableSprites: string[] }>();
 const emit = defineEmits<{ close: []; saved: [id: string, ship: RowData] }>();
 const message = useMessage();
 const dialog = useDialog();
 const canvasRef = ref<HTMLCanvasElement>();
-const localShip = ref<RowData>(deepClone(props.ship));
+const localShip = ref<RowData>(normalizeShipSpec(props.ship));
 const mode = ref<'weapon' | 'engine' | 'bounds' | 'props'>('weapon');
 const selected = ref(-1);
-const scale = ref(1);
-const pan = ref({ x: 0, y: 0 });
+const viewport = useCanvasViewport(canvasRef, 1, 10);
+const { scale } = viewport;
 const img = new Image();
 const dragging = ref('');
 const panning = ref(false);
 let last = { x: 0, y: 0 };
-const undo: string[] = [];
-const redo: string[] = [];
+const history = useHistory(() => localShip.value);
+const drawing = useCanvasDrawing();
+const { uploadSpriteFile } = useSpriteUpload();
 const modes = [
   { value: 'weapon', label: '武器' },
   { value: 'engine', label: '引擎' },
@@ -202,18 +210,12 @@ const modes = [
 ] as const;
 
 const weaponSlots = computed<RowData[]>(() =>
-  Array.isArray(localShip.value.weaponSlots)
-    ? (localShip.value.weaponSlots as RowData[])
-    : ((localShip.value.weaponSlots = []) as RowData[]),
+  Array.isArray(localShip.value.weaponSlots) ? (localShip.value.weaponSlots as RowData[]) : [],
 );
 const engineSlots = computed<RowData[]>(() =>
-  Array.isArray(localShip.value.engineSlots)
-    ? (localShip.value.engineSlots as RowData[])
-    : ((localShip.value.engineSlots = []) as RowData[]),
+  Array.isArray(localShip.value.engineSlots) ? (localShip.value.engineSlots as RowData[]) : [],
 );
-const bounds = computed<number[]>(() =>
-  Array.isArray(localShip.value.bounds) ? (localShip.value.bounds as number[]) : ((localShip.value.bounds = []) as number[]),
-);
+const bounds = computed<number[]>(() => (Array.isArray(localShip.value.bounds) ? (localShip.value.bounds as number[]) : []));
 const boundPairs = computed(() => Array.from({ length: Math.floor(bounds.value.length / 2) }));
 const center = computed(() => arr(localShip.value.center, [0, 0]));
 const shieldCenter = computed(() => arr(localShip.value.shieldCenter, [0, 0]));
@@ -231,51 +233,41 @@ const builtInWings = computed({
 });
 const builtInWeaponsText = ref(JSON.stringify(localShip.value.builtInWeapons || {}, null, 2));
 
-function opts(values: string[]) {
-  return values.map((value) => ({ label: value, value }));
-}
 function pushUndo() {
-  undo.push(JSON.stringify(localShip.value));
-  if (undo.length > 250) undo.shift();
-  redo.length = 0;
+  history.push(localShip.value);
 }
 function doUndo() {
-  if (!undo.length) return;
-  redo.push(JSON.stringify(localShip.value));
-  localShip.value = JSON.parse(undo.pop()!);
+  const previous = history.undo(localShip.value);
+  if (!previous) return;
+  localShip.value = normalizeShipSpec(previous);
   selected.value = -1;
   draw();
 }
 function doRedo() {
-  if (!redo.length) return;
-  undo.push(JSON.stringify(localShip.value));
-  localShip.value = JSON.parse(redo.pop()!);
+  const next = history.redo(localShip.value);
+  if (!next) return;
+  localShip.value = normalizeShipSpec(next);
   selected.value = -1;
   draw();
 }
+useEditorShortcuts({ redo: doRedo, undo: doUndo });
 function setMode(value: typeof mode.value) {
   mode.value = value;
   selected.value = -1;
   draw();
 }
 function canvasCenter() {
-  const c = canvasRef.value!;
-  return { x: c.width / 2 + pan.value.x, y: c.height / 2 + pan.value.y };
+  return viewport.center();
 }
 function shipToCanvas(loc: number[]) {
-  const cc = canvasCenter();
-  return { x: cc.x - loc[1] * scale.value, y: cc.y - loc[0] * scale.value };
+  return viewport.toCanvas('ship', loc[0] || 0, loc[1] || 0);
 }
 function canvasToShip(x: number, y: number) {
-  const cc = canvasCenter();
-  return [-(y - cc.y) / scale.value, -(x - cc.x) / scale.value];
+  const point = viewport.fromCanvas('ship', x, y);
+  return [snapToStep(point.x), snapToStep(point.y)];
 }
 function resizeCanvas() {
-  const c = canvasRef.value;
-  if (!c) return;
-  c.width = 1600;
-  c.height = 1100;
-  draw();
+  if (viewport.resize()) draw();
 }
 function loadSprite() {
   img.src = props.spriteData || '';
@@ -287,11 +279,9 @@ function draw() {
   const c = canvasRef.value;
   if (!c) return;
   const ctx = c.getContext('2d')!;
-  ctx.clearRect(0, 0, c.width, c.height);
-  ctx.fillStyle = '#08111f';
-  ctx.fillRect(0, 0, c.width, c.height);
-  drawGrid(ctx, c.width, c.height);
   const cc = canvasCenter();
+  drawing.clear(ctx, c.width, c.height);
+  drawing.drawGrid(ctx, { center: cc, height: c.height, scale: scale.value, width: c.width });
   if (img.width) {
     const cen = center.value;
     ctx.globalAlpha = 0.72;
@@ -310,7 +300,7 @@ function draw() {
     ctx.stroke();
     if (mode.value === 'bounds')
       for (let i = 0; i < bounds.value.length; i += 2)
-        drawDot(ctx, shipToCanvas([bounds.value[i], bounds.value[i + 1]]), i / 2 === selected.value ? '#fff' : '#22c55e', 5);
+        drawing.drawDot(ctx, shipToCanvas([bounds.value[i], bounds.value[i + 1]]), i / 2 === selected.value ? '#fff' : '#22c55e', 5);
   }
   if (mode.value === 'props') {
     const sp = shipToCanvas(shieldCenter.value);
@@ -320,15 +310,15 @@ function draw() {
     ctx.arc(sp.x, sp.y, num(localShip.value.shieldRadius, 0) * scale.value, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
-    drawDot(ctx, sp, '#06b6d4', 8);
-    drawDot(ctx, cc, '#fff', 6);
+    drawing.drawDot(ctx, sp, '#06b6d4', 8);
+    drawing.drawDot(ctx, cc, '#fff', 6);
   }
   if (mode.value === 'weapon' || mode.value === 'props')
     weaponSlots.value.forEach((slot, i) => {
       const p = shipToCanvas(arr(slot.locations, [0, 0]));
       const color = WEAPON_COLORS[str(slot.type)] || '#888';
       const r = SLOT_RADIUS[str(slot.size)] || 6;
-      drawDot(ctx, p, i === selected.value && mode.value === 'weapon' ? '#fff' : color, r);
+      drawing.drawDot(ctx, p, i === selected.value && mode.value === 'weapon' ? '#fff' : color, r);
       if (num(slot.arc) > 0) {
         ctx.strokeStyle = color;
         ctx.globalAlpha = 0.5;
@@ -352,31 +342,6 @@ function draw() {
       ctx.strokeRect(0, -ew / 2, el, ew);
       ctx.restore();
     });
-}
-function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  const step = 50 * scale.value;
-  if (step < 5) return;
-  const cc = canvasCenter();
-  ctx.strokeStyle = '#31415f55';
-  ctx.lineWidth = 0.5;
-  for (let x = cc.x % step; x < w; x += step) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, h);
-    ctx.stroke();
-  }
-  for (let y = cc.y % step; y < h; y += step) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(w, y);
-    ctx.stroke();
-  }
-}
-function drawDot(ctx: CanvasRenderingContext2D, p: { x: number; y: number }, color: string, r: number) {
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
 }
 function hit(mx: number, my: number) {
   if (mode.value === 'weapon')
@@ -423,8 +388,7 @@ function onMove(e: MouseEvent) {
   const dy = my - last.y;
   last = { x: mx, y: my };
   if (panning.value) {
-    pan.value.x += dx;
-    pan.value.y += dy;
+    viewport.panBy(dx, dy);
     draw();
     return;
   }
@@ -433,11 +397,13 @@ function onMove(e: MouseEvent) {
   if (dragging.value === 'weapon' && selectedSlot.value) selectedSlot.value.locations = coord;
   if (dragging.value === 'engine' && selectedEngine.value) selectedEngine.value.location = coord;
   if (dragging.value === 'bound') {
-    bounds.value[selected.value * 2] = +coord[0].toFixed(1);
-    bounds.value[selected.value * 2 + 1] = +coord[1].toFixed(1);
+    bounds.value[selected.value * 2] = coord[0];
+    bounds.value[selected.value * 2 + 1] = coord[1];
   }
   if (dragging.value === 'shield') localShip.value.shieldCenter = coord;
-  if (dragging.value === 'center') localShip.value.center = [center.value[0] + dx / scale.value, center.value[1] + dy / scale.value];
+  if (dragging.value === 'center') {
+    localShip.value.center = [snapToStep(center.value[0] + dx / scale.value), snapToStep(center.value[1] + dy / scale.value)];
+  }
   draw();
 }
 function onUp() {
@@ -445,7 +411,7 @@ function onUp() {
   panning.value = false;
 }
 function onWheel(e: WheelEvent) {
-  scale.value = Math.max(0.1, Math.min(10, scale.value * (e.deltaY < 0 ? 1.1 : 0.9)));
+  viewport.zoom(e.deltaY);
   draw();
 }
 function setArray(key: string, idx: number, value: number | null) {
@@ -516,46 +482,23 @@ function applyBuiltInWeapons() {
   }
 }
 async function uploadShipSprite(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0];
-  if (!file) return;
-  const b64 = await fileToBase64(file);
-  let result = await uploadSprite(props.modRoot, file.name, b64, 'ships', false);
-  if (result.exists) {
-    dialog.warning({
-      title: '覆盖贴图？',
-      content: result.message,
-      positiveText: '覆盖',
-      negativeText: '取消',
-      onPositiveClick: async () => {
-        result = await uploadSprite(props.modRoot, file.name, b64, 'ships', true);
-        localShip.value.spriteName = result.path;
-        message.success('贴图已上传');
-      },
-    });
-  } else {
-    localShip.value.spriteName = result.path;
-    message.success('贴图已上传');
-  }
+  await uploadSpriteFile(event, {
+    dialog,
+    message,
+    modRoot: props.modRoot,
+    subfolder: 'ships',
+    onUploaded: (result) => {
+      localShip.value.spriteName = result.path;
+    },
+  });
 }
 async function save() {
-  await saveShip(props.modRoot, props.hullId, localShip.value);
+  await saveShipSpec(props.modRoot, props.hullId, localShip.value);
   emit('saved', props.hullId, localShip.value);
-}
-function onKey(e: KeyboardEvent) {
-  if ((e.target as HTMLElement).tagName.match(/INPUT|TEXTAREA/)) return;
-  if (e.ctrlKey && e.key === 'z') {
-    e.preventDefault();
-    doUndo();
-  }
-  if (e.ctrlKey && e.key === 'y') {
-    e.preventDefault();
-    doRedo();
-  }
 }
 watch(localShip, draw, { deep: true });
 onMounted(() => {
   window.addEventListener('resize', resizeCanvas);
-  window.addEventListener('keydown', onKey);
   nextTick(() => {
     resizeCanvas();
     if (props.spriteData) {
@@ -569,6 +512,5 @@ onMounted(() => {
 });
 onUnmounted(() => {
   window.removeEventListener('resize', resizeCanvas);
-  window.removeEventListener('keydown', onKey);
 });
 </script>

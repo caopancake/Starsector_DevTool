@@ -1,10 +1,14 @@
-use crate::{errors::AppResult, parsers::parse_starsector_json};
+use crate::{
+    errors::AppResult,
+    filesystem::{read_utf8_no_bom, write_utf8_no_bom},
+    parsers::parse_starsector_json,
+};
 use serde_json::{Map, Value};
 use std::{collections::BTreeMap, fs, path::Path};
 use walkdir::WalkDir;
 
 pub fn read_json_file(path: &Path) -> AppResult<Value> {
-    let text = fs::read_to_string(path)?;
+    let text = read_utf8_no_bom(path)?;
     parse_starsector_json(&text)
 }
 
@@ -57,11 +61,17 @@ pub fn save_json_by_id(
     }
     let target = target.unwrap_or_else(|| dir.join(format!("{id}.{ext}")));
     let clean = strip_internal_fields(data);
-    fs::write(&target, serde_json::to_string_pretty(&clean)?)?;
+    write_utf8_no_bom(&target, &serde_json::to_string_pretty(&clean)?)?;
     Ok(relative_path(mod_root, &target))
 }
 
-pub fn delete_json_by_id(mod_root: &Path, rel_dir: &str, ext: &str, id_key: &str, id: &str) -> AppResult<bool> {
+pub fn delete_json_by_id(
+    mod_root: &Path,
+    rel_dir: &str,
+    ext: &str,
+    id_key: &str,
+    id: &str,
+) -> AppResult<bool> {
     let dir = mod_root.join(rel_dir);
     if !dir.exists() {
         return Ok(false);
@@ -97,7 +107,10 @@ pub fn strip_internal_fields(value: &Value) -> Value {
 }
 
 fn relative_path(root: &Path, path: &Path) -> String {
-    path.strip_prefix(root).unwrap_or(path).to_string_lossy().replace('\\', "/")
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
 }
 
 #[cfg(test)]

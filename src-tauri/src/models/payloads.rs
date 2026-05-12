@@ -45,3 +45,32 @@ pub struct UploadSpriteResult {
     pub overwritten: bool,
     pub message: Option<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn save_csv_payload_uses_camel_case_mod_root() {
+        let payload: SaveCsvPayload = serde_json::from_value(serde_json::json!({
+            "modRoot": "D:/mod",
+            "table": "ships",
+            "header": ["id"],
+            "rows": [{"id": "demo"}]
+        }))
+        .unwrap();
+        assert_eq!(payload.mod_root, "D:/mod");
+        assert_eq!(payload.table, "ships");
+    }
+
+    #[test]
+    fn save_csv_payload_rejects_snake_case_mod_root() {
+        let result = serde_json::from_value::<SaveCsvPayload>(serde_json::json!({
+            "mod_root": "D:/mod",
+            "table": "ships",
+            "header": ["id"],
+            "rows": []
+        }));
+        assert!(result.is_err());
+    }
+}

@@ -14,22 +14,30 @@ use std::{
 use walkdir::WalkDir;
 
 pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
-    let starsector_root = mod_root.parent().and_then(|p| p.parent()).map(Path::to_path_buf);
+    let starsector_root = mod_root
+        .parent()
+        .and_then(|p| p.parent())
+        .map(Path::to_path_buf);
     let core_dir = starsector_root.as_ref().map(|p| p.join("starsector-core"));
     let core_available = core_dir.as_ref().is_some_and(|p| p.exists());
     let mod_info = read_json_file(&mod_root.join("mod_info.json")).unwrap_or_else(|_| {
         let mut obj = Map::new();
-        let name = mod_root.file_name().and_then(|s| s.to_str()).unwrap_or("Mod");
+        let name = mod_root
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Mod");
         obj.insert("id".to_string(), Value::String(name.to_string()));
         obj.insert("name".to_string(), Value::String(name.to_string()));
         Value::Object(obj)
     });
 
     let (mut faction_meta, tag_map) = discover_factions(mod_root);
-    faction_meta.entry("other".to_string()).or_insert(FactionMeta {
-        name: "其他".to_string(),
-        color: "#6b7280".to_string(),
-    });
+    faction_meta
+        .entry("other".to_string())
+        .or_insert(FactionMeta {
+            name: "其他".to_string(),
+            color: "#6b7280".to_string(),
+        });
 
     let mut csv_headers = BTreeMap::new();
     let mut csv_paths = BTreeMap::new();
@@ -40,7 +48,10 @@ pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
         for row in &mut rows {
             let id = str_field(row, "id");
             let tags = str_field(row, "tags");
-            row.insert("_faction".to_string(), Value::String(detect_faction(&id, &tags, &tag_map)));
+            row.insert(
+                "_faction".to_string(),
+                Value::String(detect_faction(&id, &tags, &tag_map)),
+            );
         }
         csv_headers.insert(key.to_string(), table.header);
         csv_paths.insert(key.to_string(), rel.to_string());
@@ -60,7 +71,13 @@ pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
             let path = mod_root.join(sprite.replace('\\', "/"));
             if path.exists() {
                 let bytes = fs::read(path)?;
-                ship_sprites.insert(id.clone(), format!("data:image/png;base64,{}", general_purpose::STANDARD.encode(bytes)));
+                ship_sprites.insert(
+                    id.clone(),
+                    format!(
+                        "data:image/png;base64,{}",
+                        general_purpose::STANDARD.encode(bytes)
+                    ),
+                );
             }
         }
     }
@@ -84,7 +101,10 @@ pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
         available_sprites: list_sprites(mod_root, &["graphics/ships"]),
         wpn_files: load_json_dir_by_id(&mod_root.join("data/weapons"), "wpn", "id"),
         proj_files: load_proj_files(mod_root, core_dir.as_deref()),
-        weapon_sprites: list_sprites(mod_root, &["graphics/weapons", "graphics/missiles", "graphics/fx"]),
+        weapon_sprites: list_sprites(
+            mod_root,
+            &["graphics/weapons", "graphics/missiles", "graphics/fx"],
+        ),
     })
 }
 
@@ -100,17 +120,47 @@ fn discover_factions(mod_root: &Path) -> (BTreeMap<String, FactionMeta>, HashMap
             continue;
         }
         if let Ok(Value::Object(obj)) = read_json_file(entry.path()) {
-            let Some(fid) = obj.get("id").and_then(Value::as_str) else { continue };
-            let Some(name) = obj.get("displayName").or_else(|| obj.get("displayNameLong")).and_then(Value::as_str) else { continue };
-            let color = obj.get("color").and_then(Value::as_array).map(|v| rgb_to_hex(v)).unwrap_or_else(|| "#808080".to_string());
-            factions.insert(fid.to_string(), FactionMeta { name: name.to_string(), color });
+            let Some(fid) = obj.get("id").and_then(Value::as_str) else {
+                continue;
+            };
+            let Some(name) = obj
+                .get("displayName")
+                .or_else(|| obj.get("displayNameLong"))
+                .and_then(Value::as_str)
+            else {
+                continue;
+            };
+            let color = obj
+                .get("color")
+                .and_then(Value::as_array)
+                .map(|v| rgb_to_hex(v))
+                .unwrap_or_else(|| "#808080".to_string());
+            factions.insert(
+                fid.to_string(),
+                FactionMeta {
+                    name: name.to_string(),
+                    color,
+                },
+            );
             for section in ["knownShips", "knownWeapons", "knownFighters"] {
-                if let Some(tags) = obj.get(section)
+                if let Some(tags) = obj
+                    .get(section)
                     .and_then(|v| v.get("tags"))
                     .and_then(Value::as_array)
                 {
                     for tag in tags.iter().filter_map(Value::as_str) {
-                        if tag.contains("_bp") && !matches!(tag, "base_bp" | "lowtech_bp" | "midline_bp" | "hightech_bp" | "missile_bp" | "pirate_bp" | "pirates") {
+                        if tag.contains("_bp")
+                            && !matches!(
+                                tag,
+                                "base_bp"
+                                    | "lowtech_bp"
+                                    | "midline_bp"
+                                    | "hightech_bp"
+                                    | "missile_bp"
+                                    | "pirate_bp"
+                                    | "pirates"
+                            )
+                        {
                             tag_map.insert(tag.to_string(), fid.to_string());
                         }
                     }
@@ -124,7 +174,11 @@ fn discover_factions(mod_root: &Path) -> (BTreeMap<String, FactionMeta>, HashMap
 fn load_proj_files(mod_root: &Path, core_dir: Option<&Path>) -> BTreeMap<String, Value> {
     let mut result = BTreeMap::new();
     for mut value in load_json_dir(&mod_root.join("data/weapons/proj"), "proj") {
-        if let Some(id) = value.get("id").and_then(Value::as_str).map(ToString::to_string) {
+        if let Some(id) = value
+            .get("id")
+            .and_then(Value::as_str)
+            .map(ToString::to_string)
+        {
             if let Value::Object(obj) = &mut value {
                 obj.insert("_source".to_string(), Value::String("mod".to_string()));
             }
@@ -133,7 +187,11 @@ fn load_proj_files(mod_root: &Path, core_dir: Option<&Path>) -> BTreeMap<String,
     }
     if let Some(core) = core_dir {
         for mut value in load_json_dir(&core.join("data/weapons/proj"), "proj") {
-            if let Some(id) = value.get("id").and_then(Value::as_str).map(ToString::to_string) {
+            if let Some(id) = value
+                .get("id")
+                .and_then(Value::as_str)
+                .map(ToString::to_string)
+            {
                 if result.contains_key(&id) {
                     continue;
                 }
@@ -148,9 +206,21 @@ fn load_proj_files(mod_root: &Path, core_dir: Option<&Path>) -> BTreeMap<String,
 }
 
 fn rgb_to_hex(values: &[Value]) -> String {
-    let r = values.first().and_then(Value::as_i64).unwrap_or(128).clamp(0, 255);
-    let g = values.get(1).and_then(Value::as_i64).unwrap_or(128).clamp(0, 255);
-    let b = values.get(2).and_then(Value::as_i64).unwrap_or(128).clamp(0, 255);
+    let r = values
+        .first()
+        .and_then(Value::as_i64)
+        .unwrap_or(128)
+        .clamp(0, 255);
+    let g = values
+        .get(1)
+        .and_then(Value::as_i64)
+        .unwrap_or(128)
+        .clamp(0, 255);
+    let b = values
+        .get(2)
+        .and_then(Value::as_i64)
+        .unwrap_or(128)
+        .clamp(0, 255);
     format!("#{r:02x}{g:02x}{b:02x}")
 }
 
@@ -161,7 +231,11 @@ fn detect_faction(id: &str, tags: &str, tag_map: &HashMap<String, String>) -> St
         }
     }
     if id.contains('_') {
-        let prefix = id.split('_').next().unwrap_or_default().to_ascii_lowercase();
+        let prefix = id
+            .split('_')
+            .next()
+            .unwrap_or_default()
+            .to_ascii_lowercase();
         if !prefix.is_empty() {
             return "other".to_string();
         }
@@ -170,5 +244,8 @@ fn detect_faction(id: &str, tags: &str, tag_map: &HashMap<String, String>) -> St
 }
 
 fn str_field(row: &Map<String, Value>, key: &str) -> String {
-    row.get(key).and_then(Value::as_str).unwrap_or_default().to_string()
+    row.get(key)
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string()
 }

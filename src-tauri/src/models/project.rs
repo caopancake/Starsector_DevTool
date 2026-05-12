@@ -48,5 +48,7 @@ pub struct FactionMeta {
 }
 
 pub fn csv_path_for(table: &str) -> Option<&'static str> {
-    CSV_TABLES.iter().find_map(|(key, path)| (*key == table).then_some(*path))
+    CSV_TABLES
+        .iter()
+        .find_map(|(key, path)| (*key == table).then_some(*path))
 }

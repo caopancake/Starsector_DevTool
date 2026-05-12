@@ -95,7 +95,7 @@ export const WEAPON_COLORS: Record<string, string> = {
 export const SLOT_RADIUS: Record<string, number> = { LARGE: 12, MEDIUM: 8, SMALL: 5 };
 
 export function deepClone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value));
+  return structuredClone(value);
 }
 
 export function cell(value: JsonValue | undefined): string {

@@ -63,7 +63,6 @@
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th class="action-col">操作</th>
                       <th v-for="col in tables.visibleColumns" :key="col">{{ col }}</th>
                     </tr>
                   </thead>
@@ -74,15 +73,6 @@
                       :class="{ selected: tables.selectedRowId === rowId(row) }"
                       @click="tables.selectedRowId = rowId(row)"
                     >
-                      <td class="row-actions">
-                        <n-button v-if="tables.currentTab === 'ships'" size="tiny" @click.stop="openShip(rowId(row))">编辑</n-button>
-                        <n-button v-if="tables.currentTab === 'weapons'" size="tiny" @click.stop="editors.openWeapon(rowId(row))"
-                          >编辑</n-button
-                        >
-                        <n-button v-if="tables.currentTab === 'weapons'" size="tiny" tertiary @click.stop="editors.openPreview(rowId(row))"
-                          >预览</n-button
-                        >
-                      </td>
                       <td
                         v-for="col in tables.visibleColumns"
                         :key="col"

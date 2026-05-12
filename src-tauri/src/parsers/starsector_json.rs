@@ -1,11 +1,20 @@
 use crate::errors::AppResult;
 use regex::Regex;
 use serde_json::Value;
+use std::sync::OnceLock;
+
+static COMMENT_RE: OnceLock<Regex> = OnceLock::new();
+static TRAILING_COMMA_RE: OnceLock<Regex> = OnceLock::new();
+static UNQUOTED_KEY_RE: OnceLock<Regex> = OnceLock::new();
 
 pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
-    let comment_re = Regex::new(r"(?m)#[^\n]*").expect("valid comment regex");
-    let trailing_re = Regex::new(r",\s*([}\]])").expect("valid trailing comma regex");
-    let key_re = Regex::new(r#"(?m)(^|[\{,\s])([A-Za-z_][A-Za-z0-9_]*)\s*:"#).expect("valid key regex");
+    let comment_re =
+        COMMENT_RE.get_or_init(|| Regex::new(r"(?m)#[^\n]*").expect("valid comment regex"));
+    let trailing_re = TRAILING_COMMA_RE
+        .get_or_init(|| Regex::new(r",\s*([}\]])").expect("valid trailing comma regex"));
+    let key_re = UNQUOTED_KEY_RE.get_or_init(|| {
+        Regex::new(r#"(?m)(^|[\{,\s])([A-Za-z_][A-Za-z0-9_]*)\s*:"#).expect("valid key regex")
+    });
     let mut cleaned = comment_re.replace_all(text, "").to_string();
     cleaned = trailing_re.replace_all(&cleaned, "$1").to_string();
     cleaned = key_re.replace_all(&cleaned, "$1\"$2\":").to_string();
