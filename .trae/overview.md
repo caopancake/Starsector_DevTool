@@ -1,12 +1,12 @@
 # Overview
 
-Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。当前项目已经迁移为 Tauri 2 + Vue 3 + TypeScript + Rust，目标是完整覆盖旧版 `old_program/` 的核心功能，并逐步整理为长期可维护的原生桌面工具。
+Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。当前项目使用 Tauri 2 + Vue 3 + TypeScript + Rust，目标是提供长期可维护的原生桌面工具。
 
 ## 项目目标
 
 - 打开 Starsector mod 根目录并在原位读取、编辑、保存配置文件。
 - 覆盖 CSV 表格编辑、舰船编辑器、武器编辑器、弹丸/导弹编辑器、弹道/光束预览和 PNG 贴图导入。
-- 让工程结构保持清晰边界，避免迁移期调用链和“为了拆而拆”的碎片化。
+- 让工程结构保持清晰边界，避免臃肿调用链和“为了拆而拆”的碎片化。
 
 ## 技术栈
 
@@ -19,7 +19,6 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。当
 
 ## 功能边界
 
-- `old_program/` 只作为迁移参考，不是运行入口。
 - Rust 负责文件扫描、解析、读写、校验和贴图写入。
 - Vue 负责 UI 状态、表格交互、编辑器表单、Canvas 交互和用户反馈。
 - 保存 JSON 时采用结构保真：内容正确、字段保留、规范缩进写回；不承诺保留原注释、尾逗号和手写格式。

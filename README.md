@@ -1,6 +1,6 @@
 # Starsector DevTool
 
-Windows 桌面版 Starsector Mod 配置工具，用 Tauri 2 + Vue 3 + Rust 重建旧版 `old_program` 功能。
+Windows 桌面版 Starsector Mod 配置工具，使用 Tauri 2 + Vue 3 + TypeScript + Rust 构建。
 
 ## 功能
 

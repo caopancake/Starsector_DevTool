@@ -4,7 +4,7 @@ import { TextDecoder } from 'node:util';
 
 const root = process.cwd();
 const textExtensions = new Set(['.bat', '.css', '.html', '.js', '.json', '.md', '.mjs', '.ps1', '.rs', '.toml', '.ts', '.vue']);
-const ignoredDirs = new Set(['.git', 'dist', 'node_modules', 'old_program', 'release', 'target']);
+const ignoredDirs = new Set(['.git', 'dist', 'node_modules', 'release', 'target']);
 const ignoredPathParts = ['src-tauri\\gen', 'src-tauri/gen', 'src-tauri\\target', 'src-tauri/target'];
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 

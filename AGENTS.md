@@ -51,7 +51,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 
 ## 当前状态
 
-- 已迁移为 Tauri 2 + Vue 3 + TypeScript + Rust。
+- 当前实现为 Tauri 2 + Vue 3 + TypeScript + Rust。
 - 前端使用 Naive UI，画布编辑器使用 Canvas 2D。
 - Rust 负责 Starsector 宽松 JSON、CSV、mod 文件扫描、保存、删除和贴图上传。
 - 功能范围包括：
@@ -62,7 +62,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
   - 弹丸/导弹编辑器
   - 弹道/光束预览
 - 接下来要做的：
-  - 开始执行 `.trae/todo.md` 里的 Phase 1
+  - 按 `.trae/todo.md` 继续执行后续 phase
 
 ## 改动前先看
 
@@ -76,7 +76,6 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 
 ## 关键提醒
 
-- `old_program/` 只是迁移参考，不是运行入口。
 - 保存 JSON 时采用结构保真，不承诺保留原注释、尾逗号或手写格式。
 - 保存 CSV 时应保留表头和注释行。
 - dirty state 按稳定 row id 追踪，不能退回按表格索引追踪。
