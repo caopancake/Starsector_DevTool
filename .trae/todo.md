@@ -24,7 +24,7 @@
 
 ## Phase 3: 收敛后端加载链路和保存语义边界
 
-- [x] 拆分 `services/project.rs`，把阵营发现、projectile fallback、sprite 加载和项目装配分离为私有 helper 模块。
+- [x] 拆分 `services/project.rs`，把势力发现、projectile fallback、sprite 加载和项目装配分离为私有 helper 模块。
 - [x] 保留 `editor.service.ts` 和 `table.service.ts` 作为 feature 边界，但补充实际语义，例如错误文案、保存前 normalize 或上下文约束。
 - [x] 明确 UI 和文档中的保存边界：顶部保存只保存 CSV，编辑器保存只保存 `.ship/.wpn/.proj`。
 - [x] 评估是否需要 `.ship` 字段和 CSV 字段联动；如需要，先设计同步规则再实现。
@@ -49,12 +49,13 @@
 
 ## Phase 6: 重新设计前端界面（允许重构语义）
 
-- [ ] 定义 Native UI + 现代圆角 + Notion 风格极简的视觉基准。
-- [ ] 统一过于相似、仅有微小差异的组件样式
-- [ ] 重设主窗口导航、顶部栏、数据表和右侧详情面板。
-- [ ] 重设舰船、武器、弹丸编辑器弹窗布局。
-- [ ] 重设颜色、层级、hover、selected、dirty、disabled 状态。
-- [ ] 验证高密度数据工具场景下可读性和操作效率。
+- [x] 定义 Native UI + 现代圆角 + Notion 风格极简的视觉基准。
+- [x] 统一过于相似、仅有微小差异的组件样式
+- [x] 重设主窗口导航、顶部栏、数据表和右侧详情面板。
+- [x] 重设舰船、武器、弹丸编辑器弹窗布局。
+- [x] 重设颜色、层级、hover、selected、dirty、disabled 状态。
+- [x] 重点关注字间距、行间距等影响阅读体验的位置。
+- [x] 验证高密度数据工具场景下可读性和操作效率。
 
 ## Phase 7: 重新梳理项目链路/确认板块
 

@@ -2,8 +2,11 @@
   <div class="modal-backdrop">
     <div class="preview-window">
       <header class="editor-header">
-        <strong>弹道预览: {{ weaponId }}</strong>
-        <span>{{ stats }}</span>
+        <div class="editor-title">
+          <strong>弹道预览</strong>
+          <span>{{ weaponId }}</span>
+        </div>
+        <span class="preview-stats">{{ stats }}</span>
       </header>
       <div ref="previewStageRef" class="preview-scroll">
         <canvas ref="canvasRef" class="preview-canvas" />

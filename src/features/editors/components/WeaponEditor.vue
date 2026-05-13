@@ -2,7 +2,10 @@
   <div class="modal-backdrop">
     <div class="editor-window">
       <header class="editor-header">
-        <strong>武器编辑器: {{ weaponId }}</strong>
+        <div class="editor-title">
+          <strong>武器编辑器</strong>
+          <span>{{ weaponId }}</span>
+        </div>
         <div class="segmented">
           <button :class="{ active: viewMode === 'turret' }" @click="setView('turret')">炮塔视图</button>
           <button :class="{ active: viewMode === 'hardpoint' }" @click="setView('hardpoint')">固定视图</button>
@@ -22,8 +25,9 @@
           />
         </div>
         <aside class="editor-side">
+          <div class="inspector-title">武器检查器</div>
           <div class="editor-scroll">
-            <n-collapse default-expanded-names="basic">
+            <n-collapse default-expanded-names="basic" :theme-overrides="editorCollapseTheme">
               <n-collapse-item title="基础属性" name="basic">
                 <div class="form-grid">
                   <label>id</label><n-input :value="weaponId" disabled /> <label>specClass</label
@@ -131,8 +135,10 @@
       </div>
       <footer class="editor-footer">
         <span>Ctrl+Z 撤销 | Ctrl+Y 重做 | 右键拖动画布</span>
-        <n-button @click="$emit('close')">关闭</n-button>
-        <n-button type="primary" @click="save">保存 .wpn</n-button>
+        <div class="editor-footer-actions">
+          <n-button @click="$emit('close')">关闭</n-button>
+          <n-button type="primary" @click="save">保存 .wpn</n-button>
+        </div>
       </footer>
     </div>
   </div>
@@ -155,6 +161,7 @@ import { useEditorShortcuts } from '../composables/useEditorShortcuts';
 import { useObjectField } from '../composables/useObjectField';
 import { useSpriteUpload } from '../composables/useSpriteUpload';
 import { snapToStep, toOptions as opts } from '../lib/editor-utils';
+import { editorCollapseTheme } from '../lib/editor-theme';
 
 const props = defineProps<{
   modRoot: string;

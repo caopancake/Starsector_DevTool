@@ -6,8 +6,10 @@
           <TitleBar />
           <div class="app-shell">
             <aside class="nav-pane">
-              <n-button block type="primary" :loading="project.loading" @click="openProject">打开 Mod 目录</n-button>
-              <n-divider />
+              <div class="nav-section">
+                <n-button block type="primary" :loading="project.loading" @click="openProject">打开 Mod 目录</n-button>
+              </div>
+              <div class="nav-label">数据模块</div>
               <n-button
                 v-for="item in TABLE_KEYS"
                 :key="item"
@@ -17,32 +19,38 @@
                 :class="{ active: tables.currentTab === item }"
                 @click="tables.switchTab(item, project.data)"
               >
-                {{ MODULE_LABELS[item] }}
+                <span class="nav-text">{{ MODULE_LABELS[item] }}</span>
                 <span class="nav-count">{{ tables.rowsFor(item).length }}</span>
               </n-button>
             </aside>
 
             <main class="workspace">
               <header class="topbar">
-                <div>
+                <div class="view-heading">
                   <div class="view-title">{{ MODULE_LABELS[tables.currentTab] }}</div>
                   <div class="view-meta">{{ project.isOpen ? tables.tableInfo : '未打开项目' }}</div>
                 </div>
                 <div class="top-actions">
-                  <n-input v-model:value="tables.searchText" clearable placeholder="搜索 ID / 名称" style="width: 240px" />
-                  <n-select v-model:value="tables.currentFaction" :options="factionOptions" placeholder="阵营" style="width: 180px" />
-                  <n-button :disabled="!project.data" @click="addNewRow">新建</n-button>
-                  <n-button type="error" ghost :disabled="!tables.selectedRowId" @click="confirmDelete">删除</n-button>
-                  <n-button :disabled="!tables.hasChanges" @click="revertChanges">撤销修改</n-button>
-                  <n-button
-                    type="primary"
-                    :loading="tables.saving"
-                    :disabled="!tables.hasChanges"
-                    @pointerdown.prevent="saveChanges"
-                    @click.prevent
-                  >
-                    保存 CSV
-                  </n-button>
+                  <div class="top-action-group">
+                    <n-input v-model:value="tables.searchText" clearable placeholder="搜索 ID / 名称" style="width: 240px" />
+                    <n-select v-model:value="tables.currentFaction" :options="factionOptions" placeholder="势力" style="width: 180px" />
+                  </div>
+                  <div class="top-action-group">
+                    <n-button :disabled="!project.data" @click="addNewRow">新建</n-button>
+                    <n-button type="error" ghost :disabled="!tables.selectedRowId" @click="confirmDelete">删除</n-button>
+                  </div>
+                  <div class="top-action-group">
+                    <n-button :disabled="!tables.hasChanges" @click="revertChanges">撤销修改</n-button>
+                    <n-button
+                      type="primary"
+                      :loading="tables.saving"
+                      :disabled="!tables.hasChanges"
+                      @pointerdown.prevent="saveChanges"
+                      @click.prevent
+                    >
+                      保存 CSV
+                    </n-button>
+                  </div>
                 </div>
               </header>
 
@@ -97,7 +105,7 @@ const themeOverrides: GlobalThemeOverrides = {
 };
 
 const factionOptions = computed(() => {
-  const base = [{ label: '全部阵营', value: 'all' }];
+  const base = [{ label: '全部势力', value: 'all' }];
   if (!project.data) return base;
   return base.concat(Object.entries(project.data.factionMeta).map(([value, meta]) => ({ label: meta.name, value })));
 });

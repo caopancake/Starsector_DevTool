@@ -2,10 +2,13 @@
   <div class="modal-backdrop">
     <div class="projectile-window">
       <header class="editor-header">
-        <strong>弹丸编辑器: {{ projectileId }}</strong>
+        <div class="editor-title">
+          <strong>弹丸编辑器</strong>
+          <span>{{ projectileId }}</span>
+        </div>
       </header>
       <div class="projectile-body">
-        <n-collapse default-expanded-names="basic">
+        <n-collapse default-expanded-names="basic" :theme-overrides="editorCollapseTheme">
           <n-collapse-item title="基础属性" name="basic">
             <div class="form-grid">
               <label>id</label><n-input :value="projectileId" disabled /> <label>specClass</label
@@ -98,8 +101,10 @@
       </div>
       <footer class="editor-footer">
         <span>结构化 JSON 写回，内部字段会被后端剔除。</span>
-        <n-button @click="$emit('close')">关闭</n-button>
-        <n-button type="primary" @click="save">保存 .proj</n-button>
+        <div class="editor-footer-actions">
+          <n-button @click="$emit('close')">关闭</n-button>
+          <n-button type="primary" @click="save">保存 .proj</n-button>
+        </div>
       </footer>
     </div>
   </div>
@@ -118,6 +123,7 @@ import { normalizeProjectileSpec } from '../lib/normalize';
 import { useObjectField } from '../composables/useObjectField';
 import { useSpriteUpload } from '../composables/useSpriteUpload';
 import { toOptions as opts } from '../lib/editor-utils';
+import { editorCollapseTheme } from '../lib/editor-theme';
 
 const props = defineProps<{ modRoot: string; projectileId: string; projectile?: RowData }>();
 const emit = defineEmits<{ close: []; saved: [id: string, projectile: RowData] }>();

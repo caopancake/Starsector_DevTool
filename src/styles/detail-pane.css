@@ -4,28 +4,44 @@
   width: 280px;
   min-width: 0;
   min-height: 0;
-  padding: 14px;
+  padding: var(--space-3);
   overflow: auto;
   background: var(--color-panel-muted);
   border-left: 1px solid var(--color-border);
 }
 
 .pane-title {
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
   color: var(--color-muted);
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.detail-card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
+}
+
+.record-card {
+  gap: 10px;
 }
 
 .detail-id {
   overflow-wrap: anywhere;
   color: var(--color-primary);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
 }
 
 .detail-name {
-  margin-bottom: 12px;
   color: var(--color-text-soft);
+  font-size: 12px;
 }
 
 .detail-thumbnail {
@@ -33,10 +49,9 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 140px;
-  margin-bottom: 14px;
+  height: 126px;
   overflow: hidden;
-  background: var(--color-panel);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }
@@ -68,7 +83,12 @@
 .detail-actions {
   display: grid;
   gap: var(--space-2);
-  margin-bottom: 14px;
+}
+
+.detail-section-title {
+  color: var(--color-text-soft);
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .kv-list {
@@ -80,7 +100,7 @@
   display: grid;
   grid-template-columns: 92px 1fr;
   gap: var(--space-2);
-  padding-bottom: 4px;
+  padding: 3px 0;
   font-size: 12px;
   border-bottom: 1px solid var(--color-border);
 }
@@ -92,4 +112,23 @@
 .kv-row strong {
   overflow-wrap: anywhere;
   font-weight: 500;
+}
+
+.detail-empty {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  color: var(--color-muted);
+  background: var(--color-panel);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+}
+
+.detail-empty strong {
+  color: var(--color-text-soft);
+}
+
+.detail-empty span {
+  font-size: 12px;
+  line-height: 1.45;
 }

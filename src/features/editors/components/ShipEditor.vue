@@ -2,7 +2,10 @@
   <div class="modal-backdrop">
     <div class="editor-window">
       <header class="editor-header">
-        <strong>舰船编辑器: {{ localShip.hullName || hullId }}</strong>
+        <div class="editor-title">
+          <strong>舰船编辑器</strong>
+          <span>{{ localShip.hullName || hullId }}</span>
+        </div>
         <div class="segmented">
           <button v-for="m in modes" :key="m.value" :class="{ active: mode === m.value }" @click="setMode(m.value)">{{ m.label }}</button>
         </div>
@@ -21,8 +24,9 @@
           />
         </div>
         <aside class="editor-side">
+          <div class="inspector-title">舰船检查器</div>
           <div class="editor-scroll">
-            <n-collapse default-expanded-names="basic">
+            <n-collapse default-expanded-names="basic" :theme-overrides="editorCollapseTheme">
               <n-collapse-item title="船体属性" name="basic">
                 <div class="form-grid">
                   <label>hullId</label><n-input v-model:value="localShip.hullId" /> <label>hullName</label
@@ -164,8 +168,10 @@
       </div>
       <footer class="editor-footer">
         <span>Ctrl+Z 撤销 | Ctrl+Y 重做 | 右键拖动画布 | 滚轮缩放</span>
-        <n-button @click="$emit('close')">关闭</n-button>
-        <n-button type="primary" @click="save">保存 .ship</n-button>
+        <div class="editor-footer-actions">
+          <n-button @click="$emit('close')">关闭</n-button>
+          <n-button type="primary" @click="save">保存 .ship</n-button>
+        </div>
       </footer>
     </div>
   </div>
@@ -185,6 +191,7 @@ import { useCanvasViewport } from '../composables/useCanvasViewport';
 import { useEditorShortcuts } from '../composables/useEditorShortcuts';
 import { useSpriteUpload } from '../composables/useSpriteUpload';
 import { snapToStep, toOptions as opts } from '../lib/editor-utils';
+import { editorCollapseTheme } from '../lib/editor-theme';
 
 const props = defineProps<{ modRoot: string; hullId: string; ship: RowData; spriteData?: string; availableSprites: string[] }>();
 const emit = defineEmits<{ close: []; saved: [id: string, ship: RowData] }>();

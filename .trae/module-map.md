@@ -27,7 +27,9 @@
 - 组件不直接调用 Tauri command；通过 feature service 或 shared API adapter。
 - Store 不负责 Canvas 绘制。
 - Composable 只保留稳定复用能力，不承载具体业务编辑动作。
-- 右侧详情面板是主表格记录操作入口，表格本体专注数据展示和单元格编辑。
+- 右侧详情面板是上下文操作面板，承载记录摘要、缩略图、编辑器/预览入口和少量字段速览。
+- 表格本体专注数据展示、行选择和单元格编辑，不承载打开编辑器等重复操作列。
+- 编辑器壳层统一为 header、主编辑区、footer；舰船/武器编辑器采用画布主导 + 右侧检查器。
 - 业务 hit detection 和 drag mutation 暂留编辑器组件内。
 
 ## Backend
