@@ -21,7 +21,7 @@ interface UploadSpriteOptions {
   message: MessageLike;
   modRoot: string;
   subfolder: SpriteSubfolder;
-  onUploaded: (result: UploadResult) => void;
+  onUploaded: (result: UploadResult, dataUrl: string) => void;
 }
 
 export function useSpriteUpload() {
@@ -29,9 +29,10 @@ export function useSpriteUpload() {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
     const data = await fileToBase64(file);
+    const dataUrl = `data:image/png;base64,${data}`;
     let result = await uploadEditorSprite(options.modRoot, file.name, data, options.subfolder, false);
     if (!result.exists) {
-      options.onUploaded(result);
+      options.onUploaded(result, dataUrl);
       options.message.success('贴图已上传');
       return;
     }
@@ -42,7 +43,7 @@ export function useSpriteUpload() {
       negativeText: '取消',
       onPositiveClick: async () => {
         result = await uploadEditorSprite(options.modRoot, file.name, data, options.subfolder, true);
-        options.onUploaded(result);
+        options.onUploaded(result, dataUrl);
         options.message.success('贴图已上传');
       },
     });

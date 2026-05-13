@@ -27,7 +27,6 @@ pub fn load_json_dir(dir: &Path, ext: &str) -> Vec<Value> {
         return vec![];
     }
     WalkDir::new(dir)
-        .max_depth(1)
         .into_iter()
         .flatten()
         .filter(|entry| entry.path().extension().and_then(|s| s.to_str()) == Some(ext))
@@ -47,7 +46,7 @@ pub fn save_json_by_id(
     fs::create_dir_all(&dir)?;
     let mut target = None;
     if dir.exists() {
-        for entry in WalkDir::new(&dir).max_depth(1).into_iter().flatten() {
+        for entry in WalkDir::new(&dir).into_iter().flatten() {
             if entry.path().extension().and_then(|s| s.to_str()) != Some(ext) {
                 continue;
             }
@@ -76,7 +75,7 @@ pub fn delete_json_by_id(
     if !dir.exists() {
         return Ok(false);
     }
-    for entry in WalkDir::new(dir).max_depth(1).into_iter().flatten() {
+    for entry in WalkDir::new(dir).into_iter().flatten() {
         if entry.path().extension().and_then(|s| s.to_str()) != Some(ext) {
             continue;
         }

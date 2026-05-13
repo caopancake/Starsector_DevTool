@@ -14,6 +14,7 @@
     :mod-root="project.data.modRoot"
     :weapon-id="editors.weaponEditorId"
     :weapon="editors.weaponForEditor(project.data, tables.tables.weapons)"
+    :sprite-data="project.data.weaponSpritesData[editors.weaponEditorId]"
     :projectiles="project.data.projFiles"
     @close="editors.closeWeapon"
     @saved="onWeaponSaved"
