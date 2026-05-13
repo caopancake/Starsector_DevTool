@@ -43,8 +43,13 @@
 
 ## CSS 原则
 
-- 当前 `src/styles.css` 仍是待整理状态。
-- 全局 CSS 只应保留基础 token、窗口布局、全局 reset 和跨模块通用工具样式。
-- 模块样式后续应按页面或 feature 聚合，避免单一全局文件继续膨胀。
+- CSS 入口是 `src/styles/index.css`，不要恢复单一全局巨型样式文件。
+- `base.css` 只放全局 reset、CSS token、主题变量和滚动条基础样式。
+- `titlebar.css` 只放自定义窗口标题栏和窗口控制按钮样式。
+- `app-shell.css` 只放应用壳、左侧导航、顶部业务栏、空状态和主内容布局。
+- `tables.css`、`detail-pane.css`、`editors.css` 分别承载对应模块样式。
+- 新增样式优先放入语义匹配的 CSS 模块；只有跨模块稳定复用的 token 才进入 `base.css`。
+- 主题通过 `data-theme="light|dark"` 切换，颜色、间距、边框、阴影、圆角优先使用 token。
+- 自定义标题栏取代系统窗口栏，窗口拖动和最小化/最大化/关闭逻辑应集中在标题栏组件。
 - 不使用一整套相近色相堆叠的单调主题。
 - 禁止依赖布局副作用修 UI；优先使用明确的 grid、flex、min/max 尺寸和 overflow 规则。

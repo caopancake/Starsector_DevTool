@@ -8,6 +8,8 @@
 
 - `src/main.ts`：应用挂载入口。
 - `src/app/App.vue`：应用壳、导航栏、顶栏操作、全局编排。
+- `src/app/TitleBar.vue`：自定义窗口标题栏，集中处理主题切换和窗口控制。
+- `src/app/settings.store.ts`：应用级设置状态，当前负责主题持久化。
 - `src/app/DataTable.vue`：主数据表格视图，包含单元格编辑和 Vue ref 聚焦。
 - `src/app/DetailPane.vue`：右侧记录详情面板，包含缩略图、操作按钮、KV 列表。
 - `src/app/EditorsHost.vue`：编辑器弹窗宿主，管理舰船/武器/弹丸/预览编辑器。
@@ -18,6 +20,7 @@
 - `src/shared/api/`：Tauri API adapter。
 - `src/shared/lib/`：Starsector 通用工具、默认数据、格式转换。
 - `src/shared/types/`：前端共享类型。
+- `src/styles/`：按稳定语义拆分的 CSS 模块和主题 token。
 
 ## Frontend Boundaries
 
@@ -47,7 +50,7 @@
 
 ## Current Risk Areas
 
-- `src/styles.css` 仍集中承载大量 UI 样式，需要后续整理。
+- `src/styles/` 已拆分，但 Phase 6 仍需要继续打磨完整视觉系统。
 - `ShipEditor.vue`、`WeaponEditor.vue`、`ProjectileEditor.vue` 仍较大，但保留了业务流程聚合价值。
 - `App.vue` 仍承担主布局和弹窗编排，后续 UI 重设计时可再评估是否拆分。
 - 快捷键和右键行为尚未系统定义。

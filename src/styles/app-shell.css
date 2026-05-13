@@ -1,0 +1,111 @@
+.app-frame {
+  display: grid;
+  grid-template-rows: 42px 1fr;
+  width: 100vw;
+  height: 100vh;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 236px 1fr;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.nav-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: var(--space-4);
+  overflow: auto;
+  background: var(--color-panel-muted);
+  border-right: 1px solid var(--color-border);
+}
+
+.view-meta,
+.editor-footer span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.nav-button {
+  justify-content: space-between;
+  height: 36px;
+  border-radius: var(--radius-md);
+}
+
+.nav-button.active {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.nav-count {
+  margin-left: auto;
+  color: var(--color-muted);
+}
+
+.workspace {
+  position: relative;
+  display: grid;
+  grid-template-rows: 64px 1fr;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 12px var(--space-4);
+  background: var(--color-panel);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.view-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.empty-state {
+  display: grid;
+  gap: 14px;
+  place-content: center;
+  color: var(--color-text);
+  text-align: center;
+}
+
+.empty-state h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.content-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}

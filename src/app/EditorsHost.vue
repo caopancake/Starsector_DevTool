@@ -40,7 +40,8 @@
 </template>
 
 <script setup lang="ts">
-import { createDiscreteApi, darkTheme } from 'naive-ui';
+import { computed } from 'vue';
+import { createDiscreteApi } from 'naive-ui';
 import ShipEditor from '../features/editors/components/ShipEditor.vue';
 import WeaponEditor from '../features/editors/components/WeaponEditor.vue';
 import ProjectileEditor from '../features/editors/components/ProjectileEditor.vue';
@@ -49,14 +50,16 @@ import { useEditorsStore } from '../features/editors/editors.store';
 import { useProjectStore } from '../features/project/project.store';
 import { useTablesStore } from '../features/tables/tables.store';
 import type { RowData } from '../shared/types';
-
-const { message } = createDiscreteApi(['message'], {
-  configProviderProps: { theme: darkTheme },
-});
+import { useSettingsStore } from './settings.store';
 
 const editors = useEditorsStore();
 const project = useProjectStore();
 const tables = useTablesStore();
+const settings = useSettingsStore();
+
+const { message } = createDiscreteApi(['message'], {
+  configProviderProps: computed(() => ({ theme: settings.naiveTheme })),
+});
 
 function onShipSaved(id: string, ship: RowData) {
   editors.onShipSaved(project.data, id, ship);

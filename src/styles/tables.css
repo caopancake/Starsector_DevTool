@@ -1,0 +1,68 @@
+.table-panel {
+  position: absolute;
+  inset: 0 280px 0 0;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.data-table {
+  width: max-content;
+  min-width: 2400px;
+  font-size: 12px;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.data-table th,
+.data-table td {
+  max-width: 240px;
+  height: 30px;
+  padding: 4px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: var(--color-text-soft);
+  font-weight: 650;
+  text-align: left;
+  background: var(--color-panel);
+}
+
+.data-table tr:hover td {
+  background: var(--color-panel-muted);
+}
+
+.data-table tr.selected td {
+  background: var(--color-primary-soft);
+}
+
+.data-table td.dirty {
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+}
+
+.cell-input {
+  width: 100%;
+  height: 22px;
+  color: var(--color-text);
+  background: var(--color-panel);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.table-empty-note {
+  padding: 18px;
+  color: var(--color-warning);
+  font-size: 13px;
+}

@@ -1,68 +1,63 @@
 <template>
-  <n-config-provider :theme="darkTheme" :theme-overrides="themeOverrides">
+  <n-config-provider :theme="settings.naiveTheme" :theme-overrides="themeOverrides">
     <n-message-provider>
       <n-dialog-provider>
-        <div class="app-shell">
-          <aside class="nav-pane">
-            <div class="brand">
-              <div class="brand-mark">SD</div>
-              <div>
-                <div class="brand-title">Starsector DevTool</div>
-                <div class="brand-subtitle">{{ project.projectName }}</div>
-              </div>
-            </div>
-            <n-button block type="primary" :loading="project.loading" @click="openProject">打开 Mod 目录</n-button>
-            <div class="mod-path" :title="project.data?.modRoot">{{ project.data?.modRoot || '尚未打开项目' }}</div>
-            <n-divider />
-            <n-button
-              v-for="item in TABLE_KEYS"
-              :key="item"
-              block
-              quaternary
-              class="nav-button"
-              :class="{ active: tables.currentTab === item }"
-              @click="tables.switchTab(item, project.data)"
-            >
-              {{ MODULE_LABELS[item] }}
-              <span class="nav-count">{{ tables.rowsFor(item).length }}</span>
-            </n-button>
-          </aside>
+        <div class="app-frame" :data-theme="settings.theme">
+          <TitleBar />
+          <div class="app-shell">
+            <aside class="nav-pane">
+              <n-button block type="primary" :loading="project.loading" @click="openProject">打开 Mod 目录</n-button>
+              <n-divider />
+              <n-button
+                v-for="item in TABLE_KEYS"
+                :key="item"
+                block
+                quaternary
+                class="nav-button"
+                :class="{ active: tables.currentTab === item }"
+                @click="tables.switchTab(item, project.data)"
+              >
+                {{ MODULE_LABELS[item] }}
+                <span class="nav-count">{{ tables.rowsFor(item).length }}</span>
+              </n-button>
+            </aside>
 
-          <main class="workspace">
-            <header class="topbar">
-              <div>
-                <div class="view-title">{{ MODULE_LABELS[tables.currentTab] }}</div>
-                <div class="view-meta">{{ project.isOpen ? tables.tableInfo : '未打开项目' }}</div>
-              </div>
-              <div class="top-actions">
-                <n-input v-model:value="tables.searchText" clearable placeholder="搜索 ID / 名称" style="width: 240px" />
-                <n-select v-model:value="tables.currentFaction" :options="factionOptions" placeholder="阵营" style="width: 180px" />
-                <n-button :disabled="!project.data" @click="addNewRow">新建</n-button>
-                <n-button type="error" ghost :disabled="!tables.selectedRowId" @click="confirmDelete">删除</n-button>
-                <n-button :disabled="!tables.hasChanges" @click="revertChanges">撤销修改</n-button>
-                <n-button
-                  type="primary"
-                  :loading="tables.saving"
-                  :disabled="!tables.hasChanges"
-                  @pointerdown.prevent="saveChanges"
-                  @click.prevent
-                >
-                  保存 CSV
-                </n-button>
-              </div>
-            </header>
+            <main class="workspace">
+              <header class="topbar">
+                <div>
+                  <div class="view-title">{{ MODULE_LABELS[tables.currentTab] }}</div>
+                  <div class="view-meta">{{ project.isOpen ? tables.tableInfo : '未打开项目' }}</div>
+                </div>
+                <div class="top-actions">
+                  <n-input v-model:value="tables.searchText" clearable placeholder="搜索 ID / 名称" style="width: 240px" />
+                  <n-select v-model:value="tables.currentFaction" :options="factionOptions" placeholder="阵营" style="width: 180px" />
+                  <n-button :disabled="!project.data" @click="addNewRow">新建</n-button>
+                  <n-button type="error" ghost :disabled="!tables.selectedRowId" @click="confirmDelete">删除</n-button>
+                  <n-button :disabled="!tables.hasChanges" @click="revertChanges">撤销修改</n-button>
+                  <n-button
+                    type="primary"
+                    :loading="tables.saving"
+                    :disabled="!tables.hasChanges"
+                    @pointerdown.prevent="saveChanges"
+                    @click.prevent
+                  >
+                    保存 CSV
+                  </n-button>
+                </div>
+              </header>
 
-            <section v-if="!project.data" class="empty-state">
-              <h1>选择一个 Starsector Mod 目录</h1>
-              <p>工具会读取 data、graphics 和 mod_info.json，并在本地原位写回配置文件。</p>
-              <n-button type="primary" size="large" @click="openProject">打开目录</n-button>
-            </section>
+              <section v-if="!project.data" class="empty-state">
+                <h1>选择一个 Starsector Mod 目录</h1>
+                <p>工具会读取 data、graphics 和 mod_info.json，并在本地原位写回配置文件。</p>
+                <n-button type="primary" size="large" @click="openProject">打开 Mod 目录</n-button>
+              </section>
 
-            <section v-else class="content-grid">
-              <DataTable />
-              <DetailPane @open-ship="openShip" />
-            </section>
-          </main>
+              <section v-else class="content-grid">
+                <DataTable />
+                <DetailPane @open-ship="openShip" />
+              </section>
+            </main>
+          </div>
         </div>
 
         <EditorsHost />
@@ -73,30 +68,31 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { createDiscreteApi, darkTheme, type GlobalThemeOverrides } from 'naive-ui';
+import { createDiscreteApi, type GlobalThemeOverrides } from 'naive-ui';
 import DataTable from './DataTable.vue';
 import DetailPane from './DetailPane.vue';
 import EditorsHost from './EditorsHost.vue';
+import TitleBar from './TitleBar.vue';
+import { useSettingsStore } from './settings.store';
 import { useEditorsStore } from '../features/editors/editors.store';
 import { useProjectStore } from '../features/project/project.store';
 import { MODULE_LABELS, TABLE_KEYS, useTablesStore } from '../features/tables/tables.store';
 import { formatError } from '../shared/lib/errors';
 
-const { message, dialog } = createDiscreteApi(['message', 'dialog'], {
-  configProviderProps: { theme: darkTheme },
-});
-
 const project = useProjectStore();
 const tables = useTablesStore();
 const editors = useEditorsStore();
+const settings = useSettingsStore();
+
+const { message, dialog } = createDiscreteApi(['message', 'dialog'], {
+  configProviderProps: computed(() => ({ theme: settings.naiveTheme })),
+});
 
 const themeOverrides: GlobalThemeOverrides = {
   common: {
-    primaryColor: '#f59e0b',
-    primaryColorHover: '#fbbf24',
-    primaryColorPressed: '#d97706',
-    bodyColor: '#08111f',
-    cardColor: '#101827',
+    primaryColor: '#2563eb',
+    primaryColorHover: '#1d4ed8',
+    primaryColorPressed: '#1e40af',
   },
 };
 
