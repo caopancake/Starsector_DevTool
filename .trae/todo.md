@@ -59,11 +59,11 @@
 
 ## Phase 7: 重新梳理项目链路/确认板块
 
-- [ ] 确认应用内模块分块是否合理：project、tables、editors、preview。
-- [ ] 确认弹窗、抽屉、右侧详情面板之间的职责边界。
-- [ ] 梳理打开项目、切换表、选择记录、打开编辑器、保存的完整链路。
-- [ ] 确认 store、service、component、composable 是否仍符合稳定语义。
-- [ ] 删除或合并不再提供维护价值的中间层。
+- [x] 确认应用内模块分块是否合理：project、tables、editors、preview。
+- [x] 确认弹窗、抽屉、右侧详情面板之间的职责边界。
+- [x] 梳理打开项目、切换表、选择记录、打开编辑器、保存的完整链路。
+- [x] 确认 store、service、component、composable 是否仍符合稳定语义。
+- [x] 删除或合并不再提供维护价值的中间层。
 
 ## Phase 8: 建立完整修改链路和全局历史
 

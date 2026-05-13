@@ -37,10 +37,6 @@ export function saveShip(modRoot: string, id: string, data: RowData): Promise<st
   return invoke('save_ship', { payload: { modRoot, id, data } });
 }
 
-export function deleteShip(modRoot: string, id: string): Promise<boolean> {
-  return invoke('delete_ship', { payload: { modRoot, id } });
-}
-
 export function saveWeapon(modRoot: string, id: string, data: RowData): Promise<string> {
   return invoke('save_wpn', { payload: { modRoot, id, data } });
 }

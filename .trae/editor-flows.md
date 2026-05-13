@@ -13,6 +13,19 @@
 7. Rust `src-tauri/src/commands/` 接收 payload，转交 `src-tauri/src/services/`。
 8. Rust service 组合 parser、filesystem 和 models 执行读写。
 
+## Project Open Flow
+
+- 入口：`App.vue` 的“打开 Mod 目录”按钮。
+- 前端状态：`src/features/project/project.store.ts` 管理 `data`、`loading`、`projectName` 和 `isOpen`。
+- 前端服务：`src/features/project/project.service.ts`
+- 目录选择：`pickModRoot()` 调用 Tauri dialog 插件。
+- 数据加载：`loadProject()` 调用 shared API adapter 的 `loadModData()`。
+- Tauri command：`load_mod_data`
+- Rust service：项目加载 service 负责扫描 mod、读取 CSV/spec/sprite 和装配 `AppData`。
+- 保存边界：打开项目只加载数据，不写入任何 mod 文件。
+
+`project.store.ts` 不直接调用 Tauri command 或 Tauri 插件；project feature service 是项目打开链路的边界。
+
 ## CSV Table Flow
 
 - 前端状态：`src/features/tables/tables.store.ts`
@@ -114,6 +127,15 @@ Projectile 当前没有主表格记录的新建/删除链路；它跟随武器 s
 - 宿主：`EditorsHost.vue` 挂载 `BallisticPreview.vue`。
 - 数据来源：`tables.tables.weapons`、`project.data.wpnFiles`、`project.data.projFiles`。
 - 文件写入：无。预览只读当前内存数据。
+- 模块归属：preview 当前是 `editors` feature 的只读子能力，不单独拆 feature。
+
+## Surface Boundaries
+
+- 右侧详情面板：上下文摘要和操作入口，不承载复杂编辑。
+- Modal 弹窗：舰船、武器、弹丸等复杂编辑和弹道预览。
+- 抽屉：当前不引入；未来若出现轻量编辑场景，应先定义和 modal 的分工。
+- `EditorsHost.vue`：集中挂载编辑器/预览弹窗，并处理 spec 保存成功后的提示。
+- 失败提示：具体编辑器本地 catch 并展示，保持错误上下文贴近操作来源。
 
 ## Wing Flow
 
@@ -161,3 +183,4 @@ Projectile 当前没有主表格记录的新建/删除链路；它跟随武器 s
 - 联队的 `.variant` 关系未进入创建/删除一致性链路。
 - 弹丸没有独立主表格，新建/删除入口尚未系统化。
 - CSV 与 `.ship/.wpn` 字段暂不自动联动；后续实现前必须先定义字段映射、冲突优先级、保存时机和失败处理。
+- 全局 undo/redo、快捷键和右键菜单分别留给 Phase 8、Phase 9 和 Phase 10。

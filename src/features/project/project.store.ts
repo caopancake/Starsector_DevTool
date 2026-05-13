@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import { open } from '@tauri-apps/plugin-dialog';
-import { loadModData } from '../../shared/api/tauri';
 import type { AppData } from '../../shared/types';
 import { cell } from '../../shared/lib/starsector';
+import { loadProject, pickModRoot } from './project.service';
 
 export const useProjectStore = defineStore('project', () => {
   const data = ref<AppData | null>(null);
@@ -13,15 +12,15 @@ export const useProjectStore = defineStore('project', () => {
   const isOpen = computed(() => data.value !== null);
 
   async function pickAndOpenProject(): Promise<AppData | null> {
-    const picked = await open({ directory: true, multiple: false, title: '选择 Starsector Mod 根目录' });
-    if (!picked || Array.isArray(picked)) return null;
-    return openProject(picked);
+    const modRoot = await pickModRoot();
+    if (!modRoot) return null;
+    return openProject(modRoot);
   }
 
   async function openProject(modRoot: string): Promise<AppData> {
     loading.value = true;
     try {
-      const loaded = await loadModData(modRoot);
+      const loaded = await loadProject(modRoot);
       data.value = loaded;
       return loaded;
     } finally {
