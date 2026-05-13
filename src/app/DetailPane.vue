@@ -31,9 +31,7 @@
       </div>
       <div class="detail-actions">
         <n-button v-if="tables.currentTab === 'ships'" block @click="$emit('open-ship', rowId(tables.selectedRow))">舰船编辑器</n-button>
-        <n-button v-if="tables.currentTab === 'weapons'" block @click="editors.openWeapon(rowId(tables.selectedRow))"
-          >武器编辑器</n-button
-        >
+        <n-button v-if="tables.currentTab === 'weapons'" block @click="editors.openWeapon(rowId(tables.selectedRow))">武器编辑器</n-button>
         <n-button v-if="tables.currentTab === 'weapons'" block tertiary @click="editors.openPreview(rowId(tables.selectedRow))"
           >弹道预览</n-button
         >

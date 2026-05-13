@@ -63,3 +63,5 @@ src-tauri\target\release\starsector-devtool.exe
 - 前端改动：运行 `format:check`、`lint`、`typecheck`、`encoding:check`。
 - 后端改动：运行 Rust test、clippy、fmt check。
 - 跨前后端改动：前端和后端验证都要跑。
+- Rust `clippy` 目标是零 warning
+- Prettier 目标是零 error 零 warn

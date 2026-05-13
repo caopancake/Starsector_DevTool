@@ -1,13 +1,23 @@
 import { defineStore } from 'pinia';
 import { computed, reactive, ref } from 'vue';
 import type { AppData, RowData, TableKey } from '../../shared/types';
-import { cell, deepClone, defaultShip, getColumns, MODULE_LABELS, rowId } from '../../shared/lib/starsector';
-import { createShipSpec, createTableRow, removeShipSpec, removeTableRow, saveTableRows } from './table.service';
+import { cell, deepClone, defaultShip, defaultWeapon, getColumns, MODULE_LABELS, rowId } from '../../shared/lib/starsector';
+import {
+  createShipRecord,
+  createTableRow,
+  createWeaponRecord,
+  removeShipRecord,
+  removeTableRow,
+  removeWeaponRecord,
+  saveTableRows,
+} from './table.service';
 
 type DirtyState = Record<TableKey, Record<string, Record<string, string>>>;
-type EditingCell = { tab: TableKey; id: string; col: string; value: string } | null;
+type EditingCell = { tab: TableKey; rowKey: string; col: string; value: string } | null;
 
 export const TABLE_KEYS: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'industries'];
+const ROW_KEY_FIELD = '_rowKey';
+let nextRowKey = 0;
 
 export const useTablesStore = defineStore('tables', () => {
   const tables = reactive<Record<TableKey, RowData[]>>({ ships: [], weapons: [], wings: [], hullmods: [], industries: [] });
@@ -57,6 +67,7 @@ export const useTablesStore = defineStore('tables', () => {
   function hydrate(appData: AppData) {
     for (const key of TABLE_KEYS) {
       tables[key] = deepClone(appData[key] as RowData[]);
+      assignRowKeys(key, tables[key]);
       originalTables[key] = deepClone(tables[key]);
       dirty[key] = {};
     }
@@ -86,6 +97,8 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   function tableRowKey(row: RowData, index: number): string {
+    const existingKey = cell(row[ROW_KEY_FIELD]);
+    if (existingKey) return existingKey;
     const id = rowId(row);
     return id ? `${currentTab.value}:id:${id}` : `${currentTab.value}:row:${index}`;
   }
@@ -99,31 +112,31 @@ export const useTablesStore = defineStore('tables', () => {
     selectedRowKey.value = rowSelectionKey(row);
   }
 
-  function isDirty(id: string, col: string): boolean {
-    return dirty[currentTab.value][id]?.[col] !== undefined;
+  function isDirty(rowKey: string, col: string): boolean {
+    return dirty[currentTab.value][rowKey]?.[col] !== undefined;
   }
 
   function startCellEdit(row: RowData, col: string) {
-    editing.value = { tab: currentTab.value, id: rowId(row), col, value: cell(row[col]) };
+    editing.value = { tab: currentTab.value, rowKey: rowSelectionKey(row), col, value: cell(row[col]) };
   }
 
   function finishCellEdit() {
     if (!editing.value) return;
-    const { tab, id, col, value } = editing.value;
-    const row = rowsFor(tab).find((candidate) => rowId(candidate) === id);
+    const { tab, rowKey, col, value } = editing.value;
+    const row = rowsFor(tab).find((candidate, index) => tableRowKeyForTab(tab, candidate, index) === rowKey);
     if (!row) {
       editing.value = null;
       return;
     }
     row[col] = value;
-    const original = originalTables[tab].find((candidate) => rowId(candidate) === id);
+    const original = originalTables[tab].find((candidate, index) => tableRowKeyForTab(tab, candidate, index) === rowKey);
     const originalValue = cell(original?.[col]);
     if (value !== originalValue) {
-      dirty[tab][id] ||= {};
-      dirty[tab][id][col] = value;
-    } else if (dirty[tab][id]) {
-      delete dirty[tab][id][col];
-      if (Object.keys(dirty[tab][id]).length === 0) delete dirty[tab][id];
+      dirty[tab][rowKey] ||= {};
+      dirty[tab][rowKey][col] = value;
+    } else if (dirty[tab][rowKey]) {
+      delete dirty[tab][rowKey][col];
+      if (Object.keys(dirty[tab][rowKey]).length === 0) delete dirty[tab][rowKey];
     }
     editing.value = null;
   }
@@ -168,16 +181,22 @@ export const useTablesStore = defineStore('tables', () => {
     if ('name' in row) row.name = id;
     row._faction = 'other';
 
-    // Backend first — throws on failure, no frontend mutation yet
-    await createTableRow(appData.modRoot, tab, header, row);
+    // Backend first - throws on failure, no frontend mutation yet
     if (tab === 'ships') {
       const ship = defaultShip(id);
-      await createShipSpec(appData.modRoot, id, ship);
+      await createShipRecord(appData.modRoot, header, row, ship);
       appData.shipFiles[id] = ship;
+    } else if (tab === 'weapons') {
+      const weapon = defaultWeapon(id, row);
+      await createWeaponRecord(appData.modRoot, header, row, weapon);
+      appData.wpnFiles[id] = weapon;
+    } else {
+      await createTableRow(appData.modRoot, tab, header, row);
     }
 
-    // Backend succeeded — commit to frontend
+    // Backend succeeded - commit to frontend
     rowsFor(tab).push(row);
+    assignRowKey(tab, row);
     originalTables[tab].push(deepClone(row));
     selectedRowKey.value = rowSelectionKey(row);
   }
@@ -187,19 +206,43 @@ export const useTablesStore = defineStore('tables', () => {
     const id = selectedRowId.value;
     if (!id) return;
 
-    // Backend first — throws on failure, no frontend mutation yet
-    await removeTableRow(appData.modRoot, tab, id);
+    // Backend first - throws on failure, no frontend mutation yet
     if (tab === 'ships') {
-      await removeShipSpec(appData.modRoot, id);
+      await removeShipRecord(appData.modRoot, id);
       delete appData.shipFiles[id];
       delete appData.shipSprites[id];
+    } else if (tab === 'weapons') {
+      await removeWeaponRecord(appData.modRoot, id);
+      delete appData.wpnFiles[id];
+    } else {
+      await removeTableRow(appData.modRoot, tab, id);
     }
 
-    // Backend succeeded — commit to frontend
+    // Backend succeeded - commit to frontend
     tables[tab] = rowsFor(tab).filter((row) => rowId(row) !== id);
     originalTables[tab] = originalTables[tab].filter((row) => rowId(row) !== id);
     delete dirty[tab][id];
+    delete dirty[tab][selectedRowKey.value];
     selectedRowKey.value = '';
+  }
+
+  function assignRowKeys(tab: TableKey, list: RowData[]) {
+    for (const row of list) {
+      assignRowKey(tab, row);
+    }
+  }
+
+  function assignRowKey(tab: TableKey, row: RowData) {
+    if (!cell(row[ROW_KEY_FIELD])) {
+      row[ROW_KEY_FIELD] = `${tab}:rowKey:${nextRowKey++}`;
+    }
+  }
+
+  function tableRowKeyForTab(tab: TableKey, row: RowData, index: number): string {
+    const existingKey = cell(row[ROW_KEY_FIELD]);
+    if (existingKey) return existingKey;
+    const id = rowId(row);
+    return id ? `${tab}:id:${id}` : `${tab}:row:${index}`;
   }
 
   return {

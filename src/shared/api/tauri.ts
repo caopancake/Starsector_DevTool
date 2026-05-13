@@ -10,11 +10,27 @@ export function saveCsv(modRoot: string, table: TableKey, header: string[], rows
 }
 
 export function addCsvRow(modRoot: string, table: TableKey, header: string[], row: RowData): Promise<void> {
-  return invoke('add_csv_row', { payload: { modRoot, table, header, rows: [row] } });
+  return invoke('add_csv_row', { payload: { modRoot, table, header, row } });
 }
 
 export function deleteCsvRow(modRoot: string, table: TableKey, id: string): Promise<void> {
   return invoke('delete_csv_row', { payload: { modRoot, table, id } });
+}
+
+export function addShipRow(modRoot: string, header: string[], row: RowData, ship: RowData): Promise<void> {
+  return invoke('add_ship_row', { payload: { modRoot, header, row, ship } });
+}
+
+export function deleteShipRow(modRoot: string, id: string): Promise<void> {
+  return invoke('delete_ship_row', { payload: { modRoot, id } });
+}
+
+export function addWeaponRow(modRoot: string, header: string[], row: RowData, weapon: RowData): Promise<void> {
+  return invoke('add_weapon_row', { payload: { modRoot, header, row, weapon } });
+}
+
+export function deleteWeaponRow(modRoot: string, id: string): Promise<void> {
+  return invoke('delete_weapon_row', { payload: { modRoot, id } });
 }
 
 export function saveShip(modRoot: string, id: string, data: RowData): Promise<string> {

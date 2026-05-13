@@ -12,6 +12,33 @@ pub struct SaveCsvPayload {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AddCsvRowPayload {
+    pub mod_root: String,
+    pub table: String,
+    pub header: Vec<String>,
+    pub row: Map<String, Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddShipRowPayload {
+    pub mod_root: String,
+    pub header: Vec<String>,
+    pub row: Map<String, Value>,
+    pub ship: Value,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddWeaponRowPayload {
+    pub mod_root: String,
+    pub header: Vec<String>,
+    pub row: Map<String, Value>,
+    pub weapon: Value,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SaveJsonPayload {
     pub mod_root: String,
     pub id: String,

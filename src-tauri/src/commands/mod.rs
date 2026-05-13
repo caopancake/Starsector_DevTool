@@ -1,8 +1,8 @@
 use crate::{
     filesystem,
     models::{
-        AppData, DeletePayload, SaveCsvPayload, SaveJsonPayload, UploadSpritePayload,
-        UploadSpriteResult,
+        AddCsvRowPayload, AddShipRowPayload, AddWeaponRowPayload, AppData, DeletePayload,
+        SaveCsvPayload, SaveJsonPayload, UploadSpritePayload, UploadSpriteResult,
     },
     services,
 };
@@ -19,7 +19,7 @@ pub fn save_csv(payload: SaveCsvPayload) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn add_csv_row(payload: SaveCsvPayload) -> Result<(), String> {
+pub fn add_csv_row(payload: AddCsvRowPayload) -> Result<(), String> {
     services::add_csv_row(payload).map_err(|e| e.to_string())
 }
 
@@ -27,6 +27,26 @@ pub fn add_csv_row(payload: SaveCsvPayload) -> Result<(), String> {
 pub fn delete_csv_row(payload: DeletePayload) -> Result<(), String> {
     let table = payload.table.ok_or_else(|| "missing table".to_string())?;
     services::delete_csv_row(&payload.mod_root, &table, &payload.id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn add_ship_row(payload: AddShipRowPayload) -> Result<(), String> {
+    services::add_ship_row(payload).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_ship_row(payload: DeletePayload) -> Result<(), String> {
+    services::delete_ship_row(&payload.mod_root, &payload.id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn add_weapon_row(payload: AddWeaponRowPayload) -> Result<(), String> {
+    services::add_weapon_row(payload).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_weapon_row(payload: DeletePayload) -> Result<(), String> {
+    services::delete_weapon_row(&payload.mod_root, &payload.id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

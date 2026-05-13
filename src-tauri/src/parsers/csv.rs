@@ -1,6 +1,6 @@
 use crate::{errors::AppResult, filesystem::read_utf8_no_bom, models::CsvTable};
 use serde_json::{Map, Value};
-use std::{fs, io::Write, path::Path};
+use std::{fs, path::Path};
 
 pub fn read_csv_data(path: &Path) -> AppResult<CsvTable> {
     if !path.exists() {
@@ -77,26 +77,16 @@ pub fn save_csv_file(path: &Path, header: &[String], rows: &[Map<String, Value>]
     Ok(())
 }
 
-pub fn append_csv_row(path: &Path, row: &Map<String, Value>) -> AppResult<()> {
+pub fn append_csv_row(path: &Path, header: &[String], row: &Map<String, Value>) -> AppResult<()> {
     let table = read_csv_data(path)?;
-    let mut file = fs::OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(path)?;
-    let mut wtr = csv::WriterBuilder::new()
-        .has_headers(false)
-        .from_writer(vec![]);
-    let values: Vec<String> = table
-        .header
-        .iter()
-        .map(|h| value_to_cell(row.get(h).unwrap_or(&Value::Null)))
-        .collect();
-    wtr.write_record(values)?;
-    let bytes = wtr
-        .into_inner()
-        .map_err(|e| crate::errors::AppError::message(e.to_string()))?;
-    file.write_all(&bytes)?;
-    Ok(())
+    let next_header = if table.header.is_empty() {
+        header.to_vec()
+    } else {
+        table.header
+    };
+    let mut rows = table.rows;
+    rows.push(row.clone());
+    save_csv_file(path, &next_header, &rows)
 }
 
 pub fn delete_csv_id(path: &Path, id: &str) -> AppResult<()> {
@@ -242,8 +232,23 @@ mod tests {
         let mut row = Map::new();
         row.insert("id".to_string(), Value::String("x".to_string()));
         row.insert("name".to_string(), Value::String("X".to_string()));
-        append_csv_row(&path, &row).unwrap();
+        let header = vec!["id".to_string(), "name".to_string()];
+        append_csv_row(&path, &header, &row).unwrap();
         let out = read_utf8_no_bom(&path).unwrap();
+        assert!(out.contains("x,X"));
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn append_row_creates_table_with_header() {
+        let path = temp_path("csv_append_missing.csv");
+        let header = vec!["id".to_string(), "name".to_string()];
+        let mut row = Map::new();
+        row.insert("id".to_string(), Value::String("x".to_string()));
+        row.insert("name".to_string(), Value::String("X".to_string()));
+        append_csv_row(&path, &header, &row).unwrap();
+        let out = read_utf8_no_bom(&path).unwrap();
+        assert!(out.lines().next().is_some_and(|line| line == "id,name"));
         assert!(out.contains("x,X"));
         let _ = fs::remove_file(path);
     }

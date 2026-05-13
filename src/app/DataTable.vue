@@ -16,12 +16,14 @@
           <td
             v-for="col in tables.visibleColumns"
             :key="col"
-            :class="{ dirty: tables.isDirty(rowId(row), col) }"
+            :class="{ dirty: tables.isDirty(tables.rowSelectionKey(row), col) }"
             @dblclick.stop="startCellEdit(row, col)"
           >
             <input
               v-if="
-                tables.editing?.tab === tables.currentTab && tables.editing?.id === rowId(row) && tables.editing?.col === col
+                tables.editing?.tab === tables.currentTab &&
+                tables.editing?.rowKey === tables.rowSelectionKey(row) &&
+                tables.editing?.col === col
               "
               ref="cellInputRef"
               v-model="tables.editing.value"
@@ -48,7 +50,7 @@
 import { nextTick, ref } from 'vue';
 import { useTablesStore } from '../features/tables/tables.store';
 import type { RowData } from '../shared/types';
-import { cell, rowId } from '../shared/lib/starsector';
+import { cell } from '../shared/lib/starsector';
 
 const tables = useTablesStore();
 const cellInputRef = ref<HTMLInputElement[]>();

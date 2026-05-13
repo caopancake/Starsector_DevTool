@@ -18,6 +18,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
    - `.trae/frontend-guidelines.md`
    - `.trae/backend-guidelines.md`
    - `.trae/module-map.md`
+   - `.trae/editor-flows.md`
 5. 任务文档：
    - `.trae/todo.md`
    - `.trae/specs/`
@@ -27,6 +28,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 - 修改前先读对应文档，修改后同步更新相关文档
 - Rust / Vue 改动都要保持构建可过
 - Rust `clippy` 目标是零 warning
+- Prettier 目标是零 error 零 warn
 - 禁止对 TS / Vue 做全局正则替换
 - 禁止全文重写既有 `.md` 文档，只允许逐条增删改；除非用户明确要求整份重写
 - 禁止破坏性命令，除非用户明确要求
@@ -69,6 +71,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 - 前端改动看 `.trae/frontend-guidelines.md`
 - 后端改动看 `.trae/backend-guidelines.md`
 - 模块边界调整看 `.trae/module-map.md`
+- 舰船、武器、联队等编辑链路看 `.trae/editor-flows.md`
 - 后续阶段看 `.trae/todo.md`
 
 ## 关键提醒
