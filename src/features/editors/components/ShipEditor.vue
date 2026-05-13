@@ -496,8 +496,10 @@ async function uploadShipSprite(event: Event) {
     message,
     modRoot: props.modRoot,
     subfolder: 'ships',
-    onUploaded: (result) => {
+    onUploaded: (result, dataUrl) => {
       localShip.value.spriteName = result.path;
+      img.src = dataUrl;
+      img.onload = () => draw();
     },
   });
 }

@@ -155,7 +155,7 @@ import { useObjectField } from '../composables/useObjectField';
 import { useSpriteUpload } from '../composables/useSpriteUpload';
 import { snapToStep, toOptions as opts } from '../lib/editor-utils';
 
-const props = defineProps<{ modRoot: string; weaponId: string; weapon: RowData; projectiles: Record<string, RowData> }>();
+const props = defineProps<{ modRoot: string; weaponId: string; weapon: RowData; spriteData?: string; projectiles: Record<string, RowData> }>();
 const emit = defineEmits<{ close: []; saved: [id: string, weapon: RowData]; editProjectile: [id: string]; preview: [id: string] }>();
 const message = useMessage();
 const dialog = useDialog();
@@ -255,7 +255,8 @@ function currentSpriteField() {
   return viewMode.value === 'turret' ? 'turretSprite' : 'hardpointSprite';
 }
 function loadSprite() {
-  img.src = '';
+  img.src = props.spriteData || '';
+  if (str(localWeapon.value[currentSpriteField()]) && !props.spriteData) img.src = '';
   draw();
 }
 function draw() {
@@ -377,8 +378,10 @@ async function uploadCurrentSprite(event: Event) {
     message,
     modRoot: props.modRoot,
     subfolder: 'weapons',
-    onUploaded: (result) => {
+    onUploaded: (result, dataUrl) => {
       localWeapon.value[currentSpriteField()] = result.path;
+      img.src = dataUrl;
+      img.onload = () => draw();
     },
   });
 }
@@ -389,6 +392,12 @@ async function save() {
 watch(localWeapon, draw, { deep: true });
 onMounted(() => {
   window.addEventListener('resize', resizeCanvas);
+  if (props.spriteData) {
+    img.src = props.spriteData;
+    img.onload = () => {
+      draw();
+    };
+  }
   nextTick(resizeCanvas);
 });
 onUnmounted(() => {

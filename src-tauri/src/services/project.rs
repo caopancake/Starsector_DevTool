@@ -88,6 +88,8 @@ pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
         let sprite_path = value
             .get("turretSprite")
             .or_else(|| value.get("hardpointSprite"))
+            .or_else(|| value.get("turretGunSprite"))
+            .or_else(|| value.get("hardpointGunSprite"))
             .and_then(Value::as_str);
         if let Some(sprite) = sprite_path {
             let path = mod_root.join(sprite.replace('\\', "/"));
