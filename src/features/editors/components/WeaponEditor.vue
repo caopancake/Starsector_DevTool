@@ -132,7 +132,7 @@
       <footer class="editor-footer">
         <span>Ctrl+Z 撤销 | Ctrl+Y 重做 | 右键拖动画布</span>
         <n-button @click="$emit('close')">关闭</n-button>
-        <n-button type="primary" @click="save">保存</n-button>
+        <n-button type="primary" @click="save">保存 .wpn</n-button>
       </footer>
     </div>
   </div>
@@ -146,6 +146,7 @@ import ObjectEditor from './common/ObjectEditor.vue';
 import { saveWeaponSpec } from '../editor.service';
 import type { RowData } from '../../../shared/types';
 import { arr, str } from '../../../shared/lib/starsector';
+import { formatError } from '../../../shared/lib/errors';
 import { normalizeWeaponSpec } from '../lib/normalize';
 import { useCanvasDrawing } from '../composables/useCanvasDrawing';
 import { useCanvasViewport } from '../composables/useCanvasViewport';
@@ -155,7 +156,13 @@ import { useObjectField } from '../composables/useObjectField';
 import { useSpriteUpload } from '../composables/useSpriteUpload';
 import { snapToStep, toOptions as opts } from '../lib/editor-utils';
 
-const props = defineProps<{ modRoot: string; weaponId: string; weapon: RowData; spriteData?: string; projectiles: Record<string, RowData> }>();
+const props = defineProps<{
+  modRoot: string;
+  weaponId: string;
+  weapon: RowData;
+  spriteData?: string;
+  projectiles: Record<string, RowData>;
+}>();
 const emit = defineEmits<{ close: []; saved: [id: string, weapon: RowData]; editProjectile: [id: string]; preview: [id: string] }>();
 const message = useMessage();
 const dialog = useDialog();
@@ -373,21 +380,29 @@ function deleteBarrel() {
   draw();
 }
 async function uploadCurrentSprite(event: Event) {
-  await uploadSpriteFile(event, {
-    dialog,
-    message,
-    modRoot: props.modRoot,
-    subfolder: 'weapons',
-    onUploaded: (result, dataUrl) => {
-      localWeapon.value[currentSpriteField()] = result.path;
-      img.src = dataUrl;
-      img.onload = () => draw();
-    },
-  });
+  try {
+    await uploadSpriteFile(event, {
+      dialog,
+      modRoot: props.modRoot,
+      subfolder: 'weapons',
+      onUploaded: (result, dataUrl) => {
+        localWeapon.value[currentSpriteField()] = result.path;
+        img.src = dataUrl;
+        img.onload = () => draw();
+        message.success('贴图已上传');
+      },
+    });
+  } catch (error) {
+    message.error(`上传贴图失败：${formatError(error)}`);
+  }
 }
 async function save() {
-  await saveWeaponSpec(props.modRoot, props.weaponId, localWeapon.value);
-  emit('saved', props.weaponId, localWeapon.value);
+  try {
+    await saveWeaponSpec(props.modRoot, props.weaponId, localWeapon.value);
+    emit('saved', props.weaponId, localWeapon.value);
+  } catch (error) {
+    message.error(formatError(error));
+  }
 }
 watch(localWeapon, draw, { deep: true });
 onMounted(() => {

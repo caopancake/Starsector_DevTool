@@ -47,7 +47,7 @@
                   @pointerdown.prevent="saveChanges"
                   @click.prevent
                 >
-                  保存
+                  保存 CSV
                 </n-button>
               </div>
             </header>
@@ -80,6 +80,7 @@ import EditorsHost from './EditorsHost.vue';
 import { useEditorsStore } from '../features/editors/editors.store';
 import { useProjectStore } from '../features/project/project.store';
 import { MODULE_LABELS, TABLE_KEYS, useTablesStore } from '../features/tables/tables.store';
+import { formatError } from '../shared/lib/errors';
 
 const { message, dialog } = createDiscreteApi(['message', 'dialog'], {
   configProviderProps: { theme: darkTheme },
@@ -112,7 +113,7 @@ async function openProject() {
     tables.hydrate(loaded);
     message.success('项目已打开');
   } catch (err) {
-    message.error(String(err));
+    message.error(formatError(err));
   }
 }
 
@@ -121,7 +122,7 @@ async function saveChanges() {
     const result = await tables.saveChanges(project.data);
     message[result === 'saved' ? 'success' : 'info'](result === 'saved' ? '已保存 CSV 修改' : '没有需要保存的修改');
   } catch (err) {
-    message.error(`保存失败：${String(err)}`);
+    message.error(formatError(err));
   }
 }
 
@@ -136,7 +137,7 @@ async function addNewRow() {
     await tables.addNewRow(project.data);
     message.success(`已新建 ${tables.selectedRowId}`);
   } catch (err) {
-    message.error(`新建失败：${String(err)}`);
+    message.error(formatError(err));
   }
 }
 
@@ -153,7 +154,7 @@ function confirmDelete() {
         await tables.deleteSelected(project.data!);
         message.success('已删除');
       } catch (err) {
-        message.error(`删除失败：${String(err)}`);
+        message.error(formatError(err));
       }
     },
   });

@@ -165,7 +165,7 @@
       <footer class="editor-footer">
         <span>Ctrl+Z 撤销 | Ctrl+Y 重做 | 右键拖动画布 | 滚轮缩放</span>
         <n-button @click="$emit('close')">关闭</n-button>
-        <n-button type="primary" @click="save">保存</n-button>
+        <n-button type="primary" @click="save">保存 .ship</n-button>
       </footer>
     </div>
   </div>
@@ -177,6 +177,7 @@ import { useDialog, useMessage } from 'naive-ui';
 import { saveShipSpec } from '../editor.service';
 import type { RowData } from '../../../shared/types';
 import { arr, num, SLOT_RADIUS, str, WEAPON_COLORS } from '../../../shared/lib/starsector';
+import { formatError } from '../../../shared/lib/errors';
 import { normalizeShipSpec } from '../lib/normalize';
 import { useHistory } from '../composables/useHistory';
 import { useCanvasDrawing } from '../composables/useCanvasDrawing';
@@ -491,21 +492,29 @@ function applyBuiltInWeapons() {
   }
 }
 async function uploadShipSprite(event: Event) {
-  await uploadSpriteFile(event, {
-    dialog,
-    message,
-    modRoot: props.modRoot,
-    subfolder: 'ships',
-    onUploaded: (result, dataUrl) => {
-      localShip.value.spriteName = result.path;
-      img.src = dataUrl;
-      img.onload = () => draw();
-    },
-  });
+  try {
+    await uploadSpriteFile(event, {
+      dialog,
+      modRoot: props.modRoot,
+      subfolder: 'ships',
+      onUploaded: (result, dataUrl) => {
+        localShip.value.spriteName = result.path;
+        img.src = dataUrl;
+        img.onload = () => draw();
+        message.success('贴图已上传');
+      },
+    });
+  } catch (error) {
+    message.error(`上传贴图失败：${formatError(error)}`);
+  }
 }
 async function save() {
-  await saveShipSpec(props.modRoot, props.hullId, localShip.value);
-  emit('saved', props.hullId, localShip.value);
+  try {
+    await saveShipSpec(props.modRoot, props.hullId, localShip.value);
+    emit('saved', props.hullId, localShip.value);
+  } catch (error) {
+    message.error(formatError(error));
+  }
 }
 watch(localShip, draw, { deep: true });
 onMounted(() => {

@@ -99,7 +99,7 @@
       <footer class="editor-footer">
         <span>结构化 JSON 写回，内部字段会被后端剔除。</span>
         <n-button @click="$emit('close')">关闭</n-button>
-        <n-button type="primary" @click="save">保存</n-button>
+        <n-button type="primary" @click="save">保存 .proj</n-button>
       </footer>
     </div>
   </div>
@@ -113,6 +113,7 @@ import ObjectEditor from './common/ObjectEditor.vue';
 import { saveProjectileSpec } from '../editor.service';
 import type { RowData } from '../../../shared/types';
 import { arr, str } from '../../../shared/lib/starsector';
+import { formatError } from '../../../shared/lib/errors';
 import { normalizeProjectileSpec } from '../lib/normalize';
 import { useObjectField } from '../composables/useObjectField';
 import { useSpriteUpload } from '../composables/useSpriteUpload';
@@ -168,18 +169,26 @@ function applyGeneric() {
   }
 }
 async function uploadSpriteFile(field: string, event: Event) {
-  await uploadSpriteInput(event, {
-    dialog,
-    message,
-    modRoot: props.modRoot,
-    subfolder: 'missiles',
-    onUploaded: (result) => {
-      localProjectile.value[field] = result.path;
-    },
-  });
+  try {
+    await uploadSpriteInput(event, {
+      dialog,
+      modRoot: props.modRoot,
+      subfolder: 'missiles',
+      onUploaded: (result) => {
+        localProjectile.value[field] = result.path;
+        message.success('贴图已上传');
+      },
+    });
+  } catch (error) {
+    message.error(`上传贴图失败：${formatError(error)}`);
+  }
 }
 async function save() {
-  await saveProjectileSpec(props.modRoot, props.projectileId, localProjectile.value);
-  emit('saved', props.projectileId, localProjectile.value);
+  try {
+    await saveProjectileSpec(props.modRoot, props.projectileId, localProjectile.value);
+    emit('saved', props.projectileId, localProjectile.value);
+  } catch (error) {
+    message.error(formatError(error));
+  }
 }
 </script>

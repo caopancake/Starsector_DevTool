@@ -22,7 +22,7 @@
 - Rust service：`src-tauri/src/services/tables.rs`
 - CSV parser：`src-tauri/src/parsers/csv.rs`
 
-顶部保存只保存当前 CSV 表格相关数据，不保存 `.ship`、`.wpn` 或 `.proj` spec 文件。CSV 写回必须保留表头、注释行和空字段语义。
+顶部“保存 CSV”只保存当前 CSV 表格相关数据，不保存 `.ship`、`.wpn` 或 `.proj` spec 文件。CSV 写回必须保留表头、注释行和空字段语义。
 
 ## Ship Flow
 
@@ -42,6 +42,7 @@
 - Rust service：`services::save_ship`
 - 文件落点：`data/hulls/*.ship`
 - 保存后：`editors.onShipSaved()` 更新 `project.data.shipFiles[id]`。
+- 边界：编辑器“保存 .ship”只保存 spec，不同步写 `ship_data.csv`。
 
 ### Create/Delete Record
 
@@ -72,6 +73,7 @@
 - Rust service：`services::save_weapon`
 - 文件落点：`data/weapons/*.wpn`
 - 保存后：`editors.onWeaponSaved()` 更新 `project.data.wpnFiles[id]`。
+- 边界：编辑器“保存 .wpn”只保存 spec，不同步写 `weapon_data.csv`。
 
 ### Create/Delete Record
 
@@ -101,6 +103,7 @@
 - Rust service：`services::save_projectile`
 - 文件落点：`data/weapons/proj/*.proj`
 - 保存后：`editors.onProjectileSaved()` 更新 `project.data.projFiles[id]`。
+- 边界：编辑器“保存 .proj”只保存 spec，不存在对应 CSV 保存链路。
 
 Projectile 当前没有主表格记录的新建/删除链路；它跟随武器 spec 的 `projectileSpecId` 关系使用。
 
@@ -157,4 +160,4 @@ Projectile 当前没有主表格记录的新建/删除链路；它跟随武器 s
 - 联队、船插、工业当前只有 CSV 表格编辑，没有专用编辑器。
 - 联队的 `.variant` 关系未进入创建/删除一致性链路。
 - 弹丸没有独立主表格，新建/删除入口尚未系统化。
-- 顶部 CSV 保存和编辑器 spec 保存是两条链路，UI 文案和后续全局历史需要继续明确。
+- CSV 与 `.ship/.wpn` 字段暂不自动联动；后续实现前必须先定义字段映射、冲突优先级、保存时机和失败处理。

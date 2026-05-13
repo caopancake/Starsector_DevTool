@@ -24,11 +24,11 @@
 
 ## Phase 3: 收敛后端加载链路和保存语义边界
 
-- [ ] 拆分 `services/project.rs`，把阵营发现、projectile fallback、sprite 加载和项目装配分离为私有 helper 模块。
-- [ ] 保留 `editor.service.ts` 和 `table.service.ts` 作为 feature 边界，但补充实际语义，例如错误文案、保存前 normalize 或上下文约束。
-- [ ] 明确 UI 和文档中的保存边界：顶部保存只保存 CSV，编辑器保存只保存 `.ship/.wpn/.proj`。
-- [ ] 评估是否需要 `.ship` 字段和 CSV 字段联动；如需要，先设计同步规则再实现。
-- [ ] 为后端项目加载拆分后的 faction/projectile/sprite 路径补最小测试或验证样例。
+- [x] 拆分 `services/project.rs`，把阵营发现、projectile fallback、sprite 加载和项目装配分离为私有 helper 模块。
+- [x] 保留 `editor.service.ts` 和 `table.service.ts` 作为 feature 边界，但补充实际语义，例如错误文案、保存前 normalize 或上下文约束。
+- [x] 明确 UI 和文档中的保存边界：顶部保存只保存 CSV，编辑器保存只保存 `.ship/.wpn/.proj`。
+- [x] 评估是否需要 `.ship` 字段和 CSV 字段联动；如需要，先设计同步规则再实现。
+- [x] 为后端项目加载拆分后的 faction/projectile/sprite 路径补最小测试或验证样例。
 
 ## Phase 4: 结束迁移状态并删除旧程序
 
@@ -110,6 +110,7 @@
 - [ ] 处理 mod 不存在、路径移动、权限不足、重复导入等异常情况。
 - [ ] 切换 mod 时提示未保存修改，避免跨 mod 丢失 dirty state。
 - [ ] 为多 mod 打开、切换、移除、恢复上次会话补最小测试或手动验收流程。
+- [ ] 程序单例化
 
 ## Phase 13: 游戏全量读取
 

@@ -12,13 +12,9 @@ type DialogLike = {
     onPositiveClick: () => void | Promise<void>;
   }) => unknown;
 };
-type MessageLike = {
-  success: (content: string) => unknown;
-};
 
 interface UploadSpriteOptions {
   dialog: DialogLike;
-  message: MessageLike;
   modRoot: string;
   subfolder: SpriteSubfolder;
   onUploaded: (result: UploadResult, dataUrl: string) => void;
@@ -33,7 +29,6 @@ export function useSpriteUpload() {
     let result = await uploadEditorSprite(options.modRoot, file.name, data, options.subfolder, false);
     if (!result.exists) {
       options.onUploaded(result, dataUrl);
-      options.message.success('贴图已上传');
       return;
     }
     options.dialog.warning({
@@ -44,7 +39,6 @@ export function useSpriteUpload() {
       onPositiveClick: async () => {
         result = await uploadEditorSprite(options.modRoot, file.name, data, options.subfolder, true);
         options.onUploaded(result, dataUrl);
-        options.message.success('贴图已上传');
       },
     });
   }
