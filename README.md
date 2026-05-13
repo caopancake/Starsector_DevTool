@@ -9,8 +9,8 @@ Windows 桌面版 Starsector Mod 配置工具，使用 Tauri 2 + Vue 3 + TypeScr
 - 势力筛选、搜索、排序、单元格编辑、保存和撤销
 - 舰船 `.ship` 可视化编辑
 - 武器 `.wpn` 可视化编辑
-- 弹丸/导弹 `.proj` 编辑
-- 弹道、导弹、光束预览
+- 弹体 `.proj` 编辑
+- 发射预览
 - PNG 贴图导入
 
 ## 技术栈

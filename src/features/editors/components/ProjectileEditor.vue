@@ -3,7 +3,7 @@
     <div class="projectile-window">
       <header class="editor-header">
         <div class="editor-title">
-          <strong>弹丸编辑器</strong>
+          <strong>弹体编辑器</strong>
           <span>{{ projectileId }}</span>
         </div>
       </header>
@@ -16,7 +16,7 @@
             </div>
           </n-collapse-item>
           <template v-if="specClass === 'projectile'">
-            <n-collapse-item title="弹丸外观" name="visual">
+            <n-collapse-item title="弹体外观" name="visual">
               <div class="form-grid">
                 <label>spawnType</label
                 ><n-select :options="opts(['BALLISTIC', 'BALLISTIC_AS_BEAM', 'ENERGY'])" v-model:value="localProjectile.spawnType" />

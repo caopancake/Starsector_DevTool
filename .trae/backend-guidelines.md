@@ -38,7 +38,7 @@
 
 - 舰船贴图写入 `graphics/ships/`。
 - 武器贴图写入 `graphics/weapons/`。
-- 导弹/弹丸贴图写入 `graphics/missiles/`。
+- 弹体贴图写入 `graphics/missiles/`。
 - 上传时必须处理重名覆盖确认，不能静默覆盖。
 
 ## 验证目标

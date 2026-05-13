@@ -29,7 +29,7 @@
     @close="editors.closeProjectile"
     @saved="onProjectileSaved"
   />
-  <BallisticPreview
+  <WeaponFirePreview
     v-if="project.data && editors.previewWeaponId"
     :weapon-id="editors.previewWeaponId"
     :weapons="tables.tables.weapons"
@@ -45,7 +45,7 @@ import { createDiscreteApi } from 'naive-ui';
 import ShipEditor from '../features/editors/components/ShipEditor.vue';
 import WeaponEditor from '../features/editors/components/WeaponEditor.vue';
 import ProjectileEditor from '../features/editors/components/ProjectileEditor.vue';
-import BallisticPreview from '../features/editors/components/BallisticPreview.vue';
+import WeaponFirePreview from '../features/editors/components/WeaponFirePreview.vue';
 import { useEditorsStore } from '../features/editors/editors.store';
 import { useProjectStore } from '../features/project/project.store';
 import { useTablesStore } from '../features/tables/tables.store';

@@ -99,14 +99,14 @@
                 <ObjectEditor v-model="muzzleFlashSpec" title="muzzleFlashSpec" />
                 <ObjectEditor v-model="smokeSpec" title="smokeSpec" />
               </n-collapse-item>
-              <n-collapse-item v-if="localWeapon.specClass === 'projectile'" title="弹丸" name="proj">
+              <n-collapse-item v-if="localWeapon.specClass === 'projectile'" title="弹体" name="proj">
                 <div class="form-grid">
                   <label>projectileSpecId</label>
                   <n-auto-complete v-model:value="projectileSpecId" :options="projectileOptions" />
                 </div>
                 <div class="button-row">
-                  <n-button @click="$emit('editProjectile', projectileSpecId)">编辑弹丸</n-button>
-                  <n-button tertiary @click="$emit('preview', weaponId)">预览弹道</n-button>
+                  <n-button @click="$emit('editProjectile', projectileSpecId)">编辑弹体</n-button>
+                  <n-button tertiary @click="$emit('preview', weaponId)">预览弹体发射</n-button>
                 </div>
               </n-collapse-item>
               <n-collapse-item v-if="localWeapon.specClass === 'beam'" title="光束" name="beam">

@@ -3,7 +3,7 @@
     <div class="preview-window">
       <header class="editor-header">
         <div class="editor-title">
-          <strong>弹道预览</strong>
+          <strong>发射预览</strong>
           <span>{{ weaponId }}</span>
         </div>
         <span class="preview-stats">{{ stats }}</span>

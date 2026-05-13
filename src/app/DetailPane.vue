@@ -39,7 +39,7 @@
             >武器编辑器</n-button
           >
           <n-button v-if="tables.currentTab === 'weapons'" block tertiary @click="editors.openPreview(rowId(tables.selectedRow))"
-            >弹道预览</n-button
+            >发射预览</n-button
           >
         </div>
         <div v-if="!hasActions" class="muted">当前模块没有专用编辑器。</div>

@@ -2,7 +2,7 @@
 
 本文档记录当前模块地图和调用边界，用于后续重构时判断是否过拆或跨层。
 
-具体舰船、武器、弹丸、联队、船插、工业的编辑调用链见 `.trae/editor-flows.md`。
+具体舰船、武器、弹体、联队、船插、工业的编辑调用链见 `.trae/editor-flows.md`。术语统一口径见 `.trae/terminology.md`。
 
 ## Frontend
 
@@ -12,11 +12,11 @@
 - `src/app/settings.store.ts`：应用级设置状态，当前负责主题持久化。
 - `src/app/DataTable.vue`：主数据表格视图，包含单元格编辑和 Vue ref 聚焦。
 - `src/app/DetailPane.vue`：右侧记录详情面板，包含缩略图、操作按钮、KV 列表。
-- `src/app/EditorsHost.vue`：编辑器弹窗宿主，管理舰船/武器/弹丸/预览编辑器。
+- `src/app/EditorsHost.vue`：编辑器弹窗宿主，管理舰船/武器/弹体编辑器和发射预览。
 - `src/app/providers/`：全局 provider 初始化。
 - `src/features/project/`：项目打开、目录选择 service、加载状态、项目级数据入口。
 - `src/features/tables/`：CSV 表格状态、dirty tracking、保存/新建/删除流程。
-- `src/features/editors/`：舰船、武器、弹丸编辑体验，以及弹道/光束预览子能力。
+- `src/features/editors/`：舰船、武器、弹体编辑体验，以及发射预览子能力。
 - `src/shared/api/`：Tauri API adapter。
 - `src/shared/lib/`：Starsector 通用工具、默认数据、格式转换。
 - `src/shared/types/`：前端共享类型。
