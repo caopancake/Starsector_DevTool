@@ -15,7 +15,7 @@
             @mousedown="onDown"
             @mousemove="onMove"
             @mouseup="onUp"
-            @mouseleave="onUp"
+            @mouseleave="onLeave"
             @wheel.prevent="onWheel"
             @contextmenu.prevent
           />
@@ -157,6 +157,7 @@ import { useObjectField } from '../composables/useObjectField';
 import { useSpriteUpload } from '../composables/useSpriteUpload';
 import { snapToStep, toOptions as opts } from '../lib/editor-utils';
 import { editorCollapseTheme } from '../lib/editor-theme';
+import { drawBarrelVisual } from '../lib/canvas-visuals';
 
 const props = defineProps<{
   modRoot: string;
@@ -177,6 +178,7 @@ const viewport = useCanvasViewport(canvasRef, 2, 20);
 const { scale } = viewport;
 const img = new Image();
 const dragging = ref(false);
+const hovered = ref(-1);
 const panning = ref(false);
 let last = { x: 0, y: 0 };
 const history = useHistory(() => localWeapon.value);
@@ -289,25 +291,13 @@ function draw() {
   }
   drawing.drawCrosshair(ctx, cc);
   for (let i = 0; i < barrelCount.value; i++) {
-    const p = toCanvas(offsets.value[i * 2] || 0, offsets.value[i * 2 + 1] || 0);
-    const angle = ((angles.value[i] || 0) * Math.PI) / 180;
-    ctx.strokeStyle = selected.value === i ? '#fbbf24' : '#ef4444';
-    ctx.lineWidth = selected.value === i ? 2 : 1;
-    ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-    ctx.lineTo(p.x + Math.sin(-angle) * 32, p.y - Math.cos(angle) * 32);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, selected.value === i ? 8 : 5, 0, Math.PI * 2);
-    ctx.fillStyle = selected.value === i ? '#fbbf24' : '#ef4444';
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.stroke();
-    ctx.fillStyle = '#fff';
-    ctx.font = '10px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(String(i), p.x, p.y);
+    drawBarrelVisual(ctx, {
+      angle: angles.value[i] || 0,
+      hovered: hovered.value === i,
+      index: i,
+      point: toCanvas(offsets.value[i * 2] || 0, offsets.value[i * 2 + 1] || 0),
+      selected: selected.value === i,
+    });
   }
 }
 function hit(mx: number, my: number) {
@@ -342,7 +332,14 @@ function onMove(e: MouseEvent) {
     draw();
     return;
   }
-  if (!dragging.value || selected.value < 0) return;
+  if (!dragging.value || selected.value < 0) {
+    const nextHover = hit(mx, my);
+    if (hovered.value !== nextHover) {
+      hovered.value = nextHover;
+      draw();
+    }
+    return;
+  }
   const coord = toWeapon(mx, my);
   offsets.value[selected.value * 2] = coord.x;
   offsets.value[selected.value * 2 + 1] = coord.y;
@@ -351,6 +348,12 @@ function onMove(e: MouseEvent) {
 function onUp() {
   dragging.value = false;
   panning.value = false;
+}
+function onLeave() {
+  dragging.value = false;
+  panning.value = false;
+  hovered.value = -1;
+  draw();
 }
 function onWheel(e: WheelEvent) {
   viewport.zoom(e.deltaY);

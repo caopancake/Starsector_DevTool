@@ -23,6 +23,8 @@ export function useCanvasViewport(canvasRef: Ref<HTMLCanvasElement | undefined>,
     const rect = canvas.getBoundingClientRect();
     canvas.width = Math.max(1, Math.floor(width ?? rect.width));
     canvas.height = Math.max(1, Math.floor(height ?? rect.height));
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.imageSmoothingEnabled = false;
     return true;
   }
 

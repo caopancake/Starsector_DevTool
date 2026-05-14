@@ -196,6 +196,7 @@ function draw() {
   const c = canvasRef.value;
   if (!c) return;
   const ctx = c.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
   const p = params.value;
   const cy = c.height / 2;
   const end = 80 + rangePx();
@@ -277,6 +278,8 @@ function resize() {
   const rect = previewStageRef.value?.getBoundingClientRect();
   c.width = Math.max(1, Math.floor(rect?.width ?? 1400));
   c.height = Math.max(1, Math.floor(rect?.height ?? 760));
+  const ctx = c.getContext('2d');
+  if (ctx) ctx.imageSmoothingEnabled = false;
   draw();
 }
 onMounted(() => {

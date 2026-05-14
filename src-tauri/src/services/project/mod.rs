@@ -35,6 +35,12 @@ pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
         .cloned()
         .unwrap_or_default();
     let hullmod_sprites = sprites::load_hullmod_sprite_data(mod_root, &hullmods);
+    let industries = loaded_tables
+        .rows
+        .get("industries")
+        .cloned()
+        .unwrap_or_default();
+    let industry_sprites = sprites::load_industry_sprite_data(mod_root, &industries);
 
     Ok(AppData {
         mod_root: mod_root.to_string_lossy().to_string(),
@@ -61,6 +67,7 @@ pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
         ),
         weapon_sprites_data,
         hullmod_sprites,
+        industry_sprites,
     })
 }
 

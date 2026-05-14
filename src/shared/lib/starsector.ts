@@ -79,20 +79,20 @@ export const MODULE_LABELS: Record<TableKey, string> = {
 };
 
 export const WEAPON_COLORS: Record<string, string> = {
-  BALLISTIC: '#f59e0b',
-  ENERGY: '#3b82f6',
-  MISSILE: '#22c55e',
-  HYBRID: '#eab308',
-  UNIVERSAL: '#e5e7eb',
-  LAUNCH_BAY: '#a855f7',
-  SYNERGY: '#06b6d4',
-  COMPOSITE: '#f97316',
-  DECORATIVE: '#6b7280',
-  SYSTEM: '#6b7280',
-  STATION_MODULE: '#6b7280',
+  BALLISTIC: 'rgb(255 215 0)',
+  ENERGY: 'rgb(70 200 255)',
+  MISSILE: 'rgb(155 255 0)',
+  HYBRID: 'rgb(255 165 0)',
+  UNIVERSAL: 'rgb(255 255 255)',
+  LAUNCH_BAY: '#9bdd00',
+  SYNERGY: 'rgb(0 255 200)',
+  COMPOSITE: 'rgb(215 255 0)',
+  DECORATIVE: '#a01313',
+  SYSTEM: '#a8a8a8',
+  STATION_MODULE: '#8932b6',
 };
 
-export const SLOT_RADIUS: Record<string, number> = { LARGE: 12, MEDIUM: 8, SMALL: 5 };
+export const SLOT_RADIUS: Record<string, number> = { LARGE: 32, MEDIUM: 24, SMALL: 16 };
 
 export function deepClone<T>(value: T): T {
   if (Array.isArray(value)) {

@@ -41,6 +41,7 @@ pub struct AppData {
     pub weapon_sprites: Vec<String>,
     pub weapon_sprites_data: BTreeMap<String, String>,
     pub hullmod_sprites: BTreeMap<String, String>,
+    pub industry_sprites: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

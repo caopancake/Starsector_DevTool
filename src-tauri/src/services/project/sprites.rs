@@ -43,10 +43,25 @@ pub(super) fn load_hullmod_sprite_data(
     mod_root: &Path,
     hullmods: &[Map<String, Value>],
 ) -> BTreeMap<String, String> {
+    load_table_sprite_data(mod_root, hullmods, "sprite")
+}
+
+pub(super) fn load_industry_sprite_data(
+    mod_root: &Path,
+    industries: &[Map<String, Value>],
+) -> BTreeMap<String, String> {
+    load_table_sprite_data(mod_root, industries, "image")
+}
+
+fn load_table_sprite_data(
+    mod_root: &Path,
+    rows: &[Map<String, Value>],
+    sprite_field: &str,
+) -> BTreeMap<String, String> {
     let mut sprites = BTreeMap::new();
-    for row in hullmods {
+    for row in rows {
         let id = str_field(row, "id");
-        let sprite = str_field(row, "sprite");
+        let sprite = str_field(row, sprite_field);
         if !id.is_empty() && !sprite.is_empty() {
             if let Ok(Some(data_url)) = load_sprite_data_url(mod_root, &sprite) {
                 sprites.insert(id, data_url);

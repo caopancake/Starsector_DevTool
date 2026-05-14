@@ -14,7 +14,7 @@
             @mousedown="onDown"
             @mousemove="onMove"
             @mouseup="onUp"
-            @mouseleave="onUp"
+            @mouseleave="onLeave"
             @wheel.prevent="onWheel"
             @contextmenu.prevent
           />
@@ -84,7 +84,6 @@
                       'UNIVERSAL',
                       'SYNERGY',
                       'COMPOSITE',
-                      'LAUNCH_BAY',
                       'DECORATIVE',
                       'SYSTEM',
                       'STATION_MODULE',
@@ -177,7 +176,7 @@ import EditorHeader from './common/EditorHeader.vue';
 import EditorInspector from './common/EditorInspector.vue';
 import { saveShipSpec } from '../editor.service';
 import type { RowData } from '../../../shared/types';
-import { arr, num, SLOT_RADIUS, str, WEAPON_COLORS } from '../../../shared/lib/starsector';
+import { arr, num, str } from '../../../shared/lib/starsector';
 import { formatError } from '../../../shared/lib/errors';
 import { normalizeShipSpec } from '../lib/normalize';
 import { useHistory } from '../composables/useHistory';
@@ -187,6 +186,7 @@ import { useEditorShortcuts } from '../composables/useEditorShortcuts';
 import { useSpriteUpload } from '../composables/useSpriteUpload';
 import { snapToStep, toOptions as opts } from '../lib/editor-utils';
 import { editorCollapseTheme } from '../lib/editor-theme';
+import { drawBoundsVisual, drawEngineVisual, drawRadiusField, drawWeaponSlotVisual } from '../lib/canvas-visuals';
 
 const props = defineProps<{ modRoot: string; hullId: string; ship: RowData; spriteData?: string; availableSprites: string[] }>();
 const emit = defineEmits<{ close: []; saved: [id: string, ship: RowData] }>();
@@ -201,6 +201,7 @@ const viewport = useCanvasViewport(canvasRef, 1, 10);
 const { scale } = viewport;
 const img = new Image();
 const dragging = ref('');
+const hovered = ref<{ kind: string; i: number } | null>(null);
 const panning = ref(false);
 let last = { x: 0, y: 0 };
 const history = useHistory(() => localShip.value);
@@ -301,58 +302,59 @@ function draw() {
     ctx.globalAlpha = 1;
   }
   if (bounds.value.length >= 4 && (mode.value === 'bounds' || mode.value === 'props')) {
-    ctx.beginPath();
-    for (let i = 0; i < bounds.value.length; i += 2) {
-      const p = shipToCanvas([bounds.value[i], bounds.value[i + 1]]);
-      i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
-    }
-    ctx.closePath();
-    ctx.strokeStyle = '#22c55e';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    if (mode.value === 'bounds')
-      for (let i = 0; i < bounds.value.length; i += 2)
-        drawing.drawDot(ctx, shipToCanvas([bounds.value[i], bounds.value[i + 1]]), i / 2 === selected.value ? '#fff' : '#22c55e', 5);
+    const points = [];
+    for (let i = 0; i < bounds.value.length; i += 2) points.push(shipToCanvas([bounds.value[i], bounds.value[i + 1]]));
+    drawBoundsVisual(
+      ctx,
+      points,
+      mode.value === 'bounds' ? selected.value : -1,
+      mode.value === 'bounds' && hovered.value?.kind === 'bound' ? hovered.value.i : -1,
+    );
   }
   if (mode.value === 'props') {
     const sp = shipToCanvas(shieldCenter.value);
-    ctx.setLineDash([6, 4]);
-    ctx.strokeStyle = '#06b6d4aa';
-    ctx.beginPath();
-    ctx.arc(sp.x, sp.y, num(localShip.value.shieldRadius, 0) * scale.value, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    drawing.drawDot(ctx, sp, '#06b6d4', 8);
-    drawing.drawDot(ctx, cc, '#fff', 6);
+    drawRadiusField(
+      ctx,
+      cc,
+      num(localShip.value.collisionRadius, 0) * scale.value,
+      'rgba(118, 106, 57, 0.34)',
+      dragging.value === 'center',
+      hovered.value?.kind === 'center',
+    );
+    drawRadiusField(
+      ctx,
+      sp,
+      num(localShip.value.shieldRadius, 0) * scale.value,
+      'rgba(95, 118, 126, 0.34)',
+      dragging.value === 'shield',
+      hovered.value?.kind === 'shield',
+      'x',
+    );
   }
   if (mode.value === 'weapon' || mode.value === 'props')
     weaponSlots.value.forEach((slot, i) => {
-      const p = shipToCanvas(arr(slot.locations, [0, 0]));
-      const color = WEAPON_COLORS[str(slot.type)] || '#888';
-      const r = SLOT_RADIUS[str(slot.size)] || 6;
-      drawing.drawDot(ctx, p, i === selected.value && mode.value === 'weapon' ? '#fff' : color, r);
-      if (num(slot.arc) > 0) {
-        ctx.strokeStyle = color;
-        ctx.globalAlpha = 0.5;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, r * 2.8, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      }
+      drawWeaponSlotVisual(ctx, {
+        angle: num(slot.angle, 0),
+        arc: num(slot.arc, 0),
+        hovered: mode.value === 'weapon' && hovered.value?.kind === 'weapon' && hovered.value.i === i,
+        mount: str(slot.mount),
+        point: shipToCanvas(arr(slot.locations, [0, 0])),
+        selected: mode.value === 'weapon' && i === selected.value,
+        size: str(slot.size, 'MEDIUM'),
+        type: str(slot.type, 'SYSTEM'),
+      });
     });
   if (mode.value === 'engine' || mode.value === 'props')
     engineSlots.value.forEach((eng, i) => {
-      const p = shipToCanvas(arr(eng.location, [0, 0]));
-      const ew = num(eng.width, 10) * scale.value;
-      const el = num(eng.length, 20) * scale.value;
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(-Math.PI / 2 + (num(eng.angle) * Math.PI) / 180);
-      ctx.fillStyle = i === selected.value && mode.value === 'engine' ? '#fbbf24' : '#f59e0b88';
-      ctx.fillRect(0, -ew / 2, el, ew);
-      ctx.strokeStyle = '#fff';
-      ctx.strokeRect(0, -ew / 2, el, ew);
-      ctx.restore();
+      drawEngineVisual(ctx, {
+        angle: num(eng.angle, 0),
+        hovered: mode.value === 'engine' && hovered.value?.kind === 'engine' && hovered.value.i === i,
+        length: num(eng.length, 20),
+        point: shipToCanvas(arr(eng.location, [0, 0])),
+        scale: scale.value,
+        selected: mode.value === 'engine' && i === selected.value,
+        width: num(eng.width, 10),
+      });
     });
 }
 function hit(mx: number, my: number) {
@@ -404,7 +406,15 @@ function onMove(e: MouseEvent) {
     draw();
     return;
   }
-  if (!dragging.value) return;
+  if (!dragging.value) {
+    const h = hit(mx, my);
+    const nextHover = h ? { kind: h.kind, i: h.i } : null;
+    if (hovered.value?.kind !== nextHover?.kind || hovered.value?.i !== nextHover?.i) {
+      hovered.value = nextHover;
+      draw();
+    }
+    return;
+  }
   const coord = canvasToShip(mx, my);
   if (dragging.value === 'weapon' && selectedSlot.value) selectedSlot.value.locations = coord;
   if (dragging.value === 'engine' && selectedEngine.value) selectedEngine.value.location = coord;
@@ -421,6 +431,12 @@ function onMove(e: MouseEvent) {
 function onUp() {
   dragging.value = '';
   panning.value = false;
+}
+function onLeave() {
+  dragging.value = '';
+  panning.value = false;
+  hovered.value = null;
+  draw();
 }
 function onWheel(e: WheelEvent) {
   viewport.zoom(e.deltaY);
@@ -449,10 +465,22 @@ function setBound(idx: number, value: number | null) {
   bounds.value[idx] = value || 0;
   draw();
 }
+function nextWeaponSlotId() {
+  const used = new Set<string>();
+  for (const slot of weaponSlots.value) {
+    const id = str(slot.id);
+    if (/^WS\d{4}$/.test(id)) used.add(id);
+  }
+  for (let index = 1; index <= 9999; index += 1) {
+    const id = `WS${String(index).padStart(4, '0')}`;
+    if (!used.has(id)) return id;
+  }
+  return `WS${String(weaponSlots.value.length + 1).padStart(4, '0')}`;
+}
 function addWeaponSlot() {
   pushUndo();
   weaponSlots.value.push({
-    id: `WS_NEW_${weaponSlots.value.length}`,
+    id: nextWeaponSlotId(),
     size: 'MEDIUM',
     type: 'BALLISTIC',
     mount: 'TURRET',

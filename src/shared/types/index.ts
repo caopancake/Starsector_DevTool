@@ -30,6 +30,7 @@ export interface AppData {
   weaponSprites: string[];
   weaponSpritesData: Record<string, string>;
   hullmodSprites: Record<string, string>;
+  industrySprites: Record<string, string>;
 }
 
 export type TableKey = 'ships' | 'weapons' | 'wings' | 'hullmods' | 'industries';

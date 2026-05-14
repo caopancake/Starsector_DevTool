@@ -45,6 +45,7 @@
 - 前端状态：`editors.openShip(id)` 设置 `shipEditorId`。
 - 宿主：`EditorsHost.vue` 挂载 `ShipEditor.vue`。
 - 数据来源：`project.data.shipFiles[id]`、`project.data.shipSprites[id]`、`project.data.availableSprites`。
+- 画布渲染：武器槽、碰撞边界、中心、护盾和引擎使用编辑器共享绘制 helper；组件仍负责舰船专属 hit detection、拖拽和数据修改。
 
 ### 保存规格
 
@@ -77,6 +78,7 @@
 - 宿主：`EditorsHost.vue` 挂载 `WeaponEditor.vue`。
 - 数据来源：优先 `project.data.wpnFiles[id]`；缺失时由 `defaultWeapon(id, csvRow)` 生成临时默认 spec。
 - 关联入口：武器编辑器可打开弹体编辑器，也可打开发射预览。
+- 画布渲染：炮口和角度指示使用编辑器共享绘制 helper；组件仍负责 barrel hit detection、拖拽和 offset / angle 数据修改。
 
 ### 保存规格
 
@@ -134,6 +136,8 @@
 ## 界面载体边界
 
 - 右侧详情面板：上下文摘要和操作入口，不承载复杂编辑。
+- 右侧详情预览：根据当前 tab 和当前记录即时派生缩略图状态；舰船、武器、船插使用已加载贴图映射，联队和工业当前只显示模块占位。
+- 缺失贴图：当当前记录或 spec 能推导出相对路径但对应数据未加载时，右侧详情显示“贴图缺失”和该路径；无法推导路径时显示“无预览”。
 - Modal 弹窗：舰船、武器、弹体等复杂编辑和发射预览。
 - 抽屉：当前不引入；未来若出现轻量编辑场景，应先定义和 modal 的分工。
 - `EditorsHost.vue`：集中挂载编辑器/预览弹窗，并处理 spec 保存成功后的提示。
@@ -146,6 +150,7 @@
 - 保存：顶部保存通过 `save_csv` 写回 CSV。
 - 新建/删除：当前只操作 CSV 行，通过 `add_csv_row` / `delete_csv_row`。
 - 专用编辑器：暂无。
+- 资源预览：暂无稳定资源来源，右侧详情只显示占位说明。
 - 关联风险：`variant` 指向 `.variant` 文件，但当前没有联动创建、删除或编辑 `.variant` 的链路。
 
 ## 船插链路
@@ -164,6 +169,7 @@
 - 保存：顶部保存通过 `save_csv` 写回 CSV。
 - 新建/删除：当前只操作 CSV 行，通过 `add_csv_row` / `delete_csv_row`。
 - 专用编辑器：暂无。
+- 资源预览：右侧详情面板可根据 `image` 字段显示工业贴图；字段为空或资源缺失时显示对应占位或缺失路径。
 
 ## 贴图上传链路
 
