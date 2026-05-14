@@ -100,7 +100,7 @@
               </div>
               <div class="action-row button-row">
                 <n-button @click="$emit('editProjectile', projectileSpecId)">编辑弹体</n-button>
-                <n-button tertiary @click="$emit('preview', weaponId)">预览弹体发射</n-button>
+                <n-button tertiary @click="$emit('preview', weaponId)">发射预览</n-button>
               </div>
             </n-collapse-item>
             <n-collapse-item v-if="localWeapon.specClass === 'beam'" title="光束" name="beam">

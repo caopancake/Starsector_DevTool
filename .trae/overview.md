@@ -4,7 +4,7 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。当
 
 ## 项目目标
 
-- 打开 Starsector mod 根目录并在原位读取、编辑、保存配置文件。
+- 打开 Starsector Mod 根目录并在原位读取、编辑、保存配置文件。
 - 覆盖 CSV 表格编辑、舰船编辑器、武器编辑器、弹体编辑器、发射预览和 PNG 贴图导入。
 - 让工程结构保持清晰边界，避免臃肿调用链和“为了拆而拆”的碎片化。
 
@@ -26,7 +26,7 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。当
 
 ## 核心数据流
 
-1. 用户通过目录选择器打开 mod 根目录。
+1. 用户通过目录选择器打开 Mod 根目录。
 2. 前端调用 Tauri command 请求加载项目数据。
 3. Rust 扫描 `data/`、`graphics/` 和 `mod_info.json`，解析 CSV、宽松 JSON 和资源列表。
 4. 前端将数据写入 Pinia store，并驱动表格、右侧详情和编辑器弹窗。

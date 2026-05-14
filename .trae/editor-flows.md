@@ -21,8 +21,8 @@
 - 目录选择：`pickModRoot()` 调用 Tauri dialog 插件。
 - 数据加载：`loadProject()` 调用 shared API adapter 的 `loadModData()`。
 - Tauri command：`load_mod_data`
-- Rust service：项目加载 service 负责扫描 mod、读取 CSV/spec/sprite 和装配 `AppData`。
-- 保存边界：打开项目只加载数据，不写入任何 mod 文件。
+- Rust service：项目加载 service 负责扫描 Mod、读取 CSV/spec/sprite 和装配 `AppData`。
+- 保存边界：打开项目只加载数据，不写入任何 Mod 文件。
 
 `project.store.ts` 不直接调用 Tauri command 或 Tauri 插件；project feature service 是项目打开链路的边界。
 
