@@ -107,6 +107,19 @@ function drawTriangle(ctx: CanvasRenderingContext2D, radius: number) {
   ctx.closePath();
 }
 
+function drawHash(ctx: CanvasRenderingContext2D, radius: number) {
+  const inner = radius * 0.35;
+  ctx.beginPath();
+  ctx.moveTo(-inner, -radius);
+  ctx.lineTo(-inner, radius);
+  ctx.moveTo(inner, -radius);
+  ctx.lineTo(inner, radius);
+  ctx.moveTo(-radius, -inner);
+  ctx.lineTo(radius, -inner);
+  ctx.moveTo(-radius, inner);
+  ctx.lineTo(radius, inner);
+}
+
 function drawOutline(ctx: CanvasRenderingContext2D, type: string, radius: number, color: string) {
   if (type === 'BALLISTIC') withStroke(ctx, color, () => drawSquare(ctx, radius));
   else if (type === 'ENERGY') withStroke(ctx, color, () => drawCircle(ctx, radius));
@@ -121,9 +134,11 @@ function drawOutline(ctx: CanvasRenderingContext2D, type: string, radius: number
   } else if (type === 'SYNERGY') {
     withStroke(ctx, color, () => drawCircle(ctx, radius));
     withStroke(ctx, color, () => drawDiamond(ctx, radius * 0.88));
-  } else if (type === 'COMPOSITE' || type === 'LAUNCH_BAY') {
+  } else if (type === 'COMPOSITE') {
     withStroke(ctx, color, () => drawSquare(ctx, radius));
     withStroke(ctx, color, () => drawDiamond(ctx, radius * 0.9));
+  } else if (type === 'LAUNCH_BAY') {
+    withStroke(ctx, color, () => drawHash(ctx, radius * 0.8));
   } else if (type === 'DECORATIVE') {
     withStroke(ctx, color, () => drawTriangle(ctx, radius * 1.1));
   } else if (type === 'STATION_MODULE') {
@@ -177,10 +192,12 @@ export function drawWeaponSlotVisual(ctx: CanvasRenderingContext2D, options: Wea
   ctx.save();
   ctx.translate(options.point.x, options.point.y);
   ctx.globalAlpha = options.selected ? 1 : 0.6;
-  ctx.save();
-  ctx.rotate((-options.angle * Math.PI) / 180);
-  drawArcAndFacing(ctx, base * 1.85, options.arc, color);
-  ctx.restore();
+  if (type !== 'LAUNCH_BAY') {
+    ctx.save();
+    ctx.rotate((-options.angle * Math.PI) / 180);
+    drawArcAndFacing(ctx, base * 1.85, options.arc, color);
+    ctx.restore();
+  }
 
   if (type !== 'SYSTEM') {
     outlineRadii.forEach((radius) => drawOutline(ctx, type, radius, color));

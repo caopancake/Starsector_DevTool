@@ -2,7 +2,7 @@
   <div class="modal-backdrop">
     <div class="editor-window">
       <EditorHeader title="舰船编辑器" :subtitle="str(localShip.hullName) || hullId">
-        <div class="segmented">
+        <div class="segmented ship-mode-tabs">
           <button v-for="m in modes" :key="m.value" :class="{ active: mode === m.value }" @click="setMode(m.value)">{{ m.label }}</button>
         </div>
       </EditorHeader>
@@ -57,16 +57,16 @@
             <n-collapse-item title="武器槽" name="weapons">
               <div class="item-list">
                 <button
-                  v-for="(slot, i) in weaponSlots"
-                  :key="i"
-                  :class="{ selected: mode === 'weapon' && selected === i }"
+                  v-for="item in normalWeaponSlots"
+                  :key="item.index"
+                  :class="{ selected: mode === 'weapon' && selected === item.index }"
                   @click="
                     mode = 'weapon';
-                    selected = i;
+                    selected = item.index;
                     draw();
                   "
                 >
-                  {{ slot.id || `slot ${i}` }} <span>{{ slot.size }} {{ slot.type }}</span>
+                  {{ item.slot.id || `slot ${item.index}` }} <span>{{ item.slot.size }} {{ item.slot.type }}</span>
                 </button>
               </div>
               <div v-if="mode === 'weapon' && selectedSlot" class="form-grid">
@@ -99,6 +99,30 @@
               </div>
               <div class="action-row button-row">
                 <n-button @click="addWeaponSlot">添加</n-button><n-button type="error" ghost @click="deleteSelected">删除</n-button>
+              </div>
+            </n-collapse-item>
+            <n-collapse-item title="甲板" name="launchBays">
+              <div class="item-list">
+                <button
+                  v-for="item in launchBaySlots"
+                  :key="item.index"
+                  :class="{ selected: mode === 'launchBay' && selected === item.index }"
+                  @click="
+                    mode = 'launchBay';
+                    selected = item.index;
+                    draw();
+                  "
+                >
+                  {{ item.slot.id || `LB ${item.index + 1}` }} <span>甲板</span>
+                </button>
+              </div>
+              <div v-if="mode === 'launchBay' && selectedSlot" class="form-grid">
+                <label>id</label><n-input v-model:value="selectedSlot.id" />
+                <label>loc X</label><n-input-number :value="slotLoc[0]" @update:value="setSlotLoc(0, $event)" />
+                <label>loc Y</label><n-input-number :value="slotLoc[1]" @update:value="setSlotLoc(1, $event)" />
+              </div>
+              <div class="action-row button-row">
+                <n-button @click="addLaunchBay">添加</n-button><n-button type="error" ghost @click="deleteSelected">删除</n-button>
               </div>
             </n-collapse-item>
             <n-collapse-item title="引擎" name="engines">
@@ -195,7 +219,7 @@ const dialog = useDialog();
 const stageRef = ref<HTMLElement>();
 const canvasRef = ref<HTMLCanvasElement>();
 const localShip = ref<RowData>(normalizeShipSpec(props.ship));
-const mode = ref<'weapon' | 'engine' | 'bounds' | 'props'>('weapon');
+const mode = ref<'overview' | 'ranges' | 'bounds' | 'weapon' | 'launchBay' | 'engine'>('overview');
 const selected = ref(-1);
 const viewport = useCanvasViewport(canvasRef, 1, 10);
 const { scale } = viewport;
@@ -208,14 +232,22 @@ const history = useHistory(() => localShip.value);
 const drawing = useCanvasDrawing();
 const { uploadSpriteFile } = useSpriteUpload();
 const modes = [
-  { value: 'weapon', label: '武器' },
-  { value: 'engine', label: '引擎' },
+  { value: 'overview', label: '总览' },
+  { value: 'ranges', label: '范围' },
   { value: 'bounds', label: '边界' },
-  { value: 'props', label: '属性' },
+  { value: 'weapon', label: '武器' },
+  { value: 'launchBay', label: '甲板' },
+  { value: 'engine', label: '引擎' },
 ] as const;
 
 const weaponSlots = computed<RowData[]>(() =>
   Array.isArray(localShip.value.weaponSlots) ? (localShip.value.weaponSlots as RowData[]) : [],
+);
+const normalWeaponSlots = computed(() =>
+  weaponSlots.value.map((slot, index) => ({ index, slot })).filter((item) => str(item.slot.type).toUpperCase() !== 'LAUNCH_BAY'),
+);
+const launchBaySlots = computed(() =>
+  weaponSlots.value.map((slot, index) => ({ index, slot })).filter((item) => str(item.slot.type).toUpperCase() === 'LAUNCH_BAY'),
 );
 const engineSlots = computed<RowData[]>(() =>
   Array.isArray(localShip.value.engineSlots) ? (localShip.value.engineSlots as RowData[]) : [],
@@ -301,7 +333,7 @@ function draw() {
     );
     ctx.globalAlpha = 1;
   }
-  if (bounds.value.length >= 4 && (mode.value === 'bounds' || mode.value === 'props')) {
+  if (bounds.value.length >= 4 && (mode.value === 'bounds' || mode.value === 'overview')) {
     const points = [];
     for (let i = 0; i < bounds.value.length; i += 2) points.push(shipToCanvas([bounds.value[i], bounds.value[i + 1]]));
     drawBoundsVisual(
@@ -311,7 +343,7 @@ function draw() {
       mode.value === 'bounds' && hovered.value?.kind === 'bound' ? hovered.value.i : -1,
     );
   }
-  if (mode.value === 'props') {
+  if (mode.value === 'ranges' || mode.value === 'overview') {
     const sp = shipToCanvas(shieldCenter.value);
     drawRadiusField(
       ctx,
@@ -331,20 +363,24 @@ function draw() {
       'x',
     );
   }
-  if (mode.value === 'weapon' || mode.value === 'props')
+  if (mode.value === 'weapon' || mode.value === 'launchBay' || mode.value === 'overview')
     weaponSlots.value.forEach((slot, i) => {
+      const isLaunchBay = str(slot.type).toUpperCase() === 'LAUNCH_BAY';
+      if (mode.value === 'weapon' && isLaunchBay) return;
+      if (mode.value === 'launchBay' && !isLaunchBay) return;
       drawWeaponSlotVisual(ctx, {
         angle: num(slot.angle, 0),
         arc: num(slot.arc, 0),
-        hovered: mode.value === 'weapon' && hovered.value?.kind === 'weapon' && hovered.value.i === i,
+        hovered:
+          (mode.value === 'weapon' || mode.value === 'launchBay') && hovered.value?.kind === 'weapon' && hovered.value.i === i,
         mount: str(slot.mount),
         point: shipToCanvas(arr(slot.locations, [0, 0])),
-        selected: mode.value === 'weapon' && i === selected.value,
+        selected: (mode.value === 'weapon' || mode.value === 'launchBay') && i === selected.value,
         size: str(slot.size, 'MEDIUM'),
         type: str(slot.type, 'SYSTEM'),
       });
     });
-  if (mode.value === 'engine' || mode.value === 'props')
+  if (mode.value === 'engine' || mode.value === 'overview')
     engineSlots.value.forEach((eng, i) => {
       drawEngineVisual(ctx, {
         angle: num(eng.angle, 0),
@@ -358,8 +394,11 @@ function draw() {
     });
 }
 function hit(mx: number, my: number) {
-  if (mode.value === 'weapon')
+  if (mode.value === 'weapon' || mode.value === 'launchBay')
     for (let i = weaponSlots.value.length - 1; i >= 0; i--) {
+      const isLaunchBay = str(weaponSlots.value[i].type).toUpperCase() === 'LAUNCH_BAY';
+      if (mode.value === 'weapon' && isLaunchBay) continue;
+      if (mode.value === 'launchBay' && !isLaunchBay) continue;
       const p = shipToCanvas(arr(weaponSlots.value[i].locations, [0, 0]));
       if (Math.hypot(mx - p.x, my - p.y) < 14) return { kind: 'weapon', i };
     }
@@ -373,7 +412,7 @@ function hit(mx: number, my: number) {
       const p = shipToCanvas([bounds.value[i], bounds.value[i + 1]]);
       if (Math.hypot(mx - p.x, my - p.y) < 14) return { kind: 'bound', i: i / 2 };
     }
-  if (mode.value === 'props') {
+  if (mode.value === 'ranges') {
     const sp = shipToCanvas(shieldCenter.value);
     const cc = canvasCenter();
     if (Math.hypot(mx - sp.x, my - sp.y) < 14) return { kind: 'shield', i: 0 };
@@ -477,6 +516,18 @@ function nextWeaponSlotId() {
   }
   return `WS${String(weaponSlots.value.length + 1).padStart(4, '0')}`;
 }
+function nextLaunchBayId() {
+  const used = new Set<string>();
+  for (const item of launchBaySlots.value) {
+    const id = str(item.slot.id);
+    if (/^LB \d+$/.test(id)) used.add(id);
+  }
+  for (let index = 1; index <= 9999; index += 1) {
+    const id = `LB ${index}`;
+    if (!used.has(id)) return id;
+  }
+  return `LB ${launchBaySlots.value.length + 1}`;
+}
 function addWeaponSlot() {
   pushUndo();
   weaponSlots.value.push({
@@ -489,6 +540,21 @@ function addWeaponSlot() {
     locations: [0, 0],
   });
   mode.value = 'weapon';
+  selected.value = weaponSlots.value.length - 1;
+  draw();
+}
+function addLaunchBay() {
+  pushUndo();
+  weaponSlots.value.push({
+    id: nextLaunchBayId(),
+    size: 'LARGE',
+    type: 'LAUNCH_BAY',
+    mount: 'HIDDEN',
+    arc: 360,
+    angle: 0,
+    locations: [0, 0],
+  });
+  mode.value = 'launchBay';
   selected.value = weaponSlots.value.length - 1;
   draw();
 }
@@ -508,7 +574,12 @@ function addBound() {
 }
 function deleteSelected() {
   pushUndo();
-  if (mode.value === 'weapon' && selected.value >= 0) weaponSlots.value.splice(selected.value, 1);
+  if ((mode.value === 'weapon' || mode.value === 'launchBay') && selected.value >= 0) {
+    const isLaunchBay = str(weaponSlots.value[selected.value]?.type).toUpperCase() === 'LAUNCH_BAY';
+    if ((mode.value === 'weapon' && !isLaunchBay) || (mode.value === 'launchBay' && isLaunchBay)) {
+      weaponSlots.value.splice(selected.value, 1);
+    }
+  }
   if (mode.value === 'engine' && selected.value >= 0) engineSlots.value.splice(selected.value, 1);
   if (mode.value === 'bounds' && selected.value >= 0) bounds.value.splice(selected.value * 2, 2);
   selected.value = -1;

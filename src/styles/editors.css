@@ -172,6 +172,10 @@
   border-radius: var(--radius-md);
 }
 
+.ship-mode-tabs {
+  flex-direction: row-reverse;
+}
+
 .segmented button,
 .item-list button {
   padding: 5px 10px;

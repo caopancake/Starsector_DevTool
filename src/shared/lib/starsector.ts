@@ -84,12 +84,12 @@ export const WEAPON_COLORS: Record<string, string> = {
   MISSILE: 'rgb(155 255 0)',
   HYBRID: 'rgb(255 165 0)',
   UNIVERSAL: 'rgb(255 255 255)',
-  LAUNCH_BAY: '#9bdd00',
+  LAUNCH_BAY: '#3c3cc2',
   SYNERGY: 'rgb(0 255 200)',
   COMPOSITE: 'rgb(215 255 0)',
   DECORATIVE: '#a01313',
   SYSTEM: '#a8a8a8',
-  STATION_MODULE: '#8932b6',
+  STATION_MODULE: '#b632b6',
 };
 
 export const SLOT_RADIUS: Record<string, number> = { LARGE: 32, MEDIUM: 24, SMALL: 16 };
