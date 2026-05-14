@@ -4,13 +4,13 @@
 
 ## Phase 1: 重新整理项目结构和代码质量
 
-- [ ] 全面检查前端和后端代码异味，包括过长模块、隐式副作用、职责漂移、重复调用链和误导性命名。
-- [ ] 审计 store、service、component、composable、shared API、Rust service/parser/model 的边界，区分“需要拆分”和“过度拆分”。
-- [ ] 收敛缺少稳定语义、只增加跳转成本的中间层，删除无入口、无调用或误导性的 API、工具函数和文档残留。
-- [ ] 检查不符合 TypeScript、Vue、Rust 语言规范或项目编码规范的实现，补最小修正清单。
-- [ ] 重点回查前后端共享数据模型、错误模型、保存链路、上传链路和预览链路的职责归属。
-- [ ] 更新 `.trae/module-map.md`、`.trae/editor-flows.md` 和相关 guideline，记录新的稳定边界。
-- [ ] 运行前端与 Rust 全套检查，确保结构治理不改变功能行为。
+- [x] 全面检查前端和后端代码异味，包括过长模块、隐式副作用、职责漂移、重复调用链和误导性命名。
+- [x] 审计 store、service、component、composable、shared API、Rust service/parser/model 的边界，区分“需要拆分”和“过度拆分”。
+- [x] 收敛缺少稳定语义、只增加跳转成本的中间层，删除无入口、无调用或误导性的 API、工具函数和文档残留。
+- [x] 检查不符合 TypeScript、Vue、Rust 语言规范或项目编码规范的实现，补最小修正清单。
+- [x] 重点回查前后端共享数据模型、错误模型、保存链路、上传链路和预览链路的职责归属。
+- [x] 更新 `.trae/module-map.md`、`.trae/editor-flows.md` 和相关 guideline，记录新的稳定边界。
+- [x] 运行前端与 Rust 全套检查，确保结构治理不改变功能行为。
 
 ## Phase 2: 重新整理前端结构和 CSS
 

@@ -15,9 +15,10 @@
 - `src/app/EditorsHost.vue`：编辑器弹窗宿主，管理舰船/武器/弹体编辑器和发射预览。
 - `src/app/providers/`：全局 provider 初始化。
 - `src/features/project/`：项目打开、目录选择 service、加载状态、项目级数据入口。
-- `src/features/tables/`：CSV 表格状态、dirty tracking、保存/新建/删除流程。
+- `src/features/tables/`：CSV 表格状态、稳定 row key、dirty tracking、单元格编辑、行选择、保存/新建/删除流程。
 - `src/features/editors/`：舰船、武器、弹体编辑体验，以及发射预览子能力。
-- `src/shared/api/`：Tauri API adapter。
+- `src/features/tables/table.service.ts`：表格 feature 的后端语义边界，封装 CSV 行和舰船/武器记录的新建、删除、保存调用。
+- `src/shared/api/`：Tauri API 薄 adapter，只封装 command payload，不承载业务流程。
 - `src/shared/lib/`：Starsector 通用工具、默认数据、格式转换。
 - `src/shared/types/`：前端共享类型。
 - `src/styles/`：按稳定语义拆分的 CSS 模块和主题 token。
@@ -31,6 +32,7 @@
 - 右侧详情面板是上下文操作面板，承载记录摘要、缩略图、编辑器/预览入口和少量字段速览。
 - 右侧详情面板不承载复杂编辑；复杂编辑使用 modal，当前不引入抽屉。
 - 表格本体专注数据展示、行选择和单元格编辑，不承载打开编辑器等重复操作列。
+- 表格 dirty state、editing cell、selection 都由 `tables.store.ts` 维护，并且必须按稳定 row key 追踪。
 - 编辑器壳层统一为 header、主编辑区、footer；舰船/武器编辑器采用画布主导 + 右侧检查器。
 - `EditorsHost.vue` 是弹窗编排边界，集中挂载 spec 编辑器和只读预览；preview 暂不拆独立 feature。
 - 业务 hit detection 和 drag mutation 暂留编辑器组件内。
@@ -56,7 +58,7 @@
 
 ## Current Risk Areas
 
-- 后续全局修改链路、快捷键、右键菜单分别由 Phase 8、Phase 9、Phase 10 处理。
-- `ShipEditor.vue`、`WeaponEditor.vue`、`ProjectileEditor.vue` 仍较大，但保留了业务流程聚合价值。
+- 后续全局修改链路、快捷键、右键菜单分别由 Phase 9、Phase 10、Phase 11 处理。
+- `ShipEditor.vue`、`WeaponEditor.vue`、`ProjectileEditor.vue` 仍较大，但保留了业务流程聚合价值；除非出现稳定语义或真实复用需求，不继续为了行数拆分。
 - `App.vue` 仍承担主布局和顶层业务动作编排，但弹窗挂载已由 `EditorsHost.vue` 承担。
 - 快捷键和右键行为尚未系统定义。

@@ -1,6 +1,6 @@
 use crate::{
     errors::AppResult,
-    filesystem::{delete_json_by_id, save_json_by_id},
+    filesystem::save_json_by_id,
     models::specs::{validate_projectile_spec, validate_ship_spec, validate_weapon_spec},
 };
 use serde_json::Value;
@@ -16,10 +16,6 @@ pub fn save_ship(mod_root: &str, id: &str, data: &Value) -> AppResult<String> {
         id,
         data,
     )
-}
-
-pub fn delete_ship(mod_root: &str, id: &str) -> AppResult<bool> {
-    delete_json_by_id(Path::new(mod_root), "data/hulls", "ship", "hullId", id)
 }
 
 pub fn save_weapon(mod_root: &str, id: &str, data: &Value) -> AppResult<String> {

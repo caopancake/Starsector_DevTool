@@ -18,7 +18,6 @@ pub fn run() {
             commands::add_weapon_row,
             commands::delete_weapon_row,
             commands::save_ship,
-            commands::delete_ship,
             commands::save_wpn,
             commands::save_proj,
             commands::upload_sprite,

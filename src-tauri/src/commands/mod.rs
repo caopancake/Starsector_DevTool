@@ -55,11 +55,6 @@ pub fn save_ship(payload: SaveJsonPayload) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn delete_ship(payload: DeletePayload) -> Result<bool, String> {
-    services::delete_ship(&payload.mod_root, &payload.id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 pub fn save_wpn(payload: SaveJsonPayload) -> Result<String, String> {
     services::save_weapon(&payload.mod_root, &payload.id, &payload.data).map_err(|e| e.to_string())
 }
