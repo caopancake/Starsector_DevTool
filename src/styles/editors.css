@@ -220,8 +220,6 @@
 }
 
 .button-row {
-  display: flex;
-  gap: var(--space-2);
   margin: 8px 0;
 }
 

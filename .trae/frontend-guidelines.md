@@ -57,7 +57,10 @@
 - `app-shell.css` 只放应用壳、左侧导航、顶部业务栏、空状态和主内容布局。
 - `tables.css`、`detail-pane.css`、`editors.css` 分别承载对应模块样式。
 - 共享 UI 结构优先使用稳定语义 class，例如 action group、section card、inspector、footer actions；只有出现真实复用和稳定语义时再抽 Vue 组件。
+- 编辑器共享结构组件只承载壳层和插槽，例如 header、footer、inspector；不得承载保存、上传、画布交互或具体字段业务。
 - 新增样式优先放入语义匹配的 CSS 模块；只有跨模块稳定复用的 token 才进入 `base.css`。
+- 总览页和设置页的页面级布局未来放入 `app-shell.css`；Mod 列表导航仍归 `app-shell.css`；表格、右侧详情和编辑器样式不得混放到这些未来页面规则里。
+- 跨页面稳定复用的 panel、section title、empty state、action row 可以放入 `base.css`，但必须保持语义通用，不能带具体业务名称。
 - 主题通过 `data-theme="light|dark"` 切换，颜色、间距、边框、阴影、圆角优先使用 token。
 - 自定义标题栏取代系统窗口栏，窗口拖动和最小化/最大化/关闭逻辑应集中在标题栏组件。
 - 不使用一整套相近色相堆叠的单调主题。

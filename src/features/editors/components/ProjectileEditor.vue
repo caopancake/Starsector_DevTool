@@ -1,12 +1,7 @@
 <template>
   <div class="modal-backdrop">
     <div class="projectile-window">
-      <header class="editor-header">
-        <div class="editor-title">
-          <strong>弹体编辑器</strong>
-          <span>{{ projectileId }}</span>
-        </div>
-      </header>
+      <EditorHeader title="弹体编辑器" :subtitle="projectileId" />
       <div class="projectile-body">
         <n-collapse default-expanded-names="basic" :theme-overrides="editorCollapseTheme">
           <n-collapse-item title="基础属性" name="basic">
@@ -99,13 +94,12 @@
           </n-collapse-item>
         </n-collapse>
       </div>
-      <footer class="editor-footer">
-        <span>结构化 JSON 写回，内部字段会被后端剔除。</span>
-        <div class="editor-footer-actions">
+      <EditorFooter note="结构化 JSON 写回，内部字段会被后端剔除。">
+        <template #actions>
           <n-button @click="$emit('close')">关闭</n-button>
           <n-button type="primary" @click="save">保存 .proj</n-button>
-        </div>
-      </footer>
+        </template>
+      </EditorFooter>
     </div>
   </div>
 </template>
@@ -114,6 +108,8 @@
 import { computed, ref } from 'vue';
 import { useDialog, useMessage } from 'naive-ui';
 import ColorArray from './common/ColorArray.vue';
+import EditorFooter from './common/EditorFooter.vue';
+import EditorHeader from './common/EditorHeader.vue';
 import ObjectEditor from './common/ObjectEditor.vue';
 import { saveProjectileSpec } from '../editor.service';
 import type { RowData } from '../../../shared/types';

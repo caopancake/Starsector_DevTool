@@ -1,16 +1,12 @@
 <template>
   <div class="modal-backdrop">
     <div class="editor-window">
-      <header class="editor-header">
-        <div class="editor-title">
-          <strong>武器编辑器</strong>
-          <span>{{ weaponId }}</span>
-        </div>
+      <EditorHeader title="武器编辑器" :subtitle="weaponId">
         <div class="segmented">
           <button :class="{ active: viewMode === 'turret' }" @click="setView('turret')">炮塔视图</button>
           <button :class="{ active: viewMode === 'hardpoint' }" @click="setView('hardpoint')">固定视图</button>
         </div>
-      </header>
+      </EditorHeader>
       <div class="editor-body">
         <div ref="stageRef" class="canvas-stage">
           <canvas
@@ -24,122 +20,118 @@
             @contextmenu.prevent
           />
         </div>
-        <aside class="editor-side">
-          <div class="inspector-title">武器检查器</div>
-          <div class="editor-scroll">
-            <n-collapse default-expanded-names="basic" :theme-overrides="editorCollapseTheme">
-              <n-collapse-item title="基础属性" name="basic">
-                <div class="form-grid">
-                  <label>id</label><n-input :value="weaponId" disabled /> <label>specClass</label
-                  ><n-select v-model:value="localWeapon.specClass" :options="opts(['projectile', 'beam'])" /> <label>type</label
-                  ><n-select
-                    v-model:value="localWeapon.type"
-                    :options="
-                      opts([
-                        'BALLISTIC',
-                        'ENERGY',
-                        'MISSILE',
-                        'HYBRID',
-                        'UNIVERSAL',
-                        'SYNERGY',
-                        'COMPOSITE',
-                        'DECORATIVE',
-                        'SYSTEM',
-                        'BUILT_IN',
-                      ])
-                    "
-                  />
-                  <label>size</label><n-select v-model:value="localWeapon.size" :options="opts(['SMALL', 'MEDIUM', 'LARGE'])" />
-                </div>
-              </n-collapse-item>
-              <n-collapse-item title="贴图" name="sprites">
-                <div class="form-grid">
-                  <template v-for="field in spriteFields" :key="field">
-                    <label>{{ field }}</label
-                    ><n-input v-model:value="localWeapon[field]" @change="loadSprite" />
-                  </template>
-                </div>
-                <input type="file" accept="image/png" @change="uploadCurrentSprite" />
-              </n-collapse-item>
-              <n-collapse-item title="发射点" name="barrels">
-                <div class="item-list">
-                  <button
-                    v-for="(_, i) in barrelCount"
-                    :key="i"
-                    :class="{ selected: selected === i }"
-                    @click="
-                      selected = i;
-                      draw();
-                    "
-                  >
-                    炮管 {{ i }} <span>[{{ offsets[i * 2] }}, {{ offsets[i * 2 + 1] }}] {{ angles[i] || 0 }}°</span>
-                  </button>
-                </div>
-                <div v-if="selected >= 0" class="form-grid">
-                  <label>X 前进</label><n-input-number :value="offsets[selected * 2]" @update:value="setOffset(0, $event)" />
-                  <label>Y 右侧</label><n-input-number :value="offsets[selected * 2 + 1]" @update:value="setOffset(1, $event)" />
-                  <label>角度偏移</label><n-input-number :value="angles[selected] || 0" @update:value="setAngle($event)" />
-                </div>
-                <div class="form-grid">
-                  <label>barrelMode</label><n-select v-model:value="localWeapon.barrelMode" :options="opts(['ALTERNATING', 'LINKED'])" />
-                </div>
-                <div class="button-row">
-                  <n-button @click="addBarrel">添加炮管</n-button><n-button type="error" ghost @click="deleteBarrel">删除炮管</n-button>
-                </div>
-              </n-collapse-item>
-              <n-collapse-item v-if="localWeapon.specClass === 'projectile'" title="动画" name="anim">
-                <div class="form-grid">
-                  <label>animationType</label
-                  ><n-select
-                    v-model:value="localWeapon.animationType"
-                    :options="opts(['NONE', 'MUZZLE_FLASH', 'SMOKE', 'GLOW_AND_FLASH', 'GLOW'])"
-                  />
-                  <label>visualRecoil</label><n-input-number v-model:value="localWeapon.visualRecoil" />
-                </div>
-                <ObjectEditor v-model="muzzleFlashSpec" title="muzzleFlashSpec" />
-                <ObjectEditor v-model="smokeSpec" title="smokeSpec" />
-              </n-collapse-item>
-              <n-collapse-item v-if="localWeapon.specClass === 'projectile'" title="弹体" name="proj">
-                <div class="form-grid">
-                  <label>projectileSpecId</label>
-                  <n-auto-complete v-model:value="projectileSpecId" :options="projectileOptions" />
-                </div>
-                <div class="button-row">
-                  <n-button @click="$emit('editProjectile', projectileSpecId)">编辑弹体</n-button>
-                  <n-button tertiary @click="$emit('preview', weaponId)">预览弹体发射</n-button>
-                </div>
-              </n-collapse-item>
-              <n-collapse-item v-if="localWeapon.specClass === 'beam'" title="光束" name="beam">
-                <ColorArray label="fringeColor" v-model="fringeColor" />
-                <ColorArray label="coreColor" v-model="coreColor" />
-                <ColorArray label="glowColor" v-model="glowColor" />
-                <div class="form-grid">
-                  <label>width</label><n-input-number v-model:value="localWeapon.width" /> <label>textureType</label
-                  ><n-select :options="opts(['ROUGH', 'SMOOTH', 'NONE'])" v-model:value="localWeapon.textureType" />
-                  <label>textureScrollSpeed</label><n-input-number v-model:value="localWeapon.textureScrollSpeed" />
-                  <label>pixelsPerTexel</label><n-input-number v-model:value="localWeapon.pixelsPerTexel" /> <label>convergeOnPoint</label
-                  ><n-checkbox v-model:checked="localWeapon.convergeOnPoint" /> <label>darkCore</label
-                  ><n-checkbox v-model:checked="localWeapon.darkCore" />
-                </div>
-                <n-button tertiary @click="$emit('preview', weaponId)">预览光束</n-button>
-              </n-collapse-item>
-              <n-collapse-item title="音效" name="sound">
-                <div class="form-grid">
-                  <label>fireSoundOne</label><n-input v-model:value="localWeapon.fireSoundOne" /> <label>fireSoundTwo</label
-                  ><n-input v-model:value="localWeapon.fireSoundTwo" />
-                </div>
-              </n-collapse-item>
-            </n-collapse>
-          </div>
-        </aside>
+        <EditorInspector title="武器检查器">
+          <n-collapse default-expanded-names="basic" :theme-overrides="editorCollapseTheme">
+            <n-collapse-item title="基础属性" name="basic">
+              <div class="form-grid">
+                <label>id</label><n-input :value="weaponId" disabled /> <label>specClass</label
+                ><n-select v-model:value="localWeapon.specClass" :options="opts(['projectile', 'beam'])" /> <label>type</label
+                ><n-select
+                  v-model:value="localWeapon.type"
+                  :options="
+                    opts([
+                      'BALLISTIC',
+                      'ENERGY',
+                      'MISSILE',
+                      'HYBRID',
+                      'UNIVERSAL',
+                      'SYNERGY',
+                      'COMPOSITE',
+                      'DECORATIVE',
+                      'SYSTEM',
+                      'BUILT_IN',
+                    ])
+                  "
+                />
+                <label>size</label><n-select v-model:value="localWeapon.size" :options="opts(['SMALL', 'MEDIUM', 'LARGE'])" />
+              </div>
+            </n-collapse-item>
+            <n-collapse-item title="贴图" name="sprites">
+              <div class="form-grid">
+                <template v-for="field in spriteFields" :key="field">
+                  <label>{{ field }}</label
+                  ><n-input v-model:value="localWeapon[field]" @change="loadSprite" />
+                </template>
+              </div>
+              <input type="file" accept="image/png" @change="uploadCurrentSprite" />
+            </n-collapse-item>
+            <n-collapse-item title="发射点" name="barrels">
+              <div class="item-list">
+                <button
+                  v-for="(_, i) in barrelCount"
+                  :key="i"
+                  :class="{ selected: selected === i }"
+                  @click="
+                    selected = i;
+                    draw();
+                  "
+                >
+                  炮管 {{ i }} <span>[{{ offsets[i * 2] }}, {{ offsets[i * 2 + 1] }}] {{ angles[i] || 0 }}°</span>
+                </button>
+              </div>
+              <div v-if="selected >= 0" class="form-grid">
+                <label>X 前进</label><n-input-number :value="offsets[selected * 2]" @update:value="setOffset(0, $event)" />
+                <label>Y 右侧</label><n-input-number :value="offsets[selected * 2 + 1]" @update:value="setOffset(1, $event)" />
+                <label>角度偏移</label><n-input-number :value="angles[selected] || 0" @update:value="setAngle($event)" />
+              </div>
+              <div class="form-grid">
+                <label>barrelMode</label><n-select v-model:value="localWeapon.barrelMode" :options="opts(['ALTERNATING', 'LINKED'])" />
+              </div>
+              <div class="action-row button-row">
+                <n-button @click="addBarrel">添加炮管</n-button><n-button type="error" ghost @click="deleteBarrel">删除炮管</n-button>
+              </div>
+            </n-collapse-item>
+            <n-collapse-item v-if="localWeapon.specClass === 'projectile'" title="动画" name="anim">
+              <div class="form-grid">
+                <label>animationType</label
+                ><n-select
+                  v-model:value="localWeapon.animationType"
+                  :options="opts(['NONE', 'MUZZLE_FLASH', 'SMOKE', 'GLOW_AND_FLASH', 'GLOW'])"
+                />
+                <label>visualRecoil</label><n-input-number v-model:value="localWeapon.visualRecoil" />
+              </div>
+              <ObjectEditor v-model="muzzleFlashSpec" title="muzzleFlashSpec" />
+              <ObjectEditor v-model="smokeSpec" title="smokeSpec" />
+            </n-collapse-item>
+            <n-collapse-item v-if="localWeapon.specClass === 'projectile'" title="弹体" name="proj">
+              <div class="form-grid">
+                <label>projectileSpecId</label>
+                <n-auto-complete v-model:value="projectileSpecId" :options="projectileOptions" />
+              </div>
+              <div class="action-row button-row">
+                <n-button @click="$emit('editProjectile', projectileSpecId)">编辑弹体</n-button>
+                <n-button tertiary @click="$emit('preview', weaponId)">预览弹体发射</n-button>
+              </div>
+            </n-collapse-item>
+            <n-collapse-item v-if="localWeapon.specClass === 'beam'" title="光束" name="beam">
+              <ColorArray label="fringeColor" v-model="fringeColor" />
+              <ColorArray label="coreColor" v-model="coreColor" />
+              <ColorArray label="glowColor" v-model="glowColor" />
+              <div class="form-grid">
+                <label>width</label><n-input-number v-model:value="localWeapon.width" /> <label>textureType</label
+                ><n-select :options="opts(['ROUGH', 'SMOOTH', 'NONE'])" v-model:value="localWeapon.textureType" />
+                <label>textureScrollSpeed</label><n-input-number v-model:value="localWeapon.textureScrollSpeed" />
+                <label>pixelsPerTexel</label><n-input-number v-model:value="localWeapon.pixelsPerTexel" /> <label>convergeOnPoint</label
+                ><n-checkbox v-model:checked="localWeapon.convergeOnPoint" /> <label>darkCore</label
+                ><n-checkbox v-model:checked="localWeapon.darkCore" />
+              </div>
+              <n-button tertiary @click="$emit('preview', weaponId)">预览光束</n-button>
+            </n-collapse-item>
+            <n-collapse-item title="音效" name="sound">
+              <div class="form-grid">
+                <label>fireSoundOne</label><n-input v-model:value="localWeapon.fireSoundOne" /> <label>fireSoundTwo</label
+                ><n-input v-model:value="localWeapon.fireSoundTwo" />
+              </div>
+            </n-collapse-item>
+          </n-collapse>
+        </EditorInspector>
       </div>
-      <footer class="editor-footer">
-        <span>Ctrl+Z 撤销 | Ctrl+Y 重做 | 右键拖动画布</span>
-        <div class="editor-footer-actions">
+      <EditorFooter note="Ctrl+Z 撤销 | Ctrl+Y 重做 | 右键拖动画布">
+        <template #actions>
           <n-button @click="$emit('close')">关闭</n-button>
           <n-button type="primary" @click="save">保存 .wpn</n-button>
-        </div>
-      </footer>
+        </template>
+      </EditorFooter>
     </div>
   </div>
 </template>
@@ -148,6 +140,9 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useDialog, useMessage } from 'naive-ui';
 import ColorArray from './common/ColorArray.vue';
+import EditorFooter from './common/EditorFooter.vue';
+import EditorHeader from './common/EditorHeader.vue';
+import EditorInspector from './common/EditorInspector.vue';
 import ObjectEditor from './common/ObjectEditor.vue';
 import { saveWeaponSpec } from '../editor.service';
 import type { RowData } from '../../../shared/types';

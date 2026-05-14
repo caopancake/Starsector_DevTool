@@ -2,7 +2,7 @@
   <aside class="detail-pane">
     <div class="pane-title">上下文</div>
     <template v-if="tables.selectedRow">
-      <section class="detail-card record-card">
+      <section class="panel-card detail-card record-card">
         <div class="detail-thumbnail">
           <img
             v-if="tables.currentTab === 'ships' && project.data?.shipSprites[rowId(tables.selectedRow)]"
@@ -31,8 +31,8 @@
         <div class="detail-id">{{ rowId(tables.selectedRow) }}</div>
         <div class="detail-name">{{ displayName }}</div>
       </section>
-      <section class="detail-card">
-        <div class="detail-section-title">操作</div>
+      <section class="panel-card detail-card">
+        <div class="panel-section-title">操作</div>
         <div class="detail-actions">
           <n-button v-if="tables.currentTab === 'ships'" block @click="$emit('open-ship', rowId(tables.selectedRow))">舰船编辑器</n-button>
           <n-button v-if="tables.currentTab === 'weapons'" block @click="editors.openWeapon(rowId(tables.selectedRow))"
@@ -44,8 +44,8 @@
         </div>
         <div v-if="!hasActions" class="muted">当前模块没有专用编辑器。</div>
       </section>
-      <section class="detail-card">
-        <div class="detail-section-title">字段速览</div>
+      <section class="panel-card detail-card">
+        <div class="panel-section-title">字段速览</div>
         <div class="kv-list">
           <div v-for="col in summaryColumns" :key="col" class="kv-row">
             <span>{{ col }}</span>
@@ -54,7 +54,7 @@
         </div>
       </section>
     </template>
-    <div v-else class="detail-empty">
+    <div v-else class="panel-empty detail-empty">
       <strong>未选择记录</strong>
       <span>点击一行查看上下文操作，双击单元格编辑 CSV。</span>
     </div>

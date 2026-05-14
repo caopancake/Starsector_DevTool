@@ -1,15 +1,11 @@
 <template>
   <div class="modal-backdrop">
     <div class="editor-window">
-      <header class="editor-header">
-        <div class="editor-title">
-          <strong>舰船编辑器</strong>
-          <span>{{ localShip.hullName || hullId }}</span>
-        </div>
+      <EditorHeader title="舰船编辑器" :subtitle="str(localShip.hullName) || hullId">
         <div class="segmented">
           <button v-for="m in modes" :key="m.value" :class="{ active: mode === m.value }" @click="setMode(m.value)">{{ m.label }}</button>
         </div>
-      </header>
+      </EditorHeader>
       <div class="editor-body">
         <div ref="stageRef" class="canvas-stage">
           <canvas
@@ -23,156 +19,152 @@
             @contextmenu.prevent
           />
         </div>
-        <aside class="editor-side">
-          <div class="inspector-title">舰船检查器</div>
-          <div class="editor-scroll">
-            <n-collapse default-expanded-names="basic" :theme-overrides="editorCollapseTheme">
-              <n-collapse-item title="船体属性" name="basic">
-                <div class="form-grid">
-                  <label>hullId</label><n-input v-model:value="localShip.hullId" /> <label>hullName</label
-                  ><n-input v-model:value="localShip.hullName" /> <label>hullSize</label
-                  ><n-select v-model:value="localShip.hullSize" :options="opts(['FRIGATE', 'DESTROYER', 'CRUISER', 'CAPITAL_SHIP'])" />
-                  <label>style</label
-                  ><n-select v-model:value="localShip.style" :options="opts(['LOW_TECH', 'MIDLINE', 'HIGH_TECH', 'CUSTOM'])" />
-                  <label>width</label><n-input-number v-model:value="localShip.width" @update:value="draw" /> <label>height</label
-                  ><n-input-number v-model:value="localShip.height" @update:value="draw" /> <label>collisionRadius</label
-                  ><n-input-number v-model:value="localShip.collisionRadius" @update:value="draw" />
+        <EditorInspector title="舰船检查器">
+          <n-collapse default-expanded-names="basic" :theme-overrides="editorCollapseTheme">
+            <n-collapse-item title="船体属性" name="basic">
+              <div class="form-grid">
+                <label>hullId</label><n-input v-model:value="localShip.hullId" /> <label>hullName</label
+                ><n-input v-model:value="localShip.hullName" /> <label>hullSize</label
+                ><n-select v-model:value="localShip.hullSize" :options="opts(['FRIGATE', 'DESTROYER', 'CRUISER', 'CAPITAL_SHIP'])" />
+                <label>style</label
+                ><n-select v-model:value="localShip.style" :options="opts(['LOW_TECH', 'MIDLINE', 'HIGH_TECH', 'CUSTOM'])" />
+                <label>width</label><n-input-number v-model:value="localShip.width" @update:value="draw" /> <label>height</label
+                ><n-input-number v-model:value="localShip.height" @update:value="draw" /> <label>collisionRadius</label
+                ><n-input-number v-model:value="localShip.collisionRadius" @update:value="draw" />
+              </div>
+            </n-collapse-item>
+            <n-collapse-item title="贴图" name="sprite">
+              <div class="form-grid">
+                <label>spriteName</label><n-input v-model:value="localShip.spriteName" @change="loadSprite" /> <label>选择已有</label
+                ><n-select
+                  v-model:value="localShip.spriteName"
+                  filterable
+                  :options="availableSprites.map((s) => ({ label: s, value: s }))"
+                  @update:value="loadSprite"
+                />
+              </div>
+              <input type="file" accept="image/png" @change="uploadShipSprite" />
+            </n-collapse-item>
+            <n-collapse-item title="中心与护盾" name="props">
+              <div class="form-grid">
+                <label>center X</label><n-input-number :value="center[0]" @update:value="setArray('center', 0, $event)" />
+                <label>center Y</label><n-input-number :value="center[1]" @update:value="setArray('center', 1, $event)" />
+                <label>shield X</label><n-input-number :value="shieldCenter[0]" @update:value="setArray('shieldCenter', 0, $event)" />
+                <label>shield Y</label><n-input-number :value="shieldCenter[1]" @update:value="setArray('shieldCenter', 1, $event)" />
+                <label>shieldRadius</label><n-input-number v-model:value="localShip.shieldRadius" @update:value="draw" />
+              </div>
+            </n-collapse-item>
+            <n-collapse-item title="武器槽" name="weapons">
+              <div class="item-list">
+                <button
+                  v-for="(slot, i) in weaponSlots"
+                  :key="i"
+                  :class="{ selected: mode === 'weapon' && selected === i }"
+                  @click="
+                    mode = 'weapon';
+                    selected = i;
+                    draw();
+                  "
+                >
+                  {{ slot.id || `slot ${i}` }} <span>{{ slot.size }} {{ slot.type }}</span>
+                </button>
+              </div>
+              <div v-if="mode === 'weapon' && selectedSlot" class="form-grid">
+                <label>id</label><n-input v-model:value="selectedSlot.id" /> <label>size</label
+                ><n-select v-model:value="selectedSlot.size" :options="opts(['SMALL', 'MEDIUM', 'LARGE'])" @update:value="draw" />
+                <label>type</label
+                ><n-select
+                  v-model:value="selectedSlot.type"
+                  :options="
+                    opts([
+                      'BALLISTIC',
+                      'ENERGY',
+                      'MISSILE',
+                      'HYBRID',
+                      'UNIVERSAL',
+                      'SYNERGY',
+                      'COMPOSITE',
+                      'LAUNCH_BAY',
+                      'DECORATIVE',
+                      'SYSTEM',
+                      'STATION_MODULE',
+                    ])
+                  "
+                  @update:value="draw"
+                />
+                <label>mount</label><n-select v-model:value="selectedSlot.mount" :options="opts(['TURRET', 'HARDPOINT', 'HIDDEN'])" />
+                <label>angle</label><n-input-number v-model:value="selectedSlot.angle" @update:value="draw" /> <label>arc</label
+                ><n-input-number v-model:value="selectedSlot.arc" @update:value="draw" /> <label>loc X</label
+                ><n-input-number :value="slotLoc[0]" @update:value="setSlotLoc(0, $event)" /> <label>loc Y</label
+                ><n-input-number :value="slotLoc[1]" @update:value="setSlotLoc(1, $event)" />
+              </div>
+              <div class="action-row button-row">
+                <n-button @click="addWeaponSlot">添加</n-button><n-button type="error" ghost @click="deleteSelected">删除</n-button>
+              </div>
+            </n-collapse-item>
+            <n-collapse-item title="引擎" name="engines">
+              <div class="item-list">
+                <button
+                  v-for="(eng, i) in engineSlots"
+                  :key="i"
+                  :class="{ selected: mode === 'engine' && selected === i }"
+                  @click="
+                    mode = 'engine';
+                    selected = i;
+                    draw();
+                  "
+                >
+                  引擎 {{ i }} <span>{{ eng.width }}x{{ eng.length }}</span>
+                </button>
+              </div>
+              <div v-if="mode === 'engine' && selectedEngine" class="form-grid">
+                <label>angle</label><n-input-number v-model:value="selectedEngine.angle" @update:value="draw" /> <label>width</label
+                ><n-input-number v-model:value="selectedEngine.width" @update:value="draw" /> <label>length</label
+                ><n-input-number v-model:value="selectedEngine.length" @update:value="draw" /> <label>contrailSize</label
+                ><n-input-number v-model:value="selectedEngine.contrailSize" /> <label>style</label
+                ><n-select v-model:value="selectedEngine.style" :options="opts(['LOW_TECH', 'MIDLINE', 'HIGH_TECH', 'CUSTOM'])" />
+                <label>loc X</label><n-input-number :value="engineLoc[0]" @update:value="setEngineLoc(0, $event)" /> <label>loc Y</label
+                ><n-input-number :value="engineLoc[1]" @update:value="setEngineLoc(1, $event)" />
+              </div>
+              <div class="action-row button-row">
+                <n-button @click="addEngine">添加</n-button><n-button type="error" ghost @click="deleteSelected">删除</n-button>
+              </div>
+            </n-collapse-item>
+            <n-collapse-item title="碰撞边界" name="bounds">
+              <div class="bounds-list">
+                <div
+                  v-for="(_, i) in boundPairs"
+                  :key="i"
+                  :class="{ selected: mode === 'bounds' && selected === i }"
+                  @click="
+                    mode = 'bounds';
+                    selected = i;
+                    draw();
+                  "
+                >
+                  <span>{{ i }}</span>
+                  <n-input-number :value="bounds[i * 2]" @update:value="setBound(i * 2, $event)" />
+                  <n-input-number :value="bounds[i * 2 + 1]" @update:value="setBound(i * 2 + 1, $event)" />
                 </div>
-              </n-collapse-item>
-              <n-collapse-item title="贴图" name="sprite">
-                <div class="form-grid">
-                  <label>spriteName</label><n-input v-model:value="localShip.spriteName" @change="loadSprite" /> <label>选择已有</label
-                  ><n-select
-                    v-model:value="localShip.spriteName"
-                    filterable
-                    :options="availableSprites.map((s) => ({ label: s, value: s }))"
-                    @update:value="loadSprite"
-                  />
-                </div>
-                <input type="file" accept="image/png" @change="uploadShipSprite" />
-              </n-collapse-item>
-              <n-collapse-item title="中心与护盾" name="props">
-                <div class="form-grid">
-                  <label>center X</label><n-input-number :value="center[0]" @update:value="setArray('center', 0, $event)" />
-                  <label>center Y</label><n-input-number :value="center[1]" @update:value="setArray('center', 1, $event)" />
-                  <label>shield X</label><n-input-number :value="shieldCenter[0]" @update:value="setArray('shieldCenter', 0, $event)" />
-                  <label>shield Y</label><n-input-number :value="shieldCenter[1]" @update:value="setArray('shieldCenter', 1, $event)" />
-                  <label>shieldRadius</label><n-input-number v-model:value="localShip.shieldRadius" @update:value="draw" />
-                </div>
-              </n-collapse-item>
-              <n-collapse-item title="武器槽" name="weapons">
-                <div class="item-list">
-                  <button
-                    v-for="(slot, i) in weaponSlots"
-                    :key="i"
-                    :class="{ selected: mode === 'weapon' && selected === i }"
-                    @click="
-                      mode = 'weapon';
-                      selected = i;
-                      draw();
-                    "
-                  >
-                    {{ slot.id || `slot ${i}` }} <span>{{ slot.size }} {{ slot.type }}</span>
-                  </button>
-                </div>
-                <div v-if="mode === 'weapon' && selectedSlot" class="form-grid">
-                  <label>id</label><n-input v-model:value="selectedSlot.id" /> <label>size</label
-                  ><n-select v-model:value="selectedSlot.size" :options="opts(['SMALL', 'MEDIUM', 'LARGE'])" @update:value="draw" />
-                  <label>type</label
-                  ><n-select
-                    v-model:value="selectedSlot.type"
-                    :options="
-                      opts([
-                        'BALLISTIC',
-                        'ENERGY',
-                        'MISSILE',
-                        'HYBRID',
-                        'UNIVERSAL',
-                        'SYNERGY',
-                        'COMPOSITE',
-                        'LAUNCH_BAY',
-                        'DECORATIVE',
-                        'SYSTEM',
-                        'STATION_MODULE',
-                      ])
-                    "
-                    @update:value="draw"
-                  />
-                  <label>mount</label><n-select v-model:value="selectedSlot.mount" :options="opts(['TURRET', 'HARDPOINT', 'HIDDEN'])" />
-                  <label>angle</label><n-input-number v-model:value="selectedSlot.angle" @update:value="draw" /> <label>arc</label
-                  ><n-input-number v-model:value="selectedSlot.arc" @update:value="draw" /> <label>loc X</label
-                  ><n-input-number :value="slotLoc[0]" @update:value="setSlotLoc(0, $event)" /> <label>loc Y</label
-                  ><n-input-number :value="slotLoc[1]" @update:value="setSlotLoc(1, $event)" />
-                </div>
-                <div class="button-row">
-                  <n-button @click="addWeaponSlot">添加</n-button><n-button type="error" ghost @click="deleteSelected">删除</n-button>
-                </div>
-              </n-collapse-item>
-              <n-collapse-item title="引擎" name="engines">
-                <div class="item-list">
-                  <button
-                    v-for="(eng, i) in engineSlots"
-                    :key="i"
-                    :class="{ selected: mode === 'engine' && selected === i }"
-                    @click="
-                      mode = 'engine';
-                      selected = i;
-                      draw();
-                    "
-                  >
-                    引擎 {{ i }} <span>{{ eng.width }}x{{ eng.length }}</span>
-                  </button>
-                </div>
-                <div v-if="mode === 'engine' && selectedEngine" class="form-grid">
-                  <label>angle</label><n-input-number v-model:value="selectedEngine.angle" @update:value="draw" /> <label>width</label
-                  ><n-input-number v-model:value="selectedEngine.width" @update:value="draw" /> <label>length</label
-                  ><n-input-number v-model:value="selectedEngine.length" @update:value="draw" /> <label>contrailSize</label
-                  ><n-input-number v-model:value="selectedEngine.contrailSize" /> <label>style</label
-                  ><n-select v-model:value="selectedEngine.style" :options="opts(['LOW_TECH', 'MIDLINE', 'HIGH_TECH', 'CUSTOM'])" />
-                  <label>loc X</label><n-input-number :value="engineLoc[0]" @update:value="setEngineLoc(0, $event)" /> <label>loc Y</label
-                  ><n-input-number :value="engineLoc[1]" @update:value="setEngineLoc(1, $event)" />
-                </div>
-                <div class="button-row">
-                  <n-button @click="addEngine">添加</n-button><n-button type="error" ghost @click="deleteSelected">删除</n-button>
-                </div>
-              </n-collapse-item>
-              <n-collapse-item title="碰撞边界" name="bounds">
-                <div class="bounds-list">
-                  <div
-                    v-for="(_, i) in boundPairs"
-                    :key="i"
-                    :class="{ selected: mode === 'bounds' && selected === i }"
-                    @click="
-                      mode = 'bounds';
-                      selected = i;
-                      draw();
-                    "
-                  >
-                    <span>{{ i }}</span>
-                    <n-input-number :value="bounds[i * 2]" @update:value="setBound(i * 2, $event)" />
-                    <n-input-number :value="bounds[i * 2 + 1]" @update:value="setBound(i * 2 + 1, $event)" />
-                  </div>
-                </div>
-                <div class="button-row">
-                  <n-button @click="addBound">添加点</n-button><n-button type="error" ghost @click="deleteSelected">删除点</n-button>
-                </div>
-              </n-collapse-item>
-              <n-collapse-item title="内置装备" name="builtins">
-                <textarea v-model="builtInWeaponsText" @change="applyBuiltInWeapons" />
-                <label>builtInMods</label><n-dynamic-tags v-model:value="builtInMods" /> <label>builtInWings</label
-                ><n-dynamic-tags v-model:value="builtInWings" />
-              </n-collapse-item>
-            </n-collapse>
-          </div>
-        </aside>
+              </div>
+              <div class="action-row button-row">
+                <n-button @click="addBound">添加点</n-button><n-button type="error" ghost @click="deleteSelected">删除点</n-button>
+              </div>
+            </n-collapse-item>
+            <n-collapse-item title="内置装备" name="builtins">
+              <textarea v-model="builtInWeaponsText" @change="applyBuiltInWeapons" />
+              <label>builtInMods</label><n-dynamic-tags v-model:value="builtInMods" /> <label>builtInWings</label
+              ><n-dynamic-tags v-model:value="builtInWings" />
+            </n-collapse-item>
+          </n-collapse>
+        </EditorInspector>
       </div>
-      <footer class="editor-footer">
-        <span>Ctrl+Z 撤销 | Ctrl+Y 重做 | 右键拖动画布 | 滚轮缩放</span>
-        <div class="editor-footer-actions">
+      <EditorFooter note="Ctrl+Z 撤销 | Ctrl+Y 重做 | 右键拖动画布 | 滚轮缩放">
+        <template #actions>
           <n-button @click="$emit('close')">关闭</n-button>
           <n-button type="primary" @click="save">保存 .ship</n-button>
-        </div>
-      </footer>
+        </template>
+      </EditorFooter>
     </div>
   </div>
 </template>
@@ -180,6 +172,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useDialog, useMessage } from 'naive-ui';
+import EditorFooter from './common/EditorFooter.vue';
+import EditorHeader from './common/EditorHeader.vue';
+import EditorInspector from './common/EditorInspector.vue';
 import { saveShipSpec } from '../editor.service';
 import type { RowData } from '../../../shared/types';
 import { arr, num, SLOT_RADIUS, str, WEAPON_COLORS } from '../../../shared/lib/starsector';

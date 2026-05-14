@@ -121,3 +121,35 @@ textarea {
 .muted {
   color: var(--color-muted);
 }
+
+.panel-card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
+}
+
+.panel-section-title {
+  color: var(--color-text-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.panel-empty {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  color: var(--color-muted);
+  background: var(--color-panel);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+}
+
+.action-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}

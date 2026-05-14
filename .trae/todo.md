@@ -14,13 +14,13 @@
 
 ## Phase 2: 重新整理前端结构和 CSS
 
-- [ ] 检查过于相似、只有微小差异的 CSS 规则，合并为稳定语义 class、token 或轻量结构组件。
-- [ ] 检查 CSS 文件组织是否仍合理，必要时调整 `base/app-shell/titlebar/tables/detail-pane/editors` 边界。
-- [ ] 清理不当的全局样式、过强选择器、临时覆盖 Naive UI 的脆弱写法。
-- [ ] 梳理模板中重复的 toolbar、section、action row、empty state、card、inspector 等结构，判断用 class 还是轻量组件收敛。
-- [ ] 明确总览页、设置页、Mod 列表、编辑器、表格区未来样式的落点，避免继续把新样式塞进错误文件。
-- [ ] 确认浅色/暗色主题 token、状态色、滚动条、表格和编辑器样式在高密度场景下仍一致。
-- [ ] 更新 `.trae/frontend-guidelines.md` 中的 CSS 与 UI 规范。
+- [x] 检查过于相似、只有微小差异的 CSS 规则，合并为稳定语义 class、token 或轻量结构组件。
+- [x] 检查 CSS 文件组织是否仍合理，必要时调整 `base/app-shell/titlebar/tables/detail-pane/editors` 边界。
+- [x] 清理不当的全局样式、过强选择器、临时覆盖 Naive UI 的脆弱写法。
+- [x] 梳理模板中重复的 toolbar、section、action row、empty state、card、inspector 等结构，判断用 class 还是轻量组件收敛。
+- [x] 明确总览页、设置页、Mod 列表、编辑器、表格区未来样式的落点，避免继续把新样式塞进错误文件。
+- [x] 确认浅色/暗色主题 token、状态色、滚动条、表格和编辑器样式在高密度场景下仍一致。
+- [x] 更新 `.trae/frontend-guidelines.md` 中的 CSS 与 UI 规范。
 
 ## Phase 3: 术语、命名与文档一致性
 

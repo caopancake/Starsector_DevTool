@@ -1,29 +1,27 @@
 <template>
   <div class="modal-backdrop">
     <div class="preview-window">
-      <header class="editor-header">
-        <div class="editor-title">
-          <strong>发射预览</strong>
-          <span>{{ weaponId }}</span>
-        </div>
+      <EditorHeader title="发射预览" :subtitle="weaponId">
         <span class="preview-stats">{{ stats }}</span>
-      </header>
+      </EditorHeader>
       <div ref="previewStageRef" class="preview-scroll">
         <canvas ref="canvasRef" class="preview-canvas" />
       </div>
-      <footer class="editor-footer">
+      <EditorFooter>
         <n-button @click="toggle">{{ running ? '暂停' : '播放' }}</n-button>
         <n-button v-for="s in [0.25, 1, 2, 4]" :key="s" :type="speed === s ? 'primary' : 'default'" @click="speed = s">{{ s }}x</n-button>
         <n-button @click="reset">重置</n-button>
         <span class="spacer"></span>
         <n-button @click="$emit('close')">关闭</n-button>
-      </footer>
+      </EditorFooter>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
+import EditorFooter from './common/EditorFooter.vue';
+import EditorHeader from './common/EditorHeader.vue';
 import type { RowData } from '../../../shared/types';
 import { num, rgba, str } from '../../../shared/lib/starsector';
 

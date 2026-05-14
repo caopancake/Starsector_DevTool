@@ -17,6 +17,7 @@
 - `src/features/project/`：项目打开、目录选择 service、加载状态、项目级数据入口。
 - `src/features/tables/`：CSV 表格状态、稳定 row key、dirty tracking、单元格编辑、行选择、保存/新建/删除流程。
 - `src/features/editors/`：舰船、武器、弹体编辑体验，以及发射预览子能力。
+- `src/features/editors/components/common/`：编辑器内稳定共享结构组件和小型字段组件，例如 header、footer、inspector、颜色数组和对象编辑器。
 - `src/features/tables/table.service.ts`：表格 feature 的后端语义边界，封装 CSV 行和舰船/武器记录的新建、删除、保存调用。
 - `src/shared/api/`：Tauri API 薄 adapter，只封装 command payload，不承载业务流程。
 - `src/shared/lib/`：Starsector 通用工具、默认数据、格式转换。
@@ -34,6 +35,7 @@
 - 表格本体专注数据展示、行选择和单元格编辑，不承载打开编辑器等重复操作列。
 - 表格 dirty state、editing cell、selection 都由 `tables.store.ts` 维护，并且必须按稳定 row key 追踪。
 - 编辑器壳层统一为 header、主编辑区、footer；舰船/武器编辑器采用画布主导 + 右侧检查器。
+- 编辑器共享结构组件只能表达稳定壳层，不能承载具体保存逻辑、上传逻辑、画布绘制、hit detection 或 drag mutation。
 - `EditorsHost.vue` 是弹窗编排边界，集中挂载 spec 编辑器和只读预览；preview 暂不拆独立 feature。
 - 业务 hit detection 和 drag mutation 暂留编辑器组件内。
 - 无 UI 或业务入口的 shared API adapter 应删除；未来按真实产品入口重新补。
@@ -61,4 +63,5 @@
 - 后续全局修改链路、快捷键、右键菜单分别由 Phase 9、Phase 10、Phase 11 处理。
 - `ShipEditor.vue`、`WeaponEditor.vue`、`ProjectileEditor.vue` 仍较大，但保留了业务流程聚合价值；除非出现稳定语义或真实复用需求，不继续为了行数拆分。
 - `App.vue` 仍承担主布局和顶层业务动作编排，但弹窗挂载已由 `EditorsHost.vue` 承担。
+- `base.css` 中的通用 panel/action 结构只用于稳定跨页面样式；具体业务区样式继续留在对应 CSS 模块。
 - 快捷键和右键行为尚未系统定义。
