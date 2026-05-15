@@ -7,6 +7,7 @@ use crate::{
     },
     parsers::{append_csv_row, delete_csv_id, save_csv_file},
 };
+use serde_json::{Map, Value};
 use std::path::Path;
 
 pub fn save_csv(payload: SaveCsvPayload) -> AppResult<String> {
@@ -32,69 +33,71 @@ pub fn delete_csv_row(mod_root: &str, table: &str, id: &str) -> AppResult<()> {
 }
 
 pub fn add_ship_row(payload: AddShipRowPayload) -> AppResult<()> {
-    let mod_root = Path::new(&payload.mod_root);
-    let csv_target = mod_root
-        .join(csv_path_for("ships").ok_or_else(|| AppError::message("unknown table: ships"))?);
-    append_csv_row(&csv_target, &payload.header, &payload.row)?;
-
-    let id = payload
-        .ship
-        .get("hullId")
-        .and_then(|value| value.as_str())
-        .or_else(|| payload.row.get("id").and_then(|value| value.as_str()))
-        .ok_or_else(|| AppError::message("missing ship id"))?;
-
-    if let Err(error) = validate_ship_spec(&payload.ship) {
-        delete_csv_id(&csv_target, id)?;
-        return Err(error);
-    }
-
-    if let Err(error) = save_json_by_id(mod_root, "data/hulls", "ship", "hullId", id, &payload.ship)
-    {
-        delete_csv_id(&csv_target, id)?;
-        return Err(error);
-    }
-
-    Ok(())
+    add_row_with_spec(
+        Path::new(&payload.mod_root),
+        "ships",
+        &payload.header,
+        &payload.row,
+        &payload.ship,
+        "hullId",
+        "data/hulls",
+        "ship",
+        |spec| validate_ship_spec(spec).map(|_| ()),
+    )
 }
 
 pub fn delete_ship_row(mod_root: &str, id: &str) -> AppResult<()> {
-    let mod_root_path = Path::new(mod_root);
-    let csv_target = mod_root_path
-        .join(csv_path_for("ships").ok_or_else(|| AppError::message("unknown table: ships"))?);
-    let before = read_utf8_no_bom(&csv_target)?;
-    delete_csv_id(&csv_target, id)?;
-
-    match delete_json_by_id(mod_root_path, "data/hulls", "ship", "hullId", id) {
-        Ok(true) => Ok(()),
-        Ok(false) => Ok(()),
-        Err(error) => {
-            write_utf8_no_bom(&csv_target, &before)?;
-            Err(error)
-        }
-    }
+    delete_row_with_spec(mod_root, "ships", id, "data/hulls", "ship", "hullId")
 }
 
 pub fn add_weapon_row(payload: AddWeaponRowPayload) -> AppResult<()> {
-    let mod_root = Path::new(&payload.mod_root);
-    let csv_target = mod_root
-        .join(csv_path_for("weapons").ok_or_else(|| AppError::message("unknown table: weapons"))?);
-    append_csv_row(&csv_target, &payload.header, &payload.row)?;
+    add_row_with_spec(
+        Path::new(&payload.mod_root),
+        "weapons",
+        &payload.header,
+        &payload.row,
+        &payload.weapon,
+        "id",
+        "data/weapons",
+        "wpn",
+        |spec| validate_weapon_spec(spec).map(|_| ()),
+    )
+}
 
-    let id = payload
-        .weapon
-        .get("id")
-        .and_then(|value| value.as_str())
-        .or_else(|| payload.row.get("id").and_then(|value| value.as_str()))
-        .ok_or_else(|| AppError::message("missing weapon id"))?;
+pub fn delete_weapon_row(mod_root: &str, id: &str) -> AppResult<()> {
+    delete_row_with_spec(mod_root, "weapons", id, "data/weapons", "wpn", "id")
+}
 
-    if let Err(error) = validate_weapon_spec(&payload.weapon) {
+/// Append CSV row, validate spec, save JSON; rollback CSV on failure.
+#[allow(clippy::too_many_arguments)]
+fn add_row_with_spec(
+    mod_root: &Path,
+    table: &str,
+    header: &[String],
+    row: &Map<String, Value>,
+    spec: &Value,
+    id_field: &str,
+    dir: &str,
+    ext: &str,
+    validate: fn(&Value) -> AppResult<()>,
+) -> AppResult<()> {
+    let csv_target = mod_root.join(
+        csv_path_for(table).ok_or_else(|| AppError::message(format!("unknown table: {table}")))?,
+    );
+    append_csv_row(&csv_target, header, row)?;
+
+    let id = spec
+        .get(id_field)
+        .and_then(|v| v.as_str())
+        .or_else(|| row.get("id").and_then(|v| v.as_str()))
+        .ok_or_else(|| AppError::message(format!("missing {id_field}")))?;
+
+    if let Err(error) = validate(spec) {
         delete_csv_id(&csv_target, id)?;
         return Err(error);
     }
 
-    if let Err(error) = save_json_by_id(mod_root, "data/weapons", "wpn", "id", id, &payload.weapon)
-    {
+    if let Err(error) = save_json_by_id(mod_root, dir, ext, id_field, id, spec) {
         delete_csv_id(&csv_target, id)?;
         return Err(error);
     }
@@ -102,16 +105,24 @@ pub fn add_weapon_row(payload: AddWeaponRowPayload) -> AppResult<()> {
     Ok(())
 }
 
-pub fn delete_weapon_row(mod_root: &str, id: &str) -> AppResult<()> {
+/// Backup CSV, delete CSV row, delete JSON; restore CSV on failure.
+fn delete_row_with_spec(
+    mod_root: &str,
+    table: &str,
+    id: &str,
+    dir: &str,
+    ext: &str,
+    id_field: &str,
+) -> AppResult<()> {
     let mod_root_path = Path::new(mod_root);
-    let csv_target = mod_root_path
-        .join(csv_path_for("weapons").ok_or_else(|| AppError::message("unknown table: weapons"))?);
+    let csv_target = mod_root_path.join(
+        csv_path_for(table).ok_or_else(|| AppError::message(format!("unknown table: {table}")))?,
+    );
     let before = read_utf8_no_bom(&csv_target)?;
     delete_csv_id(&csv_target, id)?;
 
-    match delete_json_by_id(mod_root_path, "data/weapons", "wpn", "id", id) {
-        Ok(true) => Ok(()),
-        Ok(false) => Ok(()),
+    match delete_json_by_id(mod_root_path, dir, ext, id_field, id) {
+        Ok(_) => Ok(()),
         Err(error) => {
             write_utf8_no_bom(&csv_target, &before)?;
             Err(error)

@@ -118,8 +118,7 @@ import { formatError } from '../../../shared/lib/errors';
 import { normalizeProjectileSpec } from '../lib/normalize';
 import { useObjectField } from '../composables/useObjectField';
 import { useSpriteUpload } from '../composables/useSpriteUpload';
-import { toOptions as opts } from '../lib/editor-utils';
-import { editorCollapseTheme } from '../lib/editor-theme';
+import { editorCollapseTheme, toOptions as opts } from '../lib/editor-constants';
 
 const props = defineProps<{ modRoot: string; projectileId: string; projectile?: RowData }>();
 const emit = defineEmits<{ close: []; saved: [id: string, projectile: RowData] }>();

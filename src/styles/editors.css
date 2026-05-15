@@ -55,14 +55,14 @@
   border-bottom: 0;
 }
 
-.editor-footer span,
-.spacer {
-  margin-right: auto;
-}
-
 .editor-footer span {
+  margin-right: auto;
   line-height: 1.35;
   white-space: pre-line;
+}
+
+.spacer {
+  margin-right: auto;
 }
 
 .editor-footer-actions {
@@ -112,7 +112,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: #0b1020;
+  background: var(--color-canvas-bg);
 }
 
 .editor-canvas {

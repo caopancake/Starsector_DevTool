@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { AppData, RowData } from '../../shared/types';
-import { deepClone, defaultWeapon, rowId } from '../../shared/lib/starsector';
+import { defaultWeapon, rowId } from '../../shared/lib/starsector';
 
 export const useEditorsStore = defineStore('editors', () => {
   const shipEditorId = ref('');
@@ -47,21 +47,6 @@ export const useEditorsStore = defineStore('editors', () => {
     return appData.wpnFiles[weaponEditorId.value] || defaultWeapon(weaponEditorId.value, csvRow);
   }
 
-  function onShipSaved(appData: AppData | null, id: string, ship: RowData) {
-    if (!appData) return;
-    appData.shipFiles[id] = deepClone(ship);
-  }
-
-  function onWeaponSaved(appData: AppData | null, id: string, weapon: RowData) {
-    if (!appData) return;
-    appData.wpnFiles[id] = deepClone(weapon);
-  }
-
-  function onProjectileSaved(appData: AppData | null, id: string, projectile: RowData) {
-    if (!appData) return;
-    appData.projFiles[id] = deepClone(projectile);
-  }
-
   return {
     projectileEditorId,
     previewWeaponId,
@@ -71,9 +56,6 @@ export const useEditorsStore = defineStore('editors', () => {
     closeProjectile,
     closeShip,
     closeWeapon,
-    onProjectileSaved,
-    onShipSaved,
-    onWeaponSaved,
     openPreview,
     openProjectile,
     openShip,

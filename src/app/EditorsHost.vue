@@ -61,17 +61,17 @@ const { message } = createDiscreteApi(['message'], {
 });
 
 function onShipSaved(id: string, ship: RowData) {
-  editors.onShipSaved(project.data, id, ship);
+  project.updateShipFile(id, ship);
   message.success(`${id}.ship 已保存`);
 }
 
 function onWeaponSaved(id: string, weapon: RowData) {
-  editors.onWeaponSaved(project.data, id, weapon);
+  project.updateWeaponFile(id, weapon);
   message.success(`${id}.wpn 已保存`);
 }
 
 function onProjectileSaved(id: string, projectile: RowData) {
-  editors.onProjectileSaved(project.data, id, projectile);
+  project.updateProjectileFile(id, projectile);
   message.success(`${id}.proj 已保存`);
 }
 </script>

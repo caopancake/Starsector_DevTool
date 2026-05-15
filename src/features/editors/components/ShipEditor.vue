@@ -223,8 +223,7 @@ import { useCanvasDrawing } from '../composables/useCanvasDrawing';
 import { useCanvasViewport } from '../composables/useCanvasViewport';
 import { useEditorShortcuts } from '../composables/useEditorShortcuts';
 import { useSpriteUpload } from '../composables/useSpriteUpload';
-import { snapToStep, toOptions as opts } from '../lib/editor-utils';
-import { editorCollapseTheme } from '../lib/editor-theme';
+import { editorCollapseTheme, snapToStep, toOptions as opts } from '../lib/editor-constants';
 import { drawBoundsVisual, drawEngineVisual, drawRadiusField, drawWeaponSlotVisual } from '../lib/canvas-visuals';
 
 const props = defineProps<{ modRoot: string; hullId: string; ship: RowData; spriteData?: string }>();

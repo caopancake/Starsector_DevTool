@@ -243,8 +243,7 @@ import { useHistory } from '../composables/useHistory';
 import { useEditorShortcuts } from '../composables/useEditorShortcuts';
 import { useObjectField } from '../composables/useObjectField';
 import { useSpriteUpload } from '../composables/useSpriteUpload';
-import { snapToStep, toOptions as opts } from '../lib/editor-utils';
-import { editorCollapseTheme } from '../lib/editor-theme';
+import { editorCollapseTheme, snapToStep, toOptions as opts } from '../lib/editor-constants';
 import { drawBarrelVisual, drawCrossMarker } from '../lib/canvas-visuals';
 
 type WeaponViewMode = 'turret' | 'hardpoint';

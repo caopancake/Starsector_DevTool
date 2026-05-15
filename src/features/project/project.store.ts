@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import type { AppData } from '../../shared/types';
-import { cell } from '../../shared/lib/starsector';
+import type { AppData, RowData } from '../../shared/types';
+import { cell, deepClone } from '../../shared/lib/starsector';
 import { loadProject, pickModRoot } from './project.service';
 
 export const useProjectStore = defineStore('project', () => {
@@ -28,6 +28,21 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
+  function updateShipFile(id: string, ship: RowData) {
+    if (!data.value) return;
+    data.value.shipFiles[id] = deepClone(ship);
+  }
+
+  function updateWeaponFile(id: string, weapon: RowData) {
+    if (!data.value) return;
+    data.value.wpnFiles[id] = deepClone(weapon);
+  }
+
+  function updateProjectileFile(id: string, projectile: RowData) {
+    if (!data.value) return;
+    data.value.projFiles[id] = deepClone(projectile);
+  }
+
   return {
     data,
     isOpen,
@@ -35,5 +50,8 @@ export const useProjectStore = defineStore('project', () => {
     projectName,
     openProject,
     pickAndOpenProject,
+    updateProjectileFile,
+    updateShipFile,
+    updateWeaponFile,
   };
 });
