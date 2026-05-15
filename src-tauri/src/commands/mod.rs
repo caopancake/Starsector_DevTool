@@ -2,11 +2,13 @@ use crate::{
     filesystem,
     models::{
         AddCsvRowPayload, AddShipRowPayload, AddWeaponRowPayload, AppData, DeletePayload,
-        SaveCsvPayload, SaveJsonPayload, UploadSpritePayload, UploadSpriteResult,
+        PersistedWorkspace, SaveCsvPayload, SaveJsonPayload, UploadSpritePayload,
+        UploadSpriteResult,
     },
     services,
 };
 use std::path::Path;
+use tauri::Manager;
 
 #[tauri::command]
 pub fn load_mod_data(mod_root: String) -> Result<AppData, String> {
@@ -68,4 +70,25 @@ pub fn save_proj(payload: SaveJsonPayload) -> Result<String, String> {
 #[tauri::command]
 pub fn upload_sprite(payload: UploadSpritePayload) -> Result<UploadSpriteResult, String> {
     filesystem::upload_sprite(payload).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn load_workspace(app_handle: tauri::AppHandle) -> Result<PersistedWorkspace, String> {
+    let app_data = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+    Ok(services::workspace::load_workspace(&app_data))
+}
+
+#[tauri::command]
+pub fn save_workspace(
+    app_handle: tauri::AppHandle,
+    state: PersistedWorkspace,
+) -> Result<(), String> {
+    let app_data = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+    services::workspace::save_workspace(&app_data, &state).map_err(|e| e.to_string())
 }

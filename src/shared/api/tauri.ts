@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { AppData, RowData, TableKey } from '../types';
+import type { AppData, PersistedWorkspace, RowData, TableKey } from '../types';
 
 export function loadModData(modRoot: string): Promise<AppData> {
   return invoke('load_mod_data', { modRoot });
@@ -61,4 +61,12 @@ export function uploadSprite(
   overwrite = false,
 ): Promise<UploadResult> {
   return invoke('upload_sprite', { payload: { modRoot, filename, data, subfolder, overwrite } });
+}
+
+export function loadWorkspace(): Promise<PersistedWorkspace> {
+  return invoke('load_workspace');
+}
+
+export function saveWorkspace(state: PersistedWorkspace): Promise<void> {
+  return invoke('save_workspace', { state });
 }

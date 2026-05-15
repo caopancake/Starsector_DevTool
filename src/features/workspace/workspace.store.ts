@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import type { ModEntry, WorkspaceView } from '../../shared/types';
+import type { ModEntry, PersistedWorkspace, WorkspaceView } from '../../shared/types';
 
 export const useWorkspaceStore = defineStore('workspace', () => {
   const mods = ref<Map<string, ModEntry>>(new Map());
@@ -64,6 +64,25 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return mods.value.has(modRoot);
   }
 
+  function restoreFrom(persisted: PersistedWorkspace) {
+    for (const mod of persisted.mods) {
+      registerMod({ modRoot: mod.modRoot, displayName: mod.displayName, version: mod.version, status: 'loading' });
+    }
+    if (persisted.currentView) currentView.value = persisted.currentView as WorkspaceView;
+    expandedMods.value = new Set(persisted.expandedMods);
+  }
+
+  function toPersistedState(): PersistedWorkspace {
+    return {
+      mods: modList.value
+        .filter((m) => m.status !== 'error')
+        .map((m) => ({ modRoot: m.modRoot, displayName: m.displayName, version: m.version })),
+      activeModRoot: activeModRoot.value,
+      currentView: currentView.value,
+      expandedMods: [...expandedMods.value],
+    };
+  }
+
   return {
     activeModRoot,
     activeMod,
@@ -77,7 +96,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     navigateTo,
     registerMod,
     removeMod,
+    restoreFrom,
     setActiveMod,
+    toPersistedState,
     toggleExpanded,
     updateModInfo,
     updateModStatus,

@@ -31,3 +31,18 @@ export interface ModEditorState {
 
 /** Which main-content view is shown */
 export type WorkspaceView = 'overview' | 'table' | 'settings';
+
+/** Persisted mod entry (stored to disk) */
+export interface PersistedMod {
+  modRoot: string;
+  displayName: string;
+  version: string;
+}
+
+/** Persisted workspace state (stored to disk via Rust backend) */
+export interface PersistedWorkspace {
+  mods: PersistedMod[];
+  activeModRoot: string | null;
+  currentView: string | null;
+  expandedMods: string[];
+}

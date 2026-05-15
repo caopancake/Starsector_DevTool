@@ -34,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { createDiscreteApi, type GlobalThemeOverrides } from 'naive-ui';
 import EditorsHost from './EditorsHost.vue';
 import TitleBar from './TitleBar.vue';
@@ -48,6 +48,7 @@ import { useProjectStore } from '../features/project/project.store';
 import { useTablesStore } from '../features/tables/tables.store';
 import { useWorkspaceStore } from '../features/workspace/workspace.store';
 import { pickModRoot } from '../features/project/project.service';
+import { loadWorkspace, saveWorkspace } from '../shared/api/tauri';
 import { cell } from '../shared/lib/starsector';
 import { formatError } from '../shared/lib/errors';
 
@@ -78,6 +79,46 @@ watch(
     editors.activateFor(modRoot ?? '');
   },
 );
+
+// Auto-save workspace state (debounced)
+let saveTimer: number | null = null;
+watch(
+  () => workspace.toPersistedState(),
+  (state) => {
+    if (saveTimer !== null) window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => void saveWorkspace(state), 500);
+  },
+  { deep: true },
+);
+
+// Startup: restore persisted workspace
+onMounted(async () => {
+  try {
+    const persisted = await loadWorkspace();
+    if (persisted.mods.length === 0) return;
+    workspace.restoreFrom(persisted);
+    for (const mod of persisted.mods) {
+      try {
+        const loaded = await project.openProject(mod.modRoot);
+        const name = cell(loaded.modInfo?.name) || mod.displayName;
+        const version = cell(loaded.modInfo?.version) || mod.version;
+        workspace.updateModInfo(mod.modRoot, name, version);
+        workspace.updateModStatus(mod.modRoot, 'ready');
+        tables.hydrate(mod.modRoot, loaded);
+      } catch (err) {
+        workspace.updateModStatus(mod.modRoot, 'error', formatError(err));
+      }
+    }
+    if (persisted.activeModRoot && workspace.isModImported(persisted.activeModRoot)) {
+      const activeMod = workspace.mods.get(persisted.activeModRoot);
+      if (activeMod?.status === 'ready') {
+        workspace.setActiveMod(persisted.activeModRoot);
+      }
+    }
+  } catch {
+    /* First launch — no persisted workspace file */
+  }
+});
 
 async function importMod() {
   try {

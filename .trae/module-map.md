@@ -50,11 +50,13 @@
 
 ## Backend
 
-- `src-tauri/src/lib.rs`：Tauri 装配和 command 注册。
-- `src-tauri/src/commands/`：Tauri command 入口。
+- `src-tauri/src/lib.rs`：Tauri 装配、command 注册和 single-instance 插件。
+- `src-tauri/src/commands/`：Tauri command 入口，包括 workspace 持久化命令。
 - `src-tauri/src/services/`：业务流程。
+- `src-tauri/src/services/workspace.rs`：workspace.json 读写 service。
 - `src-tauri/src/parsers/`：CSV 和宽松 JSON。
 - `src-tauri/src/models/`：payload、AppData、核心 spec 类型。
+- `src-tauri/src/models/workspace.rs`：PersistedWorkspace、PersistedMod 持久化数据结构。
 - `src-tauri/src/filesystem/`：路径、文本 IO、JSON 文件、贴图、资源扫描。
 - `src-tauri/src/errors.rs`：统一错误。
 

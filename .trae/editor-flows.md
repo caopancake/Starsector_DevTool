@@ -8,6 +8,22 @@
 2. `src/app/DetailPane.vue` 根据 `tables.currentTab` 展示右侧操作入口。
 3. 需要弹窗编辑的模块通过 `src/features/editors/editors.store.ts` 记录当前编辑 id。
 4. `src/app/EditorsHost.vue` 根据 store 中的 id 挂载对应编辑器组件。
+
+## 启动恢复链路
+
+- 触发：`App.vue` 的 `onMounted` 钩子。
+- 流程：
+  1. `loadWorkspace()` → Tauri command `load_workspace` → Rust 读取 `%APPDATA%/com.starsector.devtool/workspace.json`。
+  2. 若文件不存在或损坏，返回空默认值，视为首次启动。
+  3. `workspace.restoreFrom(persisted)` 恢复 Mod 列表（status: loading）、视图、展开状态。
+  4. 逐个 Mod 调用 `project.openProject(modRoot)` 加载数据。
+  5. 加载成功：`workspace.updateModStatus('ready')`，`tables.hydrate(modRoot, loaded)`。
+  6. 加载失败：`workspace.updateModStatus('error', message)`，允许用户移除。
+  7. 恢复 activeModRoot：仅当该 Mod 状态为 ready 时激活。
+- 持久化触发：workspace store 状态变化时，通过 `watch(workspace.toPersistedState())` 防抖 500ms 后写入。
+- Tauri command：`save_workspace` → Rust 写 workspace.json。
+- 单例化：`tauri-plugin-single-instance` 在 Rust 端注册，第二个实例启动时聚焦第一个窗口。
+
 5. 编辑器组件通过 `src/features/editors/editor.service.ts` 调用保存或上传能力。
 6. `src/shared/api/tauri.ts` 统一封装 Tauri command。
 7. Rust `src-tauri/src/commands/` 接收 payload，转交 `src-tauri/src/services/`。
