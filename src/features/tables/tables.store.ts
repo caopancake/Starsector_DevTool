@@ -300,9 +300,9 @@ export const useTablesStore = defineStore('tables', () => {
 
     state.tables[tab] = state.tables[tab].filter((row) => rowId(row) !== id);
     state.originalTables[tab] = state.originalTables[tab].filter((row) => rowId(row) !== id);
-    delete state.dirty[tab][id];
-    delete state.dirty[tab][selectedRowKey.value];
-    selectedRowKey.value = '';
+    const rowKey = state.selectedRowKey;
+    if (rowKey) delete state.dirty[tab][rowKey];
+    state.selectedRowKey = '';
   }
 
   function assignRowKeys(tab: TableKey, list: RowData[]) {
@@ -350,7 +350,6 @@ export const useTablesStore = defineStore('tables', () => {
     hydrate,
     removeModState,
     revertChanges,
-    rowId,
     rowSelectionKey,
     rowsFor,
     saveChanges,

@@ -25,6 +25,10 @@
   --color-warning-bg: #fff7df;
   --color-warning-border: #f4d58d;
   --color-danger: #dc2626;
+  --color-success: #166534;
+  --color-success-bg: #dcfce7;
+  --color-danger-bg: #fee2e2;
+  --color-danger-text: #991b1b;
   --color-canvas-bg: #1a1d2e;
   --scrollbar-track: transparent;
   --scrollbar-thumb: #c9c9c5;
@@ -60,6 +64,10 @@
   --color-warning-bg: #3b2d13;
   --color-warning-border: #6b4d16;
   --color-danger: #f87171;
+  --color-success: #86efac;
+  --color-success-bg: #14532d;
+  --color-danger-bg: #450a0a;
+  --color-danger-text: #fca5a5;
   --color-canvas-bg: #0b1020;
   --scrollbar-thumb: #3d4552;
   --scrollbar-thumb-hover: #596273;

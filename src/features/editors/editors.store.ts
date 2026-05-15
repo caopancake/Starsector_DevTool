@@ -10,12 +10,14 @@ function createModEditorState(): ModEditorState {
 export const useEditorsStore = defineStore('editors', () => {
   const stateMap = reactive<Map<string, ModEditorState>>(new Map());
   const activeRoot = ref('');
+  const fallback = createModEditorState();
 
   function getActiveState(): ModEditorState {
+    if (!activeRoot.value) return fallback;
     let state = stateMap.get(activeRoot.value);
     if (!state) {
       state = createModEditorState();
-      if (activeRoot.value) stateMap.set(activeRoot.value, state);
+      stateMap.set(activeRoot.value, state);
     }
     return state;
   }

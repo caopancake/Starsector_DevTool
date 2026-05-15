@@ -36,6 +36,7 @@
 }
 
 .mod-tree-header {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -261,23 +262,13 @@
 }
 
 .mod-card-status.ready {
-  background: #dcfce7;
-  color: #166534;
-}
-
-:root[data-theme='dark'] .mod-card-status.ready {
-  background: #14532d;
-  color: #86efac;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .mod-card-status.error {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-:root[data-theme='dark'] .mod-card-status.error {
-  background: #450a0a;
-  color: #fca5a5;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
 }
 
 .mod-card-path {
