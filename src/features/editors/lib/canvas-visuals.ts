@@ -159,8 +159,8 @@ function drawArcAndFacing(ctx: CanvasRenderingContext2D, radius: number, arc: nu
   const clampedArc = Math.max(0, Math.min(360, arc || 0));
   if (clampedArc > 0) {
     const half = (clampedArc * Math.PI) / 360;
-    const start = -Math.PI / 2 - half;
-    const end = -Math.PI / 2 + half;
+    const start = -half;
+    const end = half;
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -176,8 +176,8 @@ function drawArcAndFacing(ctx: CanvasRenderingContext2D, radius: number, arc: nu
   ctx.strokeStyle = '#d8d8d8';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(0, -radius * 1.2);
-  ctx.lineTo(0, -8);
+  ctx.moveTo(radius * 1.2, 0);
+  ctx.lineTo(8, 0);
   ctx.stroke();
 }
 
@@ -299,7 +299,7 @@ export function drawEngineVisual(ctx: CanvasRenderingContext2D, options: EngineV
   const selected = options.selected || Boolean(options.hovered);
   ctx.save();
   ctx.translate(options.point.x, options.point.y);
-  ctx.rotate(-Math.PI / 2 + (options.angle * Math.PI) / 180);
+  ctx.rotate((-options.angle * Math.PI) / 180);
   ctx.fillStyle = 'rgba(220, 230, 220, 0.08)';
   ctx.fillRect(0, -width / 2, length, width);
 
@@ -328,7 +328,7 @@ export function drawBarrelVisual(ctx: CanvasRenderingContext2D, options: BarrelV
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(options.point.x, options.point.y);
-  ctx.lineTo(options.point.x + Math.sin(-angle) * length, options.point.y - Math.cos(angle) * length);
+  ctx.lineTo(options.point.x + Math.cos(angle) * length, options.point.y - Math.sin(angle) * length);
   ctx.stroke();
   drawControlPoint(ctx, options.point, false, false, 5);
   ctx.font = '11px sans-serif';

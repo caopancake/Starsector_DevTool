@@ -44,8 +44,9 @@
 - 入口：右侧详情面板的“舰船编辑器”按钮。
 - 前端状态：`editors.openShip(id)` 设置 `shipEditorId`。
 - 宿主：`EditorsHost.vue` 挂载 `ShipEditor.vue`。
-- 数据来源：`project.data.shipFiles[id]`、`project.data.shipSprites[id]`、`project.data.availableSprites`。
-- 画布渲染：武器槽、碰撞边界、中心、护盾和引擎使用编辑器共享绘制 helper；组件仍负责舰船专属 hit detection、拖拽和数据修改。
+- 数据来源：`project.data.shipFiles[id]`、`project.data.shipSprites[id]`。
+- 画布渲染：舰船贴图按 Starsector 原始朝上资源转换为船头朝右显示；武器槽、碰撞边界、中心、护盾和引擎使用编辑器共享绘制 helper。
+- 交互边界：组件仍负责舰船专属坐标换算、自动吸附选择、强选择、拖拽和数据修改。
 
 ### 保存规格
 
@@ -77,8 +78,10 @@
 - 前端状态：`editors.openWeapon(id)` 设置 `weaponEditorId`。
 - 宿主：`EditorsHost.vue` 挂载 `WeaponEditor.vue`。
 - 数据来源：优先 `project.data.wpnFiles[id]`；缺失时由 `defaultWeapon(id, csvRow)` 生成临时默认 spec。
+- 贴图来源：`project.data.weaponSpritesData[id]` 按 `turret*` / `hardpoint*` sprite 字段提供 data URL，编辑器按当前视图绘制对应贴图层。
 - 关联入口：武器编辑器可打开弹体编辑器，也可打开发射预览。
-- 画布渲染：炮口和角度指示使用编辑器共享绘制 helper；组件仍负责 barrel hit detection、拖拽和 offset / angle 数据修改。
+- 画布渲染：炮塔视图和固定视图分别使用对应贴图与发射点数据，炮口和角度指示使用编辑器共享绘制 helper。
+- 交互边界：组件仍负责发射点自动吸附、强选择、拖拽、新增、删除和 angle offset 修改。
 
 ### 保存规格
 
@@ -185,10 +188,16 @@
 
 上传只负责写入贴图文件并返回相对路径；对应 spec 字段仍由编辑器保存链路写回。
 
+## 编辑器交互口径
+
+- 舰船和武器编辑器内的快捷键只在编辑器作用域生效，表单控件聚焦时不抢输入。
+- 画布内自动吸附负责快速选择最近可编辑目标；右侧检查器点击负责明确选择，下一次画布移动可以重新接管选择。
+- 画布坐标和贴图锚点是编辑器内部显示语义，不改变 `.ship`、`.wpn`、`.proj` 的保存边界。
+
 ## 当前缺口
 
 - 联队、船插、工业当前只有 CSV 表格编辑，没有专用编辑器。
 - 联队的 `.variant` 关系未进入创建/删除一致性链路。
 - 弹体没有独立主表格，新建/删除入口尚未系统化。
 - CSV 与 `.ship/.wpn` 字段暂不自动联动；后续实现前必须先定义字段映射、冲突优先级、保存时机和失败处理。
-- 全局 undo/redo、快捷键和右键菜单分别留给 Phase 9、Phase 10 和 Phase 11。
+- 主界面级 undo/redo、快捷键和右键菜单仍需后续统一设计；当前编辑器内已有局部 undo/redo 和快捷键作用域。

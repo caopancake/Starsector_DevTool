@@ -24,6 +24,11 @@
   box-shadow: var(--shadow-floating);
 }
 
+.editor-window:focus,
+.ship-mode-tabs button:focus {
+  outline: none;
+}
+
 .projectile-window {
   width: min(820px, calc(100vw - 40px));
 }
@@ -53,6 +58,11 @@
 .editor-footer span,
 .spacer {
   margin-right: auto;
+}
+
+.editor-footer span {
+  line-height: 1.35;
+  white-space: pre-line;
 }
 
 .editor-footer-actions {
@@ -176,6 +186,27 @@
   flex-direction: row-reverse;
 }
 
+.ship-mode-controls {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.ship-mode-shortcut {
+  margin-left: 6px;
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ship-mode-hint {
+  color: var(--color-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .segmented button,
 .item-list button {
   padding: 5px 10px;
@@ -208,6 +239,11 @@
   font-size: 12px;
 }
 
+.editor-window .n-input-number .n-button,
+.projectile-window .n-input-number .n-button {
+  display: none;
+}
+
 .item-list {
   display: grid;
   gap: 4px;
@@ -229,6 +265,44 @@
 
 .button-row {
   margin: 8px 0;
+}
+
+.sprite-actions {
+  display: grid;
+  gap: var(--space-2);
+  margin: 8px 0;
+}
+
+.sprite-actions .n-button {
+  width: 100%;
+}
+
+.sprite-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.editor-file-input {
+  display: none;
+}
+
+.sprite-icon-button {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+.sprite-icon-button svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .bounds-list {

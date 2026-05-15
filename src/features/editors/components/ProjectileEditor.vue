@@ -3,7 +3,7 @@
     <div class="projectile-window">
       <EditorHeader title="弹体编辑器" :subtitle="projectileId" />
       <div class="projectile-body">
-        <n-collapse default-expanded-names="basic" :theme-overrides="editorCollapseTheme">
+        <n-collapse v-model:expanded-names="expandedSections" :theme-overrides="editorCollapseTheme">
           <n-collapse-item title="基础属性" name="basic">
             <div class="form-grid">
               <label>id</label><n-input :value="projectileId" disabled /> <label>specClass</label
@@ -126,6 +126,7 @@ const emit = defineEmits<{ close: []; saved: [id: string, projectile: RowData] }
 const message = useMessage();
 const dialog = useDialog();
 const localProjectile = ref<RowData>(normalizeProjectileSpec(props.projectile || { id: props.projectileId, specClass: 'projectile' }));
+const expandedSections = ref(['basic']);
 const { bindObjectField } = useObjectField(localProjectile);
 const { uploadSpriteFile: uploadSpriteInput } = useSpriteUpload();
 const specClass = computed(() => str(localProjectile.value.specClass, 'projectile'));

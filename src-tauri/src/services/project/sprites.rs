@@ -21,19 +21,28 @@ pub(super) fn load_ship_sprite_data(
 pub(super) fn load_weapon_sprite_data(
     mod_root: &Path,
     wpn_files: &BTreeMap<String, Value>,
-) -> BTreeMap<String, String> {
+) -> BTreeMap<String, BTreeMap<String, String>> {
     let mut sprites = BTreeMap::new();
     for (id, value) in wpn_files {
-        let sprite_path = value
-            .get("turretSprite")
-            .or_else(|| value.get("hardpointSprite"))
-            .or_else(|| value.get("turretGunSprite"))
-            .or_else(|| value.get("hardpointGunSprite"))
-            .and_then(Value::as_str);
-        if let Some(sprite) = sprite_path {
-            if let Ok(Some(data_url)) = load_sprite_data_url(mod_root, sprite) {
-                sprites.insert(id.clone(), data_url);
+        let mut weapon_sprites = BTreeMap::new();
+        for field in [
+            "turretUnderSprite",
+            "turretSprite",
+            "turretGunSprite",
+            "turretGlowSprite",
+            "hardpointUnderSprite",
+            "hardpointSprite",
+            "hardpointGunSprite",
+            "hardpointGlowSprite",
+        ] {
+            if let Some(sprite) = value.get(field).and_then(Value::as_str) {
+                if let Ok(Some(data_url)) = load_sprite_data_url(mod_root, sprite) {
+                    weapon_sprites.insert(field.to_string(), data_url);
+                }
             }
+        }
+        if !weapon_sprites.is_empty() {
+            sprites.insert(id.clone(), weapon_sprites);
         }
     }
     sprites

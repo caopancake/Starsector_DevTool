@@ -40,6 +40,7 @@
 - 武器贴图写入 `graphics/weapons/`。
 - 弹体贴图写入 `graphics/missiles/`。
 - 上传时必须处理重名覆盖确认，不能静默覆盖。
+- 项目加载时可为同一 spec 聚合多个贴图字段的数据 URL，例如武器的 `turret*` 和 `hardpoint*` 字段；这属于预览/编辑辅助数据，不改变 spec 保存格式。
 
 ## 验证目标
 

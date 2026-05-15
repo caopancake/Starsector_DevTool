@@ -87,7 +87,7 @@ const previewState = computed<PreviewState>(() => {
     return previewFromMap(data.shipSprites[id], expectedShipSprite(data.shipFiles[id]), id, tables.currentTab);
   }
   if (tables.currentTab === 'weapons') {
-    return previewFromMap(data.weaponSpritesData[id], expectedWeaponSprite(data.wpnFiles[id]), id, tables.currentTab);
+    return previewFromMap(weaponPreviewSprite(data.weaponSpritesData[id]), expectedWeaponSprite(data.wpnFiles[id]), id, tables.currentTab);
   }
   if (tables.currentTab === 'hullmods') {
     return previewFromMap(data.hullmodSprites[id], str(row.sprite), id, tables.currentTab);
@@ -131,7 +131,22 @@ function expectedWeaponSprite(weapon: RowData | undefined): string {
     str(weapon?.turretGunSprite) ||
     str(weapon?.hardpointGunSprite) ||
     str(weapon?.turretUnderSprite) ||
-    str(weapon?.hardpointUnderSprite)
+    str(weapon?.hardpointUnderSprite) ||
+    str(weapon?.turretGlowSprite) ||
+    str(weapon?.hardpointGlowSprite)
+  );
+}
+function weaponPreviewSprite(sprites: Record<string, string> | undefined): string | undefined {
+  if (!sprites) return undefined;
+  return (
+    sprites.turretSprite ||
+    sprites.hardpointSprite ||
+    sprites.turretGunSprite ||
+    sprites.hardpointGunSprite ||
+    sprites.turretUnderSprite ||
+    sprites.hardpointUnderSprite ||
+    sprites.turretGlowSprite ||
+    sprites.hardpointGlowSprite
   );
 }
 </script>

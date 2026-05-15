@@ -5,7 +5,6 @@
     :hull-id="editors.shipEditorId"
     :ship="project.data.shipFiles[editors.shipEditorId]"
     :sprite-data="project.data.shipSprites[editors.shipEditorId]"
-    :available-sprites="project.data.availableSprites"
     @close="editors.closeShip"
     @saved="onShipSaved"
   />

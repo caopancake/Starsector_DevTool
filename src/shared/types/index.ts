@@ -28,7 +28,7 @@ export interface AppData {
   wpnFiles: Record<string, RowData>;
   projFiles: Record<string, RowData>;
   weaponSprites: string[];
-  weaponSpritesData: Record<string, string>;
+  weaponSpritesData: Record<string, Record<string, string>>;
   hullmodSprites: Record<string, string>;
   industrySprites: Record<string, string>;
 }

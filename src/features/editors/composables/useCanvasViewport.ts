@@ -40,7 +40,7 @@ export function useCanvasViewport(canvasRef: Ref<HTMLCanvasElement | undefined>,
   function toCanvas(space: CoordinateSpace, x: number, y: number): Point {
     const canvasCenter = center();
     if (space === 'ship') {
-      return { x: canvasCenter.x - y * scale.value, y: canvasCenter.y - x * scale.value };
+      return { x: canvasCenter.x + x * scale.value, y: canvasCenter.y - y * scale.value };
     }
     return { x: canvasCenter.x + y * scale.value, y: canvasCenter.y - x * scale.value };
   }
@@ -48,7 +48,7 @@ export function useCanvasViewport(canvasRef: Ref<HTMLCanvasElement | undefined>,
   function fromCanvas(space: CoordinateSpace, x: number, y: number): Point {
     const canvasCenter = center();
     if (space === 'ship') {
-      return { x: -(y - canvasCenter.y) / scale.value, y: -(x - canvasCenter.x) / scale.value };
+      return { x: (x - canvasCenter.x) / scale.value, y: -(y - canvasCenter.y) / scale.value };
     }
     return { x: -(y - canvasCenter.y) / scale.value, y: (x - canvasCenter.x) / scale.value };
   }
