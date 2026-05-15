@@ -42,3 +42,5 @@ export interface SelectOption {
 }
 
 export type RenderFn = () => VNodeChild;
+
+export type { ModEditorState, ModEntry, ModTableState, WorkspaceView } from './workspace';

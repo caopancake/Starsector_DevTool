@@ -35,14 +35,14 @@
 
 ## Phase 2: 多 Mod 工作区数据契约与状态模型
 
-- [ ] 将现有 `project` 单 Mod 状态升级为 workspace / project 集合状态，并定义稳定的数据结构。
-- [ ] 明确前端 workspace、tables、editors、settings 四类状态的边界，以及每个 Mod 的隔离粒度。
-- [ ] 明确后端 `AppData`、前端 `AppData`、共享类型和持久化结构如何从单 Mod 升级到多 Mod。
-- [ ] 调整 `tables` store，使 CSV 表格、当前 tab、搜索、筛选、选择和 dirty state 按 Mod 隔离。
-- [ ] 调整 `editors` store，使舰船、武器、弹体和各种预览弹窗状态按 Mod 或当前 workspace 上下文定位。
-- [ ] 调整保存、新建、删除、上传贴图链路，确保所有写入明确指向当前 Mod。
-- [ ] 更新 `.trae/editor-flows.md`，记录多 Mod 下打开、切换、编辑、保存的完整链路。
-- [ ] 仅修改后端，不修改前端，当前导入行为“打开 Mod 目录“视作读取 1 个 Mod。
+- [x] 将现有 `project` 单 Mod 状态升级为 workspace / project 集合状态，并定义稳定的数据结构。
+- [x] 明确前端 workspace、tables、editors、settings 四类状态的边界，以及每个 Mod 的隔离粒度。
+- [x] 明确后端 `AppData`、前端 `AppData`、共享类型和持久化结构如何从单 Mod 升级到多 Mod。
+- [x] 调整 `tables` store，使 CSV 表格、当前 tab、搜索、筛选、选择和 dirty state 按 Mod 隔离。
+- [x] 调整 `editors` store，使舰船、武器、弹体和各种预览弹窗状态按 Mod 或当前 workspace 上下文定位。
+- [x] 调整保存、新建、删除、上传贴图链路，确保所有写入明确指向当前 Mod。
+- [x] 更新 `.trae/editor-flows.md`，记录多 Mod 下打开、切换、编辑、保存的完整链路。
+- [x] 前后端同步实施，后端保持无状态设计（payload 中 modRoot 参数化），前端实现完整多 Mod 隔离。
 
 ## Phase 2.1: 多 Mod 持久化、恢复与单例化
 
@@ -57,11 +57,11 @@
 
 ## Phase 2.2: 软件 IDE 化 UI 壳层
 
-- [ ] 将左侧导航从“数据模块”改为“Mod 列表”，每个 Mod 下展开舰船、武器、联队、船插、工业等数据模块。
-- [ ] 新增总览页面，展示已导入 Mod、当前状态、未保存修改、数据统计和常用入口。
-- [ ] 新增设置页面入口，为后续主题、颜色、持久化和工具选项提供承载位置。
-- [ ] 支持导入多个 Mod、切换 Mod、移除 Mod；移除只取消导入，不删除本地文件。
-- [ ] 切换或移除 Mod 时处理未保存修改提示，避免跨 Mod 丢失 dirty state。
+- [x] 将左侧导航从”数据模块”改为”Mod 列表”，每个 Mod 下展开舰船、武器、联队、船插、工业等数据模块。
+- [x] 新增总览页面，展示已导入 Mod、当前状态、未保存修改、数据统计和常用入口。
+- [x] 新增设置页面入口，为后续主题、颜色、持久化和工具选项提供承载位置。
+- [x] 支持导入多个 Mod、切换 Mod、移除 Mod；移除只取消导入，不删除本地文件。
+- [x] 切换或移除 Mod 时处理未保存修改提示，避免跨 Mod 丢失 dirty state。
 - [ ] 验证多 Mod 打开、切换、移除、恢复上次会话与当前 UI 壳层交互是否顺畅。
 
 ## Phase 3: 完善设置界面和主题系统

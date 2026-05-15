@@ -5,64 +5,23 @@
         <div class="app-frame" :data-theme="settings.theme">
           <TitleBar />
           <div class="app-shell">
-            <aside class="nav-pane">
-              <div class="nav-section">
-                <n-button block type="primary" :loading="project.loading" @click="openProject">打开 Mod 目录</n-button>
-              </div>
-              <div class="nav-label">数据模块</div>
-              <n-button
-                v-for="item in TABLE_KEYS"
-                :key="item"
-                block
-                quaternary
-                class="nav-button"
-                :class="{ active: tables.currentTab === item }"
-                @click="tables.switchTab(item, project.data)"
-              >
-                <span class="nav-text">{{ MODULE_LABELS[item] }}</span>
-                <span class="nav-count">{{ tables.rowsFor(item).length }}</span>
-              </n-button>
-            </aside>
+            <NavSidebar :loading="project.loading" @import-mod="importMod" @remove-mod="confirmRemoveMod" />
 
-            <main class="workspace">
-              <header class="topbar">
-                <div class="view-heading">
-                  <div class="view-title">{{ MODULE_LABELS[tables.currentTab] }}</div>
-                  <div class="view-meta">{{ project.isOpen ? tables.tableInfo : '未打开项目' }}</div>
-                </div>
-                <div class="top-actions">
-                  <div class="top-action-group">
-                    <n-input v-model:value="tables.searchText" clearable placeholder="搜索 ID / 名称" style="width: 240px" />
-                    <n-select v-model:value="tables.currentFaction" :options="factionOptions" placeholder="势力" style="width: 180px" />
-                  </div>
-                  <div class="top-action-group">
-                    <n-button :disabled="!project.data" @click="addNewRow">新建</n-button>
-                    <n-button type="error" ghost :disabled="!tables.selectedRowId" @click="confirmDelete">删除</n-button>
-                  </div>
-                  <div class="top-action-group">
-                    <n-button :disabled="!tables.hasChanges" @click="revertChanges">撤销修改</n-button>
-                    <n-button
-                      type="primary"
-                      :loading="tables.saving"
-                      :disabled="!tables.hasChanges"
-                      @pointerdown.prevent="saveChanges"
-                      @click.prevent
-                    >
-                      保存 CSV
-                    </n-button>
-                  </div>
-                </div>
-              </header>
-
-              <section v-if="!project.data" class="empty-state">
+            <OverviewPage v-if="workspace.currentView === 'overview'" @import-mod="importMod" />
+            <SettingsPage v-else-if="workspace.currentView === 'settings'" />
+            <TableWorkspace
+              v-else-if="workspace.currentView === 'table' && project.data"
+              @add-row="addNewRow"
+              @delete-row="confirmDelete"
+              @revert="revertChanges"
+              @save="saveChanges"
+              @open-ship="openShip"
+            />
+            <main v-else class="workspace">
+              <section class="empty-state">
                 <h1>选择一个 Starsector Mod 目录</h1>
                 <p>工具会读取 data、graphics 和 mod_info.json，并在本地原位写回配置文件。</p>
-                <n-button type="primary" size="large" @click="openProject">打开 Mod 目录</n-button>
-              </section>
-
-              <section v-else class="content-grid">
-                <DataTable />
-                <DetailPane @open-ship="openShip" />
+                <n-button type="primary" size="large" @click="importMod">打开 Mod 目录</n-button>
               </section>
             </main>
           </div>
@@ -75,22 +34,28 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { createDiscreteApi, type GlobalThemeOverrides } from 'naive-ui';
-import DataTable from './DataTable.vue';
-import DetailPane from './DetailPane.vue';
 import EditorsHost from './EditorsHost.vue';
 import TitleBar from './TitleBar.vue';
+import NavSidebar from './components/NavSidebar.vue';
+import OverviewPage from './components/OverviewPage.vue';
+import SettingsPage from './components/SettingsPage.vue';
+import TableWorkspace from './components/TableWorkspace.vue';
 import { useSettingsStore } from './settings.store';
 import { useEditorsStore } from '../features/editors/editors.store';
 import { useProjectStore } from '../features/project/project.store';
-import { MODULE_LABELS, TABLE_KEYS, useTablesStore } from '../features/tables/tables.store';
+import { useTablesStore } from '../features/tables/tables.store';
+import { useWorkspaceStore } from '../features/workspace/workspace.store';
+import { pickModRoot } from '../features/project/project.service';
+import { cell } from '../shared/lib/starsector';
 import { formatError } from '../shared/lib/errors';
 
 const project = useProjectStore();
 const tables = useTablesStore();
 const editors = useEditorsStore();
 const settings = useSettingsStore();
+const workspace = useWorkspaceStore();
 
 const { message, dialog } = createDiscreteApi(['message', 'dialog'], {
   configProviderProps: computed(() => ({ theme: settings.naiveTheme })),
@@ -104,21 +69,80 @@ const themeOverrides: GlobalThemeOverrides = {
   },
 };
 
-const factionOptions = computed(() => {
-  const base = [{ label: '全部势力', value: 'all' }];
-  if (!project.data) return base;
-  return base.concat(Object.entries(project.data.factionMeta).map(([value, meta]) => ({ label: meta.name, value })));
-});
+// Sync workspace active Mod → project/tables/editors stores
+watch(
+  () => workspace.activeModRoot,
+  (modRoot) => {
+    project.setActiveModRoot(modRoot);
+    tables.activateFor(modRoot ?? '');
+    editors.activateFor(modRoot ?? '');
+  },
+);
 
-async function openProject() {
+async function importMod() {
   try {
-    const loaded = await project.pickAndOpenProject();
-    if (!loaded) return;
-    tables.hydrate(loaded);
-    message.success('项目已打开');
+    const modRoot = await pickModRoot();
+    if (!modRoot) return;
+
+    // Guard: already imported → just activate
+    if (workspace.isModImported(modRoot)) {
+      workspace.setActiveMod(modRoot);
+      message.info('该 Mod 已在工作区中');
+      return;
+    }
+
+    // Register as loading
+    workspace.registerMod({
+      modRoot,
+      displayName: modRoot.split(/[\\/]/).pop() || 'Mod',
+      version: '',
+      status: 'loading',
+    });
+    workspace.setActiveMod(modRoot);
+
+    // Load data
+    const loaded = await project.openProject(modRoot);
+
+    // Update entry info from loaded data
+    const displayName = cell(loaded.modInfo?.name) || modRoot.split(/[\\/]/).pop() || 'Mod';
+    const version = cell(loaded.modInfo?.version) || '';
+    workspace.updateModInfo(modRoot, displayName, version);
+    workspace.updateModStatus(modRoot, 'ready');
+
+    // Hydrate tables
+    tables.hydrate(modRoot, loaded);
+    editors.activateFor(modRoot);
+
+    message.success(`已导入: ${displayName}`);
   } catch (err) {
+    const modRoot = workspace.activeModRoot;
+    if (modRoot && workspace.isModImported(modRoot)) {
+      workspace.updateModStatus(modRoot, 'error', formatError(err));
+    }
     message.error(formatError(err));
   }
+}
+
+function confirmRemoveMod(modRoot: string) {
+  if (tables.hasModDirtyChanges(modRoot)) {
+    dialog.warning({
+      title: '移除 Mod',
+      content: '该 Mod 有未保存修改，移除后修改将丢失。确认移除？',
+      positiveText: '移除',
+      negativeText: '取消',
+      onPositiveClick: () => removeMod(modRoot),
+    });
+  } else {
+    removeMod(modRoot);
+  }
+}
+
+function removeMod(modRoot: string) {
+  workspace.removeMod(modRoot);
+  tables.removeModState(modRoot);
+  editors.removeModState(modRoot);
+  project.removeModData(modRoot);
+  message.success('已从工作区移除');
 }
 
 async function saveChanges() {

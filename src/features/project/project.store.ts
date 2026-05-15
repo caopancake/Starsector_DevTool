@@ -5,11 +5,31 @@ import { cell, deepClone } from '../../shared/lib/starsector';
 import { loadProject, pickModRoot } from './project.service';
 
 export const useProjectStore = defineStore('project', () => {
-  const data = ref<AppData | null>(null);
+  const modsData = ref<Map<string, AppData>>(new Map());
+  const activeModRoot = ref<string | null>(null);
   const loading = ref(false);
 
-  const projectName = computed(() => cell(data.value?.modInfo?.name) || 'Native Config Tool');
-  const isOpen = computed(() => data.value !== null);
+  /** Active Mod's AppData — backward-compatible computed */
+  const data = computed<AppData | null>(() => (activeModRoot.value ? (modsData.value.get(activeModRoot.value) ?? null) : null));
+
+  const projectName = computed(() => cell(data.value?.modInfo?.name) || 'Starsector DevTool');
+  const isOpen = computed(() => modsData.value.size > 0);
+
+  function setActiveModRoot(modRoot: string | null) {
+    activeModRoot.value = modRoot;
+  }
+
+  function getModData(modRoot: string): AppData | null {
+    return modsData.value.get(modRoot) ?? null;
+  }
+
+  function removeModData(modRoot: string) {
+    modsData.value.delete(modRoot);
+    if (activeModRoot.value === modRoot) {
+      const remaining = [...modsData.value.keys()];
+      activeModRoot.value = remaining[0] ?? null;
+    }
+  }
 
   async function pickAndOpenProject(): Promise<AppData | null> {
     const modRoot = await pickModRoot();
@@ -21,7 +41,8 @@ export const useProjectStore = defineStore('project', () => {
     loading.value = true;
     try {
       const loaded = await loadProject(modRoot);
-      data.value = loaded;
+      modsData.value.set(modRoot, loaded);
+      activeModRoot.value = modRoot;
       return loaded;
     } finally {
       loading.value = false;
@@ -44,12 +65,17 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   return {
+    activeModRoot,
     data,
     isOpen,
     loading,
+    modsData,
     projectName,
+    getModData,
     openProject,
     pickAndOpenProject,
+    removeModData,
+    setActiveModRoot,
     updateProjectileFile,
     updateShipFile,
     updateWeaponFile,

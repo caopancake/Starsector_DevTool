@@ -7,23 +7,29 @@
 ## Frontend
 
 - `src/main.ts`：应用挂载入口。
-- `src/app/App.vue`：应用壳、导航栏、顶栏操作、全局编排。
-- `src/app/TitleBar.vue`：自定义窗口标题栏，集中处理主题切换和窗口控制。
+- `src/app/App.vue`：应用壳、workspace 视图路由、导入/移除 Mod 编排。
+- `src/app/TitleBar.vue`：自定义窗口标题栏，集中处理主题切换和窗口控制，显示当前 Mod 名。
 - `src/app/settings.store.ts`：应用级设置状态，当前负责主题持久化。
+- `src/app/components/NavSidebar.vue`：左侧导航面板，包含导入按钮、概览/设置链接和 Mod 树。
+- `src/app/components/ModTreeItem.vue`：单个 Mod 树节点，展开显示数据模块。
+- `src/app/components/OverviewPage.vue`：工作区概览页，显示已导入 Mod 卡片。
+- `src/app/components/SettingsPage.vue`：设置页，承载主题等配置。
+- `src/app/components/TableWorkspace.vue`：数据表格工作区（从 App.vue 提取），包含顶栏操作和表格/详情布局。
 - `src/app/DataTable.vue`：主数据表格视图，包含单元格编辑和 Vue ref 聚焦。
 - `src/app/DetailPane.vue`：右侧记录详情面板，包含缩略图、操作按钮、KV 列表。
 - `src/app/EditorsHost.vue`：编辑器弹窗宿主，管理舰船/武器/弹体编辑器和发射预览。
 - `src/app/providers/`：全局 provider 初始化。
-- `src/features/project/`：项目打开、目录选择 service、加载状态、项目级数据入口。
-- `src/features/tables/`：CSV 表格状态、稳定 row key、dirty tracking、单元格编辑、行选择、保存/新建/删除流程。
-- `src/features/editors/`：舰船、武器、弹体编辑体验，以及发射预览子能力。
+- `src/features/workspace/`：工作区编排状态（Mod 列表、活动 Mod、视图路由）。
+- `src/features/project/`：项目打开、目录选择 service、per-Mod 数据缓存（Map<modRoot, AppData>）。
+- `src/features/tables/`：per-Mod CSV 表格状态（stateMap）、dirty tracking、单元格编辑、行选择、保存/新建/删除流程。
+- `src/features/editors/`：per-Mod 编辑器状态、舰船/武器/弹体编辑体验、发射预览。
 - `src/features/editors/components/common/`：编辑器内稳定共享结构组件和小型字段组件，例如 header、footer、inspector、颜色数组和对象编辑器。
 - `src/features/editors/composables/`：编辑器共享交互能力，例如画布视口、绘制辅助、局部历史、快捷键作用域和贴图上传。
-- `src/features/editors/lib/`：编辑器通用格式化、规范化、视觉绘制 helper。
+- `src/features/editors/lib/`：编辑器通用格式化、规范化、视觉绘制 helper、常量。
 - `src/features/tables/table.service.ts`：表格 feature 的后端语义边界，封装 CSV 行和舰船/武器记录的新建、删除、保存调用。
 - `src/shared/api/`：Tauri API 薄 adapter，只封装 command payload，不承载业务流程。
 - `src/shared/lib/`：Starsector 通用工具、默认数据、格式转换。
-- `src/shared/types/`：前端共享类型。
+- `src/shared/types/`：前端共享类型，包括 workspace 类型（ModEntry、ModTableState、ModEditorState、WorkspaceView）。
 - `src/styles/`：按稳定语义拆分的 CSS 模块和主题 token。
 
 ## Frontend Boundaries

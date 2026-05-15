@@ -1,0 +1,57 @@
+<template>
+  <div class="mod-tree-item" :class="{ active: isActive }">
+    <div class="mod-tree-header" @click="$emit('select')">
+      <button class="mod-tree-chevron" :class="{ expanded: isExpanded }" @click.stop="$emit('toggle')">
+        <svg viewBox="0 0 16 16" width="12" height="12"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" /></svg>
+      </button>
+      <div class="mod-tree-name" :title="mod.modRoot">{{ mod.displayName }}</div>
+      <span v-if="hasDirtyChanges" class="mod-tree-dirty-dot" title="有未保存修改" />
+      <button class="mod-tree-menu" title="更多操作" @click.stop="showMenu = !showMenu">⋯</button>
+      <div v-if="showMenu" class="mod-tree-dropdown" @mouseleave="showMenu = false">
+        <button @click="onRemove">从工作区移除</button>
+      </div>
+    </div>
+
+    <div v-if="isExpanded && mod.status === 'ready'" class="mod-tree-modules">
+      <button
+        v-for="key in TABLE_KEYS"
+        :key="key"
+        class="mod-tree-module-btn"
+        :class="{ 'module-active': isActive && tables.currentTab === key }"
+        @click="$emit('switch-tab', mod.modRoot, key)"
+      >
+        <span>{{ MODULE_LABELS[key] }}</span>
+        <span class="mod-tree-module-count">{{ getRowCount(key) }}</span>
+      </button>
+    </div>
+
+    <div v-if="isExpanded && mod.status === 'loading'" class="mod-tree-status">加载中…</div>
+    <div v-if="isExpanded && mod.status === 'error'" class="mod-tree-status mod-tree-error">{{ mod.error }}</div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import type { ModEntry, TableKey } from '../../shared/types';
+import { MODULE_LABELS } from '../../shared/lib/starsector';
+import { TABLE_KEYS, useTablesStore } from '../../features/tables/tables.store';
+import { useProjectStore } from '../../features/project/project.store';
+
+const props = defineProps<{ mod: ModEntry; isActive: boolean; isExpanded: boolean }>();
+const emit = defineEmits<{ select: []; toggle: []; 'switch-tab': [modRoot: string, tab: TableKey]; remove: [] }>();
+
+const tables = useTablesStore();
+const project = useProjectStore();
+const showMenu = ref(false);
+
+const hasDirtyChanges = computed(() => tables.hasModDirtyChanges(props.mod.modRoot));
+
+function getRowCount(key: TableKey): number {
+  return project.getModData(props.mod.modRoot)?.[key]?.length ?? 0;
+}
+
+function onRemove() {
+  showMenu.value = false;
+  emit('remove');
+}
+</script>

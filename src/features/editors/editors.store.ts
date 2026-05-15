@@ -1,13 +1,70 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
-import type { AppData, RowData } from '../../shared/types';
+import { computed, reactive, ref } from 'vue';
+import type { AppData, ModEditorState, RowData } from '../../shared/types';
 import { defaultWeapon, rowId } from '../../shared/lib/starsector';
 
+function createModEditorState(): ModEditorState {
+  return { shipEditorId: '', weaponEditorId: '', projectileEditorId: '', previewWeaponId: '' };
+}
+
 export const useEditorsStore = defineStore('editors', () => {
-  const shipEditorId = ref('');
-  const weaponEditorId = ref('');
-  const projectileEditorId = ref('');
-  const previewWeaponId = ref('');
+  const stateMap = reactive<Map<string, ModEditorState>>(new Map());
+  const activeRoot = ref('');
+
+  function getActiveState(): ModEditorState {
+    let state = stateMap.get(activeRoot.value);
+    if (!state) {
+      state = createModEditorState();
+      if (activeRoot.value) stateMap.set(activeRoot.value, state);
+    }
+    return state;
+  }
+
+  // --- Proxy computed for backward-compatible API ---
+
+  const shipEditorId = computed({
+    get: () => getActiveState().shipEditorId,
+    set: (v) => {
+      getActiveState().shipEditorId = v;
+    },
+  });
+  const weaponEditorId = computed({
+    get: () => getActiveState().weaponEditorId,
+    set: (v) => {
+      getActiveState().weaponEditorId = v;
+    },
+  });
+  const projectileEditorId = computed({
+    get: () => getActiveState().projectileEditorId,
+    set: (v) => {
+      getActiveState().projectileEditorId = v;
+    },
+  });
+  const previewWeaponId = computed({
+    get: () => getActiveState().previewWeaponId,
+    set: (v) => {
+      getActiveState().previewWeaponId = v;
+    },
+  });
+
+  // --- Per-Mod lifecycle ---
+
+  function activateFor(modRoot: string) {
+    activeRoot.value = modRoot;
+    if (!stateMap.has(modRoot)) {
+      stateMap.set(modRoot, createModEditorState());
+    }
+  }
+
+  function removeModState(modRoot: string) {
+    stateMap.delete(modRoot);
+    if (activeRoot.value === modRoot) {
+      const remaining = [...stateMap.keys()];
+      activeRoot.value = remaining[0] ?? '';
+    }
+  }
+
+  // --- Existing API ---
 
   function openShip(id: string) {
     shipEditorId.value = id;
@@ -52,6 +109,7 @@ export const useEditorsStore = defineStore('editors', () => {
     previewWeaponId,
     shipEditorId,
     weaponEditorId,
+    activateFor,
     closePreview,
     closeProjectile,
     closeShip,
@@ -60,6 +118,7 @@ export const useEditorsStore = defineStore('editors', () => {
     openProjectile,
     openShip,
     openWeapon,
+    removeModState,
     weaponForEditor,
   };
 });

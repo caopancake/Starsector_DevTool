@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, reactive, ref } from 'vue';
-import type { AppData, RowData, TableKey } from '../../shared/types';
+import type { AppData, ModTableState, RowData, TableKey } from '../../shared/types';
 import { cell, deepClone, defaultShip, defaultWeapon, getColumns, MODULE_LABELS, rowId } from '../../shared/lib/starsector';
 import {
   createShipRecord,
@@ -12,23 +12,80 @@ import {
   saveTableRows,
 } from './table.service';
 
-type DirtyState = Record<TableKey, Record<string, Record<string, string>>>;
-type EditingCell = { tab: TableKey; rowKey: string; col: string; value: string } | null;
-
 export const TABLE_KEYS: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'industries'];
 const ROW_KEY_FIELD = '_rowKey';
 let nextRowKey = 0;
 
+function emptyDirtyState(): Record<TableKey, Record<string, Record<string, string>>> {
+  return { ships: {}, weapons: {}, wings: {}, hullmods: {}, industries: {} };
+}
+
+function emptyTablesRecord(): Record<TableKey, RowData[]> {
+  return { ships: [], weapons: [], wings: [], hullmods: [], industries: [] };
+}
+
+function createModTableState(): ModTableState {
+  return {
+    tables: emptyTablesRecord(),
+    originalTables: emptyTablesRecord(),
+    dirty: emptyDirtyState(),
+    currentTab: 'ships',
+    currentFaction: 'all',
+    searchText: '',
+    selectedRowKey: '',
+    editing: null,
+  };
+}
+
 export const useTablesStore = defineStore('tables', () => {
-  const tables = reactive<Record<TableKey, RowData[]>>({ ships: [], weapons: [], wings: [], hullmods: [], industries: [] });
-  const originalTables = reactive<Record<TableKey, RowData[]>>({ ships: [], weapons: [], wings: [], hullmods: [], industries: [] });
-  const dirty = reactive<DirtyState>({ ships: {}, weapons: {}, wings: {}, hullmods: {}, industries: {} });
-  const currentTab = ref<TableKey>('ships');
-  const currentFaction = ref('all');
-  const searchText = ref('');
-  const selectedRowKey = ref('');
-  const editing = ref<EditingCell>(null);
+  const stateMap = reactive<Map<string, ModTableState>>(new Map());
+  const activeRoot = ref('');
   const saving = ref(false);
+  const currentHeaders = ref<string[]>([]);
+
+  function getActiveState(): ModTableState | undefined {
+    return stateMap.get(activeRoot.value);
+  }
+
+  // --- Proxy computed/refs for backward-compatible API ---
+
+  const tables = computed(() => getActiveState()?.tables ?? emptyTablesRecord());
+  const currentTab = computed({
+    get: () => getActiveState()?.currentTab ?? 'ships',
+    set: (v) => {
+      const s = getActiveState();
+      if (s) s.currentTab = v;
+    },
+  });
+  const currentFaction = computed({
+    get: () => getActiveState()?.currentFaction ?? 'all',
+    set: (v) => {
+      const s = getActiveState();
+      if (s) s.currentFaction = v;
+    },
+  });
+  const searchText = computed({
+    get: () => getActiveState()?.searchText ?? '',
+    set: (v) => {
+      const s = getActiveState();
+      if (s) s.searchText = v;
+    },
+  });
+  const selectedRowKey = computed({
+    get: () => getActiveState()?.selectedRowKey ?? '',
+    set: (v) => {
+      const s = getActiveState();
+      if (s) s.selectedRowKey = v;
+    },
+  });
+  const editing = computed({
+    get: () => getActiveState()?.editing ?? null,
+    set: (v) => {
+      const s = getActiveState();
+      if (s) s.editing = v;
+    },
+  });
+  const dirty = computed(() => getActiveState()?.dirty ?? emptyDirtyState());
 
   const rows = computed(() => rowsFor(currentTab.value));
   const visibleColumns = computed(() => {
@@ -60,31 +117,49 @@ export const useTablesStore = defineStore('tables', () => {
   const selectedRow = computed(() => rows.value.find((row, index) => tableRowKey(row, index) === selectedRowKey.value));
   const selectedRowId = computed(() => (selectedRow.value ? rowId(selectedRow.value) : ''));
   const tableInfo = computed(() => `显示 ${filteredRows.value.length} / ${rows.value.length} 行`);
-  const hasDirtyChanges = computed(() => TABLE_KEYS.some((key) => Object.keys(dirty[key]).length > 0));
+  const hasDirtyChanges = computed(() => TABLE_KEYS.some((key) => Object.keys(dirty.value[key]).length > 0));
   const hasChanges = computed(() => hasDirtyChanges.value || editing.value !== null);
-  const currentHeaders = ref<string[]>([]);
 
-  function hydrate(appData: AppData) {
+  // --- Per-Mod lifecycle ---
+
+  function hydrate(modRoot: string, appData: AppData) {
+    const state = createModTableState();
     for (const key of TABLE_KEYS) {
-      tables[key] = deepClone(appData[key] as RowData[]);
-      assignRowKeys(key, tables[key]);
-      originalTables[key] = deepClone(tables[key]);
-      dirty[key] = {};
+      state.tables[key] = deepClone(appData[key] as RowData[]);
+      assignRowKeys(key, state.tables[key]);
+      state.originalTables[key] = deepClone(state.tables[key]);
     }
-    currentTab.value = 'ships';
-    currentFaction.value = 'all';
-    searchText.value = '';
-    selectedRowKey.value = '';
-    editing.value = null;
+    stateMap.set(modRoot, state);
+    activateFor(modRoot);
     syncCurrentHeaders(appData);
   }
+
+  function activateFor(modRoot: string) {
+    activeRoot.value = modRoot;
+  }
+
+  function removeModState(modRoot: string) {
+    stateMap.delete(modRoot);
+    if (activeRoot.value === modRoot) {
+      const remaining = [...stateMap.keys()];
+      activeRoot.value = remaining[0] ?? '';
+    }
+  }
+
+  function hasModDirtyChanges(modRoot: string): boolean {
+    const state = stateMap.get(modRoot);
+    if (!state) return false;
+    return TABLE_KEYS.some((key) => Object.keys(state.dirty[key]).length > 0);
+  }
+
+  // --- Existing API (unchanged signatures where possible) ---
 
   function syncCurrentHeaders(appData: AppData | null) {
     currentHeaders.value = appData?.csvHeaders[currentTab.value] || [];
   }
 
   function rowsFor(tab: TableKey): RowData[] {
-    return tables[tab];
+    return getActiveState()?.tables[tab] ?? [];
   }
 
   function switchTab(tab: TableKey, appData: AppData | null) {
@@ -113,7 +188,7 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   function isDirty(rowKey: string, col: string): boolean {
-    return dirty[currentTab.value][rowKey]?.[col] !== undefined;
+    return dirty.value[currentTab.value][rowKey]?.[col] !== undefined;
   }
 
   function startCellEdit(row: RowData, col: string) {
@@ -121,24 +196,25 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   function finishCellEdit() {
-    if (!editing.value) return;
-    const { tab, rowKey, col, value } = editing.value;
-    const row = rowsFor(tab).find((candidate, index) => tableRowKeyForTab(tab, candidate, index) === rowKey);
+    const state = getActiveState();
+    if (!state || !state.editing) return;
+    const { tab, rowKey, col, value } = state.editing;
+    const row = state.tables[tab].find((candidate, index) => tableRowKeyForTab(tab, candidate, index) === rowKey);
     if (!row) {
-      editing.value = null;
+      state.editing = null;
       return;
     }
     row[col] = value;
-    const original = originalTables[tab].find((candidate, index) => tableRowKeyForTab(tab, candidate, index) === rowKey);
+    const original = state.originalTables[tab].find((candidate, index) => tableRowKeyForTab(tab, candidate, index) === rowKey);
     const originalValue = cell(original?.[col]);
     if (value !== originalValue) {
-      dirty[tab][rowKey] ||= {};
-      dirty[tab][rowKey][col] = value;
-    } else if (dirty[tab][rowKey]) {
-      delete dirty[tab][rowKey][col];
-      if (Object.keys(dirty[tab][rowKey]).length === 0) delete dirty[tab][rowKey];
+      state.dirty[tab][rowKey] ||= {};
+      state.dirty[tab][rowKey][col] = value;
+    } else if (state.dirty[tab][rowKey]) {
+      delete state.dirty[tab][rowKey][col];
+      if (Object.keys(state.dirty[tab][rowKey]).length === 0) delete state.dirty[tab][rowKey];
     }
-    editing.value = null;
+    state.editing = null;
   }
 
   function cancelCellEdit() {
@@ -146,16 +222,17 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   async function saveChanges(appData: AppData | null): Promise<'saved' | 'noop'> {
-    if (!appData || saving.value) return 'noop';
+    const state = getActiveState();
+    if (!appData || !state || saving.value) return 'noop';
     saving.value = true;
     try {
       finishCellEdit();
       if (!hasDirtyChanges.value) return 'noop';
       for (const key of TABLE_KEYS) {
-        if (Object.keys(dirty[key]).length === 0) continue;
-        await saveTableRows(appData.modRoot, key, appData.csvHeaders[key], rowsFor(key));
-        originalTables[key] = deepClone(rowsFor(key));
-        dirty[key] = {};
+        if (Object.keys(state.dirty[key]).length === 0) continue;
+        await saveTableRows(appData.modRoot, key, appData.csvHeaders[key], state.tables[key]);
+        state.originalTables[key] = deepClone(state.tables[key]);
+        state.dirty[key] = {};
       }
       return 'saved';
     } finally {
@@ -164,15 +241,19 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   function revertChanges() {
-    editing.value = null;
+    const state = getActiveState();
+    if (!state) return;
+    state.editing = null;
     for (const key of TABLE_KEYS) {
-      tables[key] = deepClone(originalTables[key]);
-      dirty[key] = {};
+      state.tables[key] = deepClone(state.originalTables[key]);
+      state.dirty[key] = {};
     }
   }
 
   async function addNewRow(appData: AppData) {
-    const tab = currentTab.value;
+    const state = getActiveState();
+    if (!state) return;
+    const tab = state.currentTab;
     const id = `new_${tab}_${Date.now()}`;
     const header = appData.csvHeaders[tab];
     const row: RowData = {};
@@ -181,7 +262,6 @@ export const useTablesStore = defineStore('tables', () => {
     if ('name' in row) row.name = id;
     row._faction = 'other';
 
-    // Backend first - throws on failure, no frontend mutation yet
     if (tab === 'ships') {
       const ship = defaultShip(id);
       await createShipRecord(appData.modRoot, header, row, ship);
@@ -194,19 +274,19 @@ export const useTablesStore = defineStore('tables', () => {
       await createTableRow(appData.modRoot, tab, header, row);
     }
 
-    // Backend succeeded - commit to frontend
-    rowsFor(tab).push(row);
+    state.tables[tab].push(row);
     assignRowKey(tab, row);
-    originalTables[tab].push(deepClone(row));
+    state.originalTables[tab].push(deepClone(row));
     selectedRowKey.value = rowSelectionKey(row);
   }
 
   async function deleteSelected(appData: AppData) {
-    const tab = currentTab.value;
+    const state = getActiveState();
+    if (!state) return;
+    const tab = state.currentTab;
     const id = selectedRowId.value;
     if (!id) return;
 
-    // Backend first - throws on failure, no frontend mutation yet
     if (tab === 'ships') {
       await removeShipRecord(appData.modRoot, id);
       delete appData.shipFiles[id];
@@ -218,11 +298,10 @@ export const useTablesStore = defineStore('tables', () => {
       await removeTableRow(appData.modRoot, tab, id);
     }
 
-    // Backend succeeded - commit to frontend
-    tables[tab] = rowsFor(tab).filter((row) => rowId(row) !== id);
-    originalTables[tab] = originalTables[tab].filter((row) => rowId(row) !== id);
-    delete dirty[tab][id];
-    delete dirty[tab][selectedRowKey.value];
+    state.tables[tab] = state.tables[tab].filter((row) => rowId(row) !== id);
+    state.originalTables[tab] = state.originalTables[tab].filter((row) => rowId(row) !== id);
+    delete state.dirty[tab][id];
+    delete state.dirty[tab][selectedRowKey.value];
     selectedRowKey.value = '';
   }
 
@@ -262,11 +341,14 @@ export const useTablesStore = defineStore('tables', () => {
     tableInfo,
     tables,
     visibleColumns,
+    activateFor,
     addNewRow,
     cancelCellEdit,
     deleteSelected,
     finishCellEdit,
+    hasModDirtyChanges,
     hydrate,
+    removeModState,
     revertChanges,
     rowId,
     rowSelectionKey,
@@ -275,7 +357,6 @@ export const useTablesStore = defineStore('tables', () => {
     selectRow,
     startCellEdit,
     switchTab,
-    syncCurrentHeaders,
     tableRowKey,
   };
 });

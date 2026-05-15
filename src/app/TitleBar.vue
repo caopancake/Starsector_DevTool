@@ -4,7 +4,7 @@
       <span class="titlebar-mark">SD</span>
       <div class="titlebar-text">
         <strong>Starsector DevTool</strong>
-        <span :title="project.data?.modRoot">{{ project.data?.modRoot || '尚未打开项目' }}</span>
+        <span :title="project.data?.modRoot">{{ workspace.activeMod?.displayName || '尚未打开项目' }}</span>
       </div>
     </div>
 
@@ -37,10 +37,12 @@
 import { onMounted, ref } from 'vue';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useProjectStore } from '../features/project/project.store';
+import { useWorkspaceStore } from '../features/workspace/workspace.store';
 import { useSettingsStore } from './settings.store';
 
 const appWindow = getCurrentWindow();
 const project = useProjectStore();
+const workspace = useWorkspaceStore();
 const settings = useSettingsStore();
 const isMaximized = ref(false);
 

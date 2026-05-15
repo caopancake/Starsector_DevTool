@@ -13,16 +13,49 @@
 7. Rust `src-tauri/src/commands/` 接收 payload，转交 `src-tauri/src/services/`。
 8. Rust service 组合 parser、filesystem 和 models 执行读写。
 
-## 项目打开链路
+## 项目打开链路（多 Mod 工作区）
 
-- 入口：`App.vue` 的“打开 Mod 目录”按钮。
-- 前端状态：`src/features/project/project.store.ts` 管理 `data`、`loading`、`projectName` 和 `isOpen`。
-- 前端服务：`src/features/project/project.service.ts`
-- 目录选择：`pickModRoot()` 调用 Tauri dialog 插件。
-- 数据加载：`loadProject()` 调用 shared API adapter 的 `loadModData()`。
-- Tauri command：`load_mod_data`
-- Rust service：项目加载 service 负责扫描 Mod、读取 CSV/spec/sprite 和装配 `AppData`。
+- 入口：左侧 NavSidebar 的”打开 Mod 目录”按钮，或 OverviewPage 的按钮。
+- 编排：`App.vue` 的 `importMod()` 函数。
+- 流程：
+  1. `pickModRoot()` 选择目录。
+  2. 检查是否已导入（`workspace.isModImported(modRoot)`），若是则仅激活。
+  3. `workspace.registerMod(entry)` 注册为 loading 状态。
+  4. `workspace.setActiveMod(modRoot)` 设置为活动 Mod。
+  5. `project.openProject(modRoot)` 加载数据，写入 `modsData` Map。
+  6. `workspace.updateModInfo()` 更新显示名和版本。
+  7. `workspace.updateModStatus(modRoot, 'ready')` 标记就绪。
+  8. `tables.hydrate(modRoot, loaded)` 创建该 Mod 的表格状态。
+  9. `editors.activateFor(modRoot)` 激活编辑器状态。
+- 前端状态：
+  - `workspace.store.ts` 管理 Mod 列表和活动 Mod。
+  - `project.store.ts` 的 `modsData: Map<modRoot, AppData>` 缓存所有已加载数据。
+  - `project.data` 是 computed，指向当前活动 Mod 的 AppData。
+- Tauri command：`load_mod_data`（不变）
 - 保存边界：打开项目只加载数据，不写入任何 Mod 文件。
+
+## Mod 切换链路
+
+- 入口：左侧 ModTreeItem 点击 Mod 名。
+- 流程：
+  1. `workspace.setActiveMod(modRoot)` 更新 `activeModRoot` 和 `currentView`。
+  2. App.vue 的 `watch(workspace.activeModRoot)` 同步触发：
+     - `project.setActiveModRoot(modRoot)` → `data` computed 自动指向新 Mod
+     - `tables.activateFor(modRoot)` → 表格状态切换到该 Mod 的 ModTableState
+     - `editors.activateFor(modRoot)` → 编辑器状态切换
+  3. UI 自动响应 computed 变化渲染。
+- 保存边界：切换不写入文件；per-Mod dirty 状态保持隔离。
+
+## Mod 移除链路
+
+- 入口：ModTreeItem 的上下文菜单”从工作区移除”。
+- 流程：
+  1. `App.vue` 的 `confirmRemoveMod(modRoot)` 检查 dirty → 弹确认。
+  2. `workspace.removeMod(modRoot)` 从列表删除，自动切换活动 Mod。
+  3. `tables.removeModState(modRoot)` 释放表格状态。
+  4. `editors.removeModState(modRoot)` 释放编辑器状态。
+  5. `project.removeModData(modRoot)` 释放 AppData 缓存。
+- 保存边界：移除只取消导入，不删除本地文件。
 
 `project.store.ts` 不直接调用 Tauri command 或 Tauri 插件；project feature service 是项目打开链路的边界。
 

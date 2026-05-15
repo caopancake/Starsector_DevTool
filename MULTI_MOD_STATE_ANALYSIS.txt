@@ -1,0 +1,249 @@
+MULTI-MOD WORKSPACE UPGRADE - COMPREHENSIVE STATE MODEL ANALYSIS
+=================================================================
+
+ANALYZED FILES:
+1. src/features/project/project.store.ts (58 lines) - Single mod state
+2. src/features/project/project.service.ts (14 lines) - Service layer
+3. src/features/tables/tables.store.ts (284 lines) - Table editing state
+4. src/features/tables/table.service.ts (82 lines) - Service layer
+5. src/features/editors/editors.store.ts (66 lines) - Editor state
+6. src/features/editors/editor.service.ts (53 lines) - Service layer
+7. src/app/settings.store.ts (34 lines) - App settings
+8. src/shared/types/index.ts - Type definitions
+9. src/shared/api/tauri.ts (65 lines) - Tauri API
+10. src/app/App.vue (175 lines) - Main component
+11. src/app/EditorsHost.vue (77 lines) - Editor host
+12. src-tauri/src/models/project.rs (58 lines) - Rust models
+13. src-tauri/src/services/project/mod.rs (105 lines) - Rust services
+14. src-tauri/src/commands/mod.rs (72 lines) - Tauri commands
+
+KEY FINDING:
+===========
+Backend (Tauri/Rust) is ALREADY 100% multi-mod compatible.
+Frontend (Pinia stores) needs restructuring.
+
+CURRENT ARCHITECTURE (Single-Mod)
+=================================
+
+PROJECT STORE:
+- Stores ONE AppData (entire mod in memory)
+- Methods: pickAndOpenProject(), openProject(modRoot)
+- Updates: updateShipFile(), updateWeaponFile(), updateProjectileFile()
+
+TABLES STORE:
+- Global state: currentTab, currentFaction, searchText, selectedRowKey
+- Global dirty tracking: dirty[table][rowKey][column] = value
+- Global UI state: editing, saving
+- Methods: hydrate(), switchTab(), saveChanges(), addNewRow(), deleteSelected()
+
+EDITORS STORE:
+- Global editor IDs: shipEditorId, weaponEditorId, projectileEditorId, previewWeaponId
+- Methods: openShip(), closeShip(), etc.
+
+SETTINGS STORE:
+- App-wide theme setting (NOT per-mod)
+
+CRITICAL MULTI-MOD PROBLEMS
+===========================
+
+1. STATE ISOLATION LOST
+   - switching mods loses dirty changes from previous mod
+   - hydrate() overwrites ALL tables
+
+2. ROW KEY COLLISIONS
+   - nextRowKey global counter
+   - row keys not unique across mods
+   - can't identify rows when switching back
+
+3. UI STATE NOT PRESERVED
+   - currentTab, filters, selection are global
+   - switching mods loses current view state
+   - user sees wrong table/filters
+
+4. SINGLE EDITOR PER TYPE
+   - Can't edit same entity in different mods
+   - Only one shipEditorId allowed
+
+5. SPEC FILE AMBIGUITY
+   - updateShipFile(id, ship) doesn't know which mod's AppData to update
+   - collision if both mods have ship with same ID
+
+UPGRADE REQUIREMENTS
+====================
+
+New Types Needed:
+
+interface ModSession {
+  modRoot: string
+  appData: AppData
+  tables: Record<TableKey, RowData[]>
+  originalTables: Record<TableKey, RowData[]>
+  dirty: DirtyState
+  currentTab: TableKey
+  currentFaction: string
+  searchText: string
+  selectedRowKey: string
+  editing: EditingCell | null
+  editors: {
+    ships: Set<string>
+    weapons: Set<string>
+    projectiles: Set<string>
+    previews: Set<string>
+  }
+}
+
+interface Workspace {
+  mods: Map<string, AppData>
+  sessions: Map<string, ModSession>
+  activeMod: string | null
+}
+
+Files That MUST Change:
+1. src/features/project/project.store.ts - Add workspace support
+2. src/features/tables/tables.store.ts - Per-mod state
+3. src/features/editors/editors.store.ts - Multi-editor support
+4. src/shared/types/index.ts - New interfaces
+5. src/app/App.vue - Workspace switcher UI
+6. src/app/EditorsHost.vue - Multiple editor rendering
+
+Files That DON'T Need Changes (Already Multi-Mod Ready!):
+- src/features/tables/table.service.ts (already parameterized by modRoot)
+- src/features/editors/editor.service.ts (already parameterized by modRoot)
+- src/shared/api/tauri.ts (already parameterized by modRoot)
+- Backend Rust code (already mod-agnostic)
+- src/app/settings.store.ts (app-wide, not per-mod)
+
+WHY BACKEND IS ALREADY READY
+============================
+
+All Tauri commands parameterized by modRoot:
+- loadModData(modRoot)
+- saveCsv(modRoot, table, header, rows)
+- addCsvRow(modRoot, table, header, row)
+- etc...
+
+Rust AppData struct has mod_root field - each instance independent
+Services stateless - can be called for different mod_roots
+
+Result: Backend supports loading/editing multiple mods simultaneously
+No API changes needed!
+
+UPGRADE PHASES
+==============
+
+Phase 1: Types (2-3 hours)
+- Define ModSession, Workspace interfaces
+- Update AppData references
+
+Phase 2: Project Store (4-5 hours)
+- Replace data with workspace
+- Implement loadAdditionalMod(), switchActiveMod(), closeMod()
+
+Phase 3: Tables Store (5-7 hours)
+- Make per-mod (delegate through computed)
+- Preserve state per mod
+- Per-mod row key generation
+
+Phase 4: Editors Store (3-4 hours)
+- Support multiple editors per type
+- Track per mod
+
+Phase 5: Components (4-5 hours)
+- Add workspace switcher
+- Update EditorsHost
+- Add mod indicators
+
+Phase 6: Testing (6-8 hours)
+- Load 3+ mods simultaneously
+- Test state isolation
+- Test dirty tracking
+- Test row keys
+
+Total Estimated Effort: 25-35 hours
+
+SUCCESS CRITERIA
+================
+
+✓ Can load 3+ mods simultaneously
+✓ Switch mods without losing state
+✓ Each mod has independent:
+  - Table view (currentTab, filters, search, selection)
+  - Dirty state
+  - Open editors
+✓ Save one mod doesn't affect others
+✓ Can edit same ID in different mods
+✓ No cross-mod data contamination
+✓ Row keys stable across reload
+✓ UI shows which mod is active
+
+ARCHITECTURE COMPARISON
+=======================
+
+CURRENT (Single-Mod):
+┌─────────────────────┐
+│ Project Store       │
+│ data: AppData | null│
+├──────────┬──────────┤
+│ Tables   │ Editors  │
+│ (global) │ (global) │
+├──────────┴──────────┤
+│ UI Components       │
+├─────────────────────┤
+│ Tauri API ✓         │
+│ Backend ✓           │
+└─────────────────────┘
+
+REQUIRED (Multi-Mod):
+┌────────────────────────────┐
+│ Project Store              │
+│ workspace: Workspace       │
+│ ├─ mods: Map<root, AppData>
+│ ├─ sessions: Map<root, ModSession>
+│ └─ activeMod: root | null  │
+├───────────────┬────────────┤
+│ Tables Store  │ Editors    │
+│ (per-mod via  │ Store      │
+│  computed)    │ (multi)    │
+├───────────────┴────────────┤
+│ UI + Workspace Switcher    │
+├────────────────────────────┤
+│ Tauri API ✓                │
+│ Backend ✓                  │
+└────────────────────────────┘
+
+READINESS ASSESSMENT
+====================
+
+Backend Infrastructure:     100% Ready (no changes needed)
+Service Layer:              100% Ready (no changes needed)
+Tauri API:                  100% Ready (no changes needed)
+Project Store:              0% Ready (needs workspace)
+Tables Store:               0% Ready (needs per-mod state)
+Editors Store:              0% Ready (needs multi-editor)
+Type Definitions:           0% Ready (needs new types)
+App Navigation:             0% Ready (needs switcher)
+Component Updates:          0% Ready (needs multi-editor UI)
+
+Total Work Distribution:
+- Backend: 0% effort (already done)
+- Service Layer: 0% effort (already done)
+- Store Refactoring: 60% of effort
+- Component Updates: 25% of effort
+- Type Definitions: 15% of effort
+
+CONCLUSION
+==========
+
+The architecture is WELL-POSITIONED for multi-mod upgrade.
+
+✓ Hard part done: Backend infrastructure is multi-mod ready
+✓ Services are multi-mod ready
+✓ APIs are multi-mod ready
+
+✗ Frontend needs work: Stores assume single global state
+
+Main effort is in Pinia store refactoring and Vue component updates,
+not in backend infrastructure.
+
+Recommendation: Start with Phase 1 (types), then Phase 2 (project store).
+Backend is ready to support you immediately.
