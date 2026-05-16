@@ -29,7 +29,8 @@
 - `src/features/tables/table.service.ts`：表格 feature 的后端语义边界，封装 CSV 行和舰船/武器记录的新建、删除、保存调用。
 - `src/shared/api/`：Tauri API 薄 adapter，只封装 command payload，不承载业务流程。
 - `src/shared/lib/`：Starsector 通用工具、默认数据、格式转换。
-- `src/shared/types/`：前端共享类型，包括 workspace 类型（ModEntry、ModTableState、ModEditorState、WorkspaceView）。
+- `src/shared/types/`：前端共享类型，包括 workspace 类型（ModEntry、ModTableState、ModEditorState、EditorRef、WorkspaceView、PersistedWorkspace）。
+- `src/shared/lib/store-utils.ts`：Store 通用工具函数（如 `getNextActiveKeyAfterRemoval`）。
 - `src/styles/`：按稳定语义拆分的 CSS 模块和主题 token。
 
 ## Frontend Boundaries
@@ -44,7 +45,7 @@
 - 表格 dirty state、editing cell、selection 都由 `tables.store.ts` 维护，并且必须按稳定 row key 追踪。
 - 编辑器壳层统一为 header、主编辑区、footer；舰船/武器编辑器采用画布主导 + 右侧检查器。
 - 编辑器共享结构组件只能表达稳定壳层，不能承载具体保存逻辑、上传逻辑、画布绘制、hit detection 或 drag mutation。
-- `EditorsHost.vue` 是弹窗编排边界，集中挂载 spec 编辑器和只读预览；preview 暂不拆独立 feature。
+- `EditorsHost.vue` 是弹窗编排边界，集中挂载 spec 编辑器和只读预览；编辑器通过 `EditorRef`（含 modRoot）绑定具体 Mod，不依赖当前活动 Mod。
 - 业务 hit detection、自动吸附选择和 drag mutation 暂留具体编辑器组件内。
 - 无 UI 或业务入口的 shared API adapter 应删除；未来按真实产品入口重新补。
 

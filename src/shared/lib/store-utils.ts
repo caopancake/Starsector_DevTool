@@ -15,12 +15,7 @@
  * @example
  * const remaining = getNextActiveKeyAfterRemoval(activeModRoot, [...stateMap.keys()], removedModRoot, null);
  */
-export function getNextActiveKeyAfterRemoval<K>(
-  activeKey: K | null,
-  allKeys: K[],
-  removedKey: K,
-  fallback: K | null = null
-): K | null {
+export function getNextActiveKeyAfterRemoval<K>(activeKey: K | null, allKeys: K[], removedKey: K, fallback: K | null = null): K | null {
   // If the active key is not being removed, keep it
   if (activeKey !== removedKey) {
     return activeKey;

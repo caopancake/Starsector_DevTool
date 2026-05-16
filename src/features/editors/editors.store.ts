@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, reactive, ref } from 'vue';
-import type { AppData, ModEditorState, RowData, EditorRef } from '../../shared/types';
+import type { AppData, ModEditorState, RowData } from '../../shared/types';
 import { defaultWeapon, rowId } from '../../shared/lib/starsector';
 import { getNextActiveKeyAfterRemoval } from '../../shared/lib/store-utils';
 
@@ -13,7 +13,6 @@ export const useEditorsStore = defineStore('editors', () => {
   const activeRoot = ref('');
   const fallback = createModEditorState();
 
-  function getActiveState(): ModEditorState {
   function getActiveState(): ModEditorState {
     if (!activeRoot.value) return fallback;
     let state = stateMap.get(activeRoot.value);
@@ -61,10 +60,8 @@ export const useEditorsStore = defineStore('editors', () => {
   }
 
   function removeModState(modRoot: string) {
-  function removeModState(modRoot: string) {
     stateMap.delete(modRoot);
-    activeRoot.value = getNextActiveKeyAfterRemoval(activeRoot.value, [...stateMap.keys()], modRoot, '');
-  }
+    activeRoot.value = getNextActiveKeyAfterRemoval(activeRoot.value, [...stateMap.keys()], modRoot, '') ?? '';
   }
 
   // --- Existing API ---
@@ -103,7 +100,6 @@ export const useEditorsStore = defineStore('editors', () => {
 
   function weaponForEditor(appData: AppData | null, weapons: RowData[]): RowData {
     if (!appData || !weaponEditorId.value) return {};
-    // Safety: verify editor belongs to this mod
     if (weaponEditorId.value.modRoot !== appData.modRoot) return {};
     const csvRow = weapons.find((weapon) => rowId(weapon) === weaponEditorId.value!.id);
     return appData.wpnFiles[weaponEditorId.value.id] || defaultWeapon(weaponEditorId.value.id, csvRow);

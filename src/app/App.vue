@@ -102,7 +102,7 @@ onMounted(async () => {
     if (persisted.mods.length === 0) return;
     restoring = true;
     workspace.restoreFrom(persisted);
-    
+
     // Hydrate all mods (this no longer sets activeRoot)
     for (const mod of persisted.mods) {
       try {
@@ -116,7 +116,7 @@ onMounted(async () => {
         workspace.updateModStatus(mod.modRoot, 'error', formatError(err));
       }
     }
-    
+
     // Only after all hydrations complete, activate the previously active mod
     if (persisted.activeModRoot && workspace.isModImported(persisted.activeModRoot)) {
       const activeMod = workspace.mods.get(persisted.activeModRoot);

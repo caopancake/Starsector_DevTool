@@ -15,7 +15,6 @@ import { getNextActiveKeyAfterRemoval } from '../../shared/lib/store-utils';
 
 export const TABLE_KEYS: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'industries'];
 const ROW_KEY_FIELD = '_rowKey';
-let nextRowKey = 0;
 
 function emptyDirtyState(): Record<TableKey, Record<string, Record<string, string>>> {
   return { ships: {}, weapons: {}, wings: {}, hullmods: {}, industries: {} };
@@ -35,8 +34,8 @@ function createModTableState(): ModTableState {
     searchText: '',
     selectedRowKey: '',
     editing: null,
-  };
     nextRowKey: 0,
+  };
 }
 
 export const useTablesStore = defineStore('tables', () => {
@@ -128,49 +127,40 @@ export const useTablesStore = defineStore('tables', () => {
     const state = createModTableState();
     for (const key of TABLE_KEYS) {
       state.tables[key] = deepClone(appData[key] as RowData[]);
-      assignRowKeys(key, state.tables[key]);
+      assignRowKeys(state, key, state.tables[key]);
       state.originalTables[key] = deepClone(state.tables[key]);
     }
     stateMap.set(modRoot, state);
-    activateFor(modRoot);
-    syncCurrentHeaders(appData);
+    activateFor(modRoot, appData);
   }
 
   function hydrateWithoutActivate(modRoot: string, appData: AppData) {
     const state = createModTableState();
     for (const key of TABLE_KEYS) {
       state.tables[key] = deepClone(appData[key] as RowData[]);
-      assignRowKeys(key, state.tables[key]);
+      assignRowKeys(state, key, state.tables[key]);
       state.originalTables[key] = deepClone(state.tables[key]);
     }
     stateMap.set(modRoot, state);
-    // Note: Does NOT call activateFor() or syncCurrentHeaders() - caller handles activation
   }
-
 
   function activateFor(modRoot: string, appData?: AppData | null) {
     activeRoot.value = modRoot;
-    const state = stateMap.get(modRoot);
-    if (state) {
-      state.selectedRowKey = '';
-      state.searchText = '';
-    }
     syncCurrentHeaders(appData ?? null);
   }
-  function removeModState(modRoot: string) {
+
   function removeModState(modRoot: string) {
     stateMap.delete(modRoot);
-    activeRoot.value = getNextActiveKeyAfterRemoval(activeRoot.value, [...stateMap.keys()], modRoot, '');
+    activeRoot.value = getNextActiveKeyAfterRemoval(activeRoot.value, [...stateMap.keys()], modRoot, '') ?? '';
   }
 
-  function hasModDirtyChanges(modRoot: string): boolean {
   function hasModDirtyChanges(modRoot: string): boolean {
     const state = stateMap.get(modRoot);
     if (!state) return false;
     return TABLE_KEYS.some((key) => Object.keys(state.dirty[key]).length > 0);
   }
 
-  // --- Existing API (unchanged signatures where possible) ---
+  // --- Existing API ---
 
   function syncCurrentHeaders(appData: AppData | null) {
     currentHeaders.value = appData?.csvHeaders[currentTab.value] || [];
@@ -239,14 +229,8 @@ export const useTablesStore = defineStore('tables', () => {
   async function saveChanges(appData: AppData | null): Promise<'saved' | 'noop'> {
     const capturedModRoot = activeRoot.value;
     const state = stateMap.get(capturedModRoot);
-    
     if (!appData || !state || saving.value) return 'noop';
-    
-    if (appData.modRoot !== capturedModRoot) {
-      console.warn(`AppData mismatch: expected ${capturedModRoot}, got ${appData.modRoot}`);
-      return 'noop';
-    }
-    
+    if (appData.modRoot !== capturedModRoot) return 'noop';
     saving.value = true;
     try {
       finishCellEdit();
@@ -275,11 +259,7 @@ export const useTablesStore = defineStore('tables', () => {
 
   async function addNewRow(appData: AppData) {
     const state = getActiveState();
-    const state = getActiveState();
-    if (!state) {
-      console.error('Table not ready for new row');
-      return;
-    }
+    if (!state) return;
     const tab = state.currentTab;
     const id = `new_${tab}_${Date.now()}`;
     const header = appData.csvHeaders[tab];
@@ -302,7 +282,7 @@ export const useTablesStore = defineStore('tables', () => {
     }
 
     state.tables[tab].push(row);
-    assignRowKey(tab, row);
+    assignRowKey(state, tab, row);
     state.originalTables[tab].push(deepClone(row));
     selectedRowKey.value = rowSelectionKey(row);
   }
@@ -314,10 +294,8 @@ export const useTablesStore = defineStore('tables', () => {
     const id = selectedRowId.value;
     if (!id) return;
 
-
-    const row = state.tables[tab].find(r => rowId(r) === id);
+    const row = state.tables[tab].find((r) => rowId(r) === id);
     if (!row) {
-      console.warn(`Row not found in current table`);
       state.selectedRowKey = '';
       return;
     }
@@ -333,28 +311,25 @@ export const useTablesStore = defineStore('tables', () => {
       await removeTableRow(appData.modRoot, tab, id);
     }
 
-    state.tables[tab] = state.tables[tab].filter((row) => rowId(row) !== id);
-    state.originalTables[tab] = state.originalTables[tab].filter((row) => rowId(row) !== id);
+    state.tables[tab] = state.tables[tab].filter((r) => rowId(r) !== id);
+    state.originalTables[tab] = state.originalTables[tab].filter((r) => rowId(r) !== id);
     const rowKey = state.selectedRowKey;
     if (rowKey) delete state.dirty[tab][rowKey];
     state.selectedRowKey = '';
   }
 
-  function assignRowKeys(tab: TableKey, list: RowData[]) {
+  function assignRowKeys(state: ModTableState, tab: TableKey, list: RowData[]) {
     for (const row of list) {
-      assignRowKey(tab, row);
+      assignRowKey(state, tab, row);
     }
   }
 
-
-  function assignRowKey(tab: TableKey, row: RowData) {
+  function assignRowKey(state: ModTableState, tab: TableKey, row: RowData) {
     if (!cell(row[ROW_KEY_FIELD])) {
-      const state = getActiveState();
-      if (state) {
-        row[ROW_KEY_FIELD] = `${tab}:rowKey:${state.nextRowKey++}`;
-      }
+      row[ROW_KEY_FIELD] = `${tab}:rowKey:${state.nextRowKey++}`;
     }
   }
+
   function tableRowKeyForTab(tab: TableKey, row: RowData, index: number): string {
     const existingKey = cell(row[ROW_KEY_FIELD]);
     if (existingKey) return existingKey;
