@@ -46,7 +46,9 @@
 - `src/features/schema/schema.types.ts`：Schema 文件格式类型定义（FieldSchema、SectionSchema、FileSchema）。
 - `src/features/schema/schema.service.ts`：Schema 加载、数据源解析（resolveSource）、嵌套值读写。
 - `src/features/schema/components/SchemaFormRenderer.vue`：通用 schema 驱动表单渲染器（按 section 分组 + 额外字段兜底）。
-- `src/features/schema/components/SchemaFieldRenderer.vue`：单字段渲染器（12 种类型 + 递归嵌套）。
+- `src/features/schema/components/SchemaFieldRenderer.vue`：单字段渲染器（12 种类型 + 递归嵌套 + path-image 图片索引选择器 + 缩略图预览）。
+- `src/features/schema/composables/useCoreSchema.ts`：core 字段扫描 + 动态 schema 合并（单例缓存）。
+- `src/features/schema/composables/useCoreGraphics.ts`：core graphics 图片路径索引（单例缓存，供 path-image 字段下拉选取）。
 - `schemas/`：随工具分发的 Schema 定义文件（mod-info、faction 等）。
 - `src/features/tables/table.service.ts`：表格 feature 的后端语义边界，封装 CSV 行和舰船/武器记录的新建、删除、保存调用。
 - `src/shared/api/`：Tauri API 薄 adapter，只封装 command payload，不承载业务流程。

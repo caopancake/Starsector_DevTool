@@ -142,12 +142,40 @@ pub fn save_world_file(mod_root: &str, rel_path: &str, data: &Value) -> AppResul
     Ok(())
 }
 
-pub fn load_image_as_data_url(mod_root: &str, rel_path: &str) -> AppResult<Option<String>> {
-    let path = Path::new(mod_root).join(rel_path.replace('\\', "/"));
-    if !path.exists() {
-        return Ok(None);
+pub fn load_image_as_data_url(
+    mod_root: &str,
+    rel_path: &str,
+    starsector_root: Option<&str>,
+) -> AppResult<Option<String>> {
+    let clean_path = rel_path.replace('\\', "/");
+
+    // Try mod directory first
+    let mod_path = Path::new(mod_root).join(&clean_path);
+    if mod_path.exists() {
+        return read_image_to_data_url(&mod_path);
     }
-    let bytes = fs::read(&path)?;
+
+    // Fallback: try starsector-core directory
+    if let Some(root) = starsector_root {
+        let core_path = Path::new(root).join("starsector-core").join(&clean_path);
+        if core_path.exists() {
+            return read_image_to_data_url(&core_path);
+        }
+    }
+
+    // Also try inferring starsector root from mod_root (parent of parent)
+    if let Some(inferred_root) = Path::new(mod_root).parent().and_then(|p| p.parent()) {
+        let core_path = inferred_root.join("starsector-core").join(&clean_path);
+        if core_path.exists() {
+            return read_image_to_data_url(&core_path);
+        }
+    }
+
+    Ok(None)
+}
+
+fn read_image_to_data_url(path: &Path) -> AppResult<Option<String>> {
+    let bytes = fs::read(path)?;
     let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("png");
     let mime = match ext {
         "jpg" | "jpeg" => "image/jpeg",
@@ -160,6 +188,32 @@ pub fn load_image_as_data_url(mod_root: &str, rel_path: &str) -> AppResult<Optio
         mime,
         general_purpose::STANDARD.encode(bytes)
     )))
+}
+
+/// Scan starsector-core/graphics/ and return all image file paths (relative to starsector-core).
+pub fn scan_core_graphics(starsector_root: &str) -> Vec<String> {
+    let dir = Path::new(starsector_root)
+        .join("starsector-core")
+        .join("graphics");
+    if !dir.exists() {
+        return vec![];
+    }
+    let core_dir = Path::new(starsector_root).join("starsector-core");
+    WalkDir::new(&dir)
+        .into_iter()
+        .flatten()
+        .filter(|e| e.file_type().is_file())
+        .filter(|e| {
+            let ext = e.path().extension().and_then(|s| s.to_str()).unwrap_or("");
+            matches!(ext, "png" | "jpg" | "jpeg" | "gif")
+        })
+        .filter_map(|e| {
+            e.path()
+                .strip_prefix(&core_dir)
+                .ok()
+                .map(|p| p.to_string_lossy().replace('\\', "/"))
+        })
+        .collect()
 }
 
 /// Scan starsector-core files and discover field names + inferred types.

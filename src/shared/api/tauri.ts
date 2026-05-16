@@ -117,8 +117,8 @@ export function saveWorldFile(modRoot: string, relPath: string, data: RowData): 
   return invoke('save_world_file', { payload: { modRoot, relPath, data } });
 }
 
-export function loadImageDataUrl(modRoot: string, relPath: string): Promise<string | null> {
-  return invoke('load_image_data_url', { modRoot, relPath });
+export function loadImageDataUrl(modRoot: string, relPath: string, starsectorRoot?: string): Promise<string | null> {
+  return invoke('load_image_data_url', { modRoot, relPath, starsectorRoot: starsectorRoot ?? null });
 }
 
 export interface DiscoveredField {
@@ -129,4 +129,8 @@ export interface DiscoveredField {
 
 export function scanCoreFields(starsectorRoot: string): Promise<Record<string, DiscoveredField[]>> {
   return invoke('scan_core_fields', { starsectorRoot });
+}
+
+export function scanCoreGraphics(starsectorRoot: string): Promise<string[]> {
+  return invoke('scan_core_graphics', { starsectorRoot });
 }

@@ -44,6 +44,7 @@ const settings = useSettingsStore();
 
 const { getMergedSchema, loadCoreFields } = useCoreSchema();
 loadCoreFields();
+
 const schema = computed(() => getMergedSchema('faction'));
 
 const { message } = createDiscreteApi(['message'], {
@@ -80,12 +81,13 @@ const crestSrc = ref('');
 
 async function refreshImagePreviews() {
   const modRoot = project.activeModData?.modRoot;
+  const coreRoot = settings.starsectorRoot || project.activeModData?.starsectorRoot || undefined;
   const logo = str(local.value.logo);
   const crest = str(local.value.crest);
 
   if (logo && modRoot) {
     try {
-      logoSrc.value = (await loadImageDataUrl(modRoot, logo)) ?? '';
+      logoSrc.value = (await loadImageDataUrl(modRoot, logo, coreRoot)) ?? '';
     } catch {
       logoSrc.value = '';
     }
@@ -95,7 +97,7 @@ async function refreshImagePreviews() {
 
   if (crest && modRoot) {
     try {
-      crestSrc.value = (await loadImageDataUrl(modRoot, crest)) ?? '';
+      crestSrc.value = (await loadImageDataUrl(modRoot, crest, coreRoot)) ?? '';
     } catch {
       crestSrc.value = '';
     }

@@ -65,8 +65,27 @@
         @update:model-value="emit('update', $event)"
       />
 
-      <!-- path-image / path -->
-      <div v-else-if="field.type === 'path-image' || field.type === 'path'" class="path-field">
+      <!-- path-image: searchable dropdown + file picker -->
+      <div v-else-if="field.type === 'path-image'" class="path-field">
+        <n-select
+          :value="strVal || null"
+          :options="graphicsOptions"
+          :render-label="renderGraphicsLabel"
+          filterable
+          clearable
+          tag
+          size="small"
+          placeholder="搜索或输入图片路径"
+          style="flex: 1"
+          @update:value="emit('update', $event ?? '')"
+        />
+        <n-button size="small" quaternary title="选择文件" @click="pickFile">
+          <template #icon><span class="pick-icon">📂</span></template>
+        </n-button>
+      </div>
+
+      <!-- path: input + file picker (no image dropdown) -->
+      <div v-else-if="field.type === 'path'" class="path-field">
         <n-input :value="strVal" size="small" @update:value="emit('update', $event)" />
         <n-button size="small" quaternary title="选择文件" @click="pickFile">
           <template #icon><span class="pick-icon">📂</span></template>
@@ -167,6 +186,10 @@ import type { FieldSchema } from '../schema.types';
 import type { SelectOption } from '../schema.service';
 import { resolveSource } from '../schema.service';
 import ColorArrayInput from '../../config/components/ColorArrayInput.vue';
+import { useCoreGraphics } from '../composables/useCoreGraphics';
+
+const { graphicsPaths, loadGraphics } = useCoreGraphics();
+loadGraphics(); // Fire-and-forget, loads once and caches
 
 const props = defineProps<{
   field: FieldSchema;
@@ -247,6 +270,39 @@ const enumOptions = computed(() => {
   }
   return sourceOptions.value;
 });
+
+// ─── path-image graphics options ─────────────────────────────────────
+
+const graphicsOptions = computed(() => {
+  const options: SelectOption[] = [];
+  const seen = new Set<string>();
+
+  // Add mod's own available sprites first
+  if (props.appData?.availableSprites) {
+    for (const sprite of props.appData.availableSprites) {
+      if (!seen.has(sprite)) {
+        seen.add(sprite);
+        options.push({ label: sprite.split('/').pop() ?? sprite, value: sprite });
+      }
+    }
+  }
+
+  // Add core graphics paths
+  for (const path of graphicsPaths.value) {
+    if (!seen.has(path)) {
+      seen.add(path);
+      options.push({ label: path.split('/').pop() ?? path, value: path });
+    }
+  }
+
+  return options;
+});
+
+function renderGraphicsLabel(option: SelectOption & { label?: string; value?: string }) {
+  const path = option.value ?? '';
+  const filename = path.split('/').pop() ?? path;
+  return h('span', { title: path, style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, filename);
+}
 
 // For key-value fields: merge source options with existing keys as candidates
 const kvKeyOptions = computed(() => {

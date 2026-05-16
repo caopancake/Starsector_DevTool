@@ -237,6 +237,34 @@
 
 上传只负责写入贴图文件并返回相对路径；对应 spec 字段仍由编辑器保存链路写回。
 
+## 图片加载与预览链路
+
+### 图片加载 fallback 链
+
+- API：`loadImageDataUrl(modRoot, relPath, starsectorRoot?)`
+- Tauri command：`load_image_data_url`
+- Rust service：`services::load_image_as_data_url(mod_root, rel_path, starsector_root)`
+- 查找顺序：
+  1. `{modRoot}/{relPath}` — Mod 自有贴图
+  2. `{starsectorRoot}/starsector-core/{relPath}` — 用户配置的游戏目录
+  3. `{modRoot}/../../starsector-core/{relPath}` — 自动推断游戏目录
+- 返回：base64 data URL 或 null
+
+### starsector-core 图片索引
+
+- API：`scanCoreGraphics(starsectorRoot)`
+- Tauri command：`scan_core_graphics`
+- Rust service：`services::scan_core_graphics` 遍历 `starsector-core/graphics/` 下所有 png/jpg
+- 前端缓存：`useCoreGraphics` composable（模块级单例，启动时加载一次）
+- 用途：`path-image` 字段的下拉候选列表，合并 Mod sprites + core graphics
+
+### path-image 字段 UI
+
+- 控件组合：可搜索下拉选择器 + 📂 文件选择器按钮
+- 下拉候选来源：`appData.availableSprites`（Mod 贴图）+ `graphicsPaths`（core 贴图）
+- 文件选择器默认定位：Mod 根目录，选取后自动计算相对路径
+- 显示：文件名作为 label，完整路径作为 value
+
 ## 编辑器交互口径
 
 - 舰船和武器编辑器内的快捷键只在编辑器作用域生效，表单控件聚焦时不抢输入。

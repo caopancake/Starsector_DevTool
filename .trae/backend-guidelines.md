@@ -41,6 +41,8 @@
 - 弹体贴图写入 `graphics/missiles/`。
 - 上传时必须处理重名覆盖确认，不能静默覆盖。
 - 项目加载时可为同一 spec 聚合多个贴图字段的数据 URL，例如武器的 `turret*` 和 `hardpoint*` 字段；这属于预览/编辑辅助数据，不改变 spec 保存格式。
+- 图片加载采用 fallback 链：Mod 目录 → starsector-core 目录（用户配置或自动推断），确保引用 core 图片的配置项也能正确预览。
+- `scan_core_graphics` 扫描 starsector-core/graphics/ 下所有图片路径，供前端 path-image 字段下拉选取。
 
 ## 工具私有持久化
 
