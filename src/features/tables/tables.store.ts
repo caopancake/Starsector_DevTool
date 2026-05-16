@@ -11,6 +11,7 @@ import {
   removeWeaponRecord,
   saveTableRows,
 } from './table.service';
+import { getNextActiveKeyAfterRemoval } from '../../shared/lib/store-utils';
 
 export const TABLE_KEYS: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'industries'];
 const ROW_KEY_FIELD = '_rowKey';
@@ -146,13 +147,12 @@ export const useTablesStore = defineStore('tables', () => {
     syncCurrentHeaders(appData ?? null);
   }
   function removeModState(modRoot: string) {
+  function removeModState(modRoot: string) {
     stateMap.delete(modRoot);
-    if (activeRoot.value === modRoot) {
-      const remaining = [...stateMap.keys()];
-      activeRoot.value = remaining[0] ?? '';
-    }
+    activeRoot.value = getNextActiveKeyAfterRemoval(activeRoot.value, [...stateMap.keys()], modRoot, '');
   }
 
+  function hasModDirtyChanges(modRoot: string): boolean {
   function hasModDirtyChanges(modRoot: string): boolean {
     const state = stateMap.get(modRoot);
     if (!state) return false;

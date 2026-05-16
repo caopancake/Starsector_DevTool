@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { computed, reactive, ref } from 'vue';
 import type { AppData, ModEditorState, RowData, EditorRef } from '../../shared/types';
 import { defaultWeapon, rowId } from '../../shared/lib/starsector';
+import { getNextActiveKeyAfterRemoval } from '../../shared/lib/store-utils';
 
 function createModEditorState(): ModEditorState {
   return { shipEditorId: null, weaponEditorId: null, projectileEditorId: null, previewWeaponId: '' };
@@ -12,6 +13,7 @@ export const useEditorsStore = defineStore('editors', () => {
   const activeRoot = ref('');
   const fallback = createModEditorState();
 
+  function getActiveState(): ModEditorState {
   function getActiveState(): ModEditorState {
     if (!activeRoot.value) return fallback;
     let state = stateMap.get(activeRoot.value);
@@ -59,11 +61,10 @@ export const useEditorsStore = defineStore('editors', () => {
   }
 
   function removeModState(modRoot: string) {
+  function removeModState(modRoot: string) {
     stateMap.delete(modRoot);
-    if (activeRoot.value === modRoot) {
-      const remaining = [...stateMap.keys()];
-      activeRoot.value = remaining[0] ?? '';
-    }
+    activeRoot.value = getNextActiveKeyAfterRemoval(activeRoot.value, [...stateMap.keys()], modRoot, '');
+  }
   }
 
   // --- Existing API ---

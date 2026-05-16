@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import type { ModEntry, PersistedWorkspace, WorkspaceView } from '../../shared/types';
+import { getNextActiveKeyAfterRemoval } from '../../shared/lib/store-utils';
 
 export const useWorkspaceStore = defineStore('workspace', () => {
   const mods = ref<Map<string, ModEntry>>(new Map());
@@ -35,11 +36,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function removeMod(modRoot: string) {
     mods.value.delete(modRoot);
     expandedMods.value.delete(modRoot);
-    if (activeModRoot.value === modRoot) {
-      const remaining = [...mods.value.keys()];
-      activeModRoot.value = remaining[0] ?? null;
-      if (!activeModRoot.value) currentView.value = 'overview';
-    }
+    activeModRoot.value = getNextActiveKeyAfterRemoval(activeModRoot.value, [...mods.value.keys()], modRoot, null);
+    if (!activeModRoot.value) currentView.value = 'overview';
   }
 
   function setActiveMod(modRoot: string) {

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import type { AppData, RowData } from '../../shared/types';
 import { cell, deepClone } from '../../shared/lib/starsector';
 import { loadProject, pickModRoot } from './project.service';
+import { getNextActiveKeyAfterRemoval } from '../../shared/lib/store-utils';
 
 export const useProjectStore = defineStore('project', () => {
   const modsData = ref<Map<string, AppData>>(new Map());
@@ -28,10 +29,7 @@ export const useProjectStore = defineStore('project', () => {
 
   function removeModData(modRoot: string) {
     modsData.value.delete(modRoot);
-    if (activeModRoot.value === modRoot) {
-      const remaining = [...modsData.value.keys()];
-      activeModRoot.value = remaining[0] ?? null;
-    }
+    activeModRoot.value = getNextActiveKeyAfterRemoval(activeModRoot.value, [...modsData.value.keys()], modRoot, null);
   }
 
   async function pickAndOpenProject(): Promise<AppData | null> {
