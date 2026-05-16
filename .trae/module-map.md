@@ -72,6 +72,8 @@
 
 - 后续全局修改链路和右键菜单分别由后续 phase 处理；编辑器内快捷键已经有局部作用域实现，但主界面全局快捷键仍需单独设计。
 - `ShipEditor.vue`、`WeaponEditor.vue`、`ProjectileEditor.vue` 仍较大，但保留了业务流程聚合价值；除非出现稳定语义或真实复用需求，不继续为了行数拆分。
-- `App.vue` 仍承担主布局和顶层业务动作编排，但弹窗挂载已由 `EditorsHost.vue` 承担。
+- `App.vue` 承担 workspace 视图路由、导入/移除 Mod 编排和启动恢复逻辑；弹窗挂载由 `EditorsHost.vue` 承担。
 - `base.css` 中的通用 panel/action 结构只用于稳定跨页面样式；具体业务区样式继续留在对应 CSS 模块。
 - 舰船/武器编辑器的画布交互已经形成局部模式，但坐标、贴图锚点和强选择规则仍是高风险区域，后续修改应先读现有实现。
+- tables.store.ts 使用 computed proxy 模式（per-Mod stateMap + computed 代理），修改对外 API 时需确保 proxy get/set 正确委托到 activeState。
+- 启动恢复期间使用 `restoring` 标志抑制自动保存 watcher；如需修改恢复逻辑，注意保持该标志的 set/reset 对称。

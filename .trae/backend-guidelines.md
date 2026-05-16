@@ -42,6 +42,20 @@
 - 上传时必须处理重名覆盖确认，不能静默覆盖。
 - 项目加载时可为同一 spec 聚合多个贴图字段的数据 URL，例如武器的 `turret*` 和 `hardpoint*` 字段；这属于预览/编辑辅助数据，不改变 spec 保存格式。
 
+## 工具私有持久化
+
+- 持久化目录：Tauri `app_data_dir()`，通常为 `%APPDATA%/com.starsector.devtool/`。
+- 持久化文件：`workspace.json`，存储已导入 Mod 列表、活动 Mod、视图状态、展开状态。
+- 不写入 Mod 目录内的任何私有状态。
+- 读取时若文件缺失或损坏，返回空默认值（安全降级）。
+- 写入时先 `create_dir_all` 确保目录存在。
+- 持久化操作由前端防抖触发（500ms），通过 `save_workspace` command 调用 Rust service。
+
+## 单例化
+
+- 使用 `tauri-plugin-single-instance`，第二个实例启动时聚焦第一个窗口。
+- 不需要进程间通信或状态转移。
+
 ## 验证目标
 
 - `cargo test --manifest-path src-tauri/Cargo.toml`

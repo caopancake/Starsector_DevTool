@@ -57,8 +57,10 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 - Rust 负责 Starsector 宽松 JSON、CSV、Mod 文件扫描、保存、删除和贴图上传。
 - 前端采用多 Mod 工作区架构：workspace.store 编排 Mod 列表和视图路由，project.store 缓存多 Mod 数据，tables.store 和 editors.store 按 Mod 隔离状态。
 - UI 为 IDE 风格壳层：左侧 Mod 树导航、概览页、设置页、数据表格工作区。
+- 已实现持久化：workspace 状态保存至 `%APPDATA%/com.starsector.devtool/workspace.json`，启动时自动恢复。
+- 已实现单例化：`tauri-plugin-single-instance`，第二个实例启动时聚焦第一个窗口。
 - 功能范围包括：
-  - 多 Mod 导入、切换、移除
+  - 多 Mod 导入、切换、移除、持久化恢复
   - CSV 表格编辑、筛选、排序、保存、撤销、新建、删除
   - 舰船编辑器
   - 武器编辑器

@@ -17,6 +17,16 @@
 - Composable 只承载稳定、可复用的交互能力；不要为了减少组件行数而过度拆分。
 - Shared 只放真正跨 feature 复用的类型、API 和工具。
 
+## 多 Mod 工作区规则
+
+- workspace.store 是编排层：管理 Mod 列表、活动 Mod 和视图路由，不持有 AppData。
+- project.store 是数据缓存层：`modsData: Map<modRoot, AppData>`，`data` computed 指向活动 Mod。
+- tables.store 和 editors.store 使用 `stateMap: Map<modRoot, PerModState>` 实现 per-Mod 隔离。
+- 对外 API 通过 computed proxy 保持向下兼容，内部读写当前 Mod 的状态。
+- 切换 Mod 时由 App.vue 的 watch 同步触发所有 store 的 `activateFor(modRoot)`。
+- 持久化由 App.vue 的 watch 防抖 500ms 后调用 `saveWorkspace()`；恢复期间跳过自动保存。
+- Mod 数据加载失败时标记 error 状态，允许用户移除失效项。
+
 ## 编辑器边界
 
 - Canvas 的通用能力可以抽为 composable：viewport、网格绘制、快捷键、历史记录、贴图上传。

@@ -75,16 +75,19 @@ watch(
   () => workspace.activeModRoot,
   (modRoot) => {
     project.setActiveModRoot(modRoot);
-    tables.activateFor(modRoot ?? '');
+    const appData = modRoot ? project.getModData(modRoot) : null;
+    tables.activateFor(modRoot ?? '', appData);
     editors.activateFor(modRoot ?? '');
   },
 );
 
-// Auto-save workspace state (debounced)
+// Auto-save workspace state (debounced, skipped during restore)
 let saveTimer: number | null = null;
+let restoring = false;
 watch(
   () => workspace.toPersistedState(),
   (state) => {
+    if (restoring) return;
     if (saveTimer !== null) window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => void saveWorkspace(state), 500);
   },
@@ -96,6 +99,7 @@ onMounted(async () => {
   try {
     const persisted = await loadWorkspace();
     if (persisted.mods.length === 0) return;
+    restoring = true;
     workspace.restoreFrom(persisted);
     for (const mod of persisted.mods) {
       try {
@@ -115,8 +119,9 @@ onMounted(async () => {
         workspace.setActiveMod(persisted.activeModRoot);
       }
     }
+    restoring = false;
   } catch {
-    /* First launch — no persisted workspace file */
+    restoring = false;
   }
 });
 

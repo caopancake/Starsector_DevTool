@@ -134,8 +134,9 @@ export const useTablesStore = defineStore('tables', () => {
     syncCurrentHeaders(appData);
   }
 
-  function activateFor(modRoot: string) {
+  function activateFor(modRoot: string, appData?: AppData | null) {
     activeRoot.value = modRoot;
+    syncCurrentHeaders(appData ?? null);
   }
 
   function removeModState(modRoot: string) {
@@ -172,10 +173,7 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   function tableRowKey(row: RowData, index: number): string {
-    const existingKey = cell(row[ROW_KEY_FIELD]);
-    if (existingKey) return existingKey;
-    const id = rowId(row);
-    return id ? `${currentTab.value}:id:${id}` : `${currentTab.value}:row:${index}`;
+    return tableRowKeyForTab(currentTab.value, row, index);
   }
 
   function rowSelectionKey(row: RowData): string {
