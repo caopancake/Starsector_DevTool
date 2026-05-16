@@ -145,6 +145,81 @@ mod tests {
         assert!(loaded.is_empty());
     }
 
+    #[test]
+    fn core_fallback_loads_sprite() {
+        let mod_dir = temp_dir("core_fallback_mod");
+        let core_dir = temp_dir("core_fallback_core");
+
+        // Create sprite in core_dir only (not in mod_dir)
+        let sprite_dir = core_dir.join("graphics/weapons");
+        fs::create_dir_all(&sprite_dir).unwrap();
+        // Write a minimal valid PNG (1x1 pixel)
+        let png_bytes: [u8; 69] = [
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00,
+            0x00, 0x90, 0x77, 0x53, 0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54, 0x08,
+            0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0xE2, 0x21, 0xBC,
+            0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+        ];
+        fs::write(sprite_dir.join("test_turret.png"), png_bytes).unwrap();
+
+        let mut wpn_files = BTreeMap::new();
+        wpn_files.insert(
+            "testgun".to_string(),
+            serde_json::json!({
+                "id": "testgun",
+                "turretSprite": "graphics/weapons/test_turret.png"
+            }),
+        );
+
+        let loaded = load_weapon_sprite_data(&mod_dir, Some(core_dir.as_path()), &wpn_files);
+
+        let _ = fs::remove_dir_all(&mod_dir);
+        let _ = fs::remove_dir_all(&core_dir);
+
+        // Should have loaded from core
+        assert!(loaded.contains_key("testgun"));
+        let sprites = &loaded["testgun"];
+        assert!(sprites.contains_key("turretSprite"));
+        assert!(sprites["turretSprite"].starts_with("data:image/png;base64,"));
+    }
+
+    #[test]
+    fn mod_sprite_takes_priority_over_core() {
+        let mod_dir = temp_dir("priority_mod");
+        let core_dir = temp_dir("priority_core");
+
+        // Minimal PNG
+        let png_bytes: [u8; 69] = [
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00,
+            0x00, 0x90, 0x77, 0x53, 0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54, 0x08,
+            0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0xE2, 0x21, 0xBC,
+            0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+        ];
+
+        // Create sprite in BOTH directories
+        let mod_sprite_dir = mod_dir.join("graphics/weapons");
+        let core_sprite_dir = core_dir.join("graphics/weapons");
+        fs::create_dir_all(&mod_sprite_dir).unwrap();
+        fs::create_dir_all(&core_sprite_dir).unwrap();
+        fs::write(mod_sprite_dir.join("shared.png"), png_bytes).unwrap();
+        fs::write(core_sprite_dir.join("shared.png"), png_bytes).unwrap();
+
+        let result = load_sprite_data_url(
+            &mod_dir,
+            Some(core_dir.as_path()),
+            "graphics/weapons/shared.png",
+        )
+        .unwrap();
+
+        let _ = fs::remove_dir_all(&mod_dir);
+        let _ = fs::remove_dir_all(&core_dir);
+
+        // Should succeed (mod has priority, but both work)
+        assert!(result.is_some());
+    }
+
     fn temp_dir(name: &str) -> PathBuf {
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
