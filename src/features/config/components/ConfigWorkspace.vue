@@ -27,9 +27,27 @@ const selectedFaction = ref('');
 </script>
 
 <style scoped>
-.config-factions-layout {
+.config-workspace {
   display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
   height: 100%;
   overflow: hidden;
+}
+
+.config-factions-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.config-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
 }
 </style>

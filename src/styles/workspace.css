@@ -303,6 +303,7 @@
   padding: 32px 40px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
 }
 
 .settings-header h1 {
