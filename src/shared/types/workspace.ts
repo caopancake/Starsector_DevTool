@@ -21,12 +21,18 @@ export interface ModTableState {
   editing: { tab: TableKey; rowKey: string; col: string; value: string } | null;
 }
 
+/** Editor reference with modRoot tracking — prevents loading from wrong mod */
+export interface EditorRef {
+  modRoot: string;
+  id: string;
+}
+
 /** Per-Mod editor state */
 export interface ModEditorState {
-  shipEditorId: string;
-  weaponEditorId: string;
-  projectileEditorId: string;
-  previewWeaponId: string;
+  shipEditorId: EditorRef | null;
+  weaponEditorId: EditorRef | null;
+  projectileEditorId: EditorRef | null;
+  previewWeaponId: string; // Keep as string - preview is display-only, no mod context needed
 }
 
 /** Which main-content view is shown */

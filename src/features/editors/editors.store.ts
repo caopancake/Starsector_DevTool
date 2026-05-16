@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia';
 import { computed, reactive, ref } from 'vue';
-import type { AppData, ModEditorState, RowData } from '../../shared/types';
+import type { AppData, ModEditorState, RowData, EditorRef } from '../../shared/types';
 import { defaultWeapon, rowId } from '../../shared/lib/starsector';
 
 function createModEditorState(): ModEditorState {
-  return { shipEditorId: '', weaponEditorId: '', projectileEditorId: '', previewWeaponId: '' };
+  return { shipEditorId: null, weaponEditorId: null, projectileEditorId: null, previewWeaponId: '' };
 }
 
 export const useEditorsStore = defineStore('editors', () => {
@@ -69,27 +69,27 @@ export const useEditorsStore = defineStore('editors', () => {
   // --- Existing API ---
 
   function openShip(id: string) {
-    shipEditorId.value = id;
+    shipEditorId.value = { modRoot: activeRoot.value, id };
   }
 
   function closeShip() {
-    shipEditorId.value = '';
+    shipEditorId.value = null;
   }
 
   function openWeapon(id: string) {
-    weaponEditorId.value = id;
+    weaponEditorId.value = { modRoot: activeRoot.value, id };
   }
 
   function closeWeapon() {
-    weaponEditorId.value = '';
+    weaponEditorId.value = null;
   }
 
   function openProjectile(id: string) {
-    projectileEditorId.value = id;
+    projectileEditorId.value = { modRoot: activeRoot.value, id };
   }
 
   function closeProjectile() {
-    projectileEditorId.value = '';
+    projectileEditorId.value = null;
   }
 
   function openPreview(id: string) {
@@ -102,8 +102,10 @@ export const useEditorsStore = defineStore('editors', () => {
 
   function weaponForEditor(appData: AppData | null, weapons: RowData[]): RowData {
     if (!appData || !weaponEditorId.value) return {};
-    const csvRow = weapons.find((weapon) => rowId(weapon) === weaponEditorId.value);
-    return appData.wpnFiles[weaponEditorId.value] || defaultWeapon(weaponEditorId.value, csvRow);
+    // Safety: verify editor belongs to this mod
+    if (weaponEditorId.value.modRoot !== appData.modRoot) return {};
+    const csvRow = weapons.find((weapon) => rowId(weapon) === weaponEditorId.value!.id);
+    return appData.wpnFiles[weaponEditorId.value.id] || defaultWeapon(weaponEditorId.value.id, csvRow);
   }
 
   return {
