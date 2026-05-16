@@ -53,7 +53,7 @@
       "key": "version",
       "type": "string",
       "label": "版本号",
-      "description": "Mod 版本，可以是字符串如 \"1.0.0\"，也可以是 {major, minor, patch} 对象",
+      "description": "Mod 版本号。支持字符串格式（如 \"1.0.0\"）或对象格式（如 {\"major\":1, \"minor\":0, \"patch\":0}）。对象格式会显示为 JSON 并可直接编辑",
       "required": true,
       "editable": true,
       "default": "1.0.0",

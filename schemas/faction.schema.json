@@ -1022,8 +1022,8 @@
     {
       "key": "shipRoles",
       "type": "key-value",
-      "label": "舰船角色",
-      "description": "按角色分类的舰船变体权重配置（如 combatSmall, combatLarge）",
+      "label": "舰船角色分配",
+      "description": "按角色分类的舰船变体权重配置。每个角色（如 combatSmall, combatLarge）的值是一个对象，包含 includeDefault (boolean) 和若干 变体ID: 权重(number) 的键值对",
       "required": false,
       "editable": true,
       "default": {},

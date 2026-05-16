@@ -8,7 +8,7 @@
         :value="strVal"
         size="small"
         :disabled="field.editable === false"
-        @update:value="emit('update', $event)"
+        @update:value="emitStringOrObject($event)"
       />
 
       <!-- text (textarea) -->
@@ -109,7 +109,7 @@
             style="width: 180px"
             @update:value="updateKvKey(idx, $event)"
           />
-          <n-input :value="String(entry.val)" size="small" style="flex: 1" @update:value="updateKvVal(idx, $event)" />
+          <n-input :value="formatKvVal(entry.val)" size="small" style="flex: 1" @update:value="updateKvVal(idx, $event)" />
           <n-button size="tiny" quaternary @click="removeKvEntry(idx)">✕</n-button>
         </div>
         <n-button size="tiny" @click="addKvEntry">+ 添加</n-button>
@@ -178,7 +178,11 @@ const emit = defineEmits<{
 
 // ─── Computed value converters ────────────────────────────────────────
 
-const strVal = computed(() => (props.value == null ? '' : String(props.value)));
+const strVal = computed(() => {
+  if (props.value == null) return '';
+  if (typeof props.value === 'object') return JSON.stringify(props.value);
+  return String(props.value);
+});
 
 const numVal = computed(() => (typeof props.value === 'number' ? props.value : parseFloat(String(props.value)) || 0));
 
@@ -308,9 +312,13 @@ function rebuildKvObject(entries: KvEntry[]): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const e of entries) {
     if (e.key) {
-      // Try to parse numeric values
-      const num = Number(e.val);
-      result[e.key] = !isNaN(num) && String(e.val).trim() !== '' ? num : e.val;
+      if (typeof e.val === 'object' && e.val !== null) {
+        result[e.key] = e.val;
+      } else {
+        const str = String(e.val);
+        const num = Number(str);
+        result[e.key] = !isNaN(num) && str.trim() !== '' ? num : e.val;
+      }
     }
   }
   return result;
@@ -324,7 +332,16 @@ function updateKvKey(idx: number, newKey: string) {
 
 function updateKvVal(idx: number, newVal: string) {
   const entries = [...kvEntries.value];
-  entries[idx] = { ...entries[idx], val: newVal };
+  let parsed: unknown = newVal;
+  const trimmed = newVal.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      // Keep as string
+    }
+  }
+  entries[idx] = { ...entries[idx], val: parsed };
   emit('update', rebuildKvObject(entries));
 }
 
@@ -356,6 +373,29 @@ function emitParsed(raw: string) {
   } catch {
     emit('update', raw);
   }
+}
+
+// ─── String-or-object smart emitter (for version-like fields) ────────
+
+function emitStringOrObject(raw: string) {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      emit('update', JSON.parse(trimmed));
+      return;
+    } catch {
+      // Not valid JSON, emit as string
+    }
+  }
+  emit('update', raw);
+}
+
+// ─── Key-value value formatter (handles nested objects) ──────────────
+
+function formatKvVal(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'object') return JSON.stringify(val);
+  return String(val);
 }
 
 // ─── File picker for path / path-image fields ────────────────────────
