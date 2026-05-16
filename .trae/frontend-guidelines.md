@@ -82,3 +82,14 @@
 - 自定义标题栏取代系统窗口栏，窗口拖动和最小化/最大化/关闭逻辑应集中在标题栏组件。
 - 不使用一整套相近色相堆叠的单调主题。
 - 禁止依赖布局副作用修 UI；优先使用明确的 grid、flex、min/max 尺寸和 overflow 规则。
+
+## 蓝图编辑器规则（Phase 17 规划）
+
+- 蓝图编辑器位于 `src/features/blueprint/`，遵循标准 feature 结构（store/service/components/composables/lib）。
+- 节点画布复用 ShipEditor 的画布基础能力（viewport composable、缩放/平移/网格）。
+- 节点类型定义采用 JSON Schema 描述，位于 `blueprints/nodes/`，运行时加载。
+- 社区库节点（MagicLib/GraphicsLib/LazyLib/LunaLib/BoxUtil）作为独立节点包加载，不硬编码到画布组件。
+- 对话流编辑器是蓝图画布的特化模式，节点类型受限为对话相关（台词/选项/条件/动作）。
+- 模板向导是独立组件，使用 SchemaFormRenderer 驱动表单，输出交给 Rust codegen service。
+- 蓝图 JSON 序列化格式独立于代码生成；蓝图保存不触发 Java 生成，需用户显式"生成代码"。
+- 蓝图编辑器使用独立 undo/redo 栈（不混入全局 history），因其操作粒度不同于 CSV/spec 编辑。

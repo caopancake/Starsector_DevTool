@@ -102,3 +102,41 @@
 - 舰船/武器编辑器的画布交互已经形成局部模式，但坐标、贴图锚点和强选择规则仍是高风险区域，后续修改应先读现有实现。
 - tables.store.ts 使用 computed proxy 模式（per-Mod stateMap + computed 代理），修改对外 API 时需确保 proxy get/set 正确委托到 activeState。
 - 启动恢复期间使用 `restoring` 标志抑制自动保存 watcher；如需修改恢复逻辑，注意保持该标志的 set/reset 对称。
+
+## Planned: Blueprint System (Phase 17)
+
+可视化逻辑编辑器，将 Starsector 模板化 Java 模块抽象为节点图。
+
+### 规划目录结构
+
+- `src/features/blueprint/`：蓝图编辑器 feature 模块
+- `src/features/blueprint/blueprint.store.ts`：蓝图状态管理（节点/连线/选择/历史）
+- `src/features/blueprint/blueprint.service.ts`：序列化/反序列化/代码生成调用
+- `src/features/blueprint/components/BlueprintCanvas.vue`：节点画布（复用 ShipEditor 画布能力）
+- `src/features/blueprint/components/NodePalette.vue`：节点面板（按库/类型分类）
+- `src/features/blueprint/components/NodeInspector.vue`：节点属性检查器
+- `src/features/blueprint/components/DialogueFlowEditor.vue`：对话流专用编辑器
+- `src/features/blueprint/components/TemplateWizard.vue`：模板向导容器
+- `src/features/blueprint/lib/`：节点类型定义、端口类型、代码生成模板
+- `src/features/blueprint/lib/nodes/`：各库节点注册表
+- `src-tauri/src/services/codegen/`：Java 代码生成引擎（Rust 端模板渲染）
+- `src-tauri/src/services/codegen/templates/`：.java 代码模板文件
+- `blueprints/`：随工具分发的节点库定义 JSON
+
+### 社区库集成边界
+
+| 库 | 集成范围 | 节点化目标 |
+|---|---|---|
+| MagicLib | MagicRender 粒子/光束/拖尾、MagicBarEvent JSON 对话、MagicCampaign 工具 | 视觉效果节点 + 对话导出格式 |
+| GraphicsLib | ShaderAPI 光照/泛光/扭曲/涟漪后处理 | 视觉效果节点（着色器参数化） |
+| LazyLib | MathUtils/CollisionUtils/CombatUtils/WeaponUtils | 条件/计算工具节点 |
+| LunaLib | LunaSettings 运行时配置面板、LunaCombatPlugin 钩子 | 配置绑定节点 + 向导选项 |
+| BoxUtil | BoxCollider 区域判定/范围计算/碰撞检测 | 空间判定节点 |
+
+### 代码生成规则
+
+- 生成的 Java 必须 target JDK 7（Starsector 运行时约束）
+- 生成代码保持可读性：合理缩进、import 整理、方法级注释
+- 蓝图元数据保存为 `.blueprint.json`，与生成的 .java 并存
+- 支持从蓝图重新生成（覆盖）或脱离蓝图手动维护两种模式
+- 节点库注册表采用 JSON Schema 描述，允许社区扩展

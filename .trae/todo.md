@@ -308,3 +308,73 @@
 - [ ] 后端：扫描 `data/missions/*/descriptor.json`
 - [ ] 前端：任务列表 + 任务元数据编辑
 - [ ] 前端：任务描述和目标配置
+
+## Phase 17: 可视化逻辑编辑器（蓝图系统）
+
+目标：将 Starsector 高度模板化的 Java 模块（Ship System、Bar Event、Mission、rules.csv 对话）抽象为可视化节点图，使 Mod 作者无需编写 Java 即可完成 80% 常见场景的逻辑配置。
+
+集成社区核心库支持：MagicLib、GraphicsLib、LazyLib、LunaLib、BoxUtil。
+
+### Phase 17.1: 模板向导（Template Wizard）
+
+无画布、纯表单，生成完整可用的代码包。
+
+- [ ] Ship System 新建向导：选择 type + 配置 stat 效果列表 → 生成 `.system` JSON + `ship_systems.csv` 行 + Java Stats 类
+- [ ] Bar Event 新建向导：配置出现条件 + 对话文本 + 选项分支 → 生成 Java BarEvent + BarEventCreator 类
+- [ ] HubMission 新建向导：配置目标类型 + 奖励 + 完成条件 → 生成 Java Mission 类骨架
+- [ ] 代码生成引擎：Rust 端模板渲染（Tera/Handlebars）→ 输出 .java 源文件
+- [ ] 生成代码可读性保证：缩进、注释、import 整理
+- [ ] MagicLib 集成：向导可选使用 MagicBarEvent JSON 配置模式替代纯 Java
+- [ ] LunaLib 集成：向导可选使用 LunaSettings 配置面板绑定（生成对应 LunaSettings JSON + 读取代码）
+- [ ] 验收：通过向导生成的 Ship System 能在游戏中正常工作
+
+### Phase 17.2: 对话流编辑器（Dialogue Flow Editor）
+
+可视化有向图编辑 rules.csv 对话树和 BarEvent 对话分支。
+
+- [ ] 对话节点画布：拖拽创建/连线/缩放/平移（复用 ShipEditor 画布基础设施）
+- [ ] 节点类型：开场白、NPC 台词、玩家选项、条件分支、动作节点、结束节点
+- [ ] 条件节点：声望判断、标记检查、货物持有、势力关系、星球类型、MemoryAPI 变量
+- [ ] 动作节点：设置标记、给予物品、修改声望、开始任务、触发事件、调用脚本
+- [ ] 序列化：对话图 → rules.csv 行 + Java BarEvent 骨架（双向）
+- [ ] 导入现有 rules.csv：解析 vanilla/mod 的 rules.csv 为可视化图（只读参考）
+- [ ] MagicLib 集成：支持导出为 MagicBarEvent JSON 格式（无 Java 纯数据驱动对话）
+- [ ] LazyLib 集成：条件节点可引用 LazyLib 工具方法（距离计算、势力判断等）
+- [ ] 验收：通过编辑器创建完整对话 → 生成代码 → 游戏中正常触发
+
+### Phase 17.3: 效果蓝图编辑器（Effect Node Graph）
+
+真正的节点式逻辑编辑，覆盖 Ship System、Hullmod、武器效果。
+
+- [ ] 节点画布（全功能）：多输入/输出端口、类型着色、分组、注释、小地图
+- [ ] 触发节点：系统激活/关闭/每帧/受击/发射/弹体命中/阶段切换
+- [ ] 条件节点：幅能阈值/HP 阈值/速度判断/目标距离/冷却就绪/effectLevel
+- [ ] 数值效果节点：MutableShipStatsAPI 全部 stat（~60 种）的 modifyPercent/Flat/Mult
+- [ ] 战斗效果节点：生成 EMP、施加伤害、推力、生成临时弹体、召唤无人机
+- [ ] 视觉效果节点：引擎颜色/粒子发射/屏幕闪光/抖动/轨迹
+- [ ] 状态节点：计时器、计数器、标记读写、随机分支
+- [ ] 流程控制：顺序/并行/延迟/循环/状态机子图
+- [ ] GraphicsLib 集成：视觉效果节点可引用 GraphicsLib 光照/后处理/着色器 API
+- [ ] MagicLib 集成：效果节点可引用 MagicRender 粒子/光束/拖尾 API
+- [ ] LazyLib 集成：数学/向量/碰撞检测工具节点
+- [ ] BoxUtil 集成：区域判定/碰撞盒/范围效果工具节点
+- [ ] LunaLib 集成：运行时配置读取节点（玩家可调参数绑定）
+- [ ] Java 代码生成：图 → Java AST → 格式化源码（含 import 管理）
+- [ ] 预览/模拟：简化的效果预览（数值变化曲线、状态时序图）
+- [ ] 验收：通过蓝图创建完整 Ship System → 生成代码 → 游戏中效果正确
+
+### Phase 17.4: Starsector API 节点库
+
+为蓝图编辑器提供完整的 API 节点注册表。
+
+- [ ] MutableShipStatsAPI 全量 stat 枚举（速度/装甲/护盾/武器/幅能/CR 等 ~60 项）
+- [ ] ShipAPI 常用方法节点化（getFluxLevel/getHullLevel/getVelocity/setShield 等）
+- [ ] CombatEngineAPI 效果方法节点化（spawnProjectile/applyDamage/addFloatingText 等）
+- [ ] MagicLib API 节点：MagicRender（光束/粒子/拖尾）、MagicAnim、MagicCampaign
+- [ ] GraphicsLib API 节点：ShaderAPI（光照/泛光/扭曲/涟漪）、RippleDistortion
+- [ ] LazyLib API 节点：MathUtils（随机/向量/角度）、CollisionUtils、CombatUtils、WeaponUtils
+- [ ] LunaLib API 节点：LunaSettings 运行时参数读取、LunaCombatPlugin 钩子
+- [ ] BoxUtil API 节点：BoxCollider 区域判定、BoxUtil 范围计算、BoxIntersect 碰撞
+- [ ] 节点注册表格式定义（JSON Schema 描述每个节点的输入/输出/参数/代码模板）
+- [ ] 节点搜索与分类（按库/按用途/按数据类型过滤）
+- [ ] 社区节点扩展机制：允许第三方 Mod 库注册自定义节点包

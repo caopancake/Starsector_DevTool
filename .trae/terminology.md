@@ -516,4 +516,44 @@
 
 `弹体贴图目录（Missile Graphics Directory）`
 - 路径：`graphics/missiles/`
-- 说明：这是当前项目里弹体和导弹贴图的统一写入目录。虽然英文目录名是 `missiles`，但当前上传逻辑会把弹体和导弹资源都统一写到这里，因此中文口径仍然用“弹体贴图目录”来解释。
+- 说明：这是当前项目里弹体和导弹贴图的统一写入目录。虽然英文目录名是 `missiles`，但当前上传逻辑会把弹体和导弹资源都统一写到这里，因此中文口径仍然用”弹体贴图目录”来解释。
+
+## 蓝图系统（Blueprint System）— Phase 17 规划
+
+`蓝图（Blueprint）`
+- 文件后缀：`.blueprint.json`
+- 说明：蓝图是可视化逻辑编辑器的持久化格式，描述节点图的结构（节点、连线、参数）。它与生成的 .java 文件并存，用于后续重新生成或可视化编辑。
+
+`节点（Node）`
+- 说明：蓝图编辑器中的基本逻辑单元。每个节点代表一个操作（触发、条件判断、效果施加、视觉发射等），通过端口连线组成执行流。
+
+`节点库（Node Library）`
+- 路径：`blueprints/nodes/`
+- 说明：节点类型注册表，采用 JSON 格式描述每个节点的输入端口、输出端口、参数和代码模板。按库分组。
+
+`代码生成（Codegen）`
+- 后端位置：`src-tauri/src/services/codegen/`
+- 说明：将蓝图 JSON 转换为可用的 Java 源码。生成的代码 target JDK 7，保持可读性。
+
+`模板向导（Template Wizard）`
+- 说明：纯表单模式的代码生成入口，不使用节点画布。用户填写参数后直接生成完整代码包（CSV 行 + JSON 配置 + Java 类）。
+
+`对话流（Dialogue Flow）`
+- 说明：对话树的可视化有向图编辑模式。节点类型限定为对话相关（台词/选项/条件/动作）。输出 rules.csv 行或 MagicBarEvent JSON。
+
+## 社区库术语（Community Libraries）
+
+`MagicLib`
+- 说明：Starsector 社区核心库，提供 MagicRender（粒子/光束/拖尾效果）、MagicBarEvent（JSON 驱动对话）、MagicCampaign（战役工具）等 API。蓝图系统集成其视觉效果节点和对话导出格式。
+
+`GraphicsLib`
+- 说明：图形增强库，提供 ShaderAPI（光照/泛光/扭曲/涟漪后处理）。蓝图系统将其着色器参数暴露为视觉效果节点。
+
+`LazyLib`
+- 说明：通用工具库，提供 MathUtils（随机/向量/角度）、CollisionUtils（碰撞检测）、CombatUtils（战斗辅助）、WeaponUtils（武器辅助）。蓝图系统将其作为条件和计算工具节点。
+
+`LunaLib`
+- 说明：配置管理库，提供 LunaSettings（运行时可调配置面板）、LunaCombatPlugin（战斗钩子）。蓝图系统集成其配置绑定（允许生成的代码引用玩家可调参数）。
+
+`BoxUtil`
+- 说明：空间判定工具库，提供 BoxCollider（区域判定）、范围计算、碰撞盒检测。蓝图系统将其作为空间判定节点。

@@ -64,3 +64,14 @@
 - `cargo test --manifest-path src-tauri/Cargo.toml`
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`
 - `cargo fmt --manifest-path src-tauri/Cargo.toml --check`
+
+## 代码生成（Phase 17 规划）
+
+- 代码生成引擎位于 `src-tauri/src/services/codegen/`。
+- 模板文件位于 `src-tauri/src/services/codegen/templates/`，采用 Tera 或 Handlebars 模板语法。
+- 生成的 Java 必须 target JDK 7（Starsector 运行时约束），禁止使用 lambda、try-with-resources、diamond operator 等 Java 8+ 特性。
+- 生成的代码输出到 Mod 目录的 `jars/src/` 或用户指定路径。
+- 代码生成是幂等操作：相同输入产生相同输出。
+- 蓝图元数据（`.blueprint.json`）与生成的 `.java` 并存，用于后续重新生成。
+- 社区库节点注册表采用 JSON 格式，位于 `blueprints/nodes/` 目录。
+- 集成库列表：MagicLib、GraphicsLib、LazyLib、LunaLib、BoxUtil。
