@@ -192,11 +192,11 @@ async function doDelete(id: string) {
 }
 
 .faction-list-item:hover {
-  background: var(--color-hover);
+  background: var(--color-surface-hover);
 }
 
 .faction-list-item.active {
-  background: var(--color-active);
+  background: var(--color-surface-active);
 }
 
 .color-swatch {

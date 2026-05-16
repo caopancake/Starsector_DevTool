@@ -176,11 +176,11 @@ watch(modRoot, () => {
 }
 
 .campaign-file-item:hover {
-  background: var(--color-hover);
+  background: var(--color-surface-hover);
 }
 
 .campaign-file-item.active {
-  background: var(--color-active);
+  background: var(--color-surface-active);
 }
 
 .campaign-editor {
@@ -227,7 +227,7 @@ watch(modRoot, () => {
 .campaign-table th {
   position: sticky;
   top: 0;
-  background: var(--color-bg-secondary);
+  background: var(--color-surface);
   font-weight: 600;
 }
 
@@ -241,6 +241,6 @@ watch(modRoot, () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-tertiary);
+  color: var(--color-faint);
 }
 </style>

@@ -37,6 +37,6 @@ const selectedFaction = ref('');
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-tertiary);
+  color: var(--color-faint);
 }
 </style>

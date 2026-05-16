@@ -1,10 +1,10 @@
 <template>
   <div class="schema-form">
-    <section v-for="section in sections" :key="section.id" class="settings-section">
-      <h3 class="section-header" @click="toggleSection(section.id)">
+    <div v-for="section in sections" :key="section.id" class="schema-section">
+      <div class="section-header" @click="toggleSection(section.id)">
         <span class="section-chevron" :class="{ collapsed: collapsedSections.has(section.id) }">▶</span>
         {{ section.label }}
-      </h3>
+      </div>
       <div v-show="!collapsedSections.has(section.id)" class="section-fields">
         <SchemaFieldRenderer
           v-for="field in section.fields"
@@ -15,18 +15,18 @@
           @update="onFieldUpdate(field.key, $event)"
         />
       </div>
-    </section>
+    </div>
 
     <!-- Extra fields: data keys not defined in schema -->
-    <section v-if="extraKeys.length > 0" class="settings-section">
-      <h3 class="section-header" @click="toggleSection('__extra')">
+    <div v-if="extraKeys.length > 0" class="schema-section">
+      <div class="section-header" @click="toggleSection('__extra')">
         <span class="section-chevron" :class="{ collapsed: collapsedSections.has('__extra') }">▶</span>
         额外字段 ({{ extraKeys.length }})
-      </h3>
-      <div v-show="!collapsedSections.has('__extra')">
+      </div>
+      <div v-show="!collapsedSections.has('__extra')" class="section-fields">
         <JsonFieldEditor :model-value="modelValue" :known-keys="schemaKeys" @update:model-value="emit('update:modelValue', $event)" />
       </div>
-    </section>
+    </div>
   </div>
 </template>
 
@@ -87,7 +87,15 @@ function onFieldUpdate(key: string, value: unknown) {
 .schema-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 0;
+}
+
+.schema-section {
+  background: var(--color-panel-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  overflow: hidden;
 }
 
 .section-header {
@@ -96,16 +104,26 @@ function onFieldUpdate(key: string, value: unknown) {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 0 0 8px 0;
-  font-size: 14px;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 12px;
   font-weight: 600;
+  color: var(--color-text-soft);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  transition: background 0.1s;
+}
+
+.section-header:hover {
+  background: var(--color-surface-hover);
 }
 
 .section-chevron {
   display: inline-block;
-  font-size: 10px;
+  font-size: 9px;
   transition: transform 0.15s ease;
   transform: rotate(90deg);
+  color: var(--color-muted);
 }
 
 .section-chevron.collapsed {
@@ -115,6 +133,7 @@ function onFieldUpdate(key: string, value: unknown) {
 .section-fields {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  padding: 8px 12px;
+  gap: 0;
 }
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-row" :class="{ 'nested-row': isNested }">
+  <div class="schema-field" :class="{ 'nested-row': isNested }">
     <span class="field-label" :title="field.description ?? undefined">{{ field.label }}</span>
     <div class="field-control">
       <!-- string -->
@@ -66,12 +66,12 @@
       />
 
       <!-- path-image / path -->
-      <n-input
-        v-else-if="field.type === 'path-image' || field.type === 'path'"
-        :value="strVal"
-        size="small"
-        @update:value="emit('update', $event)"
-      />
+      <div v-else-if="field.type === 'path-image' || field.type === 'path'" class="path-field">
+        <n-input :value="strVal" size="small" @update:value="emit('update', $event)" />
+        <n-button size="small" quaternary title="选择文件" @click="pickFile">
+          <template #icon><span class="pick-icon">📂</span></template>
+        </n-button>
+      </div>
 
       <!-- string-array -->
       <n-dynamic-tags v-else-if="field.type === 'string-array'" :value="arrVal" size="small" @update:value="emit('update', $event)" />
@@ -152,6 +152,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { open } from '@tauri-apps/plugin-dialog';
 import type { AppData, JsonValue } from '../../../shared/types';
 import type { FieldSchema } from '../schema.types';
 import { resolveSource } from '../schema.service';
@@ -311,9 +312,16 @@ function removeKvEntry(idx: number) {
 }
 
 function addKvEntry() {
-  const entries = [...kvEntries.value];
-  entries.push({ key: '', val: '' });
-  emit('update', rebuildKvObject(entries));
+  // Directly add to the object with a placeholder key that won't collide
+  const current =
+    props.value && typeof props.value === 'object' && !Array.isArray(props.value) ? (props.value as Record<string, unknown>) : {};
+  // Find a unique new key name
+  let newKey = 'newField';
+  let i = 1;
+  while (newKey in current) {
+    newKey = `newField${i++}`;
+  }
+  emit('update', { ...current, [newKey]: '' });
 }
 
 // ─── Fallback JSON parser ─────────────────────────────────────────────
@@ -326,49 +334,77 @@ function emitParsed(raw: string) {
     emit('update', raw);
   }
 }
+
+// ─── File picker for path / path-image fields ────────────────────────
+
+async function pickFile() {
+  const modRoot = props.appData?.modRoot;
+  if (!modRoot) return;
+
+  const selected = await open({
+    title: '选择文件',
+    defaultPath: modRoot,
+    multiple: false,
+  });
+
+  if (!selected || typeof selected !== 'string') return;
+
+  // Calculate relative path from mod root
+  const normalized = selected.replace(/\\/g, '/');
+  const normalizedRoot = modRoot.replace(/\\/g, '/').replace(/\/$/, '');
+
+  if (normalized.startsWith(normalizedRoot + '/')) {
+    // File is inside mod directory — use relative path
+    emit('update', normalized.slice(normalizedRoot.length + 1));
+  } else {
+    // File is outside mod directory — use as-is (absolute or relative to game root)
+    emit('update', normalized);
+  }
+}
 </script>
 
 <style scoped>
-.settings-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 4px 0;
+.schema-field {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 4px 8px;
+  align-items: start;
+  padding: 3px 0;
+  min-width: 0;
 }
 
-.settings-row.nested-row {
-  padding-left: 16px;
+.schema-field.nested-row {
+  padding-left: 12px;
 }
 
 .field-label {
-  min-width: 140px;
-  max-width: 180px;
-  font-size: 13px;
-  color: var(--color-text-secondary, #999);
-  padding-top: 4px;
-  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--color-muted);
+  padding-top: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
 }
 
 .field-control {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .field-warning {
-  font-size: 11px;
-  color: var(--color-warning, #e8a838);
+  font-size: 10px;
+  color: var(--color-warning);
 }
 
 .nested-object {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px;
-  border-left: 2px solid var(--color-border, #333);
-  border-radius: 2px;
+  gap: 0;
+  padding: 4px 0 4px 8px;
+  border-left: 2px solid var(--color-border);
   min-width: 0;
   overflow: hidden;
 }
@@ -376,36 +412,37 @@ function emitParsed(raw: string) {
 .array-of-object {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   min-width: 0;
   overflow: hidden;
 }
 
 .array-item {
-  padding: 8px;
-  border: 1px solid var(--color-border, #333);
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   min-width: 0;
   overflow: hidden;
+  background: var(--color-surface);
 }
 
 .array-item-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .array-item-index {
-  font-size: 11px;
-  color: var(--color-text-secondary, #666);
+  font-size: 10px;
+  color: var(--color-muted);
   font-weight: 600;
 }
 
 .key-value-editor {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
   overflow: hidden;
 }
@@ -415,5 +452,21 @@ function emitParsed(raw: string) {
   align-items: center;
   gap: 4px;
   min-width: 0;
+}
+
+.path-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.path-field .n-input {
+  flex: 1;
+}
+
+.pick-icon {
+  font-size: 12px;
+  line-height: 1;
 }
 </style>

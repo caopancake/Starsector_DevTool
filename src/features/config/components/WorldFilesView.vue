@@ -154,16 +154,16 @@ watch(modRoot, () => {
 .world-file-empty {
   padding: 12px 16px;
   font-size: 12px;
-  color: var(--color-text-tertiary);
+  color: var(--color-faint);
   line-height: 1.6;
 }
 
 .world-file-item:hover {
-  background: var(--color-hover);
+  background: var(--color-surface-hover);
 }
 
 .world-file-item.active {
-  background: var(--color-active);
+  background: var(--color-surface-active);
 }
 
 .world-file-editor {
@@ -198,6 +198,6 @@ watch(modRoot, () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-tertiary);
+  color: var(--color-faint);
 }
 </style>

@@ -1,30 +1,24 @@
 <template>
-  <div class="settings-page">
-    <header class="settings-header">
-      <h1>势力编辑 — {{ displayName }}</h1>
+  <div class="faction-editor-page">
+    <header class="faction-editor-header">
+      <h2>{{ displayName }}</h2>
+      <n-button type="primary" size="small" :loading="saving" @click="save"> 保存 {{ str(local.id) || factionId }}.faction </n-button>
     </header>
 
-    <!-- Logo/Crest preview section (special, not in schema) -->
-    <section v-if="logoSrc || crestSrc" class="settings-section">
-      <h3>图标预览</h3>
-      <div class="faction-previews">
-        <div v-if="logoSrc" class="faction-preview-item">
-          <span>Logo</span>
-          <img :src="logoSrc" class="faction-icon-preview" />
-        </div>
-        <div v-if="crestSrc" class="faction-preview-item">
-          <span>Crest</span>
-          <img :src="crestSrc" class="faction-icon-preview" />
-        </div>
+    <!-- Logo/Crest preview -->
+    <div v-if="logoSrc || crestSrc" class="faction-previews">
+      <div v-if="logoSrc" class="faction-preview-item">
+        <span>Logo</span>
+        <img :src="logoSrc" class="faction-icon-preview" />
       </div>
-    </section>
+      <div v-if="crestSrc" class="faction-preview-item">
+        <span>Crest</span>
+        <img :src="crestSrc" class="faction-icon-preview" />
+      </div>
+    </div>
 
     <!-- Schema-driven form -->
     <SchemaFormRenderer v-if="schema" :schema="schema" v-model="local" :app-data="project.activeModData" />
-
-    <footer class="settings-footer">
-      <n-button type="primary" :loading="saving" @click="save"> 保存 {{ str(local.id) || factionId }}.faction </n-button>
-    </footer>
   </div>
 </template>
 
@@ -155,10 +149,39 @@ async function save() {
 </script>
 
 <style scoped>
+.faction-editor-page {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 16px;
+  background: var(--color-panel-muted);
+}
+
+.faction-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.faction-editor-header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
 .faction-previews {
   display: flex;
-  gap: 24px;
+  gap: 16px;
   align-items: flex-start;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--color-surface);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
 }
 
 .faction-preview-item {
@@ -166,13 +189,13 @@ async function save() {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
-  color: var(--color-text-secondary);
+  font-size: 10px;
+  color: var(--color-muted);
 }
 
 .faction-icon-preview {
-  max-width: 64px;
-  max-height: 64px;
+  max-width: 48px;
+  max-height: 48px;
   border: 1px solid var(--color-border);
   border-radius: 4px;
   image-rendering: pixelated;
