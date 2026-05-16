@@ -19,6 +19,7 @@ export interface ModTableState {
   searchText: string;
   selectedRowKey: string;
   editing: { tab: TableKey; rowKey: string; col: string; value: string } | null;
+  nextRowKey: number; // Per-mod row key counter to prevent collisions
 }
 
 /** Editor reference with modRoot tracking — prevents loading from wrong mod */

@@ -35,6 +35,7 @@ function createModTableState(): ModTableState {
     selectedRowKey: '',
     editing: null,
   };
+    nextRowKey: 0,
 }
 
 export const useTablesStore = defineStore('tables', () => {
@@ -333,12 +334,15 @@ export const useTablesStore = defineStore('tables', () => {
     }
   }
 
+
   function assignRowKey(tab: TableKey, row: RowData) {
     if (!cell(row[ROW_KEY_FIELD])) {
-      row[ROW_KEY_FIELD] = `${tab}:rowKey:${nextRowKey++}`;
+      const state = getActiveState();
+      if (state) {
+        row[ROW_KEY_FIELD] = `${tab}:rowKey:${state.nextRowKey++}`;
+      }
     }
   }
-
   function tableRowKeyForTab(tab: TableKey, row: RowData, index: number): string {
     const existingKey = cell(row[ROW_KEY_FIELD]);
     if (existingKey) return existingKey;
