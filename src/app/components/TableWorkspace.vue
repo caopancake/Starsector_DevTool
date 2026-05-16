@@ -48,7 +48,7 @@ defineEmits<{ 'add-row': []; 'delete-row': []; revert: []; save: []; 'open-ship'
 const tables = useTablesStore();
 const project = useProjectStore();
 
-const activeData = computed(() => project.data);
+const activeData = computed(() => project.activeModData);
 
 const factionOptions = computed(() => {
   const base = [{ label: '全部势力', value: 'all' }];

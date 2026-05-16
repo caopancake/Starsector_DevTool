@@ -79,7 +79,7 @@ interface PreviewState {
 
 const previewState = computed<PreviewState>(() => {
   const row = tables.selectedRow;
-  const data = project.data;
+  const data = project.activeModData;
   if (!row || !data) return noPreview(tables.currentTab);
 
   const id = rowId(row);

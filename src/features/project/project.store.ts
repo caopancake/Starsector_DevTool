@@ -9,10 +9,13 @@ export const useProjectStore = defineStore('project', () => {
   const activeModRoot = ref<string | null>(null);
   const loading = ref(false);
 
-  /** Active Mod's AppData — backward-compatible computed */
-  const data = computed<AppData | null>(() => (activeModRoot.value ? (modsData.value.get(activeModRoot.value) ?? null) : null));
+  /** Active Mod's AppData */
+  const activeModData = computed<AppData | null>(() => (activeModRoot.value ? (modsData.value.get(activeModRoot.value) ?? null) : null));
 
-  const projectName = computed(() => cell(data.value?.modInfo?.name) || 'Starsector DevTool');
+  /** @deprecated Use activeModData instead. Kept for backward compatibility. */
+  const data = computed<AppData | null>(() => activeModData.value);
+
+  const projectName = computed(() => cell(activeModData.value?.modInfo?.name) || 'Starsector DevTool');
   const isOpen = computed(() => modsData.value.size > 0);
 
   function setActiveModRoot(modRoot: string | null) {
@@ -141,6 +144,7 @@ export const useProjectStore = defineStore('project', () => {
 
   return {
     activeModRoot,
+    activeModData,
     data,
     isOpen,
     loading,

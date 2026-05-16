@@ -10,7 +10,7 @@
             <OverviewPage v-if="workspace.currentView === 'overview'" @import-mod="importMod" />
             <SettingsPage v-else-if="workspace.currentView === 'settings'" />
             <TableWorkspace
-              v-else-if="workspace.currentView === 'table' && project.data"
+              v-else-if="workspace.currentView === 'table' && project.activeModData"
               @add-row="addNewRow"
               @delete-row="confirmDelete"
               @revert="revertChanges"
@@ -193,7 +193,7 @@ function removeMod(modRoot: string) {
 
 async function saveChanges() {
   try {
-    const result = await tables.saveChanges(project.data);
+    const result = await tables.saveChanges(project.activeModData);
     message[result === 'saved' ? 'success' : 'info'](result === 'saved' ? '已保存 CSV 修改' : '没有需要保存的修改');
   } catch (err) {
     message.error(formatError(err));
@@ -206,9 +206,9 @@ function revertChanges() {
 }
 
 async function addNewRow() {
-  if (!project.data) return;
+  if (!project.activeModData) return;
   try {
-    await tables.addNewRow(project.data);
+    await tables.addNewRow(project.activeModData);
     message.success(`已新建 ${tables.selectedRowId}`);
   } catch (err) {
     message.error(formatError(err));
@@ -216,7 +216,7 @@ async function addNewRow() {
 }
 
 function confirmDelete() {
-  if (!project.data || !tables.selectedRowId) return;
+  if (!project.activeModData || !tables.selectedRowId) return;
   const id = tables.selectedRowId;
   dialog.warning({
     title: '确认删除',
@@ -225,7 +225,7 @@ function confirmDelete() {
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        await tables.deleteSelected(project.data!);
+        await tables.deleteSelected(project.activeModData!);
         message.success('已删除');
       } catch (err) {
         message.error(formatError(err));
@@ -235,7 +235,7 @@ function confirmDelete() {
 }
 
 function openShip(id: string) {
-  if (!project.data?.shipFiles[id]) {
+  if (!project.activeModData?.shipFiles[id]) {
     message.error(`找不到 ${id}.ship`);
     return;
   }

@@ -1,5 +1,5 @@
 <template>
-  <!-- Ship Editor uses modRoot from editor state, not current project.data -->
+  <!-- Ship Editor uses modRoot from editor state, not current project.activeModData -->
   <ShipEditor
     v-if="editors.shipEditorId && project.getModData(editors.shipEditorId.modRoot)"
     :mod-root="editors.shipEditorId.modRoot"
@@ -9,7 +9,7 @@
     @close="editors.closeShip"
     @saved="onShipSaved"
   />
-  <!-- Weapon Editor uses modRoot from editor state, not current project.data -->
+  <!-- Weapon Editor uses modRoot from editor state, not current project.activeModData -->
   <WeaponEditor
     v-if="editors.weaponEditorId && project.getModData(editors.weaponEditorId.modRoot)"
     :mod-root="editors.weaponEditorId.modRoot"
@@ -33,11 +33,11 @@
   />
   <!-- Preview uses current active mod since it's display-only -->
   <WeaponFirePreview
-    v-if="project.data && editors.previewWeaponId"
+    v-if="project.activeModData && editors.previewWeaponId"
     :weapon-id="editors.previewWeaponId"
     :weapons="tables.tables.weapons"
-    :wpn-files="project.data.wpnFiles"
-    :proj-files="project.data.projFiles"
+    :wpn-files="project.activeModData.wpnFiles"
+    :proj-files="project.activeModData.projFiles"
     @close="editors.closePreview"
   />
 </template>
