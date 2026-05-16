@@ -134,11 +134,16 @@ export const useTablesStore = defineStore('tables', () => {
     syncCurrentHeaders(appData);
   }
 
+
   function activateFor(modRoot: string, appData?: AppData | null) {
     activeRoot.value = modRoot;
+    const state = stateMap.get(modRoot);
+    if (state) {
+      state.selectedRowKey = '';
+      state.searchText = '';
+    }
     syncCurrentHeaders(appData ?? null);
   }
-
   function removeModState(modRoot: string) {
     stateMap.delete(modRoot);
     if (activeRoot.value === modRoot) {
@@ -220,15 +225,23 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   async function saveChanges(appData: AppData | null): Promise<'saved' | 'noop'> {
-    const state = getActiveState();
+    const capturedModRoot = activeRoot.value;
+    const state = stateMap.get(capturedModRoot);
+    
     if (!appData || !state || saving.value) return 'noop';
+    
+    if (appData.modRoot !== capturedModRoot) {
+      console.warn(`AppData mismatch: expected ${capturedModRoot}, got ${appData.modRoot}`);
+      return 'noop';
+    }
+    
     saving.value = true;
     try {
       finishCellEdit();
       if (!hasDirtyChanges.value) return 'noop';
       for (const key of TABLE_KEYS) {
         if (Object.keys(state.dirty[key]).length === 0) continue;
-        await saveTableRows(appData.modRoot, key, appData.csvHeaders[key], state.tables[key]);
+        await saveTableRows(capturedModRoot, key, appData.csvHeaders[key], state.tables[key]);
         state.originalTables[key] = deepClone(state.tables[key]);
         state.dirty[key] = {};
       }
@@ -250,7 +263,11 @@ export const useTablesStore = defineStore('tables', () => {
 
   async function addNewRow(appData: AppData) {
     const state = getActiveState();
-    if (!state) return;
+    const state = getActiveState();
+    if (!state) {
+      console.error('Table not ready for new row');
+      return;
+    }
     const tab = state.currentTab;
     const id = `new_${tab}_${Date.now()}`;
     const header = appData.csvHeaders[tab];
@@ -286,6 +303,13 @@ export const useTablesStore = defineStore('tables', () => {
     if (!id) return;
 
     if (tab === 'ships') {
+
+    const row = state.tables[tab].find(r => rowId(r) === id);
+    if (!row) {
+      console.warn(`Row not found in current table`);
+      state.selectedRowKey = '';
+      return;
+    }
       await removeShipRecord(appData.modRoot, id);
       delete appData.shipFiles[id];
       delete appData.shipSprites[id];
