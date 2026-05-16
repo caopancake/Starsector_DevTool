@@ -1,9 +1,10 @@
 use crate::{
     errors::{AppError, AppResult},
     filesystem::{read_json_file, strip_internal_fields, write_utf8_no_bom},
-    models::CsvTable,
+    models::{CsvTable, CSV_TABLES},
     parsers::{read_csv_data, save_csv_file},
 };
+use base64::{engine::general_purpose, Engine as _};
 use serde_json::{Map, Value};
 use std::{fs, path::Path};
 use walkdir::WalkDir;
@@ -66,6 +67,7 @@ pub fn scan_campaign_files(mod_root: &str) -> Vec<String> {
         return vec![];
     }
     let mod_root_path = Path::new(mod_root);
+    let known_paths: Vec<&str> = CSV_TABLES.iter().map(|(_, path)| *path).collect();
     WalkDir::new(&dir)
         .max_depth(2)
         .into_iter()
@@ -77,6 +79,7 @@ pub fn scan_campaign_files(mod_root: &str) -> Vec<String> {
                 .ok()
                 .map(|p| p.to_string_lossy().replace('\\', "/"))
         })
+        .filter(|p| !known_paths.contains(&p.as_str()))
         .collect()
 }
 
@@ -137,4 +140,27 @@ pub fn save_world_file(mod_root: &str, rel_path: &str, data: &Value) -> AppResul
     let json_string = serde_json::to_string_pretty(&clean)?;
     write_utf8_no_bom(&path, &json_string)?;
     Ok(())
+}
+
+pub fn load_image_as_data_url(mod_root: &str, rel_path: &str) -> AppResult<Option<String>> {
+    let path = Path::new(mod_root).join(rel_path.replace('\\', "/"));
+    if !path.exists() {
+        return Ok(None);
+    }
+    let bytes = fs::read(&path)?;
+    let ext = path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("png");
+    let mime = match ext {
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        _ => "image/png",
+    };
+    Ok(Some(format!(
+        "data:{};base64,{}",
+        mime,
+        general_purpose::STANDARD.encode(bytes)
+    )))
 }

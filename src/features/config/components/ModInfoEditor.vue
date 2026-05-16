@@ -8,7 +8,10 @@
       <h3>基本信息</h3>
       <div class="settings-row">
         <span>ID</span>
-        <n-input :value="str(local.id)" size="small" disabled />
+        <div style="flex: 1">
+          <n-input :value="str(local.id)" size="small" @update:value="set('id', $event)" />
+          <span class="field-warning">修改 ID 可能导致依赖此 Mod 的其他 Mod 失效</span>
+        </div>
       </div>
       <div class="settings-row">
         <span>名称</span>
@@ -235,3 +238,12 @@ async function save() {
   }
 }
 </script>
+
+<style scoped>
+.field-warning {
+  display: block;
+  font-size: 11px;
+  color: var(--color-warning, #e6a23c);
+  margin-top: 2px;
+}
+</style>

@@ -5,6 +5,7 @@
         <h3>World 文件</h3>
       </header>
       <ul class="world-file-items">
+        <li v-if="files.length === 0" class="world-file-empty">当前 Mod 的 data/world/ 下无可编辑配置文件（factions 在势力 Tab 中编辑）</li>
         <li v-for="file in files" :key="file" class="world-file-item" :class="{ active: file === selectedFile }" @click="selectFile(file)">
           {{ shortName(file) }}
         </li>
@@ -148,6 +149,13 @@ watch(modRoot, () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.world-file-empty {
+  padding: 12px 16px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  line-height: 1.6;
 }
 
 .world-file-item:hover {

@@ -116,3 +116,7 @@ export function loadWorldFile(modRoot: string, relPath: string): Promise<RowData
 export function saveWorldFile(modRoot: string, relPath: string, data: RowData): Promise<void> {
   return invoke('save_world_file', { payload: { modRoot, relPath, data } });
 }
+
+export function loadImageDataUrl(modRoot: string, relPath: string): Promise<string | null> {
+  return invoke('load_image_data_url', { modRoot, relPath });
+}

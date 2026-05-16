@@ -166,7 +166,11 @@
 - [ ] 明确警示与阻止保存的边界；默认先警示，不轻易阻止保存。
 - [ ] 为典型离谱数据样例补最小测试或手动验收清单。
 
-## Phase 10: 游戏全量读取
+## Phase 10: 游戏全量读取 + Schema Registry 架构
+
+详细设计见 `.trae/specs/phase10-schema-registry.md`。
+
+### 10.1: 游戏全量读取基础
 
 - [ ] 支持指定 Starsector 游戏根目录，而不仅是单个 Mod 根目录。
 - [ ] 自动识别原版 `starsector-core` 数据和 `mods/` 下所有可用 Mod。
@@ -177,6 +181,37 @@
 - [ ] 为武器、弹体、舰船等跨 Mod 引用提供 fallback 和来源标识。
 - [ ] 持久化最近打开的游戏目录、Mod 选择状态和用户视图设置。
 - [ ] 为游戏目录扫描、原版 fallback、多 Mod 冲突和切换编辑目标补最小测试或手动验收流程。
+
+### 10.2: Schema Registry — 声明式字段模式注册表
+
+- [ ] 定义 Schema 文件格式标准（`schemas/*.schema.json`），包含 sections → fields → type/label/description/default/source。
+- [ ] 定义字段类型系统：string、text、integer、float、boolean、enum、color-rgb、path-image、string-array、tag-select、object、array-of-object、key-value。
+- [ ] 定义数据源引用语法（`source` 字段）：`csv:ships.tags`、`csv:weapons.id`、`json:factionFiles.*.id`、`enum:SMALL,MEDIUM,LARGE`。
+- [ ] 编写初始 Schema 文件：`mod-info.schema.json`、`faction.schema.json`、`ship.schema.json`、`weapon.schema.json`、`projectile.schema.json`。
+- [ ] 编写 CSV 列定义 Schema：`csv/ship_data.columns.json`、`csv/weapon_data.columns.json` 等。
+
+### 10.3: SchemaFormRenderer — 通用表单渲染器
+
+- [ ] 实现 `SchemaFormRenderer.vue` 通用组件，根据 schema 定义动态生成分节表单。
+- [ ] 实现各字段类型对应的控件映射（type → component）。
+- [ ] 实现 `source` 字段的数据源解析，从已加载的 AppData 中提取选项。
+- [ ] 实现"额外字段"区域：数据中有但 schema 中未定义的字段归入可编辑兜底区。
+- [ ] 实现"可添加字段"提示：schema 中有但数据中没有的字段显示为灰色可添加项。
+
+### 10.4: starsector-core 扫描 + Schema 动态补充
+
+- [ ] 扫描 `starsector-core` 中的 `.faction`、`.ship`、`.wpn`、`.proj` 文件，提取所有出现过的字段名。
+- [ ] 根据字段值推断类型（数组→string-array/array-of-object，数字→integer/float，对象→object，字符串→string）。
+- [ ] 将 core 中发现但 schema 未定义的字段动态合并到运行时 schema，标记"来自原版"。
+- [ ] 合并后的完整 schema 驱动编辑器 UI，覆盖所有已知+发现字段。
+- [ ] 为势力编辑器的"额外字段"区域，直接以表格化表单呈现 core 中发现的字段，而非纯 JSON 编辑。
+
+### 10.5: 迁移现有编辑器到 Schema 驱动
+
+- [ ] 将 `FactionEditor.vue` 从硬编码表单迁移为 SchemaFormRenderer + `faction.schema.json` 驱动。
+- [ ] 将 `ModInfoEditor.vue` 从硬编码表单迁移为 SchemaFormRenderer + `mod-info.schema.json` 驱动。
+- [ ] 评估 `ShipEditor` / `WeaponEditor` / `ProjectileEditor` 的右侧检查器面板是否可部分迁移到 schema 驱动（画布交互部分保留）。
+- [ ] 验证迁移前后 UI 行为一致，未丢失字段编辑能力。
 
 ## Phase 11: 最终硬化、回归与整理
 

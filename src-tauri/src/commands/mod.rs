@@ -150,3 +150,8 @@ pub fn save_world_file(payload: WorldFilePayload) -> Result<(), String> {
     services::save_world_file(&payload.mod_root, &payload.rel_path, &data)
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn load_image_data_url(mod_root: String, rel_path: String) -> Result<Option<String>, String> {
+    services::load_image_as_data_url(&mod_root, &rel_path).map_err(|e| e.to_string())
+}

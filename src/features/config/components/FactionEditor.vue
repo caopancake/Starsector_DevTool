@@ -9,7 +9,10 @@
       <h3>基本信息</h3>
       <div class="settings-row">
         <span>ID</span>
-        <n-input :value="str(local.id)" size="small" disabled />
+        <div style="flex: 1">
+          <n-input :value="str(local.id)" size="small" @update:value="set('id', $event)" />
+          <span class="field-warning">修改 ID 可能导致依赖此 Mod 的其他 Mod 失效</span>
+        </div>
       </div>
       <div class="settings-row">
         <span>显示名称</span>
@@ -64,12 +67,28 @@
     <section class="settings-section">
       <h3>图标</h3>
       <div class="settings-row">
-        <span>Logo</span>
-        <n-input :value="str(local.logo)" size="small" @update:value="set('logo', $event)" />
+        <span>标志 (logo)</span>
+        <div style="flex: 1">
+          <n-input :value="str(local.logo)" size="small" @update:value="set('logo', $event)" />
+          <img
+            v-if="logoSrc"
+            :src="logoSrc"
+            class="faction-icon-preview"
+            @error="($event.target as HTMLImageElement).style.display = 'none'"
+          />
+        </div>
       </div>
       <div class="settings-row">
-        <span>Crest</span>
-        <n-input :value="str(local.crest)" size="small" @update:value="set('crest', $event)" />
+        <span>纹章 (crest)</span>
+        <div style="flex: 1">
+          <n-input :value="str(local.crest)" size="small" @update:value="set('crest', $event)" />
+          <img
+            v-if="crestSrc"
+            :src="crestSrc"
+            class="faction-icon-preview"
+            @error="($event.target as HTMLImageElement).style.display = 'none'"
+          />
+        </div>
       </div>
     </section>
 
@@ -78,7 +97,15 @@
       <h3>已知舰船 (knownShips)</h3>
       <div class="settings-row">
         <span>Tags</span>
-        <n-dynamic-tags :value="getTags('knownShips')" @update:value="setTags('knownShips', $event)" />
+        <n-select
+          :value="getTagsArray('knownShips')"
+          :options="shipTagOptions"
+          multiple
+          filterable
+          tag
+          size="small"
+          @update:value="setTagsArray('knownShips', $event)"
+        />
       </div>
     </section>
 
@@ -87,7 +114,15 @@
       <h3>已知武器 (knownWeapons)</h3>
       <div class="settings-row">
         <span>Tags</span>
-        <n-dynamic-tags :value="getTags('knownWeapons')" @update:value="setTags('knownWeapons', $event)" />
+        <n-select
+          :value="getTagsArray('knownWeapons')"
+          :options="weaponTagOptions"
+          multiple
+          filterable
+          tag
+          size="small"
+          @update:value="setTagsArray('knownWeapons', $event)"
+        />
       </div>
     </section>
 
@@ -96,7 +131,15 @@
       <h3>已知联队 (knownFighters)</h3>
       <div class="settings-row">
         <span>Tags</span>
-        <n-dynamic-tags :value="getTags('knownFighters')" @update:value="setTags('knownFighters', $event)" />
+        <n-select
+          :value="getTagsArray('knownFighters')"
+          :options="wingTagOptions"
+          multiple
+          filterable
+          tag
+          size="small"
+          @update:value="setTagsArray('knownFighters', $event)"
+        />
       </div>
     </section>
 
@@ -105,7 +148,15 @@
       <h3>已知船插 (knownHullMods)</h3>
       <div class="settings-row">
         <span>Tags</span>
-        <n-dynamic-tags :value="getTags('knownHullMods')" @update:value="setTags('knownHullMods', $event)" />
+        <n-select
+          :value="getTagsArray('knownHullMods')"
+          :options="hullmodTagOptions"
+          multiple
+          filterable
+          tag
+          size="small"
+          @update:value="setTagsArray('knownHullMods', $event)"
+        />
       </div>
     </section>
 
@@ -114,7 +165,15 @@
       <h3>导入舰船 (shipsWhenImporting)</h3>
       <div class="settings-row">
         <span>Tags</span>
-        <n-dynamic-tags :value="getTags('shipsWhenImporting')" @update:value="setTags('shipsWhenImporting', $event)" />
+        <n-select
+          :value="getTagsArray('shipsWhenImporting')"
+          :options="shipTagOptions"
+          multiple
+          filterable
+          tag
+          size="small"
+          @update:value="setTagsArray('shipsWhenImporting', $event)"
+        />
       </div>
     </section>
 
@@ -123,7 +182,15 @@
       <h3>已知工业 (knownIndustries)</h3>
       <div class="settings-row">
         <span>Tags</span>
-        <n-dynamic-tags :value="getTags('knownIndustries')" @update:value="setTags('knownIndustries', $event)" />
+        <n-select
+          :value="getTagsArray('knownIndustries')"
+          :options="industryTagOptions"
+          multiple
+          filterable
+          tag
+          size="small"
+          @update:value="setTagsArray('knownIndustries', $event)"
+        />
       </div>
     </section>
 
@@ -132,7 +199,15 @@
       <h3>优先舰船 (priorityShips)</h3>
       <div class="settings-row">
         <span>Tags</span>
-        <n-dynamic-tags :value="getTags('priorityShips')" @update:value="setTags('priorityShips', $event)" />
+        <n-select
+          :value="getTagsArray('priorityShips')"
+          :options="shipTagOptions"
+          multiple
+          filterable
+          tag
+          size="small"
+          @update:value="setTagsArray('priorityShips', $event)"
+        />
       </div>
     </section>
 
@@ -141,7 +216,15 @@
       <h3>优先武器 (priorityWeapons)</h3>
       <div class="settings-row">
         <span>Tags</span>
-        <n-dynamic-tags :value="getTags('priorityWeapons')" @update:value="setTags('priorityWeapons', $event)" />
+        <n-select
+          :value="getTagsArray('priorityWeapons')"
+          :options="weaponTagOptions"
+          multiple
+          filterable
+          tag
+          size="small"
+          @update:value="setTagsArray('priorityWeapons', $event)"
+        />
       </div>
     </section>
 
@@ -150,7 +233,15 @@
       <h3>优先联队 (priorityFighters)</h3>
       <div class="settings-row">
         <span>Tags</span>
-        <n-dynamic-tags :value="getTags('priorityFighters')" @update:value="setTags('priorityFighters', $event)" />
+        <n-select
+          :value="getTagsArray('priorityFighters')"
+          :options="wingTagOptions"
+          multiple
+          filterable
+          tag
+          size="small"
+          @update:value="setTagsArray('priorityFighters', $event)"
+        />
       </div>
     </section>
 
@@ -174,7 +265,7 @@
     </section>
 
     <footer class="settings-footer">
-      <n-button type="primary" :loading="saving" @click="save">保存 {{ factionId }}.faction</n-button>
+      <n-button type="primary" :loading="saving" @click="save">保存 {{ str(local.id) || factionId }}.faction</n-button>
     </footer>
   </div>
 </template>
@@ -185,7 +276,8 @@ import { createDiscreteApi } from 'naive-ui';
 import { useProjectStore } from '../../project/project.store';
 import { useHistoryStore } from '../../history/history.store';
 import { useSettingsStore } from '../../../app/settings.store';
-import { saveFactionData } from '../config.service';
+import { saveFactionData, deleteFactionFile } from '../config.service';
+import { loadImageDataUrl } from '../../../shared/api/tauri';
 import { deepClone } from '../../../shared/lib/starsector';
 import { formatError } from '../../../shared/lib/errors';
 import type { JsonValue, RowData } from '../../../shared/types';
@@ -253,7 +345,63 @@ function set(key: string, value: JsonValue) {
   local.value = { ...local.value, [key]: value };
 }
 
-function getTags(field: string): string[] {
+// --- Image preview ---
+const logoSrc = ref('');
+const crestSrc = ref('');
+
+async function refreshImagePreviews() {
+  const modRoot = project.activeModData?.modRoot;
+  const logo = str(local.value.logo);
+  const crest = str(local.value.crest);
+
+  if (logo && modRoot) {
+    try {
+      logoSrc.value = (await loadImageDataUrl(modRoot, logo)) ?? '';
+    } catch {
+      logoSrc.value = '';
+    }
+  } else {
+    logoSrc.value = '';
+  }
+
+  if (crest && modRoot) {
+    try {
+      crestSrc.value = (await loadImageDataUrl(modRoot, crest)) ?? '';
+    } catch {
+      crestSrc.value = '';
+    }
+  } else {
+    crestSrc.value = '';
+  }
+}
+
+watch(
+  () => [str(local.value.logo), str(local.value.crest)],
+  () => refreshImagePreviews(),
+  { immediate: true },
+);
+
+// --- Tag extraction from CSV rows ---
+function extractTags(rows: RowData[], column = 'tags'): string[] {
+  const tagSet = new Set<string>();
+  for (const row of rows) {
+    const raw = String(row[column] ?? '');
+    for (const tag of raw.split(',')) {
+      const t = tag.trim();
+      if (t) tagSet.add(t);
+    }
+  }
+  return [...tagSet].sort();
+}
+
+const shipTagOptions = computed(() => extractTags(project.activeModData?.ships ?? []).map((t) => ({ label: t, value: t })));
+const weaponTagOptions = computed(() => extractTags(project.activeModData?.weapons ?? []).map((t) => ({ label: t, value: t })));
+const wingTagOptions = computed(() => extractTags(project.activeModData?.wings ?? []).map((t) => ({ label: t, value: t })));
+const hullmodTagOptions = computed(() => extractTags(project.activeModData?.hullmods ?? []).map((t) => ({ label: t, value: t })));
+const industryTagOptions = computed(() => extractTags(project.activeModData?.industries ?? []).map((t) => ({ label: t, value: t })));
+
+// --- Tags array helpers (for n-select multiple) ---
+function getTagsArray(field: string): string[] {
   const obj = local.value[field];
   if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
     const tags = (obj as Record<string, JsonValue>).tags;
@@ -262,12 +410,12 @@ function getTags(field: string): string[] {
   return [];
 }
 
-function setTags(field: string, tags: string[]) {
+function setTagsArray(field: string, values: string[]) {
   const existing = local.value[field];
   if (existing && typeof existing === 'object' && !Array.isArray(existing)) {
-    set(field, { ...(existing as Record<string, JsonValue>), tags });
+    set(field, { ...(existing as Record<string, JsonValue>), tags: values });
   } else {
-    set(field, { tags });
+    set(field, { tags: values });
   }
 }
 
@@ -294,15 +442,30 @@ async function save() {
   if (!modData) return;
   saving.value = true;
   try {
-    const previousSpec = deepClone(modData.factionFiles[props.factionId] ?? {});
-    await saveFactionData(modData.modRoot, props.factionId, local.value);
-    modData.factionFiles[props.factionId] = deepClone(local.value);
+    const newId = str(local.value.id) || props.factionId;
+    const oldId = props.factionId;
+    const idChanged = newId !== oldId;
+
+    const previousSpec = deepClone(modData.factionFiles[oldId] ?? {});
+
+    // Save with new ID (backend writes to {newId}.faction)
+    await saveFactionData(modData.modRoot, newId, local.value);
+
+    if (idChanged) {
+      // Delete old faction file
+      await deleteFactionFile(modData.modRoot, oldId);
+      // Update factionFiles map: remove old, add new
+      delete modData.factionFiles[oldId];
+    }
+
+    modData.factionFiles[newId] = deepClone(local.value);
+
     historyStore.pushEvent(
-      { type: 'editor-save', editorKind: 'ship', id: props.factionId, previousSpec, newSpec: deepClone(local.value) },
-      `保存 ${props.factionId}.faction`,
+      { type: 'editor-save', editorKind: 'ship', id: newId, previousSpec, newSpec: deepClone(local.value) },
+      `保存 ${newId}.faction`,
     );
-    historyStore.pushCheckpoint('editor-save', `${props.factionId}.faction 已保存`);
-    message.success(`${props.factionId}.faction 已保存`);
+    historyStore.pushCheckpoint('editor-save', `${newId}.faction 已保存`);
+    message.success(`${newId}.faction 已保存`);
   } catch (error) {
     message.error(formatError(error));
   } finally {
@@ -310,3 +473,21 @@ async function save() {
   }
 }
 </script>
+
+<style scoped>
+.field-warning {
+  display: block;
+  font-size: 11px;
+  color: var(--color-warning, #e6a23c);
+  margin-top: 2px;
+}
+
+.faction-icon-preview {
+  margin-top: 4px;
+  max-width: 64px;
+  max-height: 64px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  image-rendering: pixelated;
+}
+</style>
