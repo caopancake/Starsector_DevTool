@@ -11,6 +11,20 @@
         </n-switch>
       </div>
     </section>
+    <section class="settings-section">
+      <h3>历史记录</h3>
+      <div class="settings-row">
+        <span>全局撤销上限</span>
+        <n-input-number
+          :value="settings.historyLimit"
+          :min="1"
+          :max="1000"
+          :step="16"
+          style="width: 120px"
+          @update:value="settings.setHistoryLimit($event ?? 128)"
+        />
+      </div>
+    </section>
   </div>
 </template>
 

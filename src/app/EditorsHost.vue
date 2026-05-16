@@ -50,15 +50,18 @@ import WeaponEditor from '../features/editors/components/WeaponEditor.vue';
 import ProjectileEditor from '../features/editors/components/ProjectileEditor.vue';
 import WeaponFirePreview from '../features/editors/components/WeaponFirePreview.vue';
 import { useEditorsStore } from '../features/editors/editors.store';
+import { useHistoryStore } from '../features/history/history.store';
 import { useProjectStore } from '../features/project/project.store';
 import { useTablesStore } from '../features/tables/tables.store';
 import type { RowData } from '../shared/types';
+import { deepClone } from '../shared/lib/starsector';
 import { useSettingsStore } from './settings.store';
 
 const editors = useEditorsStore();
 const project = useProjectStore();
 const tables = useTablesStore();
 const settings = useSettingsStore();
+const history = useHistoryStore();
 
 const { message } = createDiscreteApi(['message'], {
   configProviderProps: computed(() => ({ theme: settings.naiveTheme })),
@@ -75,21 +78,39 @@ function getWeaponsForMod(modRoot: string): RowData[] {
 
 function onShipSaved(id: string, ship: RowData) {
   if (editors.shipEditorId?.modRoot) {
-    project.updateShipFile(editors.shipEditorId.modRoot, id, ship);
+    const modRoot = editors.shipEditorId.modRoot;
+    const modData = project.getModData(modRoot);
+    const previousSpec = modData?.shipFiles[id] ? deepClone(modData.shipFiles[id]) : {};
+    project.updateShipFile(modRoot, id, ship);
+    history.pushEvent({ type: 'editor-save', editorKind: 'ship', id, previousSpec, newSpec: deepClone(ship) }, `保存 ${id}.ship`);
+    history.pushCheckpoint('editor-save', `${id}.ship 已保存`);
     message.success(`${id}.ship 已保存`);
   }
 }
 
 function onWeaponSaved(id: string, weapon: RowData) {
   if (editors.weaponEditorId?.modRoot) {
-    project.updateWeaponFile(editors.weaponEditorId.modRoot, id, weapon);
+    const modRoot = editors.weaponEditorId.modRoot;
+    const modData = project.getModData(modRoot);
+    const previousSpec = modData?.wpnFiles[id] ? deepClone(modData.wpnFiles[id]) : {};
+    project.updateWeaponFile(modRoot, id, weapon);
+    history.pushEvent({ type: 'editor-save', editorKind: 'weapon', id, previousSpec, newSpec: deepClone(weapon) }, `保存 ${id}.wpn`);
+    history.pushCheckpoint('editor-save', `${id}.wpn 已保存`);
     message.success(`${id}.wpn 已保存`);
   }
 }
 
 function onProjectileSaved(id: string, projectile: RowData) {
   if (editors.projectileEditorId?.modRoot) {
-    project.updateProjectileFile(editors.projectileEditorId.modRoot, id, projectile);
+    const modRoot = editors.projectileEditorId.modRoot;
+    const modData = project.getModData(modRoot);
+    const previousSpec = modData?.projFiles[id] ? deepClone(modData.projFiles[id]) : {};
+    project.updateProjectileFile(modRoot, id, projectile);
+    history.pushEvent(
+      { type: 'editor-save', editorKind: 'projectile', id, previousSpec, newSpec: deepClone(projectile) },
+      `保存 ${id}.proj`,
+    );
+    history.pushCheckpoint('editor-save', `${id}.proj 已保存`);
     message.success(`${id}.proj 已保存`);
   }
 }

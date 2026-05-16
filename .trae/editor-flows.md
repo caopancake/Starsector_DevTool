@@ -243,10 +243,55 @@
 - 画布内自动吸附负责快速选择最近可编辑目标；右侧检查器点击负责明确选择，下一次画布移动可以重新接管选择。
 - 画布坐标和贴图锚点是编辑器内部显示语义，不改变 `.ship`、`.wpn`、`.proj` 的保存边界。
 
+## 全局历史链路
+
+### 事件模型
+
+- `CsvCellEditEvent`：CSV 单元格修改（tab, rowKey, col, previousValue, newValue）。
+- `EditorSaveEvent`：编辑器保存整体 spec（editorKind, id, previousSpec, newSpec 深拷贝）。
+- `SpriteFieldWriteEvent`：贴图路径字段修改（editorKind, id, field, prev/new value）。
+
+### 栈结构
+
+- 每个 Mod 拥有独立的 `undoStack` 和 `redoStack`。
+- 栈中可包含：`HistoryEntry`（可逆事件）、`HistoryBarrier`（不可逆屏障）、`HistoryCheckpoint`（保存检查点）。
+
+### 触发点
+
+| 操作 | 推入类型 | 触发位置 |
+|------|----------|----------|
+| CSV 单元格编辑 | `pushEvent(CsvCellEditEvent)` | `tables.store.ts` → `finishCellEdit()` |
+| 编辑器保存 | `pushEvent(EditorSaveEvent)` + `pushCheckpoint` | `EditorsHost.vue` → `onShipSaved`/`onWeaponSaved`/`onProjectileSaved` |
+| CSV 保存 | `pushCheckpoint('csv-save')` | `tables.store.ts` → `saveChanges()` |
+| 新建行 | `pushBarrier('row-create')` | `tables.store.ts` → `addNewRow()` |
+| 删除行 | `pushBarrier('row-delete')` | `tables.store.ts` → `deleteSelected()` |
+| 贴图覆盖 | `pushBarrier('sprite-overwrite')` | `useSpriteUpload.ts` |
+
+### 主界面 Ctrl+Z/Y
+
+- 由 `useGlobalShortcuts()` composable 在 `App.vue` 中注册。
+- 编辑器弹窗打开时让步（编辑器内 Ctrl+Z 使用局部 `useHistory`）。
+- 输入控件聚焦时忽略。
+- Undo 遇到 barrier 时停止并提示用户。
+
+### 作用域规则
+
+| 场景 | 行为 |
+|------|------|
+| 编辑器打开 | Ctrl+Z 使用编辑器内局部历史；全局栈不受影响 |
+| 编辑器关闭 | Ctrl+Z 操作全局栈；编辑器保存事件作为一个原子条目 |
+| 切换 Mod | 各 Mod 历史栈独立；切换后 Ctrl+Z 操作目标 Mod 的栈 |
+| 跨 Tab 切换 | 历史栈不受 Tab 切换影响；undo 修改数据模型而非视图 |
+
+### 限制与裁剪
+
+- 历史上限由 `settings.store.ts` 的 `historyLimit` 控制（默认 128，可在设置页配置）。
+- `pushEvent` 和 `pushCheckpoint` 后均检查并裁剪超限条目（从最旧开始移除）。
+
 ## 当前缺口
 
 - 联队、船插、工业当前只有 CSV 表格编辑，没有专用编辑器。
 - 联队的 `.variant` 关系未进入创建/删除一致性链路。
 - 弹体没有独立主表格，新建/删除入口尚未系统化。
 - CSV 与 `.ship/.wpn` 字段暂不自动联动；后续实现前必须先定义字段映射、冲突优先级、保存时机和失败处理。
-- 主界面级 undo/redo、快捷键和右键菜单仍需后续统一设计；当前编辑器内已有局部 undo/redo 和快捷键作用域。
+- 主界面级快捷键和右键菜单仍需后续统一设计；全局 undo/redo 已实现，编辑器内已有局部 undo/redo 和快捷键作用域。

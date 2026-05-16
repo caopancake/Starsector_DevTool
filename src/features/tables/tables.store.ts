@@ -12,6 +12,7 @@ import {
   saveTableRows,
 } from './table.service';
 import { getNextActiveKeyAfterRemoval } from '../../shared/lib/store-utils';
+import { useHistoryStore } from '../history/history.store';
 
 export const TABLE_KEYS: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'industries'];
 const ROW_KEY_FIELD = '_rowKey';
@@ -209,6 +210,7 @@ export const useTablesStore = defineStore('tables', () => {
       state.editing = null;
       return;
     }
+    const previousValue = cell(row[col]);
     row[col] = value;
     const original = state.originalTables[tab].find((candidate, index) => tableRowKeyForTab(tab, candidate, index) === rowKey);
     const originalValue = cell(original?.[col]);
@@ -220,6 +222,12 @@ export const useTablesStore = defineStore('tables', () => {
       if (Object.keys(state.dirty[tab][rowKey]).length === 0) delete state.dirty[tab][rowKey];
     }
     state.editing = null;
+
+    // Push to global history if value actually changed
+    if (value !== previousValue) {
+      const history = useHistoryStore();
+      history.pushEvent({ type: 'csv-cell-edit', tab, rowKey, col, previousValue, newValue: value }, `编辑 ${tab} [${col}]`);
+    }
   }
 
   function cancelCellEdit() {
@@ -241,6 +249,8 @@ export const useTablesStore = defineStore('tables', () => {
         state.originalTables[key] = deepClone(state.tables[key]);
         state.dirty[key] = {};
       }
+      const history = useHistoryStore();
+      history.pushCheckpoint('csv-save', 'CSV 已保存');
       return 'saved';
     } finally {
       saving.value = false;
@@ -285,6 +295,9 @@ export const useTablesStore = defineStore('tables', () => {
     assignRowKey(state, tab, row);
     state.originalTables[tab].push(deepClone(row));
     selectedRowKey.value = rowSelectionKey(row);
+
+    const history = useHistoryStore();
+    history.pushBarrier('row-create', `新建 ${tab} 行: ${id}`);
   }
 
   async function deleteSelected(appData: AppData) {
@@ -316,6 +329,9 @@ export const useTablesStore = defineStore('tables', () => {
     const rowKey = state.selectedRowKey;
     if (rowKey) delete state.dirty[tab][rowKey];
     state.selectedRowKey = '';
+
+    const history = useHistoryStore();
+    history.pushBarrier('row-delete', `删除 ${tab} 行: ${id}`);
   }
 
   function assignRowKeys(state: ModTableState, tab: TableKey, list: RowData[]) {
@@ -335,6 +351,10 @@ export const useTablesStore = defineStore('tables', () => {
     if (existingKey) return existingKey;
     const id = rowId(row);
     return id ? `${tab}:id:${id}` : `${tab}:row:${index}`;
+  }
+
+  function getActiveModTableState(): ModTableState | undefined {
+    return getActiveState();
   }
 
   return {
@@ -359,6 +379,7 @@ export const useTablesStore = defineStore('tables', () => {
     cancelCellEdit,
     deleteSelected,
     finishCellEdit,
+    getActiveModTableState,
     hasModDirtyChanges,
     hydrate,
     hydrateWithoutActivate,

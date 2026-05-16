@@ -44,6 +44,8 @@ import SettingsPage from './components/SettingsPage.vue';
 import TableWorkspace from './components/TableWorkspace.vue';
 import { useSettingsStore } from './settings.store';
 import { useEditorsStore } from '../features/editors/editors.store';
+import { useHistoryStore } from '../features/history/history.store';
+import { useGlobalShortcuts } from '../features/history/composables/useGlobalShortcuts';
 import { useProjectStore } from '../features/project/project.store';
 import { useTablesStore } from '../features/tables/tables.store';
 import { useWorkspaceStore } from '../features/workspace/workspace.store';
@@ -57,6 +59,9 @@ const tables = useTablesStore();
 const editors = useEditorsStore();
 const settings = useSettingsStore();
 const workspace = useWorkspaceStore();
+const historyStore = useHistoryStore();
+
+useGlobalShortcuts();
 
 const { message, dialog } = createDiscreteApi(['message', 'dialog'], {
   configProviderProps: computed(() => ({ theme: settings.naiveTheme })),
@@ -78,6 +83,7 @@ watch(
     const appData = modRoot ? project.getModData(modRoot) : null;
     tables.activateFor(modRoot ?? '', appData);
     editors.activateFor(modRoot ?? '');
+    historyStore.activateFor(modRoot ?? '');
   },
 );
 
@@ -163,6 +169,7 @@ async function importMod() {
     // Hydrate tables
     tables.hydrate(modRoot, loaded);
     editors.activateFor(modRoot);
+    historyStore.activateFor(modRoot);
 
     message.success(`已导入: ${displayName}`);
   } catch (err) {
@@ -192,6 +199,7 @@ function removeMod(modRoot: string) {
   workspace.removeMod(modRoot);
   tables.removeModState(modRoot);
   editors.removeModState(modRoot);
+  historyStore.removeModState(modRoot);
   project.removeModData(modRoot);
   message.success('已从工作区移除');
 }

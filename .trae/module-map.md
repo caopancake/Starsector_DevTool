@@ -26,6 +26,11 @@
 - `src/features/editors/components/common/`：编辑器内稳定共享结构组件和小型字段组件，例如 header、footer、inspector、颜色数组和对象编辑器。
 - `src/features/editors/composables/`：编辑器共享交互能力，例如画布视口、绘制辅助、局部历史、快捷键作用域和贴图上传。
 - `src/features/editors/lib/`：编辑器通用格式化、规范化、视觉绘制 helper、常量。
+- `src/features/history/`：全局修改链路和统一 undo/redo 历史系统。
+- `src/features/history/history.types.ts`：统一修改事件模型类型（CsvCellEditEvent、EditorSaveEvent、SpriteFieldWriteEvent、HistoryEntry、HistoryBarrier、HistoryCheckpoint）。
+- `src/features/history/history.store.ts`：Pinia store，per-Mod 隔离的 undo/redo 栈，push/undo/redo/trim/barrier/checkpoint 逻辑。
+- `src/features/history/history.service.ts`：apply undo/redo 纯函数，根据事件类型修改 tableState 或 modData。
+- `src/features/history/composables/useGlobalShortcuts.ts`：主界面 Ctrl+Z/Y 监听器，编辑器打开时让步。
 - `src/features/tables/table.service.ts`：表格 feature 的后端语义边界，封装 CSV 行和舰船/武器记录的新建、删除、保存调用。
 - `src/shared/api/`：Tauri API 薄 adapter，只封装 command payload，不承载业务流程。
 - `src/shared/lib/`：Starsector 通用工具、默认数据、格式转换。
