@@ -6,12 +6,8 @@
       <FactionEditor v-if="selectedFaction" :key="selectedFaction" :faction-id="selectedFaction" />
       <div v-else class="config-placeholder"><p>选择一个势力以编辑</p></div>
     </div>
-    <div v-else-if="workspace.configView === 'campaign'" class="config-placeholder">
-      <p>战役编辑（Phase 5.3）</p>
-    </div>
-    <div v-else-if="workspace.configView === 'world'" class="config-placeholder">
-      <p>星系编辑（Phase 5.4）</p>
-    </div>
+    <CampaignView v-else-if="workspace.configView === 'campaign'" />
+    <WorldFilesView v-else-if="workspace.configView === 'world'" />
   </main>
 </template>
 
@@ -21,6 +17,8 @@ import { useWorkspaceStore } from '../../workspace/workspace.store';
 import ModInfoEditor from './ModInfoEditor.vue';
 import FactionList from './FactionList.vue';
 import FactionEditor from './FactionEditor.vue';
+import CampaignView from './CampaignView.vue';
+import WorldFilesView from './WorldFilesView.vue';
 
 const workspace = useWorkspaceStore();
 const selectedFaction = ref('');

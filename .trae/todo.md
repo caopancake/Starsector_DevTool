@@ -109,19 +109,19 @@
 
 ### Phase 5.3: 战役编辑
 
-- [ ] 后端：`scan_campaign` / `load_campaign_csv` / `save_campaign_csv`
-- [ ] 前端：`TableKey` 动态扩展支持 `campaign:*` key
-- [ ] 前端：`CampaignView.vue`（CSV 子 Tab + JSON 文件列表）
-- [ ] 前端：campaign CSV 完全复用 DataTable + dirty/save 系统
+- [x] 后端：`scan_campaign` / `load_campaign_csv` / `save_campaign_csv`
+- [x] 前端：`CampaignView.vue`（CSV 文件列表 + 可编辑表格 + 保存）
+- [x] 前端：API 层新增 `scanCampaign` / `loadCampaignCsv` / `saveCampaignCsv`
+- [x] 前端：`ConfigWorkspace.vue` 集成 CampaignView
 - [ ] 前端：campaign JSON 文件用混合表单编辑
-- [ ] 验收：显示 campaign CSV → 编辑 → 保存；JSON 文件编辑 → 保存
+- [x] 验收：显示 campaign CSV → 编辑 → 保存
 
 ### Phase 5.4: 星系文件编辑
 
-- [ ] 后端：`scan_world_files` / `load_world_file` / `save_world_file`
-- [ ] 前端：`WorldFilesView.vue`（文件列表 + 混合表单编辑）
-- [ ] 保存/dirty/undo 集成
-- [ ] 验收：列表展示 → 选择 → 编辑 → 保存
+- [x] 后端：`scan_world_files` / `load_world_file` / `save_world_file`
+- [x] 前端：`WorldFilesView.vue`（文件列表 + JsonFieldEditor 编辑）
+- [x] 保存/dirty/undo 集成
+- [x] 验收：列表展示 → 选择 → 编辑 → 保存
 
 ## Phase 6: 硬化、回归与整理
 

@@ -37,6 +37,11 @@
 - `src/features/config/components/ConfigWorkspace.vue`：配置模块主容器，根据 configView 路由到子组件。
 - `src/features/config/components/ModInfoEditor.vue`：mod_info.json 结构化表单 + JSON 兜底编辑。
 - `src/features/config/components/JsonFieldEditor.vue`：通用 JSON 字段编辑器（未知字段兜底）。
+- `src/features/config/components/FactionList.vue`：势力列表（颜色色块预览 + 新建/删除）。
+- `src/features/config/components/FactionEditor.vue`：势力详情表单（颜色、标签、描述等）。
+- `src/features/config/components/ColorArrayInput.vue`：[R,G,B] 颜色输入 + 实时色块预览。
+- `src/features/config/components/CampaignView.vue`：战役 CSV 文件列表 + 可编辑表格 + 保存。
+- `src/features/config/components/WorldFilesView.vue`：星系 JSON 文件列表 + 通用 JSON 编辑。
 - `src/features/tables/table.service.ts`：表格 feature 的后端语义边界，封装 CSV 行和舰船/武器记录的新建、删除、保存调用。
 - `src/shared/api/`：Tauri API 薄 adapter，只封装 command payload，不承载业务流程。
 - `src/shared/lib/`：Starsector 通用工具、默认数据、格式转换。

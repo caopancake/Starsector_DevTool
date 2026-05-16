@@ -1,9 +1,12 @@
 use crate::{
     errors::{AppError, AppResult},
-    filesystem::{strip_internal_fields, write_utf8_no_bom},
+    filesystem::{read_json_file, strip_internal_fields, write_utf8_no_bom},
+    models::CsvTable,
+    parsers::{read_csv_data, save_csv_file},
 };
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::{fs, path::Path};
+use walkdir::WalkDir;
 
 pub fn save_mod_info(mod_root: &str, data: &Value) -> AppResult<()> {
     let path = Path::new(mod_root).join("mod_info.json");
@@ -54,5 +57,84 @@ pub fn delete_faction(mod_root: &str, id: &str) -> AppResult<()> {
     if path.exists() {
         fs::remove_file(&path)?;
     }
+    Ok(())
+}
+
+pub fn scan_campaign_files(mod_root: &str) -> Vec<String> {
+    let dir = Path::new(mod_root).join("data/campaign");
+    if !dir.exists() {
+        return vec![];
+    }
+    let mod_root_path = Path::new(mod_root);
+    WalkDir::new(&dir)
+        .max_depth(2)
+        .into_iter()
+        .flatten()
+        .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("csv"))
+        .filter_map(|e| {
+            e.path()
+                .strip_prefix(mod_root_path)
+                .ok()
+                .map(|p| p.to_string_lossy().replace('\\', "/"))
+        })
+        .collect()
+}
+
+pub fn load_campaign_csv(mod_root: &str, rel_path: &str) -> AppResult<CsvTable> {
+    let path = Path::new(mod_root).join(rel_path);
+    read_csv_data(&path)
+}
+
+pub fn save_campaign_csv(
+    mod_root: &str,
+    rel_path: &str,
+    header: &[String],
+    rows: &[Map<String, Value>],
+) -> AppResult<()> {
+    let path = Path::new(mod_root).join(rel_path);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    save_csv_file(&path, header, rows)
+}
+
+pub fn scan_world_files(mod_root: &str) -> Vec<String> {
+    let dir = Path::new(mod_root).join("data/world");
+    if !dir.exists() {
+        return vec![];
+    }
+    let factions_dir = dir.join("factions");
+    let mod_root_path = Path::new(mod_root);
+    WalkDir::new(&dir)
+        .into_iter()
+        .flatten()
+        .filter(|e| e.file_type().is_file())
+        .filter(|e| !e.path().starts_with(&factions_dir))
+        .filter(|e| {
+            let ext = e.path().extension().and_then(|s| s.to_str()).unwrap_or("");
+            ext == "json" || ext == "csv"
+        })
+        .filter_map(|e| {
+            e.path()
+                .strip_prefix(mod_root_path)
+                .ok()
+                .map(|p| p.to_string_lossy().replace('\\', "/"))
+        })
+        .collect()
+}
+
+pub fn load_world_file(mod_root: &str, rel_path: &str) -> AppResult<Value> {
+    let path = Path::new(mod_root).join(rel_path);
+    read_json_file(&path)
+}
+
+pub fn save_world_file(mod_root: &str, rel_path: &str, data: &Value) -> AppResult<()> {
+    let path = Path::new(mod_root).join(rel_path);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let clean = strip_internal_fields(data);
+    let json_string = serde_json::to_string_pretty(&clean)?;
+    write_utf8_no_bom(&path, &json_string)?;
     Ok(())
 }

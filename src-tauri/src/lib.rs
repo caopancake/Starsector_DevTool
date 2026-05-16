@@ -35,6 +35,12 @@ pub fn run() {
             commands::save_faction,
             commands::create_faction,
             commands::delete_faction,
+            commands::scan_campaign,
+            commands::load_campaign_csv,
+            commands::save_campaign_csv,
+            commands::scan_world_files,
+            commands::load_world_file,
+            commands::save_world_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

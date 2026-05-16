@@ -86,3 +86,33 @@ export function createFaction(modRoot: string, id: string): Promise<RowData> {
 export function deleteFaction(modRoot: string, id: string): Promise<void> {
   return invoke('delete_faction', { payload: { modRoot, id } });
 }
+
+export interface CsvTable {
+  header: string[];
+  rows: RowData[];
+  path: string;
+}
+
+export function scanCampaign(modRoot: string): Promise<string[]> {
+  return invoke('scan_campaign', { modRoot });
+}
+
+export function loadCampaignCsv(modRoot: string, relPath: string): Promise<CsvTable> {
+  return invoke('load_campaign_csv', { payload: { modRoot, relPath } });
+}
+
+export function saveCampaignCsv(modRoot: string, relPath: string, header: string[], rows: RowData[]): Promise<void> {
+  return invoke('save_campaign_csv', { payload: { modRoot, relPath, header, rows } });
+}
+
+export function scanWorldFiles(modRoot: string): Promise<string[]> {
+  return invoke('scan_world_files', { modRoot });
+}
+
+export function loadWorldFile(modRoot: string, relPath: string): Promise<RowData> {
+  return invoke('load_world_file', { payload: { modRoot, relPath } });
+}
+
+export function saveWorldFile(modRoot: string, relPath: string, data: RowData): Promise<void> {
+  return invoke('save_world_file', { payload: { modRoot, relPath, data } });
+}

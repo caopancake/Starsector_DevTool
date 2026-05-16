@@ -78,6 +78,23 @@ pub struct FactionPayload {
     pub data: Option<Value>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CampaignCsvPayload {
+    pub mod_root: String,
+    pub rel_path: String,
+    pub header: Option<Vec<String>>,
+    pub rows: Option<Vec<Map<String, Value>>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorldFilePayload {
+    pub mod_root: String,
+    pub rel_path: String,
+    pub data: Option<Value>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UploadSpriteResult {
