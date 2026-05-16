@@ -378,3 +378,48 @@
 - [ ] 节点注册表格式定义（JSON Schema 描述每个节点的输入/输出/参数/代码模板）
 - [ ] 节点搜索与分类（按库/按用途/按数据类型过滤）
 - [ ] 社区节点扩展机制：允许第三方 Mod 库注册自定义节点包
+
+## Phase 18: 社区库数据文件集成（MagicLib / GraphicsLib / LazyLib）
+
+将社区核心库的数据文件格式纳入工具编辑范围。与 Phase 17 蓝图系统（Java 代码生成）互补——本阶段聚焦纯数据配置文件的编辑支持。
+
+前置条件：Mod 的 `mod_info.json` 声明对应库为依赖时，才暴露相关编辑入口。
+
+### Phase 18.1: 直接嵌入（复用现有体系，零新基础设施）
+
+- [ ] `ship_systems.csv` 加入主表格模块（后端 CSV_TABLES 新增条目，前端 ModTreeItem 新增"系统"入口）
+- [ ] `.system` JSON 文件列表 + 编辑器（与 faction 编辑同模式：`load_json_dir_by_id` + SchemaFormRenderer）
+- [ ] 编写 `schemas/ship-system.schema.json`（覆盖 type/statsScript/aiScript/engineGlowColor 等字段）
+- [ ] 后端扫描范围扩展：`data/config/*.json` 加入可编辑文件列表（MagicLib modSettings.json 等）
+- [ ] 后端扫描范围扩展：`data/lights/*.csv` 加入 campaign CSV 扫描（GraphicsLib light_data/texture_data）
+- [ ] 依赖检测：读取 `mod_info.json` 的 `dependencies`，条件性暴露 MagicLib/GraphicsLib 编辑入口
+- [ ] 验收：Mod 依赖 MagicLib 时可编辑 modSettings.json；依赖 GraphicsLib 时可编辑 light_data.csv
+
+### Phase 18.2: Schema 驱动的库配置编辑
+
+- [ ] 编写 `schemas/magic-bounty.schema.json`（覆盖 job_name/fleet/trigger_*/reward 等字段）
+- [ ] MagicLib 赏金编辑器：Hjson 解析 → ID 列表 → SchemaFormRenderer 表单编辑 → 写回
+- [ ] Hjson 解析适配：确认现有 `starsector_json` 宽松解析器兼容 Hjson 格式（# 注释 + 尾逗号 + 裸 key）
+- [ ] GraphicsLib `texture_data.csv` 的 `path` 列使用 path-image 类型渲染（core graphics 下拉 + 缩略图预览）
+- [ ] MagicLib 赏金的势力/市场引用：Schema source 字段解析（`source: "csv:ships.id"` 联动选择器）
+- [ ] MagicLib 赏金的 fleet_composition：嵌套 array-of-object + 舰船 ID 选择器
+- [ ] 验收：完整编辑 magicBounty_data.json → 保存 → 游戏中正常加载
+
+### Phase 18.3: CSV 列 Schema 系统
+
+- [ ] 定义 CSV 列 Schema 格式（`schemas/csv/ship_data.columns.json` 等）
+- [ ] 列 Schema 字段：key、type（path-image/enum/integer/float/string）、source、options
+- [ ] 前端 CampaignView / 主表格根据列 Schema 渲染富控件（下拉选择器、path-image 缩略图、颜色块等）
+- [ ] GraphicsLib `texture_data.csv` 的 `path` 列自动关联 path-image 富编辑
+- [ ] GraphicsLib `light_data.csv` 的 `color` 列自动关联 color-rgb 编辑器
+- [ ] 为 `ship_systems.csv` 编写列 Schema（type 列 → enum 选择器，id 列 → 关联 .system 文件跳转）
+- [ ] 验收：CSV 表格中 path-image 列显示缩略图，enum 列显示下拉
+
+### Phase 18.4: 高级集成
+
+- [ ] MagicLib `magic_paintjobs.csv` 编辑支持（船皮变体定义）
+- [ ] MagicLib achievements 编辑支持
+- [ ] GraphicsLib 法线贴图/材质贴图关联预览（texture_data → 对应 PNG 预览）
+- [ ] LunaLib `LunaSettings` JSON 配置文件编辑支持（运行时可调参数定义）
+- [ ] LunaLib 配置与 MagicLib modSettings 的对照/互补关系处理
+- [ ] 验收：完整编辑各库配置文件 → 保存 → 游戏中正常加载

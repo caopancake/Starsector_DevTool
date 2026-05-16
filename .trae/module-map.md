@@ -140,3 +140,35 @@
 - 蓝图元数据保存为 `.blueprint.json`，与生成的 .java 并存
 - 支持从蓝图重新生成（覆盖）或脱离蓝图手动维护两种模式
 - 节点库注册表采用 JSON Schema 描述，允许社区扩展
+
+## Planned: Community Library Data Integration (Phase 18)
+
+将 MagicLib / GraphicsLib / LunaLib 的数据配置文件纳入工具编辑范围（纯数据层，不涉及代码生成）。
+
+### 嵌入策略
+
+| 库文件 | 复用的现有组件 | 改动量 |
+|--------|--------------|--------|
+| `data/config/modSettings.json` (MagicLib) | WorldFilesView / JsonFieldEditor | 扩展扫描范围 |
+| `data/config/magicBounty_data.json` (MagicLib) | SchemaFormRenderer + 列表编辑 | 新建 schema + 列表视图 |
+| `data/lights/light_data.csv` (GraphicsLib) | CampaignView CSV 表格 | 扩展扫描范围 |
+| `data/lights/texture_data.csv` (GraphicsLib) | CampaignView CSV 表格 | 扩展扫描范围 |
+| `ship_systems.csv` (原版) | 主表格模块 | CSV_TABLES 新增条目 |
+| `.system` JSON 文件 (原版) | SchemaFormRenderer + JSON 编辑 | 新建 schema |
+| LunaSettings JSON (LunaLib) | JsonFieldEditor | 扩展扫描范围 |
+
+### 依赖检测逻辑
+
+- 读取 Mod 的 `mod_info.json` 中 `dependencies` 数组
+- 当检测到 `magiclib` 依赖时，暴露 MagicLib 相关编辑入口
+- 当检测到 `shaderLib` 依赖时，暴露 GraphicsLib 相关编辑入口
+- 当检测到 `lunalib` 依赖时，暴露 LunaLib 相关编辑入口
+- 无对应依赖时，相关入口隐藏（不报错、不占空间）
+
+### 新增 Schema 文件
+
+- `schemas/ship-system.schema.json`：.system 文件字段定义
+- `schemas/magic-bounty.schema.json`：magicBounty_data.json 条目字段定义
+- `schemas/csv/ship_systems.columns.json`：ship_systems.csv 列类型注解
+- `schemas/csv/light_data.columns.json`：GraphicsLib light_data.csv 列类型注解
+- `schemas/csv/texture_data.columns.json`：GraphicsLib texture_data.csv 列类型注解
