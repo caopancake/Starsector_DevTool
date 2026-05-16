@@ -42,6 +42,12 @@
 - `src/features/config/components/ColorArrayInput.vue`：[R,G,B] 颜色输入 + 实时色块预览。
 - `src/features/config/components/CampaignView.vue`：战役 CSV 文件列表 + 可编辑表格 + 保存。
 - `src/features/config/components/WorldFilesView.vue`：星系 JSON 文件列表 + 通用 JSON 编辑。
+- `src/features/schema/`：Schema Registry 系统，声明式字段模式驱动编辑器 UI。
+- `src/features/schema/schema.types.ts`：Schema 文件格式类型定义（FieldSchema、SectionSchema、FileSchema）。
+- `src/features/schema/schema.service.ts`：Schema 加载、数据源解析（resolveSource）、嵌套值读写。
+- `src/features/schema/components/SchemaFormRenderer.vue`：通用 schema 驱动表单渲染器（按 section 分组 + 额外字段兜底）。
+- `src/features/schema/components/SchemaFieldRenderer.vue`：单字段渲染器（12 种类型 + 递归嵌套）。
+- `schemas/`：随工具分发的 Schema 定义文件（mod-info、faction 等）。
 - `src/features/tables/table.service.ts`：表格 feature 的后端语义边界，封装 CSV 行和舰船/武器记录的新建、删除、保存调用。
 - `src/shared/api/`：Tauri API 薄 adapter，只封装 command payload，不承载业务流程。
 - `src/shared/lib/`：Starsector 通用工具、默认数据、格式转换。

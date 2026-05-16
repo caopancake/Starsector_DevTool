@@ -21,6 +21,18 @@
     <footer class="faction-list-footer">
       <n-button size="small" block @click="createFaction">新建势力</n-button>
     </footer>
+
+    <!-- Create dialog -->
+    <n-modal
+      v-model:show="showCreateDialog"
+      preset="dialog"
+      title="新建势力"
+      positive-text="创建"
+      negative-text="取消"
+      @positive-click="doCreate"
+    >
+      <n-input v-model:value="newFactionId" placeholder="输入势力 ID（英文标识）" autofocus />
+    </n-modal>
   </aside>
 </template>
 
@@ -43,6 +55,8 @@ const { message, dialog } = createDiscreteApi(['message', 'dialog'], {
 });
 
 const selectedFaction = ref<string | null>(null);
+const showCreateDialog = ref(false);
+const newFactionId = ref('');
 
 interface FactionListItem {
   id: string;
@@ -82,19 +96,28 @@ async function createFaction() {
   const modData = project.activeModData;
   if (!modData) return;
 
-  const id = window.prompt('输入新势力 ID（英文标识）：');
-  if (!id || !id.trim()) return;
-  const trimmedId = id.trim();
+  newFactionId.value = '';
+  showCreateDialog.value = true;
+}
 
+async function doCreate() {
+  const modData = project.activeModData;
+  if (!modData) return;
+
+  const trimmedId = newFactionId.value.trim();
+  if (!trimmedId) {
+    message.warning('ID 不能为空');
+    return;
+  }
   if (modData.factionFiles[trimmedId]) {
     message.warning(`势力 "${trimmedId}" 已存在`);
     return;
   }
-
   try {
     const data = await createFactionFile(modData.modRoot, trimmedId);
     modData.factionFiles[trimmedId] = data;
     message.success(`势力 "${trimmedId}" 已创建`);
+    showCreateDialog.value = false;
     selectFaction(trimmedId);
   } catch (error) {
     message.error(formatError(error));

@@ -1,0 +1,6 @@
+{
+  "$schema": "starsector-devtool/schema-meta/v1",
+  "schemaVersion": "1.0.0",
+  "gameVersion": "0.97a",
+  "description": "Starsector DevTool field schema definitions. These define the known fields, types, and UI controls for each editable file format."
+}

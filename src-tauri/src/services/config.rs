@@ -5,8 +5,8 @@ use crate::{
     parsers::{read_csv_data, save_csv_file},
 };
 use base64::{engine::general_purpose, Engine as _};
-use serde_json::{Map, Value};
-use std::{fs, path::Path};
+use serde_json::{json, Map, Value};
+use std::{collections::BTreeMap, fs, path::Path};
 use walkdir::WalkDir;
 
 pub fn save_mod_info(mod_root: &str, data: &Value) -> AppResult<()> {
@@ -148,10 +148,7 @@ pub fn load_image_as_data_url(mod_root: &str, rel_path: &str) -> AppResult<Optio
         return Ok(None);
     }
     let bytes = fs::read(&path)?;
-    let ext = path
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("png");
+    let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("png");
     let mime = match ext {
         "jpg" | "jpeg" => "image/jpeg",
         "gif" => "image/gif",
@@ -163,4 +160,123 @@ pub fn load_image_as_data_url(mod_root: &str, rel_path: &str) -> AppResult<Optio
         mime,
         general_purpose::STANDARD.encode(bytes)
     )))
+}
+
+/// Scan starsector-core files and discover field names + inferred types.
+/// Returns a map: fileType → Vec<DiscoveredField>
+pub fn scan_core_fields(starsector_root: &str) -> BTreeMap<String, Vec<Value>> {
+    let mut result = BTreeMap::new();
+    let core_dir = Path::new(starsector_root).join("starsector-core");
+    if !core_dir.exists() {
+        return result;
+    }
+
+    // Scan faction files
+    let faction_fields = scan_json_fields(&core_dir.join("data/world/factions"), "faction");
+    if !faction_fields.is_empty() {
+        result.insert("faction".to_string(), faction_fields);
+    }
+
+    // Scan ship files
+    let ship_fields = scan_json_fields(&core_dir.join("data/hulls"), "ship");
+    if !ship_fields.is_empty() {
+        result.insert("ship".to_string(), ship_fields);
+    }
+
+    // Scan weapon files
+    let wpn_fields = scan_json_fields(&core_dir.join("data/weapons"), "wpn");
+    if !wpn_fields.is_empty() {
+        result.insert("weapon".to_string(), wpn_fields);
+    }
+
+    result
+}
+
+/// Scan all JSON files in a directory with given extension,
+/// collect all unique top-level field names and infer types from values.
+fn scan_json_fields(dir: &Path, ext: &str) -> Vec<Value> {
+    if !dir.exists() {
+        return vec![];
+    }
+
+    let mut field_map: BTreeMap<String, String> = BTreeMap::new();
+
+    for entry in WalkDir::new(dir).max_depth(2).into_iter().flatten() {
+        if entry.path().extension().and_then(|s| s.to_str()) != Some(ext) {
+            continue;
+        }
+        if let Ok(Value::Object(obj)) = read_json_file(entry.path()) {
+            for (key, value) in &obj {
+                if key.starts_with('_') {
+                    continue;
+                }
+                // Only set type if not already discovered (first occurrence wins)
+                field_map
+                    .entry(key.clone())
+                    .or_insert_with(|| infer_type(value));
+            }
+        }
+    }
+
+    field_map
+        .into_iter()
+        .map(|(key, field_type)| {
+            json!({
+                "key": key,
+                "type": field_type,
+                "origin": "core"
+            })
+        })
+        .collect()
+}
+
+/// Infer a schema field type from a JSON value
+fn infer_type(value: &Value) -> String {
+    match value {
+        Value::Bool(_) => "boolean".to_string(),
+        Value::Number(n) => {
+            if n.is_i64() || n.is_u64() {
+                "integer".to_string()
+            } else {
+                "float".to_string()
+            }
+        }
+        Value::String(s) => {
+            if s.starts_with("graphics/") {
+                "path-image".to_string()
+            } else {
+                "string".to_string()
+            }
+        }
+        Value::Array(arr) => {
+            if arr.is_empty() {
+                return "string-array".to_string();
+            }
+            // Check if it looks like a color [R, G, B]
+            if arr.len() == 3 && arr.iter().all(|v| v.is_i64() || v.is_u64()) {
+                let all_in_range = arr
+                    .iter()
+                    .all(|v| v.as_i64().map(|n| (0..=255).contains(&n)).unwrap_or(false));
+                if all_in_range {
+                    return "color-rgb".to_string();
+                }
+            }
+            if arr.iter().all(Value::is_string) {
+                "string-array".to_string()
+            } else if arr.iter().all(Value::is_object) {
+                "array-of-object".to_string()
+            } else {
+                "string-array".to_string()
+            }
+        }
+        Value::Object(obj) => {
+            // If it has a "tags" field that's an array, it's a tag-select
+            if let Some(Value::Array(_)) = obj.get("tags") {
+                "tag-select".to_string()
+            } else {
+                "object".to_string()
+            }
+        }
+        Value::Null => "string".to_string(),
+    }
 }

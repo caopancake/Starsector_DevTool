@@ -120,3 +120,13 @@ export function saveWorldFile(modRoot: string, relPath: string, data: RowData): 
 export function loadImageDataUrl(modRoot: string, relPath: string): Promise<string | null> {
   return invoke('load_image_data_url', { modRoot, relPath });
 }
+
+export interface DiscoveredField {
+  key: string;
+  type: string;
+  origin: string;
+}
+
+export function scanCoreFields(starsectorRoot: string): Promise<Record<string, DiscoveredField[]>> {
+  return invoke('scan_core_fields', { starsectorRoot });
+}

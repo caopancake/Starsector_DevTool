@@ -3,6 +3,7 @@
 ## 问题背景
 
 当前工具的每个编辑器都**硬编码**了已知字段列表（KNOWN_KEYS），导致：
+
 - 用户无法知道游戏核心还暴露了哪些可配置字段
 - 字段没有类型信息、范围约束或描述文档
 - 游戏版本更新时需要修改 Vue 组件代码
@@ -74,22 +75,22 @@ schemas/
 
 ## 字段类型系统
 
-| type | UI 控件 | 适用场景 |
-|------|---------|----------|
-| `string` | n-input | 普通文本 |
-| `text` | n-input textarea | 多行文本（description等） |
-| `integer` | n-input-number (step=1) | 整数值（含 min/max） |
-| `float` | n-input-number | 浮点数值 |
-| `boolean` | n-switch | 开关 |
-| `enum` | n-select | 枚举选择 |
-| `color-rgb` | ColorArrayInput | [R,G,B] 颜色 |
-| `path-image` | n-input + 图片预览 | 图片相对路径 |
-| `path` | n-input | 普通文件路径 |
-| `string-array` | n-dynamic-tags | 字符串数组 |
-| `tag-select` | n-select multiple filterable tag | 从数据源选取标签 |
-| `object` | 嵌套 section | 对象类型递归渲染 |
-| `array-of-object` | 可展开表格 | 对象数组（如 dependencies） |
-| `key-value` | JsonFieldEditor | 自由键值对 |
+| type              | UI 控件                          | 适用场景                    |
+| ----------------- | -------------------------------- | --------------------------- |
+| `string`          | n-input                          | 普通文本                    |
+| `text`            | n-input textarea                 | 多行文本（description等）   |
+| `integer`         | n-input-number (step=1)          | 整数值（含 min/max）        |
+| `float`           | n-input-number                   | 浮点数值                    |
+| `boolean`         | n-switch                         | 开关                        |
+| `enum`            | n-select                         | 枚举选择                    |
+| `color-rgb`       | ColorArrayInput                  | [R,G,B] 颜色                |
+| `path-image`      | n-input + 图片预览               | 图片相对路径                |
+| `path`            | n-input                          | 普通文件路径                |
+| `string-array`    | n-dynamic-tags                   | 字符串数组                  |
+| `tag-select`      | n-select multiple filterable tag | 从数据源选取标签            |
+| `object`          | 嵌套 section                     | 对象类型递归渲染            |
+| `array-of-object` | 可展开表格                       | 对象数组（如 dependencies） |
+| `key-value`       | JsonFieldEditor                  | 自由键值对                  |
 
 ---
 
@@ -109,6 +110,7 @@ schemas/
 ### Source 解析器
 
 前端实现一个 `resolveSource(source: string, appData: AppData): SelectOption[]` 函数：
+
 - 解析 source 字符串
 - 从 AppData 中提取对应数据
 - 返回 `{label, value}[]` 供 n-select 使用
@@ -119,11 +121,7 @@ schemas/
 
 ```vue
 <!-- 输入 -->
-<SchemaFormRenderer
-  :schema="factionSchema"
-  v-model="localData"
-  :app-data="project.activeModData"
-/>
+<SchemaFormRenderer :schema="factionSchema" v-model="localData" :app-data="project.activeModData" />
 
 <!-- 输出：根据 schema.sections 渲染分节表单 -->
 <!-- 每个 section 一个 settings-section -->
@@ -156,18 +154,18 @@ Rust 扫描 starsector-core/data/world/factions/*.faction
 
 ### 类型推断规则
 
-| 值特征 | 推断类型 |
-|--------|----------|
-| `[1, 2, 3]` 且长度=3 且全为 0-255 整数 | `color-rgb` |
-| `[...]` 数组且元素为字符串 | `string-array` |
-| `[...]` 数组且元素为对象 | `array-of-object` |
-| `{tags: [...]}` | `tag-select`（嵌套提取） |
-| `true` / `false` | `boolean` |
-| 整数 | `integer` |
-| 浮点数 | `float` |
-| 字符串且以 `graphics/` 开头 | `path-image` |
-| 字符串 | `string` |
-| 对象（无 tags 子字段） | `object` |
+| 值特征                                 | 推断类型                 |
+| -------------------------------------- | ------------------------ |
+| `[1, 2, 3]` 且长度=3 且全为 0-255 整数 | `color-rgb`              |
+| `[...]` 数组且元素为字符串             | `string-array`           |
+| `[...]` 数组且元素为对象               | `array-of-object`        |
+| `{tags: [...]}`                        | `tag-select`（嵌套提取） |
+| `true` / `false`                       | `boolean`                |
+| 整数                                   | `integer`                |
+| 浮点数                                 | `float`                  |
+| 字符串且以 `graphics/` 开头            | `path-image`             |
+| 字符串                                 | `string`                 |
+| 对象（无 tags 子字段）                 | `object`                 |
 
 ---
 
@@ -175,13 +173,13 @@ Rust 扫描 starsector-core/data/world/factions/*.faction
 
 Schema Registry 可以**渐进式**引入，不需要一次重写所有编辑器：
 
-| 阶段 | 内容 | 依赖 |
-|------|------|------|
-| 10.1 | 游戏全量读取基础设施 | 无 |
+| 阶段 | 内容                                    | 依赖              |
+| ---- | --------------------------------------- | ----------------- |
+| 10.1 | 游戏全量读取基础设施                    | 无                |
 | 10.2 | 定义 schema 格式 + 编写初始 schema 文件 | 无（纯静态 JSON） |
-| 10.3 | SchemaFormRenderer 通用组件 | 10.2 |
-| 10.4 | core 扫描 + 动态合并 | 10.1 + 10.2 |
-| 10.5 | 迁移现有编辑器 | 10.3 |
+| 10.3 | SchemaFormRenderer 通用组件             | 10.2              |
+| 10.4 | core 扫描 + 动态合并                    | 10.1 + 10.2       |
+| 10.5 | 迁移现有编辑器                          | 10.3              |
 
 ### 兼容性保证
 

@@ -9,6 +9,7 @@ use crate::{
     services,
 };
 use serde_json::Value;
+use std::collections::BTreeMap;
 use std::path::Path;
 use tauri::Manager;
 
@@ -154,4 +155,9 @@ pub fn save_world_file(payload: WorldFilePayload) -> Result<(), String> {
 #[tauri::command]
 pub fn load_image_data_url(mod_root: String, rel_path: String) -> Result<Option<String>, String> {
     services::load_image_as_data_url(&mod_root, &rel_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn scan_core_fields(starsector_root: String) -> BTreeMap<String, Vec<Value>> {
+    services::scan_core_fields(&starsector_root)
 }

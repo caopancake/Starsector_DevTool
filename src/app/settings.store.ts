@@ -6,6 +6,7 @@ export type AppTheme = 'light' | 'dark';
 
 const STORAGE_KEY = 'starsector-devtool.theme';
 const HISTORY_LIMIT_KEY = 'starsector-devtool.historyLimit';
+const STARSECTOR_ROOT_KEY = 'starsector-devtool.starsectorRoot';
 const DEFAULT_HISTORY_LIMIT = 128;
 
 function readStoredTheme(): AppTheme {
@@ -21,9 +22,15 @@ function readStoredHistoryLimit(): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_HISTORY_LIMIT;
 }
 
+function readStoredStarsectorRoot(): string {
+  if (typeof window === 'undefined') return '';
+  return window.localStorage.getItem(STARSECTOR_ROOT_KEY) || '';
+}
+
 export const useSettingsStore = defineStore('settings', () => {
   const theme = ref<AppTheme>(readStoredTheme());
   const historyLimit = ref(readStoredHistoryLimit());
+  const starsectorRoot = ref(readStoredStarsectorRoot());
   const naiveTheme = computed(() => (theme.value === 'dark' ? darkTheme : lightTheme));
   const isDark = computed(() => theme.value === 'dark');
 
@@ -33,6 +40,10 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function setHistoryLimit(limit: number) {
     historyLimit.value = Math.max(1, Math.min(1000, Math.round(limit)));
+  }
+
+  function setStarsectorRoot(path: string) {
+    starsectorRoot.value = path;
   }
 
   watch(
@@ -48,5 +59,9 @@ export const useSettingsStore = defineStore('settings', () => {
     if (typeof window !== 'undefined') window.localStorage.setItem(HISTORY_LIMIT_KEY, String(value));
   });
 
-  return { historyLimit, isDark, naiveTheme, theme, setHistoryLimit, toggleTheme };
+  watch(starsectorRoot, (value) => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(STARSECTOR_ROOT_KEY, value);
+  });
+
+  return { historyLimit, isDark, naiveTheme, starsectorRoot, theme, setHistoryLimit, setStarsectorRoot, toggleTheme };
 });

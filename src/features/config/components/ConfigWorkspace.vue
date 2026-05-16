@@ -25,15 +25,6 @@ const selectedFaction = ref('');
 </script>
 
 <style scoped>
-.config-workspace {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  min-width: 0;
-  height: 100%;
-  overflow: hidden;
-}
-
 .config-factions-layout {
   display: flex;
   flex: 1;

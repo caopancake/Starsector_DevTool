@@ -51,6 +51,7 @@ import { useGlobalShortcuts } from '../features/history/composables/useGlobalSho
 import { useProjectStore } from '../features/project/project.store';
 import { useTablesStore } from '../features/tables/tables.store';
 import { useWorkspaceStore } from '../features/workspace/workspace.store';
+import { useCoreSchema } from '../features/schema/composables/useCoreSchema';
 import { pickModRoot } from '../features/project/project.service';
 import { loadWorkspace, saveWorkspace } from '../shared/api/tauri';
 import { cell } from '../shared/lib/starsector';
@@ -62,6 +63,7 @@ const editors = useEditorsStore();
 const settings = useSettingsStore();
 const workspace = useWorkspaceStore();
 const historyStore = useHistoryStore();
+const { loadCoreFields } = useCoreSchema();
 
 useGlobalShortcuts();
 
@@ -133,6 +135,7 @@ onMounted(async () => {
       }
     }
     restoring = false;
+    loadCoreFields();
   } catch {
     restoring = false;
   }

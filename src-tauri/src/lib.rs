@@ -42,6 +42,7 @@ pub fn run() {
             commands::load_world_file,
             commands::save_world_file,
             commands::load_image_data_url,
+            commands::scan_core_fields,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

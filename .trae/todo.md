@@ -123,35 +123,54 @@
 - [x] 保存/dirty/undo 集成
 - [x] 验收：列表展示 → 选择 → 编辑 → 保存
 
-## Phase 6: 硬化、回归与整理
+## Phase 6: Schema Registry + 游戏全量读取
 
-- [ ] 回查多 Mod、设置、主题、全局历史之间的状态边界，清理临时兼容写法和重复状态。
-- [ ] 检查 workspace、tables、editors、settings 之间是否出现职责漂移或隐式耦合。
-- [ ] 清理为接通全局历史而引入的临时事件模型、重复桥接层、无稳定语义的 helper。
-- [ ] 补最关键的跨 Mod、跨页面、跨弹窗回归清单，确保进入快捷键和右键阶段前主链路稳定。
-- [ ] 更新 `.trae/module-map.md`、`.trae/editor-flows.md`，把此时的稳定边界固化下来。
-- [ ] 重点检查过于复杂的逻辑、嵌套或依赖关系，确保每个模块都有清晰的职责和边界。
-- [ ] 确保没有过于细密的拆分。
-- [ ] 跑前后端全套检查，并记录仍然存在但允许后续阶段处理的剩余风险。
+详细设计见 `.trae/specs/phase10-schema-registry.md`。
 
-## Phase 7: 重新梳理主界面快捷键
+### Phase 6.1: 游戏全量读取基础
 
-- [ ] 为主界面定义搜索、模块切换、记录选择、保存 CSV、删除、新建等快捷键。
-- [ ] 明确主界面快捷键与多 Mod 导航、总览页、设置页之间的切换规则。
-- [ ] 统一主界面的撤销、重做、保存、关闭等通用行为，并接入全局修改链路。
-- [ ] 避免主界面快捷键和输入框、文本域、系统快捷键冲突。
-- [ ] 在合适位置提供主界面快捷键提示或设置入口。
+- [ ] 支持指定 Starsector 游戏根目录，而不仅是单个 Mod 根目录。
+- [ ] 自动识别原版 `starsector-core` 数据和 `mods/` 下所有可用 Mod。
+- [ ] 建立游戏级项目模型，区分原版数据、每个 Mod 数据和当前可编辑目标。
+- [ ] 支持在 UI 中切换原版数据、不同 Mod、合并视图或对照视图。
+- [ ] 明确原版数据默认只读，避免误写 `starsector-core`。
+- [ ] 处理未启用 Mod、缺失 `mod_info.json`、重复 id、依赖关系和加载顺序等情况。
+- [ ] 为武器、弹体、舰船等跨 Mod 引用提供 fallback 和来源标识。
+- [ ] 持久化最近打开的游戏目录、Mod 选择状态和用户视图设置。
+- [ ] 为游戏目录扫描、原版 fallback、多 Mod 冲突和切换编辑目标补最小测试或手动验收流程。
 
-## Phase 8: 定义右键行为
+### Phase 6.2: Schema 格式定义 + 初始 schema 文件
 
-- [ ] 定义主表格右键菜单：复制 ID、打开编辑器、删除、定位资源等。
-- [ ] 定义舰船画布右键行为：添加点、删除点、切换模式、复制坐标等。
-- [ ] 定义武器画布右键行为：添加 barrel、删除 barrel、复制坐标等。
-- [ ] 定义弹体编辑器右键行为：复制字段、重置字段、定位贴图等。
-- [ ] 确保右键菜单不会破坏画布右键拖动平移体验。
-- [ ] 为右键菜单行为补手动验收清单。
+- [x] 定义 Schema 文件格式标准（`schemas/*.schema.json`），包含 sections → fields → type/label/description/default/source。
+- [x] 定义字段类型系统：string、text、integer、float、boolean、enum、color-rgb、path-image、string-array、tag-select、object、array-of-object、key-value。
+- [x] 定义数据源引用语法（`source` 字段）：`csv:ships.tags`、`csv:weapons.id`、`json:factionFiles.*.id`、`enum:SMALL,MEDIUM,LARGE`。
+- [x] 编写初始 Schema 文件：`mod-info.schema.json`、`faction.schema.json`。
+- [ ] 编写 CSV 列定义 Schema：`csv/ship_data.columns.json`、`csv/weapon_data.columns.json` 等。
 
-## Phase 9: 自动数据校验和警示
+### Phase 6.3: SchemaFormRenderer — 通用表单渲染器
+
+- [x] 实现 `SchemaFormRenderer.vue` 通用组件，根据 schema 定义动态生成分节表单。
+- [x] 实现各字段类型对应的控件映射（type → component）。
+- [x] 实现 `source` 字段的数据源解析，从已加载的 AppData 中提取选项。
+- [x] 实现"额外字段"区域：数据中有但 schema 中未定义的字段归入可编辑兜底区。
+- [x] 实现"可添加字段"提示：schema 中有但数据中没有的字段显示为灰色可添加项。
+
+### Phase 6.4: starsector-core 扫描 + Schema 动态补充
+
+- [x] 扫描 `starsector-core` 中的 `.faction`、`.ship`、`.wpn`、`.proj` 文件，提取所有出现过的字段名。
+- [x] 根据字段值推断类型（数组→string-array/array-of-object，数字→integer/float，对象→object，字符串→string）。
+- [x] 将 core 中发现但 schema 未定义的字段动态合并到运行时 schema，标记"来自原版"。
+- [x] 合并后的完整 schema 驱动编辑器 UI，覆盖所有已知+发现字段。
+- [x] 为势力编辑器的"额外字段"区域，直接以表格化表单呈现 core 中发现的字段，而非纯 JSON 编辑。
+
+### Phase 6.5: 迁移现有编辑器到 Schema 驱动
+
+- [x] 将 `FactionEditor.vue` 从硬编码表单迁移为 SchemaFormRenderer + `faction.schema.json` 驱动。
+- [x] 将 `ModInfoEditor.vue` 从硬编码表单迁移为 SchemaFormRenderer + `mod-info.schema.json` 驱动。
+- [ ] 评估 `ShipEditor` / `WeaponEditor` / `ProjectileEditor` 的右侧检查器面板是否可部分迁移到 schema 驱动（画布交互部分保留）。
+- [x] 验证迁移前后 UI 行为一致，未丢失字段编辑能力。
+
+## Phase 7: 自动数据校验和警示
 
 - [ ] 建立统一数据校验入口，覆盖 CSV 表格、`.ship`、`.wpn`、`.proj` 和贴图资源。
 - [ ] 对贴图宽度或高度为奇数的资源给出警示。
@@ -166,57 +185,27 @@
 - [ ] 明确警示与阻止保存的边界；默认先警示，不轻易阻止保存。
 - [ ] 为典型离谱数据样例补最小测试或手动验收清单。
 
-## Phase 10: 游戏全量读取 + Schema Registry 架构
+## Phase 8: 重新梳理主界面快捷键
 
-详细设计见 `.trae/specs/phase10-schema-registry.md`。
+- [ ] 为主界面定义搜索、模块切换、记录选择、保存 CSV、删除、新建等快捷键。
+- [ ] 明确主界面快捷键与多 Mod 导航、总览页、设置页之间的切换规则。
+- [ ] 统一主界面的撤销、重做、保存、关闭等通用行为，并接入全局修改链路。
+- [ ] 避免主界面快捷键和输入框、文本域、系统快捷键冲突。
+- [ ] 在合适位置提供主界面快捷键提示或设置入口。
 
-### 10.1: 游戏全量读取基础
+## Phase 9: 定义右键行为
 
-- [ ] 支持指定 Starsector 游戏根目录，而不仅是单个 Mod 根目录。
-- [ ] 自动识别原版 `starsector-core` 数据和 `mods/` 下所有可用 Mod。
-- [ ] 建立游戏级项目模型，区分原版数据、每个 Mod 数据和当前可编辑目标。
-- [ ] 支持在 UI 中切换原版数据、不同 Mod、合并视图或对照视图。
-- [ ] 明确原版数据默认只读，避免误写 `starsector-core`。
-- [ ] 处理未启用 Mod、缺失 `mod_info.json`、重复 id、依赖关系和加载顺序等情况。
-- [ ] 为武器、弹体、舰船等跨 Mod 引用提供 fallback 和来源标识。
-- [ ] 持久化最近打开的游戏目录、Mod 选择状态和用户视图设置。
-- [ ] 为游戏目录扫描、原版 fallback、多 Mod 冲突和切换编辑目标补最小测试或手动验收流程。
+- [ ] 定义主表格右键菜单：复制 ID、打开编辑器、删除、定位资源等。
+- [ ] 定义舰船画布右键行为：添加点、删除点、切换模式、复制坐标等。
+- [ ] 定义武器画布右键行为：添加 barrel、删除 barrel、复制坐标等。
+- [ ] 定义弹体编辑器右键行为：复制字段、重置字段、定位贴图等。
+- [ ] 确保右键菜单不会破坏画布右键拖动平移体验。
+- [ ] 为右键菜单行为补手动验收清单。
 
-### 10.2: Schema Registry — 声明式字段模式注册表
-
-- [ ] 定义 Schema 文件格式标准（`schemas/*.schema.json`），包含 sections → fields → type/label/description/default/source。
-- [ ] 定义字段类型系统：string、text、integer、float、boolean、enum、color-rgb、path-image、string-array、tag-select、object、array-of-object、key-value。
-- [ ] 定义数据源引用语法（`source` 字段）：`csv:ships.tags`、`csv:weapons.id`、`json:factionFiles.*.id`、`enum:SMALL,MEDIUM,LARGE`。
-- [ ] 编写初始 Schema 文件：`mod-info.schema.json`、`faction.schema.json`、`ship.schema.json`、`weapon.schema.json`、`projectile.schema.json`。
-- [ ] 编写 CSV 列定义 Schema：`csv/ship_data.columns.json`、`csv/weapon_data.columns.json` 等。
-
-### 10.3: SchemaFormRenderer — 通用表单渲染器
-
-- [ ] 实现 `SchemaFormRenderer.vue` 通用组件，根据 schema 定义动态生成分节表单。
-- [ ] 实现各字段类型对应的控件映射（type → component）。
-- [ ] 实现 `source` 字段的数据源解析，从已加载的 AppData 中提取选项。
-- [ ] 实现"额外字段"区域：数据中有但 schema 中未定义的字段归入可编辑兜底区。
-- [ ] 实现"可添加字段"提示：schema 中有但数据中没有的字段显示为灰色可添加项。
-
-### 10.4: starsector-core 扫描 + Schema 动态补充
-
-- [ ] 扫描 `starsector-core` 中的 `.faction`、`.ship`、`.wpn`、`.proj` 文件，提取所有出现过的字段名。
-- [ ] 根据字段值推断类型（数组→string-array/array-of-object，数字→integer/float，对象→object，字符串→string）。
-- [ ] 将 core 中发现但 schema 未定义的字段动态合并到运行时 schema，标记"来自原版"。
-- [ ] 合并后的完整 schema 驱动编辑器 UI，覆盖所有已知+发现字段。
-- [ ] 为势力编辑器的"额外字段"区域，直接以表格化表单呈现 core 中发现的字段，而非纯 JSON 编辑。
-
-### 10.5: 迁移现有编辑器到 Schema 驱动
-
-- [ ] 将 `FactionEditor.vue` 从硬编码表单迁移为 SchemaFormRenderer + `faction.schema.json` 驱动。
-- [ ] 将 `ModInfoEditor.vue` 从硬编码表单迁移为 SchemaFormRenderer + `mod-info.schema.json` 驱动。
-- [ ] 评估 `ShipEditor` / `WeaponEditor` / `ProjectileEditor` 的右侧检查器面板是否可部分迁移到 schema 驱动（画布交互部分保留）。
-- [ ] 验证迁移前后 UI 行为一致，未丢失字段编辑能力。
-
-## Phase 11: 最终硬化、回归与整理
+## Phase 10: 最终硬化、回归与整理
 
 - [ ] 在全部大功能完成后，统一回查前后端模块边界、命名一致性、状态链路和保存语义。
-- [ ] 清理为多 Mod、设置、历史、快捷键、右键、校验和游戏级读取引入的临时兼容层和死代码。
+- [ ] 清理临时兼容层和死代码。
 - [ ] 重新审视 store、service、component、composable 和 shared API 是否再次出现职责漂移。
 - [ ] 更新 `.trae/module-map.md`、`.trae/editor-flows.md`、`.trae/frontend-guidelines.md`、`.trae/backend-guidelines.md` 和 `README.md`。
 - [ ] 跑前后端全套检查，并补最关键的跨阶段回归清单。
