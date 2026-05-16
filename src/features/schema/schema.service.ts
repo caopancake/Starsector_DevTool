@@ -49,6 +49,7 @@ export function getSchemaKeys(schema: FileSchema): string[] {
 export interface SelectOption {
   label: string;
   value: string;
+  sprite?: string; // data URL for thumbnail preview
 }
 
 /**
@@ -83,12 +84,20 @@ export function resolveSource(source: string | undefined | null, appData: AppDat
       }
       return [...tagSet].sort().map((t) => ({ label: t, value: t }));
     } else {
-      const valSet = new Set<string>();
+      // Extract id + name for display, with optional sprite
+      const spriteMap = getSpriteMap(appData, table);
+      const options: SelectOption[] = [];
+      const seen = new Set<string>();
       for (const row of rows) {
-        const v = String(row[col] ?? '').trim();
-        if (v) valSet.add(v);
+        const id = String(row[col] ?? '').trim();
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        const name = String(row.name ?? row.hullName ?? '').trim();
+        const label = name && name !== id ? `${name} (${id})` : id;
+        const sprite = spriteMap?.[id];
+        options.push({ label, value: id, sprite });
       }
-      return [...valSet].sort().map((v) => ({ label: v, value: v }));
+      return options.sort((a, b) => a.label.localeCompare(b.label));
     }
   }
 
@@ -101,6 +110,23 @@ export function resolveSource(source: string | undefined | null, appData: AppDat
   }
 
   return [];
+}
+
+/**
+ * Get the sprite map for a given table from AppData.
+ * Returns a map from id → data URL string (or undefined if no sprites for this table).
+ */
+function getSpriteMap(appData: AppData, table: string): Record<string, string> | undefined {
+  switch (table) {
+    case 'ships':
+      return appData.shipSprites;
+    case 'hullmods':
+      return appData.hullmodSprites;
+    case 'industries':
+      return appData.industrySprites;
+    default:
+      return undefined;
+  }
 }
 
 /**

@@ -210,3 +210,101 @@
 - [ ] 更新 `.trae/module-map.md`、`.trae/editor-flows.md`、`.trae/frontend-guidelines.md`、`.trae/backend-guidelines.md` 和 `README.md`。
 - [ ] 跑前后端全套检查，并补最关键的跨阶段回归清单。
 - [ ] 记录仍然存在但可接受的技术债和后续改进方向，避免项目再次进入迁移期状态。
+
+## Phase 11: 技能编辑器（Skills）
+
+覆盖 `data/characters/skills/*.skill`（70 个文件），高 Mod 影响度。
+
+- [ ] 后端：扫描 + 加载 + 保存 .skill 文件
+- [ ] 前端：Schema 定义 `skill.schema.json`（从 starsector-core 分析字段结构）
+- [ ] 前端：技能列表 + SchemaFormRenderer 驱动的编辑表单
+- [ ] 前端：技能等级效果分组编辑（Level 1/2/3 + Elite 效果）
+- [ ] 前端：所属天赋选择器（aptitude 关联）
+- [ ] 集成左侧树"配置模块"分组
+- [ ] 验收：列表 → 选择 → 编辑效果 → 保存
+
+## Phase 12: 船皮编辑器（Skins）
+
+覆盖 `data/hulls/skins/*.skin`（66 个文件），高 Mod 影响度。
+
+- [ ] 后端：扫描 + 加载 + 保存 .skin 文件
+- [ ] 前端：Schema 定义 `skin.schema.json`
+- [ ] 前端：船皮列表（含基础船体名称关联）+ 编辑表单
+- [ ] 前端：基础船体选择器（从 ships 数据中选取 hullId）
+- [ ] 前端：武器槽类型覆盖编辑器（slotType 修改）
+- [ ] 前端：内置船插列表编辑（builtInMods）
+- [ ] 前端：贴图覆盖路径配置（spriteName 覆盖 + 预览）
+- [ ] 验收：列表 → 选择 → 编辑船皮配置 → 保存
+
+## Phase 13: 舰船变体编辑器（Variants）
+
+覆盖 `data/variants/**/*.variant`（447 个文件），当前仅只读。
+
+- [ ] 后端：加载 + 保存 .variant 文件（已部分实现加载）
+- [ ] 前端：Schema 定义 `variant.schema.json`
+- [ ] 前端：变体列表（按船体分组）+ 编辑表单
+- [ ] 前端：武器装配编辑器（从 weapons CSV 选取武器 → 分配到武器槽）
+- [ ] 前端：船插选择器（从 hullmods CSV 选取）
+- [ ] 前端：联队选择器（从 wings CSV 选取）
+- [ ] 前端：新建/删除变体
+- [ ] 验收：列表 → 选择 → 编辑装配 → 保存
+
+## Phase 14: 战役系统扩展
+
+覆盖剩余战役相关文件。
+
+### 14.1: 战役 CSV 补全
+
+- [ ] 添加 `abilities.csv` 编辑支持（舰队能力定义）
+- [ ] 添加 `commodities.csv` 编辑支持（贸易商品）
+- [ ] 添加 `submarkets.csv` 编辑支持（市场类型）
+- [ ] 添加 `market_conditions.csv` 编辑支持（市场条件）
+- [ ] 添加 `bar_events.csv` 编辑支持（酒吧事件）
+- [ ] 添加 `sim_opponents.csv` 编辑支持（模拟对手）
+- [ ] 添加 `special_items.csv` 编辑支持（特殊物品）
+
+### 14.2: 经济系统编辑
+
+- [ ] 后端：扫描 + 加载 `data/campaign/econ/*.json`
+- [ ] 前端：经济系统文件列表 + JSON 表单编辑
+- [ ] 前端：星系市场配置可视化
+
+### 14.3: 星系生成参数（Procgen）
+
+- [ ] 后端：扫描 `data/campaign/procgen/*.csv`
+- [ ] 前端：Procgen CSV 表格编辑
+- [ ] 前端：参数调优界面（数值范围、权重等）
+
+## Phase 15: 角色与本地化
+
+### 15.1: NPC 系统
+
+- [ ] 添加 `data/characters/skills.csv` 编辑支持（角色技能）
+- [ ] 添加 `data/characters/people/*.json` 编辑支持（NPC 定义）
+
+### 15.2: 本地化
+
+- [ ] 添加 `data/strings/*.json` 编辑支持
+- [ ] 添加 `data/strings/descriptions.csv` 编辑支持
+- [ ] 前端：多语言对照编辑界面
+
+## Phase 16: 高级配置
+
+### 16.1: 游戏全局设置
+
+- [ ] 添加 `data/config/settings.json` 编辑支持（2296 行，游戏核心参数）
+- [ ] 前端：分类浏览（战斗/舰队/市场/UI 等大类）
+- [ ] Schema 定义覆盖所有已知设置项
+
+### 16.2: 战斗与引擎配置
+
+- [ ] 添加 `data/config/battle_objectives.json` 编辑支持
+- [ ] 添加 `data/config/engine_styles.json` 编辑支持
+- [ ] 添加 `data/config/hull_styles.json` 编辑支持
+- [ ] 添加 `data/config/sounds.json` 编辑支持
+
+### 16.3: 任务编辑
+
+- [ ] 后端：扫描 `data/missions/*/descriptor.json`
+- [ ] 前端：任务列表 + 任务元数据编辑
+- [ ] 前端：任务描述和目标配置

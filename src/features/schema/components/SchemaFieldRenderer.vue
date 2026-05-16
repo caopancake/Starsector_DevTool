@@ -78,6 +78,7 @@
         v-else-if="field.type === 'string-array'"
         :value="arrVal"
         :options="sourceOptions.length > 0 ? sourceOptions : arrVal.map((v) => ({ label: v, value: v }))"
+        :render-label="hasSprites ? renderSelectLabel : undefined"
         multiple
         filterable
         tag
@@ -90,6 +91,7 @@
         v-else-if="field.type === 'tag-select'"
         :value="tagSelectVal"
         :options="sourceOptions"
+        :render-label="hasSprites ? renderSelectLabel : undefined"
         multiple
         filterable
         tag
@@ -158,10 +160,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, h } from 'vue';
 import { open } from '@tauri-apps/plugin-dialog';
 import type { AppData, JsonValue } from '../../../shared/types';
 import type { FieldSchema } from '../schema.types';
+import type { SelectOption } from '../schema.service';
 import { resolveSource } from '../schema.service';
 import ColorArrayInput from '../../config/components/ColorArrayInput.vue';
 
@@ -222,6 +225,21 @@ function wrapTags(tags: string[]): unknown {
 // ─── Source / enum options ────────────────────────────────────────────
 
 const sourceOptions = computed(() => resolveSource(props.field.source, props.appData));
+
+// Check if any source option has a sprite — enables thumbnail rendering
+const hasSprites = computed(() => sourceOptions.value.some((o) => o.sprite));
+
+// Render label with optional thumbnail for n-select options
+function renderSelectLabel(option: SelectOption & { label?: string; value?: string }) {
+  if (!option.sprite) return option.label ?? option.value ?? '';
+  return h('span', { style: 'display:flex;align-items:center;gap:6px' }, [
+    h('img', {
+      src: option.sprite,
+      style: 'width:20px;height:20px;object-fit:contain;image-rendering:pixelated;border-radius:2px;flex-shrink:0',
+    }),
+    h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, option.label ?? option.value ?? ''),
+  ]);
+}
 
 const enumOptions = computed(() => {
   if (props.field.options && props.field.options.length > 0) {
