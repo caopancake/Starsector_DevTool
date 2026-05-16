@@ -303,7 +303,6 @@ export const useTablesStore = defineStore('tables', () => {
     const id = selectedRowId.value;
     if (!id) return;
 
-    if (tab === 'ships') {
 
     const row = state.tables[tab].find(r => rowId(r) === id);
     if (!row) {
@@ -311,6 +310,8 @@ export const useTablesStore = defineStore('tables', () => {
       state.selectedRowKey = '';
       return;
     }
+
+    if (tab === 'ships') {
       await removeShipRecord(appData.modRoot, id);
       delete appData.shipFiles[id];
       delete appData.shipSprites[id];
