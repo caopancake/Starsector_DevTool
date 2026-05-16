@@ -5,12 +5,13 @@ use std::{collections::BTreeMap, fs, path::Path};
 
 pub(super) fn load_ship_sprite_data(
     mod_root: &Path,
+    core_dir: Option<&Path>,
     ship_files: &BTreeMap<String, Value>,
 ) -> AppResult<BTreeMap<String, String>> {
     let mut sprites = BTreeMap::new();
     for (id, value) in ship_files {
         if let Some(sprite) = value.get("spriteName").and_then(Value::as_str) {
-            if let Some(data_url) = load_sprite_data_url(mod_root, sprite)? {
+            if let Some(data_url) = load_sprite_data_url(mod_root, core_dir, sprite)? {
                 sprites.insert(id.clone(), data_url);
             }
         }
@@ -20,6 +21,7 @@ pub(super) fn load_ship_sprite_data(
 
 pub(super) fn load_weapon_sprite_data(
     mod_root: &Path,
+    core_dir: Option<&Path>,
     wpn_files: &BTreeMap<String, Value>,
 ) -> BTreeMap<String, BTreeMap<String, String>> {
     let mut sprites = BTreeMap::new();
@@ -36,7 +38,7 @@ pub(super) fn load_weapon_sprite_data(
             "hardpointGlowSprite",
         ] {
             if let Some(sprite) = value.get(field).and_then(Value::as_str) {
-                if let Ok(Some(data_url)) = load_sprite_data_url(mod_root, sprite) {
+                if let Ok(Some(data_url)) = load_sprite_data_url(mod_root, core_dir, sprite) {
                     weapon_sprites.insert(field.to_string(), data_url);
                 }
             }
@@ -50,20 +52,23 @@ pub(super) fn load_weapon_sprite_data(
 
 pub(super) fn load_hullmod_sprite_data(
     mod_root: &Path,
+    core_dir: Option<&Path>,
     hullmods: &[Map<String, Value>],
 ) -> BTreeMap<String, String> {
-    load_table_sprite_data(mod_root, hullmods, "sprite")
+    load_table_sprite_data(mod_root, core_dir, hullmods, "sprite")
 }
 
 pub(super) fn load_industry_sprite_data(
     mod_root: &Path,
+    core_dir: Option<&Path>,
     industries: &[Map<String, Value>],
 ) -> BTreeMap<String, String> {
-    load_table_sprite_data(mod_root, industries, "image")
+    load_table_sprite_data(mod_root, core_dir, industries, "image")
 }
 
 fn load_table_sprite_data(
     mod_root: &Path,
+    core_dir: Option<&Path>,
     rows: &[Map<String, Value>],
     sprite_field: &str,
 ) -> BTreeMap<String, String> {
@@ -72,7 +77,7 @@ fn load_table_sprite_data(
         let id = str_field(row, "id");
         let sprite = str_field(row, sprite_field);
         if !id.is_empty() && !sprite.is_empty() {
-            if let Ok(Some(data_url)) = load_sprite_data_url(mod_root, &sprite) {
+            if let Ok(Some(data_url)) = load_sprite_data_url(mod_root, core_dir, &sprite) {
                 sprites.insert(id, data_url);
             }
         }
@@ -80,16 +85,33 @@ fn load_table_sprite_data(
     sprites
 }
 
-fn load_sprite_data_url(mod_root: &Path, sprite: &str) -> AppResult<Option<String>> {
-    let path = mod_root.join(sprite.replace('\\', "/"));
-    if !path.exists() {
-        return Ok(None);
+fn load_sprite_data_url(
+    mod_root: &Path,
+    core_dir: Option<&Path>,
+    sprite: &str,
+) -> AppResult<Option<String>> {
+    let rel = sprite.replace('\\', "/");
+    // Try mod directory first
+    let mod_path = mod_root.join(&rel);
+    if mod_path.exists() {
+        let bytes = fs::read(mod_path)?;
+        return Ok(Some(format!(
+            "data:image/png;base64,{}",
+            general_purpose::STANDARD.encode(bytes)
+        )));
     }
-    let bytes = fs::read(path)?;
-    Ok(Some(format!(
-        "data:image/png;base64,{}",
-        general_purpose::STANDARD.encode(bytes)
-    )))
+    // Fallback: try starsector-core directory
+    if let Some(core) = core_dir {
+        let core_path = core.join(&rel);
+        if core_path.exists() {
+            let bytes = fs::read(core_path)?;
+            return Ok(Some(format!(
+                "data:image/png;base64,{}",
+                general_purpose::STANDARD.encode(bytes)
+            )));
+        }
+    }
+    Ok(None)
 }
 
 fn str_field(row: &Map<String, Value>, key: &str) -> String {
@@ -117,7 +139,7 @@ mod tests {
             serde_json::json!({"hullId":"demo","spriteName":"graphics/ships/missing.png"}),
         );
 
-        let loaded = load_ship_sprite_data(&root, &ships).unwrap();
+        let loaded = load_ship_sprite_data(&root, None, &ships).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert!(loaded.is_empty());

@@ -27,21 +27,24 @@ pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
     let mut loaded_tables = tables::load_csv_tables(mod_root, &tag_map)?;
     let ship_files = load_json_dir_by_id(&mod_root.join("data/hulls"), "ship", "hullId");
     let variants = load_variants_by_hull(mod_root);
-    let ship_sprites = sprites::load_ship_sprite_data(mod_root, &ship_files)?;
+    let ship_sprites = sprites::load_ship_sprite_data(mod_root, core_dir.as_deref(), &ship_files)?;
     let wpn_files = load_json_dir_by_id(&mod_root.join("data/weapons"), "wpn", "id");
-    let weapon_sprites_data = sprites::load_weapon_sprite_data(mod_root, &wpn_files);
+    let weapon_sprites_data =
+        sprites::load_weapon_sprite_data(mod_root, core_dir.as_deref(), &wpn_files);
     let hullmods = loaded_tables
         .rows
         .get("hullmods")
         .cloned()
         .unwrap_or_default();
-    let hullmod_sprites = sprites::load_hullmod_sprite_data(mod_root, &hullmods);
+    let hullmod_sprites =
+        sprites::load_hullmod_sprite_data(mod_root, core_dir.as_deref(), &hullmods);
     let industries = loaded_tables
         .rows
         .get("industries")
         .cloned()
         .unwrap_or_default();
-    let industry_sprites = sprites::load_industry_sprite_data(mod_root, &industries);
+    let industry_sprites =
+        sprites::load_industry_sprite_data(mod_root, core_dir.as_deref(), &industries);
 
     Ok(AppData {
         mod_root: mod_root.to_string_lossy().to_string(),
