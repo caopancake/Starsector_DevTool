@@ -82,7 +82,48 @@
 - [x] 将现有编辑器局部 history 接入统一修改链路，避免多个互不相通的撤销栈。
 - [x] 为跨页面撤销、连续重做、保存后历史处理补回归测试或最小手动验收流程。
 
-## Phase 5: 硬化、回归与整理
+## Phase 5: 配置模块 — mod_info、势力、战役、星系
+
+详细设计见 `.trae/specs/phase5-config-modules.md`。
+
+### Phase 5.1: Mod 信息编辑
+
+- [ ] 后端：`save_mod_info` command
+- [ ] 前端：`WorkspaceView` 扩展（新增 `'config'`）+ `ConfigWorkspace.vue` 容器
+- [ ] 前端：`ModInfoEditor.vue`（结构化表单 + JSON 兜底）
+- [ ] 前端：`config.store.ts` + `config.service.ts` 基础框架
+- [ ] 前端：`ModTreeItem.vue` 新增"配置模块"分组
+- [ ] 前端：`JsonFieldEditor.vue` 通用 JSON 字段编辑器
+- [ ] 保存/dirty/undo 集成
+- [ ] 验收：编辑 mod_info.json 字段 → 保存 → 重载验证
+
+### Phase 5.2: 势力编辑
+
+- [ ] 后端：`load_factions` / `save_faction` / `create_faction` / `delete_faction`
+- [ ] 前端：`FactionList.vue`（列表 + 颜色色块预览 + 新建/删除）
+- [ ] 前端：`FactionEditor.vue`（已知字段表单 + 颜色选择器预览 + tags 编辑）
+- [ ] 前端：`ColorArrayInput.vue`（[R,G,B] 输入 + 实时色块预览）
+- [ ] 前端：旗帜/标志图片预览（加载 Mod 内图片资源 logo/crest）
+- [ ] 保存/dirty/undo 集成
+- [ ] 验收：列表展示 → 选择 → 编辑颜色/标签 → 保存 → 新建/删除 faction
+
+### Phase 5.3: 战役编辑
+
+- [ ] 后端：`scan_campaign` / `load_campaign_csv` / `save_campaign_csv`
+- [ ] 前端：`TableKey` 动态扩展支持 `campaign:*` key
+- [ ] 前端：`CampaignView.vue`（CSV 子 Tab + JSON 文件列表）
+- [ ] 前端：campaign CSV 完全复用 DataTable + dirty/save 系统
+- [ ] 前端：campaign JSON 文件用混合表单编辑
+- [ ] 验收：显示 campaign CSV → 编辑 → 保存；JSON 文件编辑 → 保存
+
+### Phase 5.4: 星系文件编辑
+
+- [ ] 后端：`scan_world_files` / `load_world_file` / `save_world_file`
+- [ ] 前端：`WorldFilesView.vue`（文件列表 + 混合表单编辑）
+- [ ] 保存/dirty/undo 集成
+- [ ] 验收：列表展示 → 选择 → 编辑 → 保存
+
+## Phase 6: 硬化、回归与整理
 
 - [ ] 回查多 Mod、设置、主题、全局历史之间的状态边界，清理临时兼容写法和重复状态。
 - [ ] 检查 workspace、tables、editors、settings 之间是否出现职责漂移或隐式耦合。
@@ -93,7 +134,7 @@
 - [ ] 确保没有过于细密的拆分。
 - [ ] 跑前后端全套检查，并记录仍然存在但允许后续阶段处理的剩余风险。
 
-## Phase 6: 重新梳理主界面快捷键
+## Phase 7: 重新梳理主界面快捷键
 
 - [ ] 为主界面定义搜索、模块切换、记录选择、保存 CSV、删除、新建等快捷键。
 - [ ] 明确主界面快捷键与多 Mod 导航、总览页、设置页之间的切换规则。
@@ -101,7 +142,7 @@
 - [ ] 避免主界面快捷键和输入框、文本域、系统快捷键冲突。
 - [ ] 在合适位置提供主界面快捷键提示或设置入口。
 
-## Phase 7: 定义右键行为
+## Phase 8: 定义右键行为
 
 - [ ] 定义主表格右键菜单：复制 ID、打开编辑器、删除、定位资源等。
 - [ ] 定义舰船画布右键行为：添加点、删除点、切换模式、复制坐标等。
@@ -110,7 +151,7 @@
 - [ ] 确保右键菜单不会破坏画布右键拖动平移体验。
 - [ ] 为右键菜单行为补手动验收清单。
 
-## Phase 8: 自动数据校验和警示
+## Phase 9: 自动数据校验和警示
 
 - [ ] 建立统一数据校验入口，覆盖 CSV 表格、`.ship`、`.wpn`、`.proj` 和贴图资源。
 - [ ] 对贴图宽度或高度为奇数的资源给出警示。
@@ -125,7 +166,7 @@
 - [ ] 明确警示与阻止保存的边界；默认先警示，不轻易阻止保存。
 - [ ] 为典型离谱数据样例补最小测试或手动验收清单。
 
-## Phase 9: 游戏全量读取
+## Phase 10: 游戏全量读取
 
 - [ ] 支持指定 Starsector 游戏根目录，而不仅是单个 Mod 根目录。
 - [ ] 自动识别原版 `starsector-core` 数据和 `mods/` 下所有可用 Mod。
@@ -137,7 +178,7 @@
 - [ ] 持久化最近打开的游戏目录、Mod 选择状态和用户视图设置。
 - [ ] 为游戏目录扫描、原版 fallback、多 Mod 冲突和切换编辑目标补最小测试或手动验收流程。
 
-## Phase 10: 最终硬化、回归与整理
+## Phase 11: 最终硬化、回归与整理
 
 - [ ] 在全部大功能完成后，统一回查前后端模块边界、命名一致性、状态链路和保存语义。
 - [ ] 清理为多 Mod、设置、历史、快捷键、右键、校验和游戏级读取引入的临时兼容层和死代码。
