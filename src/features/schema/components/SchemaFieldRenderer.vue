@@ -74,7 +74,16 @@
       </div>
 
       <!-- string-array -->
-      <n-dynamic-tags v-else-if="field.type === 'string-array'" :value="arrVal" size="small" @update:value="emit('update', $event)" />
+      <n-select
+        v-else-if="field.type === 'string-array'"
+        :value="arrVal"
+        :options="sourceOptions.length > 0 ? sourceOptions : arrVal.map((v) => ({ label: v, value: v }))"
+        multiple
+        filterable
+        tag
+        size="small"
+        @update:value="emit('update', $event)"
+      />
 
       <!-- tag-select -->
       <n-select
@@ -92,17 +101,15 @@
       <div v-else-if="field.type === 'key-value'" class="key-value-editor">
         <div v-for="(entry, idx) in kvEntries" :key="idx" class="kv-row">
           <n-select
-            v-if="sourceOptions.length > 0"
             :value="entry.key"
-            :options="sourceOptions"
+            :options="kvKeyOptions"
             filterable
             tag
             size="small"
             style="width: 180px"
             @update:value="updateKvKey(idx, $event)"
           />
-          <n-input v-else :value="entry.key" size="small" style="width: 180px" @update:value="updateKvKey(idx, $event)" />
-          <n-input :value="String(entry.val)" size="small" style="width: 100px" @update:value="updateKvVal(idx, $event)" />
+          <n-input :value="String(entry.val)" size="small" style="flex: 1" @update:value="updateKvVal(idx, $event)" />
           <n-button size="tiny" quaternary @click="removeKvEntry(idx)">✕</n-button>
         </div>
         <n-button size="tiny" @click="addKvEntry">+ 添加</n-button>
@@ -217,6 +224,22 @@ const enumOptions = computed(() => {
     return props.field.options.map((o) => ({ label: o, value: o }));
   }
   return sourceOptions.value;
+});
+
+// For key-value fields: merge source options with existing keys as candidates
+const kvKeyOptions = computed(() => {
+  const opts = new Map<string, { label: string; value: string }>();
+  // Add source options first
+  for (const opt of sourceOptions.value) {
+    opts.set(opt.value, opt);
+  }
+  // Add existing keys that aren't already in source
+  for (const entry of kvEntries.value) {
+    if (entry.key && !opts.has(entry.key)) {
+      opts.set(entry.key, { label: entry.key, value: entry.key });
+    }
+  }
+  return [...opts.values()];
 });
 
 // ─── Nested object helpers ────────────────────────────────────────────
