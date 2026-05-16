@@ -136,6 +136,17 @@ export const useTablesStore = defineStore('tables', () => {
     syncCurrentHeaders(appData);
   }
 
+  function hydrateWithoutActivate(modRoot: string, appData: AppData) {
+    const state = createModTableState();
+    for (const key of TABLE_KEYS) {
+      state.tables[key] = deepClone(appData[key] as RowData[]);
+      assignRowKeys(key, state.tables[key]);
+      state.originalTables[key] = deepClone(state.tables[key]);
+    }
+    stateMap.set(modRoot, state);
+    // Note: Does NOT call activateFor() or syncCurrentHeaders() - caller handles activation
+  }
+
 
   function activateFor(modRoot: string, appData?: AppData | null) {
     activeRoot.value = modRoot;
@@ -375,6 +386,7 @@ export const useTablesStore = defineStore('tables', () => {
     finishCellEdit,
     hasModDirtyChanges,
     hydrate,
+    hydrateWithoutActivate,
     removeModState,
     revertChanges,
     rowSelectionKey,

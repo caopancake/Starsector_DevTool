@@ -95,12 +95,15 @@ watch(
 );
 
 // Startup: restore persisted workspace
+// Startup: restore persisted workspace
 onMounted(async () => {
   try {
     const persisted = await loadWorkspace();
     if (persisted.mods.length === 0) return;
     restoring = true;
     workspace.restoreFrom(persisted);
+    
+    // Hydrate all mods (this no longer sets activeRoot)
     for (const mod of persisted.mods) {
       try {
         const loaded = await project.openProject(mod.modRoot);
@@ -108,11 +111,13 @@ onMounted(async () => {
         const version = cell(loaded.modInfo?.version) || mod.version;
         workspace.updateModInfo(mod.modRoot, name, version);
         workspace.updateModStatus(mod.modRoot, 'ready');
-        tables.hydrate(mod.modRoot, loaded);
+        tables.hydrateWithoutActivate(mod.modRoot, loaded);
       } catch (err) {
         workspace.updateModStatus(mod.modRoot, 'error', formatError(err));
       }
     }
+    
+    // Only after all hydrations complete, activate the previously active mod
     if (persisted.activeModRoot && workspace.isModImported(persisted.activeModRoot)) {
       const activeMod = workspace.mods.get(persisted.activeModRoot);
       if (activeMod?.status === 'ready') {
