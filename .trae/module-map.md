@@ -31,6 +31,12 @@
 - `src/features/history/history.store.ts`：Pinia store，per-Mod 隔离的 undo/redo 栈，push/undo/redo/trim/barrier/checkpoint 逻辑。
 - `src/features/history/history.service.ts`：apply undo/redo 纯函数，根据事件类型修改 tableState 或 modData。
 - `src/features/history/composables/useGlobalShortcuts.ts`：主界面 Ctrl+Z/Y 监听器，编辑器打开时让步。
+- `src/features/config/`：配置模块编辑功能（mod_info、势力、战役、星系）。
+- `src/features/config/config.store.ts`：配置模块 per-Mod 状态管理（modInfo snapshot、dirty 追踪）。
+- `src/features/config/config.service.ts`：配置模块保存 service，封装 Tauri command 调用。
+- `src/features/config/components/ConfigWorkspace.vue`：配置模块主容器，根据 configView 路由到子组件。
+- `src/features/config/components/ModInfoEditor.vue`：mod_info.json 结构化表单 + JSON 兜底编辑。
+- `src/features/config/components/JsonFieldEditor.vue`：通用 JSON 字段编辑器（未知字段兜底）。
 - `src/features/tables/table.service.ts`：表格 feature 的后端语义边界，封装 CSV 行和舰船/武器记录的新建、删除、保存调用。
 - `src/shared/api/`：Tauri API 薄 adapter，只封装 command payload，不承载业务流程。
 - `src/shared/lib/`：Starsector 通用工具、默认数据、格式转换。

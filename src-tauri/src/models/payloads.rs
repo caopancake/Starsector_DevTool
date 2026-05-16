@@ -63,6 +63,21 @@ pub struct UploadSpritePayload {
     pub subfolder: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveModInfoPayload {
+    pub mod_root: String,
+    pub data: Value,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FactionPayload {
+    pub mod_root: String,
+    pub id: String,
+    pub data: Option<Value>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UploadSpriteResult {

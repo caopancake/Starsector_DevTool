@@ -258,14 +258,14 @@
 
 ### 触发点
 
-| 操作 | 推入类型 | 触发位置 |
-|------|----------|----------|
-| CSV 单元格编辑 | `pushEvent(CsvCellEditEvent)` | `tables.store.ts` → `finishCellEdit()` |
-| 编辑器保存 | `pushEvent(EditorSaveEvent)` + `pushCheckpoint` | `EditorsHost.vue` → `onShipSaved`/`onWeaponSaved`/`onProjectileSaved` |
-| CSV 保存 | `pushCheckpoint('csv-save')` | `tables.store.ts` → `saveChanges()` |
-| 新建行 | `pushBarrier('row-create')` | `tables.store.ts` → `addNewRow()` |
-| 删除行 | `pushBarrier('row-delete')` | `tables.store.ts` → `deleteSelected()` |
-| 贴图覆盖 | `pushBarrier('sprite-overwrite')` | `useSpriteUpload.ts` |
+| 操作           | 推入类型                                        | 触发位置                                                              |
+| -------------- | ----------------------------------------------- | --------------------------------------------------------------------- |
+| CSV 单元格编辑 | `pushEvent(CsvCellEditEvent)`                   | `tables.store.ts` → `finishCellEdit()`                                |
+| 编辑器保存     | `pushEvent(EditorSaveEvent)` + `pushCheckpoint` | `EditorsHost.vue` → `onShipSaved`/`onWeaponSaved`/`onProjectileSaved` |
+| CSV 保存       | `pushCheckpoint('csv-save')`                    | `tables.store.ts` → `saveChanges()`                                   |
+| 新建行         | `pushBarrier('row-create')`                     | `tables.store.ts` → `addNewRow()`                                     |
+| 删除行         | `pushBarrier('row-delete')`                     | `tables.store.ts` → `deleteSelected()`                                |
+| 贴图覆盖       | `pushBarrier('sprite-overwrite')`               | `useSpriteUpload.ts`                                                  |
 
 ### 主界面 Ctrl+Z/Y
 
@@ -276,11 +276,11 @@
 
 ### 作用域规则
 
-| 场景 | 行为 |
-|------|------|
-| 编辑器打开 | Ctrl+Z 使用编辑器内局部历史；全局栈不受影响 |
-| 编辑器关闭 | Ctrl+Z 操作全局栈；编辑器保存事件作为一个原子条目 |
-| 切换 Mod | 各 Mod 历史栈独立；切换后 Ctrl+Z 操作目标 Mod 的栈 |
+| 场景        | 行为                                               |
+| ----------- | -------------------------------------------------- |
+| 编辑器打开  | Ctrl+Z 使用编辑器内局部历史；全局栈不受影响        |
+| 编辑器关闭  | Ctrl+Z 操作全局栈；编辑器保存事件作为一个原子条目  |
+| 切换 Mod    | 各 Mod 历史栈独立；切换后 Ctrl+Z 操作目标 Mod 的栈 |
 | 跨 Tab 切换 | 历史栈不受 Tab 切换影响；undo 修改数据模型而非视图 |
 
 ### 限制与裁剪

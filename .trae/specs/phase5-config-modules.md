@@ -25,6 +25,7 @@ ModName ▼
 ```
 
 点击配置模块项时：
+
 1. `workspace.setActiveMod(modRoot)`
 2. `workspace.currentView = 'config'`
 3. `workspace.configView = 'mod-info' | 'factions' | 'campaign' | 'world'`
@@ -39,6 +40,7 @@ type ConfigView = 'mod-info' | 'factions' | 'campaign' | 'world';
 ```
 
 App.vue 新增：
+
 ```vue
 <ConfigWorkspace v-else-if="workspace.currentView === 'config'" />
 ```
@@ -55,23 +57,24 @@ App.vue 新增：
 
 **已知字段表单：**
 
-| 字段 | 控件 | 说明 |
-|------|------|------|
-| id | text input (只读) | Mod 唯一标识 |
-| name | text input | Mod 显示名称 |
-| author | text input | 作者 |
-| version | text input 或 object 编辑 | 可以是 "1.0" 或 {"major":1,"minor":0,"patch":0} |
-| gameVersion | text input | 兼容游戏版本 |
-| description | textarea | Mod 描述 |
-| modPlugin | text input | 入口插件类名 |
-| jars | string[] 列表 | JAR 文件路径列表 |
-| dependencies | array of {id, name?, version?} | 依赖列表表格 |
-| totalConversion | switch | 是否全量转换 |
-| utility | switch | 是否工具 Mod |
+| 字段            | 控件                           | 说明                                            |
+| --------------- | ------------------------------ | ----------------------------------------------- |
+| id              | text input (只读)              | Mod 唯一标识                                    |
+| name            | text input                     | Mod 显示名称                                    |
+| author          | text input                     | 作者                                            |
+| version         | text input 或 object 编辑      | 可以是 "1.0" 或 {"major":1,"minor":0,"patch":0} |
+| gameVersion     | text input                     | 兼容游戏版本                                    |
+| description     | textarea                       | Mod 描述                                        |
+| modPlugin       | text input                     | 入口插件类名                                    |
+| jars            | string[] 列表                  | JAR 文件路径列表                                |
+| dependencies    | array of {id, name?, version?} | 依赖列表表格                                    |
+| totalConversion | switch                         | 是否全量转换                                    |
+| utility         | switch                         | 是否工具 Mod                                    |
 
 **未知字段：** 折叠的 JSON key-value 编辑器，支持增删改任意字段。
 
 **保存链路：**
+
 - 前端：`config.service.ts` → `saveModInfo(modRoot, data)`
 - API：`tauri.saveModInfo(modRoot, data)`
 - Rust：`save_mod_info` command → 写回 `mod_info.json`（结构化 pretty JSON）
@@ -89,38 +92,39 @@ App.vue 新增：
 **UI：** 左列表 + 右表单（master-detail 布局）
 
 **列表页：**
+
 - 显示每个 faction 的 `displayName`、`id`
 - 行前显示颜色色块预览（来自 `color` 字段 [R,G,B]）
 - 支持新建和删除 faction 文件
 
 **表单页（已知字段）：**
 
-| 字段 | 控件 | 说明 |
-|------|------|------|
-| id | text (只读) | 文件名即 id |
-| displayName | text input | 短名称 |
-| displayNameLong | text input | 长名称 |
-| displayNameWithArticle | text input | 含冠词名称 |
-| displayNameIsOrAre | text input | "is" 或 "are" |
-| color | [R,G,B] 颜色选择器 + 预览色块 | 势力主色 |
-| baseColor | [R,G,B] 颜色选择器 + 预览色块 | 基础色 |
-| darkColor | [R,G,B] 颜色选择器 + 预览色块 | 暗色 |
-| logo | text input + 图片预览 | 标志路径 |
-| crest | text input + 图片预览 | 旗帜路径 |
-| shipNamePrefix | text input | 舰船名前缀 |
-| description | textarea | 势力描述 |
-| knownShips | tags 多选标签 | 已知舰船蓝图 |
-| knownWeapons | tags 多选标签 | 已知武器蓝图 |
-| knownFighters | tags 多选标签 | 已知联队蓝图 |
-| knownHullMods | tags 多选标签 | 已知船插 |
-| shipsWhenImporting | tags 多选标签 | 导入时可用舰船 |
-| knownIndustries | tags 多选标签 | 已知工业 |
-| priorityShips | tags 多选标签 | 优先舰船 |
-| priorityWeapons | tags 多选标签 | 优先武器 |
-| priorityFighters | tags 多选标签 | 优先联队 |
-| relationships | array of {faction, value} 列表 | 势力关系 |
-| portraits.male | string[] 列表 | 男性肖像路径 |
-| portraits.female | string[] 列表 | 女性肖像路径 |
+| 字段                   | 控件                           | 说明           |
+| ---------------------- | ------------------------------ | -------------- |
+| id                     | text (只读)                    | 文件名即 id    |
+| displayName            | text input                     | 短名称         |
+| displayNameLong        | text input                     | 长名称         |
+| displayNameWithArticle | text input                     | 含冠词名称     |
+| displayNameIsOrAre     | text input                     | "is" 或 "are"  |
+| color                  | [R,G,B] 颜色选择器 + 预览色块  | 势力主色       |
+| baseColor              | [R,G,B] 颜色选择器 + 预览色块  | 基础色         |
+| darkColor              | [R,G,B] 颜色选择器 + 预览色块  | 暗色           |
+| logo                   | text input + 图片预览          | 标志路径       |
+| crest                  | text input + 图片预览          | 旗帜路径       |
+| shipNamePrefix         | text input                     | 舰船名前缀     |
+| description            | textarea                       | 势力描述       |
+| knownShips             | tags 多选标签                  | 已知舰船蓝图   |
+| knownWeapons           | tags 多选标签                  | 已知武器蓝图   |
+| knownFighters          | tags 多选标签                  | 已知联队蓝图   |
+| knownHullMods          | tags 多选标签                  | 已知船插       |
+| shipsWhenImporting     | tags 多选标签                  | 导入时可用舰船 |
+| knownIndustries        | tags 多选标签                  | 已知工业       |
+| priorityShips          | tags 多选标签                  | 优先舰船       |
+| priorityWeapons        | tags 多选标签                  | 优先武器       |
+| priorityFighters       | tags 多选标签                  | 优先联队       |
+| relationships          | array of {faction, value} 列表 | 势力关系       |
+| portraits.male         | string[] 列表                  | 男性肖像路径   |
+| portraits.female       | string[] 列表                  | 女性肖像路径   |
 
 **颜色预览：** [R,G,B] 数组用三个数字 input + 一个色块实时预览。
 **旗帜/标志预览：** 如果 `logo`/`crest` 路径指向 Mod 内文件，加载并显示图片预览。
@@ -128,6 +132,7 @@ App.vue 新增：
 **未知字段：** 折叠 JSON 编辑器区域
 
 **保存链路：**
+
 - 前端：`config.service.ts` → `saveFaction(modRoot, factionId, data)`
 - API：`tauri.saveFaction(modRoot, factionId, data)`
 - Rust：`save_faction` command → 写回 `data/world/factions/{id}.faction`
@@ -143,6 +148,7 @@ App.vue 新增：
 **数据来源：** Rust 扫描 `data/campaign/` 目录
 
 **文件分类：**
+
 - **CSV 文件**（如 `rules.csv`、`sim_opponents.csv` 等）→ 复用表格系统
 - **JSON 文件**（如特殊配置）→ 混合表单
 
@@ -151,6 +157,7 @@ App.vue 新增：
 现有 `TableKey` 是固定 union：`'ships' | 'weapons' | 'wings' | 'hullmods' | 'industries'`
 
 扩展策略：
+
 ```typescript
 // 保持核心 TableKey 不变（这些有特殊编辑器绑定）
 type CoreTableKey = 'ships' | 'weapons' | 'wings' | 'hullmods' | 'industries';
@@ -162,12 +169,14 @@ type TableKey = CoreTableKey | CampaignCsvKey;
 ```
 
 动态 CSV 完全复用现有：
+
 - 相同的 `DataTable.vue` 渲染
 - 相同的 dirty tracking（`dirty[key][rowKey][col]`）
 - 相同的 `saveChanges()` / `revertChanges()` 流程
 - 不绑定专用编辑器（无 `.ship`/`.wpn` 关联）
 
 **战役 JSON 文件：**
+
 - 列出发现的 JSON 文件
 - 点击打开混合表单编辑
 
@@ -186,6 +195,7 @@ type TableKey = CoreTableKey | CampaignCsvKey;
 **UI：** 文件列表 + 通用混合表单编辑器
 
 **保存链路：**
+
 - `config.service.ts` → `saveWorldFile(modRoot, relativePath, data)`
 - Rust：`save_world_file` command → 写回原路径
 
@@ -194,6 +204,7 @@ type TableKey = CoreTableKey | CampaignCsvKey;
 ## 通用 JSON 兜底编辑器 (`JsonFieldEditor.vue`)
 
 **功能：**
+
 - 显示一个 key-value 列表，每行为 `key: value`
 - value 类型自动推断：string/number/boolean/array/object
 - 支持新增 key、删除 key、编辑 value
@@ -208,32 +219,32 @@ type TableKey = CoreTableKey | CampaignCsvKey;
 
 ### 新增 commands
 
-| command | 功能 |
-|---------|------|
-| `save_mod_info` | 保存 mod_info.json |
-| `load_factions` | 加载 data/world/factions/ 所有 .faction 文件 |
-| `save_faction` | 保存单个 .faction 文件 |
-| `delete_faction` | 删除一个 .faction 文件 |
-| `create_faction` | 新建一个 .faction 文件 |
-| `scan_campaign` | 扫描 data/campaign/ 返回 CSV 和 JSON 列表 |
-| `load_campaign_csv` | 加载一个 campaign CSV |
-| `save_campaign_csv` | 保存一个 campaign CSV |
-| `scan_world_files` | 扫描 data/world/ 非 factions 文件 |
-| `load_world_file` | 加载一个 world JSON 文件 |
-| `save_world_file` | 保存一个 world JSON 文件 |
+| command             | 功能                                         |
+| ------------------- | -------------------------------------------- |
+| `save_mod_info`     | 保存 mod_info.json                           |
+| `load_factions`     | 加载 data/world/factions/ 所有 .faction 文件 |
+| `save_faction`      | 保存单个 .faction 文件                       |
+| `delete_faction`    | 删除一个 .faction 文件                       |
+| `create_faction`    | 新建一个 .faction 文件                       |
+| `scan_campaign`     | 扫描 data/campaign/ 返回 CSV 和 JSON 列表    |
+| `load_campaign_csv` | 加载一个 campaign CSV                        |
+| `save_campaign_csv` | 保存一个 campaign CSV                        |
+| `scan_world_files`  | 扫描 data/world/ 非 factions 文件            |
+| `load_world_file`   | 加载一个 world JSON 文件                     |
+| `save_world_file`   | 保存一个 world JSON 文件                     |
 
 ### AppData 扩展
 
 ```typescript
 interface AppData {
   // 现有字段不变...
-  
+
   // 新增
-  factionFiles: Record<string, RowData>;   // factionId → parsed .faction content
-  campaignCsvList: string[];               // campaign 下 CSV 文件的相对路径列表
-  campaignCsvHeaders: Record<string, string[]>;  // 每个 campaign CSV 的表头
-  campaignCsvs: Record<string, RowData[]>;       // 每个 campaign CSV 的行数据
-  worldFileList: string[];                 // world 下非 factions 文件列表
+  factionFiles: Record<string, RowData>; // factionId → parsed .faction content
+  campaignCsvList: string[]; // campaign 下 CSV 文件的相对路径列表
+  campaignCsvHeaders: Record<string, string[]>; // 每个 campaign CSV 的表头
+  campaignCsvs: Record<string, RowData[]>; // 每个 campaign CSV 的行数据
+  worldFileList: string[]; // world 下非 factions 文件列表
 }
 ```
 
@@ -260,20 +271,21 @@ src/features/config/
 
 ### 修改文件
 
-| 文件 | 改动 |
-|------|------|
-| `workspace.store.ts` | 新增 `configView` 状态 |
-| `ModTreeItem.vue` | 新增"配置模块"分组渲染 |
-| `App.vue` | 新增 `ConfigWorkspace` 路由分支 |
-| `shared/types/index.ts` | 扩展 AppData |
-| `shared/types/workspace.ts` | 扩展 WorkspaceView |
-| `tables.store.ts` | TableKey 支持动态 campaign CSV |
+| 文件                        | 改动                            |
+| --------------------------- | ------------------------------- |
+| `workspace.store.ts`        | 新增 `configView` 状态          |
+| `ModTreeItem.vue`           | 新增"配置模块"分组渲染          |
+| `App.vue`                   | 新增 `ConfigWorkspace` 路由分支 |
+| `shared/types/index.ts`     | 扩展 AppData                    |
+| `shared/types/workspace.ts` | 扩展 WorkspaceView              |
+| `tables.store.ts`           | TableKey 支持动态 campaign CSV  |
 
 ---
 
 ## Phase 拆分
 
 ### Phase 5.1: Mod 信息编辑
+
 - [ ] 后端：`save_mod_info` command
 - [ ] 前端：`WorkspaceView` 扩展 + `ConfigWorkspace` 容器
 - [ ] 前端：`ModInfoEditor.vue`（结构化表单 + JSON 兜底）
@@ -284,6 +296,7 @@ src/features/config/
 - [ ] 验收：编辑 mod_info.json 字段 → 保存 → 重载验证
 
 ### Phase 5.2: 势力编辑
+
 - [ ] 后端：`load_factions` / `save_faction` / `create_faction` / `delete_faction`
 - [ ] 前端：`FactionList.vue`（列表 + 颜色色块 + 新建/删除）
 - [ ] 前端：`FactionEditor.vue`（已知字段表单 + 颜色预览 + 旗帜预览）
@@ -293,6 +306,7 @@ src/features/config/
 - [ ] 验收：列表展示 → 选择 → 编辑颜色/标签 → 保存 → 新建/删除 faction
 
 ### Phase 5.3: 战役编辑
+
 - [ ] 后端：`scan_campaign` / `load_campaign_csv` / `save_campaign_csv`
 - [ ] 前端：`TableKey` 动态扩展支持 campaign CSV
 - [ ] 前端：`CampaignView.vue`（CSV 子 Tab + JSON 文件列表）
@@ -301,6 +315,7 @@ src/features/config/
 - [ ] 验收：显示 campaign CSV → 编辑 → 保存；JSON 文件编辑 → 保存
 
 ### Phase 5.4: 星系文件编辑
+
 - [ ] 后端：`scan_world_files` / `load_world_file` / `save_world_file`
 - [ ] 前端：`WorldFilesView.vue`（文件列表 + 混合表单）
 - [ ] 保存/dirty/undo 集成
@@ -311,6 +326,7 @@ src/features/config/
 ## 验证标准
 
 每个子 Phase 完成后：
+
 - `npm.cmd run typecheck` 零错误
 - `npm.cmd run lint` 零 warning
 - `npm.cmd run format:check` 通过

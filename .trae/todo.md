@@ -88,24 +88,24 @@
 
 ### Phase 5.1: Mod 信息编辑
 
-- [ ] 后端：`save_mod_info` command
-- [ ] 前端：`WorkspaceView` 扩展（新增 `'config'`）+ `ConfigWorkspace.vue` 容器
-- [ ] 前端：`ModInfoEditor.vue`（结构化表单 + JSON 兜底）
-- [ ] 前端：`config.store.ts` + `config.service.ts` 基础框架
-- [ ] 前端：`ModTreeItem.vue` 新增"配置模块"分组
-- [ ] 前端：`JsonFieldEditor.vue` 通用 JSON 字段编辑器
-- [ ] 保存/dirty/undo 集成
-- [ ] 验收：编辑 mod_info.json 字段 → 保存 → 重载验证
+- [x] 后端：`save_mod_info` command
+- [x] 前端：`WorkspaceView` 扩展（新增 `'config'`）+ `ConfigWorkspace.vue` 容器
+- [x] 前端：`ModInfoEditor.vue`（结构化表单 + JSON 兜底）
+- [x] 前端：`config.store.ts` + `config.service.ts` 基础框架
+- [x] 前端：`ModTreeItem.vue` 新增"配置模块"分组
+- [x] 前端：`JsonFieldEditor.vue` 通用 JSON 字段编辑器
+- [x] 保存/dirty/undo 集成
+- [x] 验收：编辑 mod_info.json 字段 → 保存 → 重载验证
 
 ### Phase 5.2: 势力编辑
 
-- [ ] 后端：`load_factions` / `save_faction` / `create_faction` / `delete_faction`
-- [ ] 前端：`FactionList.vue`（列表 + 颜色色块预览 + 新建/删除）
-- [ ] 前端：`FactionEditor.vue`（已知字段表单 + 颜色选择器预览 + tags 编辑）
-- [ ] 前端：`ColorArrayInput.vue`（[R,G,B] 输入 + 实时色块预览）
+- [x] 后端：`load_factions` / `save_faction` / `create_faction` / `delete_faction`
+- [x] 前端：`FactionList.vue`（列表 + 颜色色块预览 + 新建/删除）
+- [x] 前端：`FactionEditor.vue`（已知字段表单 + 颜色选择器预览 + tags 编辑）
+- [x] 前端：`ColorArrayInput.vue`（[R,G,B] 输入 + 实时色块预览）
 - [ ] 前端：旗帜/标志图片预览（加载 Mod 内图片资源 logo/crest）
-- [ ] 保存/dirty/undo 集成
-- [ ] 验收：列表展示 → 选择 → 编辑颜色/标签 → 保存 → 新建/删除 faction
+- [x] 保存/dirty/undo 集成
+- [x] 验收：列表展示 → 选择 → 编辑颜色/标签 → 保存 → 新建/删除 faction
 
 ### Phase 5.3: 战役编辑
 

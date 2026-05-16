@@ -17,6 +17,7 @@
               @save="saveChanges"
               @open-ship="openShip"
             />
+            <ConfigWorkspace v-else-if="workspace.currentView === 'config' && project.activeModData" />
             <main v-else class="workspace">
               <section class="empty-state">
                 <h1>选择一个 Starsector Mod 目录</h1>
@@ -42,6 +43,7 @@ import NavSidebar from './components/NavSidebar.vue';
 import OverviewPage from './components/OverviewPage.vue';
 import SettingsPage from './components/SettingsPage.vue';
 import TableWorkspace from './components/TableWorkspace.vue';
+import ConfigWorkspace from '../features/config/components/ConfigWorkspace.vue';
 import { useSettingsStore } from './settings.store';
 import { useEditorsStore } from '../features/editors/editors.store';
 import { useHistoryStore } from '../features/history/history.store';

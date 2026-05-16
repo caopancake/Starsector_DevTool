@@ -22,6 +22,7 @@ pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
 
     let (mut faction_meta, tag_map) = factions::discover_factions(mod_root);
     ensure_other_faction(&mut faction_meta);
+    let faction_files = factions::load_faction_files(mod_root);
 
     let mut loaded_tables = tables::load_csv_tables(mod_root, &tag_map)?;
     let ship_files = load_json_dir_by_id(&mod_root.join("data/hulls"), "ship", "hullId");
@@ -48,6 +49,7 @@ pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
         core_available,
         mod_info,
         faction_meta,
+        faction_files,
         csv_headers: loaded_tables.csv_headers,
         csv_paths: loaded_tables.csv_paths,
         ships: loaded_tables.rows.remove("ships").unwrap_or_default(),

@@ -1,12 +1,13 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import type { ModEntry, PersistedWorkspace, WorkspaceView } from '../../shared/types';
+import type { ConfigView, ModEntry, PersistedWorkspace, WorkspaceView } from '../../shared/types';
 import { getNextActiveKeyAfterRemoval } from '../../shared/lib/store-utils';
 
 export const useWorkspaceStore = defineStore('workspace', () => {
   const mods = ref<Map<string, ModEntry>>(new Map());
   const activeModRoot = ref<string | null>(null);
   const currentView = ref<WorkspaceView>('overview');
+  const configView = ref<ConfigView>('mod-info');
   const expandedMods = ref<Set<string>>(new Set());
 
   const activeMod = computed(() => (activeModRoot.value ? (mods.value.get(activeModRoot.value) ?? null) : null));
@@ -44,6 +45,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     if (!mods.value.has(modRoot)) return;
     activeModRoot.value = modRoot;
     currentView.value = 'table';
+  }
+
+  function setActiveConfig(modRoot: string, view: ConfigView) {
+    if (!mods.value.has(modRoot)) return;
+    activeModRoot.value = modRoot;
+    currentView.value = 'config';
+    configView.value = view;
   }
 
   function toggleExpanded(modRoot: string) {
@@ -84,6 +92,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   return {
     activeModRoot,
     activeMod,
+    configView,
     currentView,
     expandedMods,
     hasAnyMod,
@@ -95,6 +104,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     registerMod,
     removeMod,
     restoreFrom,
+    setActiveConfig,
     setActiveMod,
     toPersistedState,
     toggleExpanded,

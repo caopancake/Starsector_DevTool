@@ -17,11 +17,43 @@
         v-for="key in TABLE_KEYS"
         :key="key"
         class="mod-tree-module-btn"
-        :class="{ 'module-active': isActive && tables.currentTab === key }"
+        :class="{ 'module-active': isActive && workspace.currentView === 'table' && tables.currentTab === key }"
         @click="$emit('switch-tab', mod.modRoot, key)"
       >
         <span>{{ MODULE_LABELS[key] }}</span>
         <span class="mod-tree-module-count">{{ getRowCount(key) }}</span>
+      </button>
+    </div>
+
+    <div v-if="isExpanded && mod.status === 'ready'" class="mod-tree-modules mod-tree-config">
+      <button
+        class="mod-tree-module-btn"
+        :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'mod-info' }"
+        @click="$emit('switch-config', mod.modRoot, 'mod-info')"
+      >
+        <span>Mod 信息</span>
+      </button>
+      <button
+        class="mod-tree-module-btn"
+        :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'factions' }"
+        @click="$emit('switch-config', mod.modRoot, 'factions')"
+      >
+        <span>势力</span>
+        <span class="mod-tree-module-count">{{ factionCount }}</span>
+      </button>
+      <button
+        class="mod-tree-module-btn"
+        :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'campaign' }"
+        @click="$emit('switch-config', mod.modRoot, 'campaign')"
+      >
+        <span>战役</span>
+      </button>
+      <button
+        class="mod-tree-module-btn"
+        :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'world' }"
+        @click="$emit('switch-config', mod.modRoot, 'world')"
+      >
+        <span>星系</span>
       </button>
     </div>
 
@@ -32,19 +64,31 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { ModEntry, TableKey } from '../../shared/types';
+import type { ConfigView, ModEntry, TableKey } from '../../shared/types';
 import { MODULE_LABELS } from '../../shared/lib/starsector';
 import { TABLE_KEYS, useTablesStore } from '../../features/tables/tables.store';
 import { useProjectStore } from '../../features/project/project.store';
+import { useWorkspaceStore } from '../../features/workspace/workspace.store';
 
 const props = defineProps<{ mod: ModEntry; isActive: boolean; isExpanded: boolean }>();
-const emit = defineEmits<{ select: []; toggle: []; 'switch-tab': [modRoot: string, tab: TableKey]; remove: [] }>();
+const emit = defineEmits<{
+  select: [];
+  toggle: [];
+  'switch-tab': [modRoot: string, tab: TableKey];
+  'switch-config': [modRoot: string, view: ConfigView];
+  remove: [];
+}>();
 
 const tables = useTablesStore();
 const project = useProjectStore();
+const workspace = useWorkspaceStore();
 const showMenu = ref(false);
 
 const hasDirtyChanges = computed(() => tables.hasModDirtyChanges(props.mod.modRoot));
+const factionCount = computed(() => {
+  const data = project.getModData(props.mod.modRoot);
+  return data?.factionFiles ? Object.keys(data.factionFiles).length : 0;
+});
 
 function getRowCount(key: TableKey): number {
   return project.getModData(props.mod.modRoot)?.[key]?.length ?? 0;

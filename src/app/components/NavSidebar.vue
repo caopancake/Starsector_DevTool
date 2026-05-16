@@ -24,6 +24,7 @@
         @select="workspace.setActiveMod(mod.modRoot)"
         @toggle="workspace.toggleExpanded(mod.modRoot)"
         @switch-tab="onSwitchTab"
+        @switch-config="onSwitchConfig"
         @remove="$emit('remove-mod', mod.modRoot)"
       />
     </div>
@@ -36,7 +37,7 @@ import ModTreeItem from './ModTreeItem.vue';
 import { useWorkspaceStore } from '../../features/workspace/workspace.store';
 import { useTablesStore } from '../../features/tables/tables.store';
 import { useProjectStore } from '../../features/project/project.store';
-import type { TableKey } from '../../shared/types';
+import type { ConfigView, TableKey } from '../../shared/types';
 
 defineProps<{ loading: boolean }>();
 defineEmits<{ 'import-mod': []; 'remove-mod': [modRoot: string] }>();
@@ -49,5 +50,9 @@ function onSwitchTab(modRoot: string, tab: TableKey) {
   workspace.setActiveMod(modRoot);
   const data = project.getModData(modRoot);
   tables.switchTab(tab, data);
+}
+
+function onSwitchConfig(modRoot: string, view: ConfigView) {
+  workspace.setActiveConfig(modRoot, view);
 }
 </script>

@@ -2,11 +2,12 @@ use crate::{
     filesystem,
     models::{
         AddCsvRowPayload, AddShipRowPayload, AddWeaponRowPayload, AppData, DeletePayload,
-        PersistedWorkspace, SaveCsvPayload, SaveJsonPayload, UploadSpritePayload,
-        UploadSpriteResult,
+        FactionPayload, PersistedWorkspace, SaveCsvPayload, SaveJsonPayload, SaveModInfoPayload,
+        UploadSpritePayload, UploadSpriteResult,
     },
     services,
 };
+use serde_json::Value;
 use std::path::Path;
 use tauri::Manager;
 
@@ -73,6 +74,11 @@ pub fn upload_sprite(payload: UploadSpritePayload) -> Result<UploadSpriteResult,
 }
 
 #[tauri::command]
+pub fn save_mod_info(payload: SaveModInfoPayload) -> Result<(), String> {
+    services::save_mod_info(&payload.mod_root, &payload.data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn load_workspace(app_handle: tauri::AppHandle) -> Result<PersistedWorkspace, String> {
     let app_data = app_handle
         .path()
@@ -91,4 +97,20 @@ pub fn save_workspace(
         .app_data_dir()
         .map_err(|e| e.to_string())?;
     services::workspace::save_workspace(&app_data, &state).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_faction(payload: FactionPayload) -> Result<(), String> {
+    let data = payload.data.ok_or_else(|| "missing data".to_string())?;
+    services::save_faction(&payload.mod_root, &payload.id, &data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_faction(payload: FactionPayload) -> Result<Value, String> {
+    services::create_faction(&payload.mod_root, &payload.id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_faction(payload: FactionPayload) -> Result<(), String> {
+    services::delete_faction(&payload.mod_root, &payload.id).map_err(|e| e.to_string())
 }

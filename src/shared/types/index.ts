@@ -14,6 +14,7 @@ export interface AppData {
   coreAvailable: boolean;
   modInfo: RowData;
   factionMeta: Record<string, FactionMeta>;
+  factionFiles: Record<string, RowData>;
   csvHeaders: Record<string, string[]>;
   csvPaths: Record<string, string>;
   ships: RowData[];
@@ -43,4 +44,13 @@ export interface SelectOption {
 
 export type RenderFn = () => VNodeChild;
 
-export type { EditorRef, ModEditorState, ModEntry, ModTableState, PersistedMod, PersistedWorkspace, WorkspaceView } from './workspace';
+export type {
+  ConfigView,
+  EditorRef,
+  ModEditorState,
+  ModEntry,
+  ModTableState,
+  PersistedMod,
+  PersistedWorkspace,
+  WorkspaceView,
+} from './workspace';

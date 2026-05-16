@@ -79,6 +79,25 @@ pub(super) fn detect_faction(id: &str, tags: &str, tag_map: &HashMap<String, Str
     "other".to_string()
 }
 
+pub(super) fn load_faction_files(mod_root: &Path) -> BTreeMap<String, Value> {
+    let mut defs = BTreeMap::new();
+    let dir = mod_root.join("data/world/factions");
+    if !dir.exists() {
+        return defs;
+    }
+    for entry in WalkDir::new(dir).max_depth(1).into_iter().flatten() {
+        if entry.path().extension().and_then(|s| s.to_str()) != Some("faction") {
+            continue;
+        }
+        if let Ok(value) = read_json_file(entry.path()) {
+            if let Some(id) = value.get("id").and_then(Value::as_str) {
+                defs.insert(id.to_string(), value);
+            }
+        }
+    }
+    defs
+}
+
 fn is_faction_blueprint_tag(tag: &str) -> bool {
     tag.contains("_bp")
         && !matches!(

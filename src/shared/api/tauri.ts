@@ -70,3 +70,19 @@ export function loadWorkspace(): Promise<PersistedWorkspace> {
 export function saveWorkspace(state: PersistedWorkspace): Promise<void> {
   return invoke('save_workspace', { state });
 }
+
+export function saveModInfo(modRoot: string, data: RowData): Promise<void> {
+  return invoke('save_mod_info', { payload: { modRoot, data } });
+}
+
+export function saveFaction(modRoot: string, id: string, data: RowData): Promise<void> {
+  return invoke('save_faction', { payload: { modRoot, id, data } });
+}
+
+export function createFaction(modRoot: string, id: string): Promise<RowData> {
+  return invoke('create_faction', { payload: { modRoot, id } });
+}
+
+export function deleteFaction(modRoot: string, id: string): Promise<void> {
+  return invoke('delete_faction', { payload: { modRoot, id } });
+}
