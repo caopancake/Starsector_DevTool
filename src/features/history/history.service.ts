@@ -13,6 +13,8 @@ export function applyUndo(entry: HistoryEntry, tableState: ModTableState | undef
       return applyCsvCellValue(tableState, event.tab, event.rowKey, event.col, event.previousValue);
     case 'editor-save':
       return applyEditorSpec(modData, event.editorKind, event.id, event.previousSpec);
+    case 'config-save':
+      return applyConfigData(modData, event.configKind, event.id, event.previousData);
     case 'sprite-field-write':
       return applyEditorField(modData, event.editorKind, event.id, event.field, event.previousValue);
   }
@@ -29,6 +31,8 @@ export function applyRedo(entry: HistoryEntry, tableState: ModTableState | undef
       return applyCsvCellValue(tableState, event.tab, event.rowKey, event.col, event.newValue);
     case 'editor-save':
       return applyEditorSpec(modData, event.editorKind, event.id, event.newSpec);
+    case 'config-save':
+      return applyConfigData(modData, event.configKind, event.id, event.newData);
     case 'sprite-field-write':
       return applyEditorField(modData, event.editorKind, event.id, event.field, event.newValue);
   }
@@ -65,6 +69,20 @@ function applyEditorSpec(modData: AppData | null, kind: 'ship' | 'weapon' | 'pro
   return true;
 }
 
+function applyConfigData(modData: AppData | null, kind: 'mod-info' | 'faction', id: string, data: RowData): boolean {
+  if (!modData) return false;
+  if (kind === 'mod-info') {
+    modData.modInfo = deepClone(data);
+    return true;
+  }
+  modData.factionFiles[id] = deepClone(data);
+  modData.factionMeta[id] = {
+    name: cell(data.displayName) || cell(data.displayNameLong) || id,
+    color: rgbaToCss(data.color),
+  };
+  return true;
+}
+
 function applyEditorField(modData: AppData | null, kind: 'ship' | 'weapon', id: string, field: string, value: string): boolean {
   if (!modData) return false;
   const store = kind === 'ship' ? modData.shipFiles : modData.wpnFiles;
@@ -72,6 +90,17 @@ function applyEditorField(modData: AppData | null, kind: 'ship' | 'weapon', id: 
   if (!spec) return false;
   spec[field] = value;
   return true;
+}
+
+function rgbaToCss(value: unknown): string {
+  if (Array.isArray(value) && value.length >= 3) {
+    const r = Math.round(Number(value[0]) || 0).toString();
+    const g = Math.round(Number(value[1]) || 0).toString();
+    const b = Math.round(Number(value[2]) || 0).toString();
+    const a = Math.max(0, Math.min(255, Math.round(Number(value[3] ?? 255) || 0))) / 255;
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+  return 'rgba(128, 128, 128, 1)';
 }
 
 /** Resolve row key — mirrors tables.store.ts tableRowKeyForTab */

@@ -1,24 +1,37 @@
 <template>
-  <aside class="faction-list">
-    <header class="faction-list-header">
+  <aside class="faction-list config-entity-list">
+    <header class="faction-list-header config-entity-list-header">
       <h3>势力列表</h3>
     </header>
 
-    <ul class="faction-list-items">
+    <ul class="faction-list-items config-entity-list-items">
       <li
         v-for="faction in factions"
         :key="faction.id"
-        class="faction-list-item"
+        class="faction-list-item config-entity-list-item"
         :class="{ active: faction.id === selectedFaction }"
         @click="selectFaction(faction.id)"
       >
-        <span class="color-swatch" :style="{ backgroundColor: faction.colorHex }" />
-        <span class="faction-name">{{ faction.displayName || faction.id }}</span>
-        <n-button size="tiny" quaternary class="faction-delete-btn" @click.stop="confirmDelete(faction.id)"> &times; </n-button>
+        <span class="faction-list-preview config-entity-thumb">
+          <img v-if="factionCrest(faction.id)" :src="factionCrest(faction.id)" alt="" />
+          <span v-else class="color-swatch" :style="{ backgroundColor: faction.colorCss }" />
+        </span>
+        <span class="faction-name config-entity-name">{{ faction.displayName || faction.id }}</span>
+        <n-button
+          size="tiny"
+          quaternary
+          class="faction-delete-btn config-entity-delete compact-icon-button"
+          title="删除势力"
+          @click.stop="confirmDelete(faction.id)"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6l12 12M18 6 6 18" />
+          </svg>
+        </n-button>
       </li>
     </ul>
 
-    <footer class="faction-list-footer">
+    <footer class="faction-list-footer config-entity-list-footer">
       <n-button size="small" block @click="createFaction">新建势力</n-button>
     </footer>
 
@@ -33,15 +46,29 @@
     >
       <n-input v-model:value="newFactionId" placeholder="输入势力 ID（英文标识）" autofocus />
     </n-modal>
+
+    <n-modal
+      v-model:show="showDeleteDialog"
+      preset="dialog"
+      title="确认删除"
+      positive-text="删除"
+      negative-text="取消"
+      type="error"
+      @positive-click="confirmDeleteSelectedFaction"
+    >
+      <p>确定要从 factions.csv 中删除 "{{ pendingDeleteFaction }}" 吗？</p>
+      <n-checkbox v-model:checked="deleteFactionDataFile">同时删除势力文件</n-checkbox>
+    </n-modal>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import { useProjectStore } from '../../project/project.store';
 import { useSettingsStore } from '../../../app/settings.store';
 import { createFactionFile, deleteFactionFile } from '../config.service';
+import { loadImageDataUrl } from '../../../shared/api/tauri';
 import { formatError } from '../../../shared/lib/errors';
 import type { JsonValue } from '../../../shared/types';
 
@@ -50,28 +77,39 @@ const emit = defineEmits<{ select: [factionId: string] }>();
 const project = useProjectStore();
 const settings = useSettingsStore();
 
-const { message, dialog } = createDiscreteApi(['message', 'dialog'], {
+const { message } = createDiscreteApi(['message'], {
   configProviderProps: computed(() => ({ theme: settings.naiveTheme })),
 });
 
 const selectedFaction = ref<string | null>(null);
 const showCreateDialog = ref(false);
 const newFactionId = ref('');
+const factionCrests = ref<Record<string, string>>({});
+const showDeleteDialog = ref(false);
+const deleteFactionDataFile = ref(false);
+const pendingDeleteFaction = ref('');
 
 interface FactionListItem {
   id: string;
   displayName: string;
-  colorHex: string;
+  colorCss: string;
 }
 
-function rgbToHex(color: JsonValue): string {
+function rgbaToCss(color: JsonValue): string {
   if (Array.isArray(color) && color.length >= 3) {
     const r = Math.round(Number(color[0]) || 0);
     const g = Math.round(Number(color[1]) || 0);
     const b = Math.round(Number(color[2]) || 0);
-    return `rgb(${r}, ${g}, ${b})`;
+    const a = Math.max(0, Math.min(255, Math.round(Number(color[3] ?? 255) || 0))) / 255;
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
   }
-  return 'rgb(128, 128, 128)';
+  return 'rgba(128, 128, 128, 1)';
+}
+
+function str(value: JsonValue | undefined): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  return JSON.stringify(value);
 }
 
 const factions = computed<FactionListItem[]>(() => {
@@ -83,9 +121,35 @@ const factions = computed<FactionListItem[]>(() => {
     .map((id) => ({
       id,
       displayName: String(files[id]?.displayName ?? id),
-      colorHex: rgbToHex(files[id]?.color),
+      colorCss: rgbaToCss(files[id]?.color),
     }));
 });
+
+function factionCrest(id: string): string {
+  return factionCrests.value[id] ?? '';
+}
+
+async function refreshFactionCrests() {
+  const modData = project.activeModData;
+  if (!modData) {
+    factionCrests.value = {};
+    return;
+  }
+  const coreRoot = settings.starsectorRoot || modData.starsectorRoot || undefined;
+  const crests: Record<string, string> = {};
+  await Promise.all(
+    Object.entries(modData.factionFiles).map(async ([id, data]) => {
+      const crest = str(data.crest);
+      if (!crest) return;
+      try {
+        crests[id] = (await loadImageDataUrl(modData.modRoot, crest, coreRoot)) ?? '';
+      } catch {
+        crests[id] = '';
+      }
+    }),
+  );
+  factionCrests.value = crests;
+}
 
 function selectFaction(id: string) {
   selectedFaction.value = id;
@@ -116,8 +180,13 @@ async function doCreate() {
   try {
     const data = await createFactionFile(modData.modRoot, trimmedId);
     modData.factionFiles[trimmedId] = data;
+    modData.factionMeta[trimmedId] = {
+      name: String(data.displayName ?? trimmedId),
+      color: rgbaToCss(data.color),
+    };
     message.success(`势力 "${trimmedId}" 已创建`);
     showCreateDialog.value = false;
+    await refreshFactionCrests();
     selectFaction(trimmedId);
   } catch (error) {
     message.error(formatError(error));
@@ -125,22 +194,27 @@ async function doCreate() {
 }
 
 function confirmDelete(id: string) {
-  dialog.warning({
-    title: '确认删除',
-    content: `确定要删除势力 "${id}" 吗？此操作不可撤销。`,
-    positiveText: '删除',
-    negativeText: '取消',
-    onPositiveClick: () => doDelete(id),
-  });
+  pendingDeleteFaction.value = id;
+  deleteFactionDataFile.value = false;
+  showDeleteDialog.value = true;
 }
 
-async function doDelete(id: string) {
+async function confirmDeleteSelectedFaction() {
+  if (!pendingDeleteFaction.value) return false;
+  await doDelete(pendingDeleteFaction.value, deleteFactionDataFile.value);
+  pendingDeleteFaction.value = '';
+  return true;
+}
+
+async function doDelete(id: string, deleteFile: boolean) {
   const modData = project.activeModData;
   if (!modData) return;
 
   try {
-    await deleteFactionFile(modData.modRoot, id);
+    await deleteFactionFile(modData.modRoot, id, deleteFile);
     delete modData.factionFiles[id];
+    delete modData.factionMeta[id];
+    delete factionCrests.value[id];
     if (selectedFaction.value === id) {
       selectedFaction.value = null;
       emit('select', '');
@@ -150,81 +224,10 @@ async function doDelete(id: string) {
     message.error(formatError(error));
   }
 }
+
+watch(
+  () => project.activeModRoot,
+  () => refreshFactionCrests(),
+  { immediate: true },
+);
 </script>
-
-<style scoped>
-.faction-list {
-  width: 240px;
-  min-width: 200px;
-  border-right: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.faction-list-header {
-  padding: 16px 16px 12px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.faction-list-header h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.faction-list-items {
-  list-style: none;
-  margin: 0;
-  padding: 8px 0;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.faction-list-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 16px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: background 0.15s;
-}
-
-.faction-list-item:hover {
-  background: var(--color-surface-hover);
-}
-
-.faction-list-item.active {
-  background: var(--color-surface-active);
-}
-
-.color-swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  border: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-.faction-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.faction-delete-btn {
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.faction-list-item:hover .faction-delete-btn {
-  opacity: 1;
-}
-
-.faction-list-footer {
-  padding: 12px 16px;
-  border-top: 1px solid var(--color-border);
-}
-</style>

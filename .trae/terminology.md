@@ -544,7 +544,7 @@
 ## 社区库术语（Community Libraries）
 
 `MagicLib`
-- 说明：Starsector 社区核心库，提供 MagicRender（粒子/光束/拖尾效果）、MagicBarEvent（JSON 驱动对话）、MagicCampaign（战役工具）等 API。蓝图系统集成其视觉效果节点和对话导出格式。
+- 说明：Starsector 社区核心库，提供 MagicRender（粒子/光束/拖尾效果）、MagicBarEvent（JSON 驱动对话）、MagicCampaign（生涯工具）等 API。蓝图系统集成其视觉效果节点和对话导出格式。
 
 `GraphicsLib`
 - 说明：图形增强库，提供 ShaderAPI（光照/泛光/扭曲/涟漪后处理）。蓝图系统将其着色器参数暴露为视觉效果节点。

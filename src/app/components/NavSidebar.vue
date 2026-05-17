@@ -5,10 +5,20 @@
     </div>
 
     <div class="nav-section nav-workspace-links">
-      <button class="nav-button" :class="{ active: workspace.currentView === 'overview' }" @click="workspace.navigateTo('overview')">
-        <span class="nav-text">概览</span>
+      <button
+        type="button"
+        class="nav-button"
+        :class="{ active: workspace.currentView === 'overview' }"
+        @click="workspace.navigateTo('overview')"
+      >
+        <span class="nav-text">总览</span>
       </button>
-      <button class="nav-button" :class="{ active: workspace.currentView === 'settings' }" @click="workspace.navigateTo('settings')">
+      <button
+        type="button"
+        class="nav-button"
+        :class="{ active: workspace.currentView === 'settings' }"
+        @click="workspace.navigateTo('settings')"
+      >
         <span class="nav-text">设置</span>
       </button>
     </div>
@@ -47,7 +57,7 @@ const tables = useTablesStore();
 const project = useProjectStore();
 
 function onSwitchTab(modRoot: string, tab: TableKey) {
-  workspace.setActiveMod(modRoot);
+  workspace.setActiveTable(modRoot);
   const data = project.getModData(modRoot);
   tables.switchTab(tab, data);
 }

@@ -192,9 +192,9 @@
               </div>
             </n-collapse-item>
             <n-collapse-item v-if="localWeapon.specClass === 'beam'" title="光束" name="beam">
-              <ColorArray label="fringeColor" v-model="fringeColor" />
-              <ColorArray label="coreColor" v-model="coreColor" />
-              <ColorArray label="glowColor" v-model="glowColor" />
+              <ColorPicker label="fringeColor" v-model="fringeColor" />
+              <ColorPicker label="coreColor" v-model="coreColor" />
+              <ColorPicker label="glowColor" v-model="glowColor" />
               <div class="form-grid">
                 <label>width</label><n-input-number v-model:value="localWeapon.width" /> <label>textureType</label
                 ><n-select :options="opts(['ROUGH', 'SMOOTH', 'NONE'])" v-model:value="localWeapon.textureType" />
@@ -227,7 +227,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useDialog, useMessage } from 'naive-ui';
-import ColorArray from './common/ColorArray.vue';
+import ColorPicker from '../../../shared/components/ColorPicker.vue';
 import EditorFooter from './common/EditorFooter.vue';
 import EditorHeader from './common/EditorHeader.vue';
 import EditorInspector from './common/EditorInspector.vue';

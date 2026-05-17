@@ -1,10 +1,10 @@
 use crate::{
     filesystem,
     models::{
-        AddCsvRowPayload, AddShipRowPayload, AddWeaponRowPayload, AppData, CampaignCsvPayload,
-        CsvTable, DeletePayload, FactionPayload, PersistedWorkspace, SaveCsvPayload,
-        SaveJsonPayload, SaveModInfoPayload, UploadSpritePayload, UploadSpriteResult,
-        WorldFilePayload,
+        AddCsvRowPayload, AddShipRowPayload, AddWeaponRowPayload, AppData, CsvTable, DeletePayload,
+        FactionPayload, MissionData, MissionListCsvPayload, MissionPayload, PersistedWorkspace,
+        SaveCsvPayload, SaveJsonPayload, SaveModInfoPayload, UploadSpritePayload,
+        UploadSpriteResult,
     },
     services,
 };
@@ -114,42 +114,50 @@ pub fn create_faction(payload: FactionPayload) -> Result<Value, String> {
 
 #[tauri::command]
 pub fn delete_faction(payload: FactionPayload) -> Result<(), String> {
-    services::delete_faction(&payload.mod_root, &payload.id).map_err(|e| e.to_string())
+    services::delete_faction(
+        &payload.mod_root,
+        &payload.id,
+        payload.delete_file.unwrap_or(false),
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn scan_campaign(mod_root: String) -> Vec<String> {
-    services::scan_campaign_files(&mod_root)
+pub fn scan_mission_list(mod_root: String) -> Vec<String> {
+    services::scan_mission_list_files(&mod_root)
 }
 
 #[tauri::command]
-pub fn load_campaign_csv(payload: CampaignCsvPayload) -> Result<CsvTable, String> {
-    services::load_campaign_csv(&payload.mod_root, &payload.rel_path).map_err(|e| e.to_string())
+pub fn load_mission_list_csv(payload: MissionListCsvPayload) -> Result<CsvTable, String> {
+    services::load_mission_list_csv(&payload.mod_root, &payload.rel_path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn save_campaign_csv(payload: CampaignCsvPayload) -> Result<(), String> {
+pub fn save_mission_list_csv(payload: MissionListCsvPayload) -> Result<(), String> {
     let header = payload.header.ok_or_else(|| "missing header".to_string())?;
     let rows = payload.rows.ok_or_else(|| "missing rows".to_string())?;
-    services::save_campaign_csv(&payload.mod_root, &payload.rel_path, &header, &rows)
+    services::save_mission_list_csv(&payload.mod_root, &payload.rel_path, &header, &rows)
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn scan_world_files(mod_root: String) -> Vec<String> {
-    services::scan_world_files(&mod_root)
+pub fn load_mission(payload: MissionPayload) -> Result<MissionData, String> {
+    services::load_mission(&payload.mod_root, &payload.mission).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn load_world_file(payload: WorldFilePayload) -> Result<Value, String> {
-    services::load_world_file(&payload.mod_root, &payload.rel_path).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn save_world_file(payload: WorldFilePayload) -> Result<(), String> {
-    let data = payload.data.ok_or_else(|| "missing data".to_string())?;
-    services::save_world_file(&payload.mod_root, &payload.rel_path, &data)
+pub fn save_mission(payload: MissionPayload) -> Result<(), String> {
+    let descriptor = payload
+        .descriptor
+        .ok_or_else(|| "missing descriptor".to_string())?;
+    let text = payload.text.ok_or_else(|| "missing text".to_string())?;
+    services::save_mission(&payload.mod_root, &payload.mission, &descriptor, &text)
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_mission_dir(payload: MissionPayload) -> Result<(), String> {
+    services::delete_mission_dir(&payload.mod_root, &payload.mission).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

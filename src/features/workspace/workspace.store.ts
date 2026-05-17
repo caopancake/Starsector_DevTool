@@ -7,7 +7,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const mods = ref<Map<string, ModEntry>>(new Map());
   const activeModRoot = ref<string | null>(null);
   const currentView = ref<WorkspaceView>('overview');
-  const configView = ref<ConfigView>('mod-info');
+  const configView = ref<ConfigView>('mod-overview');
   const expandedMods = ref<Set<string>>(new Set());
 
   const activeMod = computed(() => (activeModRoot.value ? (mods.value.get(activeModRoot.value) ?? null) : null));
@@ -42,6 +42,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   function setActiveMod(modRoot: string) {
+    if (!mods.value.has(modRoot)) return;
+    activeModRoot.value = modRoot;
+    currentView.value = 'config';
+    configView.value = 'mod-overview';
+  }
+
+  function setActiveTable(modRoot: string) {
     if (!mods.value.has(modRoot)) return;
     activeModRoot.value = modRoot;
     currentView.value = 'table';
@@ -106,6 +113,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     restoreFrom,
     setActiveConfig,
     setActiveMod,
+    setActiveTable,
     toPersistedState,
     toggleExpanded,
     updateModInfo,

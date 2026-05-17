@@ -21,8 +21,8 @@
                 ><n-input-number v-model:value="localProjectile.textureScrollSpeed" /> <label>pixelsPerTexel</label
                 ><n-input-number v-model:value="localProjectile.pixelsPerTexel" />
               </div>
-              <ColorArray label="fringeColor" v-model="fringeColor" />
-              <ColorArray label="coreColor" v-model="coreColor" />
+              <ColorPicker label="fringeColor" v-model="fringeColor" />
+              <ColorPicker label="coreColor" v-model="coreColor" />
               <input type="file" accept="image/png" @change="uploadSpriteFile('bulletSprite', $event)" />
             </n-collapse-item>
             <n-collapse-item title="碰撞与消散" name="collision">
@@ -62,7 +62,7 @@
                 ><n-input-number :value="center[1]" @update:value="setArray('center', 1, $event)" /> <label>collisionRadius</label
                 ><n-input-number v-model:value="localProjectile.collisionRadius" />
               </div>
-              <ColorArray label="explosionColor" v-model="explosionColor" />
+              <ColorPicker label="explosionColor" v-model="explosionColor" />
               <input type="file" accept="image/png" @change="uploadSpriteFile('sprite', $event)" />
             </n-collapse-item>
             <n-collapse-item title="引擎参数" name="engine">
@@ -107,7 +107,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useDialog, useMessage } from 'naive-ui';
-import ColorArray from './common/ColorArray.vue';
+import ColorPicker from '../../../shared/components/ColorPicker.vue';
 import EditorFooter from './common/EditorFooter.vue';
 import EditorHeader from './common/EditorHeader.vue';
 import ObjectEditor from './common/ObjectEditor.vue';

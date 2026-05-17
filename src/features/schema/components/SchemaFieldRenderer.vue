@@ -46,28 +46,40 @@
       />
 
       <!-- boolean -->
-      <n-switch v-else-if="field.type === 'boolean'" :value="boolVal" size="small" @update:value="emit('update', $event)" />
+      <n-switch
+        v-else-if="field.type === 'boolean'"
+        class="tool-switch field-switch"
+        :value="boolVal"
+        size="small"
+        @update:value="emit('update', $event)"
+      />
 
       <!-- enum -->
       <n-select
         v-else-if="field.type === 'enum'"
+        :show="selectOpen"
         :value="strVal"
         :options="enumOptions"
         size="small"
         clearable
+        @mousedown.capture="closeOpenSelectOnFieldClick"
+        @update:show="handleSelectShowUpdate"
         @update:value="emit('update', $event)"
       />
 
-      <!-- color-rgb -->
-      <ColorArrayInput
-        v-else-if="field.type === 'color-rgb'"
+      <!-- color-rgba -->
+      <ColorPicker
+        v-else-if="field.type === 'color-rgb' || field.type === 'color-rgba'"
         :model-value="props.value as JsonValue"
+        :channels="field.type === 'color-rgb' ? 'rgb' : 'rgba'"
+        :output="field.type === 'color-rgb' ? 'rgb-array' : 'rgba-array'"
         @update:model-value="emit('update', $event)"
       />
 
       <!-- path-image: searchable dropdown + file picker -->
       <div v-else-if="field.type === 'path-image'" class="path-field">
         <n-select
+          :show="selectOpen"
           :value="strVal || null"
           :options="graphicsOptions"
           :render-label="renderGraphicsLabel"
@@ -76,25 +88,34 @@
           tag
           size="small"
           placeholder="搜索或输入图片路径"
-          style="flex: 1"
+          class="path-select"
+          @mousedown.capture="closeOpenSelectOnFieldClick"
+          @update:show="handleSelectShowUpdate"
           @update:value="emit('update', $event ?? '')"
         />
-        <n-button size="small" quaternary title="选择文件" @click="pickFile">
-          <template #icon><span class="pick-icon">📂</span></template>
+        <n-button class="compact-icon-button" size="small" quaternary title="选择文件" @click="pickFile">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 19V5h6l2 2h8v12H4z" />
+            <path d="M8 14h8M12 10v8" />
+          </svg>
         </n-button>
       </div>
 
       <!-- path: input + file picker (no image dropdown) -->
       <div v-else-if="field.type === 'path'" class="path-field">
         <n-input :value="strVal" size="small" @update:value="emit('update', $event)" />
-        <n-button size="small" quaternary title="选择文件" @click="pickFile">
-          <template #icon><span class="pick-icon">📂</span></template>
+        <n-button class="compact-icon-button" size="small" quaternary title="选择文件" @click="pickFile">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 19V5h6l2 2h8v12H4z" />
+            <path d="M8 14h8M12 10v8" />
+          </svg>
         </n-button>
       </div>
 
       <!-- string-array -->
       <n-select
         v-else-if="field.type === 'string-array'"
+        :show="selectOpen"
         :value="arrVal"
         :options="sourceOptions.length > 0 ? sourceOptions : arrVal.map((v) => ({ label: v, value: v }))"
         :render-label="hasSprites ? renderSelectLabel : undefined"
@@ -102,12 +123,15 @@
         filterable
         tag
         size="small"
+        @mousedown.capture="closeOpenSelectOnFieldClick"
+        @update:show="handleSelectShowUpdate"
         @update:value="emit('update', $event)"
       />
 
       <!-- tag-select -->
       <n-select
         v-else-if="field.type === 'tag-select'"
+        :show="selectOpen"
         :value="tagSelectVal"
         :options="sourceOptions"
         :render-label="hasSprites ? renderSelectLabel : undefined"
@@ -115,6 +139,8 @@
         filterable
         tag
         size="small"
+        @mousedown.capture="closeOpenSelectOnFieldClick"
+        @update:show="handleSelectShowUpdate"
         @update:value="emit('update', wrapTags($event))"
       />
 
@@ -122,16 +148,23 @@
       <div v-else-if="field.type === 'key-value'" class="key-value-editor">
         <div v-for="(entry, idx) in kvEntries" :key="idx" class="kv-row">
           <n-select
+            :show="kvSelectOpen[idx]"
             :value="entry.key"
             :options="kvKeyOptions"
             filterable
             tag
             size="small"
-            style="width: 180px"
+            class="kv-key-select"
+            @mousedown.capture="closeOpenKvSelectOnFieldClick($event, idx)"
+            @update:show="handleKvSelectShowUpdate(idx, $event)"
             @update:value="updateKvKey(idx, $event)"
           />
-          <n-input :value="formatKvVal(entry.val)" size="small" style="flex: 1" @update:value="updateKvVal(idx, $event)" />
-          <n-button size="tiny" quaternary @click="removeKvEntry(idx)">✕</n-button>
+          <n-input :value="formatKvVal(entry.val)" class="kv-value-input" size="small" @update:value="updateKvVal(idx, $event)" />
+          <n-button class="compact-icon-button" size="tiny" quaternary title="删除" @click="removeKvEntry(idx)">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </n-button>
         </div>
         <n-button size="tiny" @click="addKvEntry">+ 添加</n-button>
       </div>
@@ -154,7 +187,11 @@
         <div v-for="(item, idx) in arrayItems" :key="idx" class="array-item">
           <div class="array-item-header">
             <span class="array-item-index">#{{ idx + 1 }}</span>
-            <n-button size="tiny" quaternary @click="removeArrayItem(idx)">✕</n-button>
+            <n-button class="compact-icon-button" size="tiny" quaternary title="删除" @click="removeArrayItem(idx)">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </n-button>
           </div>
           <SchemaFieldRenderer
             v-for="sub in field.nested"
@@ -174,18 +211,19 @@
 
       <!-- Warning text -->
       <span v-if="field.warning" class="field-warning">{{ field.warning }}</span>
+      <span v-if="field.danger" class="field-danger">{{ field.danger }}</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, h } from 'vue';
+import { computed, h, ref } from 'vue';
 import { open } from '@tauri-apps/plugin-dialog';
 import type { AppData, JsonValue } from '../../../shared/types';
 import type { FieldSchema } from '../schema.types';
 import type { SelectOption } from '../schema.service';
 import { resolveSource } from '../schema.service';
-import ColorArrayInput from '../../config/components/ColorArrayInput.vue';
+import ColorPicker from '../../../shared/components/ColorPicker.vue';
 import { useCoreGraphics } from '../composables/useCoreGraphics';
 
 const { graphicsPaths, loadGraphics } = useCoreGraphics();
@@ -248,6 +286,10 @@ function wrapTags(tags: string[]): unknown {
 // ─── Source / enum options ────────────────────────────────────────────
 
 const sourceOptions = computed(() => resolveSource(props.field.source, props.appData));
+const selectOpen = ref(false);
+const suppressNextSelectOpen = ref(false);
+const kvSelectOpen = ref<Record<number, boolean>>({});
+const suppressNextKvSelectOpen = ref<Record<number, boolean>>({});
 
 // Check if any source option has a sprite — enables thumbnail rendering
 const hasSprites = computed(() => sourceOptions.value.some((o) => o.sprite));
@@ -255,12 +297,12 @@ const hasSprites = computed(() => sourceOptions.value.some((o) => o.sprite));
 // Render label with optional thumbnail for n-select options
 function renderSelectLabel(option: SelectOption & { label?: string; value?: string }) {
   if (!option.sprite) return option.label ?? option.value ?? '';
-  return h('span', { style: 'display:flex;align-items:center;gap:6px' }, [
+  return h('span', { class: 'schema-select-option' }, [
     h('img', {
       src: option.sprite,
-      style: 'width:20px;height:20px;object-fit:contain;image-rendering:pixelated;border-radius:2px;flex-shrink:0',
+      class: 'schema-select-option-thumb',
     }),
-    h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, option.label ?? option.value ?? ''),
+    h('span', { class: 'schema-select-option-label' }, option.label ?? option.value ?? ''),
   ]);
 }
 
@@ -301,7 +343,7 @@ const graphicsOptions = computed(() => {
 function renderGraphicsLabel(option: SelectOption & { label?: string; value?: string }) {
   const path = option.value ?? '';
   const filename = path.split('/').pop() ?? path;
-  return h('span', { title: path, style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, filename);
+  return h('span', { title: path, class: 'schema-select-option-label' }, filename);
 }
 
 // For key-value fields: merge source options with existing keys as candidates
@@ -422,6 +464,13 @@ function updateKvVal(idx: number, newVal: string) {
 function removeKvEntry(idx: number) {
   const entries = [...kvEntries.value];
   entries.splice(idx, 1);
+  const nextOpen: Record<number, boolean> = {};
+  for (const [key, value] of Object.entries(kvSelectOpen.value)) {
+    const keyIndex = Number(key);
+    if (keyIndex < idx) nextOpen[keyIndex] = value;
+    if (keyIndex > idx) nextOpen[keyIndex - 1] = value;
+  }
+  kvSelectOpen.value = nextOpen;
   emit('update', rebuildKvObject(entries));
 }
 
@@ -498,112 +547,42 @@ async function pickFile() {
     emit('update', normalized);
   }
 }
+
+function closeOpenSelectOnFieldClick(event: MouseEvent) {
+  if (!selectOpen.value || shouldLetSelectClickPass(event)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  suppressNextSelectOpen.value = true;
+  selectOpen.value = false;
+  window.setTimeout(() => {
+    suppressNextSelectOpen.value = false;
+  });
+}
+
+function closeOpenKvSelectOnFieldClick(event: MouseEvent, idx: number) {
+  if (!kvSelectOpen.value[idx] || shouldLetSelectClickPass(event)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  suppressNextKvSelectOpen.value = { ...suppressNextKvSelectOpen.value, [idx]: true };
+  kvSelectOpen.value[idx] = false;
+  window.setTimeout(() => {
+    suppressNextKvSelectOpen.value = { ...suppressNextKvSelectOpen.value, [idx]: false };
+  });
+}
+
+function handleSelectShowUpdate(show: boolean) {
+  if (show && suppressNextSelectOpen.value) return;
+  selectOpen.value = show;
+}
+
+function handleKvSelectShowUpdate(idx: number, show: boolean) {
+  if (show && suppressNextKvSelectOpen.value[idx]) return;
+  kvSelectOpen.value[idx] = show;
+}
+
+function shouldLetSelectClickPass(event: MouseEvent): boolean {
+  const target = event.target as { closest?: (selector: string) => unknown } | null;
+  if (!target?.closest) return false;
+  return Boolean(target.closest('.n-base-selection-tag__close, .n-tag__close, .n-base-close, .n-base-selection__clear'));
+}
 </script>
-
-<style scoped>
-.schema-field {
-  display: grid;
-  grid-template-columns: 110px 1fr;
-  gap: 4px 8px;
-  align-items: start;
-  padding: 3px 0;
-  min-width: 0;
-}
-
-.schema-field.nested-row {
-  padding-left: 12px;
-}
-
-.field-label {
-  font-size: 11px;
-  color: var(--color-muted);
-  padding-top: 5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: default;
-}
-
-.field-control {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.field-warning {
-  font-size: 10px;
-  color: var(--color-warning);
-}
-
-.nested-object {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 4px 0 4px 8px;
-  border-left: 2px solid var(--color-border);
-  min-width: 0;
-  overflow: hidden;
-}
-
-.array-of-object {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.array-item {
-  padding: 6px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  min-width: 0;
-  overflow: hidden;
-  background: var(--color-surface);
-}
-
-.array-item-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2px;
-}
-
-.array-item-index {
-  font-size: 10px;
-  color: var(--color-muted);
-  font-weight: 600;
-}
-
-.key-value-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.kv-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.path-field {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.path-field .n-input {
-  flex: 1;
-}
-
-.pick-icon {
-  font-size: 12px;
-  line-height: 1;
-}
-</style>

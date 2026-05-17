@@ -26,6 +26,7 @@ pub struct AppData {
     pub mod_info: Value,
     pub faction_meta: BTreeMap<String, FactionMeta>,
     pub faction_files: BTreeMap<String, Value>,
+    pub mission_count: usize,
     pub csv_headers: BTreeMap<String, Vec<String>>,
     pub csv_paths: BTreeMap<String, String>,
     pub ships: Vec<Map<String, Value>>,

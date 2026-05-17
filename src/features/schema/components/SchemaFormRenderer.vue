@@ -2,7 +2,11 @@
   <div class="schema-form">
     <div v-for="section in sections" :key="section.id" class="schema-section">
       <div class="section-header" @click="toggleSection(section.id)">
-        <span class="section-chevron" :class="{ collapsed: collapsedSections.has(section.id) }">▶</span>
+        <span class="section-chevron" :class="{ collapsed: collapsedSections.has(section.id) }">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M6 4l4 4-4 4" />
+          </svg>
+        </span>
         {{ section.label }}
       </div>
       <div v-show="!collapsedSections.has(section.id)" class="section-fields">
@@ -20,21 +24,25 @@
     <!-- Extra fields: data keys not defined in schema -->
     <div v-if="extraKeys.length > 0" class="schema-section">
       <div class="section-header" @click="toggleSection('__extra')">
-        <span class="section-chevron" :class="{ collapsed: collapsedSections.has('__extra') }">▶</span>
+        <span class="section-chevron" :class="{ collapsed: collapsedSections.has('__extra') }">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M6 4l4 4-4 4" />
+          </svg>
+        </span>
         额外字段 ({{ extraKeys.length }})
       </div>
       <div v-show="!collapsedSections.has('__extra')" class="section-fields">
-        <JsonFieldEditor :model-value="modelValue" :known-keys="schemaKeys" @update:model-value="emit('update:modelValue', $event)" />
+        <JsonFieldEditor :model-value="extraModelValue" :known-keys="extraKnownKeys" @update:model-value="onExtraUpdate" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from 'vue';
+import { computed, reactive, watch } from 'vue';
 import type { AppData, RowData } from '../../../shared/types';
 import type { FileSchema, SectionSchema } from '../schema.types';
-import { getSections, getSchemaKeys, getNestedValue, setNestedValue } from '../schema.service';
+import { getExtraFieldSource, getNestedValue, getSchemaKeys, getSections, isMultiSourceSchema, setNestedValue } from '../schema.service';
 import SchemaFieldRenderer from './SchemaFieldRenderer.vue';
 import JsonFieldEditor from '../../config/components/JsonFieldEditor.vue';
 
@@ -52,22 +60,43 @@ const sections = computed<SectionSchema[]>(() => getSections(props.schema));
 
 const schemaKeys = computed<string[]>(() => getSchemaKeys(props.schema));
 
+const extraSource = computed(() => getExtraFieldSource(props.schema));
+
+const extraModelValue = computed<RowData>(() => {
+  if (!isMultiSourceSchema(props.schema)) return props.modelValue;
+  const sourceId = extraSource.value;
+  if (!sourceId) return {};
+  const sourceValue = props.modelValue[sourceId];
+  return sourceValue && typeof sourceValue === 'object' && !Array.isArray(sourceValue) ? (sourceValue as RowData) : {};
+});
+
+const extraKnownKeys = computed<string[]>(() => {
+  if (!isMultiSourceSchema(props.schema)) return schemaKeys.value;
+  const sourceId = extraSource.value;
+  if (!sourceId) return [];
+  return schemaKeys.value.filter((key) => key.startsWith(`${sourceId}.`)).map((key) => key.slice(sourceId.length + 1));
+});
+
 const extraKeys = computed<string[]>(() =>
-  Object.keys(props.modelValue).filter((k) => !k.startsWith('_') && !schemaKeys.value.includes(k)),
+  Object.keys(extraModelValue.value).filter((key) => !key.startsWith('_') && !extraKnownKeys.value.includes(key)),
 );
 
-// Track collapsed state
 const collapsedSections = reactive(new Set<string>());
 
-// Initialize collapsed state from schema defaults
-const initCollapsed = () => {
+function syncCollapsedSections() {
+  collapsedSections.clear();
   for (const section of sections.value) {
     if (section.collapsed) {
       collapsedSections.add(section.id);
     }
   }
-};
-initCollapsed();
+}
+
+watch(
+  () => `${props.schema.id}:${sections.value.map((section) => `${section.id}:${section.collapsed ? '1' : '0'}`).join('|')}`,
+  syncCollapsedSections,
+  { immediate: true },
+);
 
 function toggleSection(id: string) {
   if (collapsedSections.has(id)) {
@@ -81,59 +110,14 @@ function onFieldUpdate(key: string, value: unknown) {
   const updated = setNestedValue(props.modelValue, key, value);
   emit('update:modelValue', updated);
 }
+
+function onExtraUpdate(value: RowData) {
+  if (!isMultiSourceSchema(props.schema)) {
+    emit('update:modelValue', value);
+    return;
+  }
+  const sourceId = extraSource.value;
+  if (!sourceId) return;
+  emit('update:modelValue', setNestedValue(props.modelValue, sourceId, value));
+}
 </script>
-
-<style scoped>
-.schema-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.schema-section {
-  background: var(--color-panel-muted);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  margin-bottom: 6px;
-  overflow: hidden;
-}
-
-.section-header {
-  cursor: pointer;
-  user-select: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-soft);
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-  transition: background 0.1s;
-}
-
-.section-header:hover {
-  background: var(--color-surface-hover);
-}
-
-.section-chevron {
-  display: inline-block;
-  font-size: 9px;
-  transition: transform 0.15s ease;
-  transform: rotate(90deg);
-  color: var(--color-muted);
-}
-
-.section-chevron.collapsed {
-  transform: rotate(0deg);
-}
-
-.section-fields {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 12px;
-  gap: 0;
-}
-</style>

@@ -115,6 +115,18 @@ export function cell(value: JsonValue | undefined): string {
   return JSON.stringify(value);
 }
 
+export function formatModVersion(value: JsonValue | undefined): string {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const major = value.major;
+    const minor = value.minor;
+    const patch = value.patch;
+    if (typeof major === 'number' && typeof minor === 'number' && typeof patch === 'number') {
+      return `${major}.${minor}.${patch}`;
+    }
+  }
+  return cell(value);
+}
+
 export function num(value: JsonValue | undefined, fallback = 0): number {
   const n = typeof value === 'number' ? value : parseFloat(cell(value));
   return Number.isFinite(n) ? n : fallback;

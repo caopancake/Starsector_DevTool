@@ -1,174 +1,154 @@
 # Module Map
 
-本文档记录当前模块地图和调用边界，用于后续重构时判断是否过拆或跨层。
+本文档只记录当前已实现的模块、架构边界和调用链设计。未实现的目标、候选设计和参考内容见 `.trae/reference.md`。
 
 具体舰船、武器、弹体、联队、船插、工业的编辑调用链见 `.trae/editor-flows.md`。术语统一口径见 `.trae/terminology.md`。
 
 ## Frontend
 
+### App Shell
+
 - `src/main.ts`：应用挂载入口。
-- `src/app/App.vue`：应用壳、workspace 视图路由、导入/移除 Mod 编排。
+- `src/app/App.vue`：应用壳，负责 workspace 视图路由、导入/移除 Mod 编排、启动恢复和全局 provider 下的主布局。
 - `src/app/TitleBar.vue`：自定义窗口标题栏，集中处理主题切换和窗口控制，显示当前 Mod 名。
-- `src/app/settings.store.ts`：应用级设置状态，当前负责主题持久化。
-- `src/app/components/NavSidebar.vue`：左侧导航面板，包含导入按钮、概览/设置链接和 Mod 树。
-- `src/app/components/ModTreeItem.vue`：单个 Mod 树节点，展开显示数据模块。
-- `src/app/components/OverviewPage.vue`：工作区概览页，显示已导入 Mod 卡片。
-- `src/app/components/SettingsPage.vue`：设置页，承载主题等配置。
-- `src/app/components/TableWorkspace.vue`：数据表格工作区（从 App.vue 提取），包含顶栏操作和表格/详情布局。
-- `src/app/DataTable.vue`：主数据表格视图，包含单元格编辑和 Vue ref 聚焦。
-- `src/app/DetailPane.vue`：右侧记录详情面板，包含缩略图、操作按钮、KV 列表。
-- `src/app/EditorsHost.vue`：编辑器弹窗宿主，管理舰船/武器/弹体编辑器和发射预览。
-- `src/app/providers/`：全局 provider 初始化。
-- `src/features/workspace/`：工作区编排状态（Mod 列表、活动 Mod、视图路由）。
-- `src/features/project/`：项目打开、目录选择 service、per-Mod 数据缓存（Map<modRoot, AppData>）。
-- `src/features/tables/`：per-Mod CSV 表格状态（stateMap）、dirty tracking、单元格编辑、行选择、保存/新建/删除流程。
-- `src/features/editors/`：per-Mod 编辑器状态、舰船/武器/弹体编辑体验、发射预览。
-- `src/features/editors/components/common/`：编辑器内稳定共享结构组件和小型字段组件，例如 header、footer、inspector、颜色数组和对象编辑器。
-- `src/features/editors/composables/`：编辑器共享交互能力，例如画布视口、绘制辅助、局部历史、快捷键作用域和贴图上传。
-- `src/features/editors/lib/`：编辑器通用格式化、规范化、视觉绘制 helper、常量。
-- `src/features/history/`：全局修改链路和统一 undo/redo 历史系统。
-- `src/features/history/history.types.ts`：统一修改事件模型类型（CsvCellEditEvent、EditorSaveEvent、SpriteFieldWriteEvent、HistoryEntry、HistoryBarrier、HistoryCheckpoint）。
-- `src/features/history/history.store.ts`：Pinia store，per-Mod 隔离的 undo/redo 栈，push/undo/redo/trim/barrier/checkpoint 逻辑。
-- `src/features/history/history.service.ts`：apply undo/redo 纯函数，根据事件类型修改 tableState 或 modData。
-- `src/features/history/composables/useGlobalShortcuts.ts`：主界面 Ctrl+Z/Y 监听器，编辑器打开时让步。
-- `src/features/config/`：配置模块编辑功能（mod_info、势力、战役、星系）。
-- `src/features/config/config.store.ts`：配置模块 per-Mod 状态管理（modInfo snapshot、dirty 追踪）。
-- `src/features/config/config.service.ts`：配置模块保存 service，封装 Tauri command 调用。
-- `src/features/config/components/ConfigWorkspace.vue`：配置模块主容器，根据 configView 路由到子组件。
-- `src/features/config/components/ModInfoEditor.vue`：mod_info.json 结构化表单 + JSON 兜底编辑。
-- `src/features/config/components/JsonFieldEditor.vue`：通用 JSON 字段编辑器（未知字段兜底）。
-- `src/features/config/components/FactionList.vue`：势力列表（颜色色块预览 + 新建/删除）。
-- `src/features/config/components/FactionEditor.vue`：势力详情表单（颜色、标签、描述等）。
-- `src/features/config/components/ColorArrayInput.vue`：[R,G,B] 颜色输入 + 实时色块预览。
-- `src/features/config/components/CampaignView.vue`：战役 CSV 文件列表 + 可编辑表格 + 保存。
-- `src/features/config/components/WorldFilesView.vue`：星系 JSON 文件列表 + 通用 JSON 编辑。
-- `src/features/schema/`：Schema Registry 系统，声明式字段模式驱动编辑器 UI。
-- `src/features/schema/schema.types.ts`：Schema 文件格式类型定义（FieldSchema、SectionSchema、FileSchema）。
-- `src/features/schema/schema.service.ts`：Schema 加载、数据源解析（resolveSource）、嵌套值读写。
-- `src/features/schema/components/SchemaFormRenderer.vue`：通用 schema 驱动表单渲染器（按 section 分组 + 额外字段兜底）。
-- `src/features/schema/components/SchemaFieldRenderer.vue`：单字段渲染器（12 种类型 + 递归嵌套 + path-image 图片索引选择器 + 缩略图预览）。
-- `src/features/schema/composables/useCoreSchema.ts`：core 字段扫描 + 动态 schema 合并（单例缓存）。
-- `src/features/schema/composables/useCoreGraphics.ts`：core graphics 图片路径索引（单例缓存，供 path-image 字段下拉选取）。
-- `schemas/`：随工具分发的 Schema 定义文件（mod-info、faction 等）。
-- `src/features/tables/table.service.ts`：表格 feature 的后端语义边界，封装 CSV 行和舰船/武器记录的新建、删除、保存调用。
-- `src/shared/api/`：Tauri API 薄 adapter，只封装 command payload，不承载业务流程。
-- `src/shared/lib/`：Starsector 通用工具、默认数据、格式转换。
-- `src/shared/types/`：前端共享类型，包括 workspace 类型（ModEntry、ModTableState、ModEditorState、EditorRef、WorkspaceView、PersistedWorkspace）。
-- `src/shared/lib/store-utils.ts`：Store 通用工具函数（如 `getNextActiveKeyAfterRemoval`）。
-- `src/styles/`：按稳定语义拆分的 CSS 模块和主题 token。
+- `src/app/EditorsHost.vue`：编辑器弹窗宿主，统一挂载舰船、武器、弹体编辑器和发射预览。
+- `src/app/providers/`：Naive UI 等全局 provider 初始化。
+- `src/app/components/NavSidebar.vue`：左侧导航面板，包含导入按钮、总览/设置入口和 Mod 树。
+- `src/app/components/ModTreeItem.vue`：单个 Mod 树节点，展开显示已实现的数据和配置模块。
+- `src/app/components/OverviewPage.vue`：工作区总览页，显示已导入 Mod 卡片。
+- `src/app/components/SettingsPage.vue`：设置页，管理主题、主题色、Starsector 路径和撤销上限等工具设置。
+- `src/app/components/TableWorkspace.vue`：数据表格工作区容器，组合顶栏、主表格和右侧详情面板。
+- `src/app/DataTable.vue`：主 CSV 表格视图，负责行选择和单元格编辑。
+- `src/app/DetailPane.vue`：右侧记录详情面板，展示当前记录预览、摘要和上下文操作。
+
+### Feature Modules
+
+- `src/features/workspace/`：工作区编排状态，管理 Mod 列表、活动 Mod、当前视图和展开状态。
+- `src/features/project/`：项目加载与 per-Mod AppData 缓存，使用 `Map<modRoot, AppData>` 隔离多个 Mod。
+- `src/features/tables/`：CSV 表格状态与操作，包含 per-Mod table state、dirty tracking、搜索、筛选、保存、新建和删除。
+- `src/features/editors/`：舰船、武器、弹体编辑器和发射预览，按 Mod 绑定 `EditorRef`，避免弹窗串 Mod。
+- `src/features/history/`：全局修改链路和 undo/redo 历史系统，按 Mod 隔离历史栈。
+- `src/features/config/`：配置模块，包括 Mod 概览、Mod 信息、势力和战役编辑。
+- `src/features/schema/`：Schema Registry，提供 schema 加载、source 解析、multi-source 聚合/拆分和通用表单渲染。
+
+### Shared Layers
+
+- `src/shared/api/`：Tauri API 薄 adapter，只封装 command payload 和返回类型，不承载业务流程。
+- `src/shared/components/ColorPicker.vue`：跨 Schema 表单、设置页和编辑器复用的颜色输入组件，内部归一为 RGBA，按调用方声明输出数组、HEX 或 CSS 字符串。
+- `src/shared/types/`：前端共享类型，包括 `AppData`、workspace 状态、表格和编辑器引用类型。
+- `src/shared/lib/`：Starsector 通用工具、默认数据、格式转换和 store 辅助函数。
+- `schemas/`：随工具分发的 schema 文件，当前包含 `mod-info`、`faction`、`mission` 等已接入配置。
+- `src/styles/`：按语义拆分的 CSS 模块和主题 token。具体规则见 `.trae/css-guidelines.md`。
+
+## Frontend Call Chains
+
+### Workspace Load
+
+1. 用户在 `NavSidebar` / `App.vue` 中选择导入 Mod。
+2. `project.service` 调用 `load_mod_data` Tauri command。
+3. Rust 返回 `AppData`。
+4. `project.store` 将数据写入 `modsData`。
+5. `workspace.store` 注册 Mod、设置活动 Mod 和视图状态。
+6. `tables.store`、`editors.store`、`history.store` 按活动 Mod 激活各自状态。
+
+### CSV Table Editing
+
+1. `TableWorkspace` 根据当前 Mod 和 tab 显示 `DataTable` 与 `DetailPane`。
+2. `DataTable` 将单元格编辑写入 `tables.store`，dirty state 按稳定 row key 追踪。
+3. 保存、新建、删除通过 `features/tables/table.service.ts` 调用 shared API。
+4. 后端保存 CSV 或配套 spec 文件后，前端更新 per-Mod 数据缓存和 history。
+
+### Editor Modal
+
+1. `DetailPane` 或表格动作请求打开编辑器。
+2. `editors.store` 记录带 `modRoot` 的 `EditorRef`。
+3. `EditorsHost` 根据 `EditorRef` 挂载对应编辑器。
+4. 编辑器从目标 Mod 的 `AppData` 读取 spec 和资源数据。
+5. 保存时通过对应 service/API 写回 `.ship/.wpn/.proj`，不隐式保存 CSV。
+
+### Config Editing
+
+1. `ModTreeItem` 切换 `workspace.configView`。
+2. `ConfigWorkspace` 路由到 `ModOverview`、`ModInfoEditor`、`FactionList/FactionEditor` 或 `MissionView`。
+3. 配置编辑器通过 schema 聚合当前数据为单个 `RowData`。
+4. `SchemaFormRenderer` 负责表单展示和字段编辑。
+5. 保存时由业务组件拆回原始 source，并调用 config service 或 shared API 写回对应文件。
+
+### History
+
+1. 表格、编辑器或配置模块在完成可撤销修改时推送 history event。
+2. `history.store` 按 Mod 管理 undo/redo 栈和 checkpoint。
+3. `history.service` 根据事件类型回放到 table state 或 mod data。
+4. 编辑器内部可使用局部 history 组织拖拽粒度，但不能形成互不相通的长期撤销体系。
 
 ## Frontend Boundaries
 
-- 组件不直接调用 Tauri command；通过 feature service 或 shared API adapter。
-- Store 不直接调用 Tauri command 或 Tauri 插件；通过 feature service 表达业务动作。
-- Store 不负责 Canvas 绘制。
-- Composable 只保留稳定复用能力，不承载具体业务编辑动作。
-- 右侧详情面板是上下文操作面板，承载记录摘要、缩略图、编辑器/预览入口和少量字段速览。
-- 右侧详情面板不承载复杂编辑；复杂编辑使用 modal，当前不引入抽屉。
-- 表格本体专注数据展示、行选择和单元格编辑，不承载打开编辑器等重复操作列。
-- 表格 dirty state、editing cell、selection 都由 `tables.store.ts` 维护，并且必须按稳定 row key 追踪。
-- 编辑器壳层统一为 header、主编辑区、footer；舰船/武器编辑器采用画布主导 + 右侧检查器。
-- 编辑器共享结构组件只能表达稳定壳层，不能承载具体保存逻辑、上传逻辑、画布绘制、hit detection 或 drag mutation。
-- `EditorsHost.vue` 是弹窗编排边界，集中挂载 spec 编辑器和只读预览；编辑器通过 `EditorRef`（含 modRoot）绑定具体 Mod，不依赖当前活动 Mod。
-- 业务 hit detection、自动吸附选择和 drag mutation 暂留具体编辑器组件内。
-- 无 UI 或业务入口的 shared API adapter 应删除；未来按真实产品入口重新补。
+- 组件不直接拼 Tauri command payload；通过 feature service 或 shared API adapter。
+- Store 不直接调用 Tauri 插件；持久化、文件读写和系统对话应通过 service 或 app 边界。
+- `workspace.store` 不持有 AppData；`project.store` 不负责视图路由。
+- 表格本体只负责展示、选择和单元格编辑；上下文操作集中到顶栏、详情面板或后续右键菜单。
+- `EditorsHost` 是弹窗挂载边界；编辑器引用必须带 `modRoot`。
+- 画布 hit detection、自动吸附和 drag mutation 留在具体编辑器组件内；共享的是 viewport、绘制 helper 和历史等稳定能力。
+- SchemaFormRenderer 只渲染单个聚合对象；保存边界由业务组件拆分处理。
 
 ## Backend
 
 - `src-tauri/src/lib.rs`：Tauri 装配、command 注册和 single-instance 插件。
-- `src-tauri/src/commands/`：Tauri command 入口，包括 workspace 持久化命令。
-- `src-tauri/src/services/`：业务流程。
-- `src-tauri/src/services/workspace.rs`：workspace.json 读写 service。
-- `src-tauri/src/parsers/`：CSV 和宽松 JSON。
-- `src-tauri/src/models/`：payload、AppData、核心 spec 类型。
-- `src-tauri/src/models/workspace.rs`：PersistedWorkspace、PersistedMod 持久化数据结构。
-- `src-tauri/src/filesystem/`：路径、文本 IO、JSON 文件、贴图、资源扫描。
-- `src-tauri/src/errors.rs`：统一错误。
+- `src-tauri/src/commands/`：Tauri command 入口，保持薄封装。
+- `src-tauri/src/services/`：业务流程层，组合 parser、filesystem 和 models。
+- `src-tauri/src/services/project/`：项目加载、CSV 表扫描、势力发现、贴图和弹体资源聚合。
+- `src-tauri/src/services/config.rs`：Mod 信息、势力、战役列表/任务文件等配置保存流程。
+- `src-tauri/src/services/tables.rs`：CSV 行与配套 spec 的新建、删除和保存流程。
+- `src-tauri/src/services/specs.rs`：`.ship/.wpn/.proj` 保存相关逻辑。
+- `src-tauri/src/services/workspace.rs`：工具私有 `workspace.json` 读写。
+- `src-tauri/src/parsers/`：CSV 和 Starsector 宽松 JSON 解析与写回。
+- `src-tauri/src/models/`：payload、AppData、workspace、核心 spec 类型。
+- `src-tauri/src/filesystem/`：路径、UTF-8 文本 IO、JSON 文件、贴图上传和资源扫描。
+- `src-tauri/src/errors.rs`：统一错误类型和结果别名。
+
+## Backend Call Chains
+
+### Project Load
+
+1. `load_mod_data` command 接收 Mod 根目录。
+2. `services::project::load_all_data` 读取 `mod_info.json`、CSV 表、spec 文件、势力、装配和资源索引。
+3. 贴图 data URL 使用 Mod → core fallback 链加载。
+4. 返回 `AppData` 给前端缓存。
+
+### CSV Save
+
+1. 前端提交目标 `modRoot`、表名、header 和 rows。
+2. command 转入 tables/config service。
+3. service 校验目标路径并调用 parser 保存。
+4. CSV parser 保留表头、注释行和空字段语义。
+
+### Spec Save
+
+1. 前端提交 `modRoot`、id 和 spec 数据。
+2. command 转入 specs service。
+3. service 使用结构化 JSON 写回对应 `.ship/.wpn/.proj`。
+4. 核心字段按强类型处理，未知字段通过 extra 保留。
+
+### Config Save
+
+1. 前端业务组件将 schema 聚合对象拆分为原始 source。
+2. command 接收明确 payload，例如 faction、mission list、descriptor 或 text。
+3. service 写回对应 CSV、JSON 或文本文件。
+4. 删除操作区分索引删除和实体文件/目录删除。
+
+### Workspace Persistence
+
+1. 前端防抖提交 workspace 状态。
+2. `save_workspace` command 调用 workspace service。
+3. 后端写入 Tauri `app_data_dir()` 下的 `workspace.json`。
+4. 启动恢复失败时返回安全默认状态。
 
 ## Backend Boundaries
 
-- command 保持薄入口。
-- service 组合 parser、filesystem、models。
-- parser 不依赖 Tauri。
-- filesystem 不依赖前端语义。
+- command 保持薄入口，不承载业务逻辑。
+- service 表达保存语义和路径安全边界。
+- parser 不依赖 Tauri，不包含 UI 语义。
+- filesystem 不推断前端状态，只处理路径和文件 IO。
 - models 允许核心字段强类型和 extra 共存。
-
-## Current Risk Areas
-
-- 后续全局修改链路和右键菜单分别由后续 phase 处理；编辑器内快捷键已经有局部作用域实现，但主界面全局快捷键仍需单独设计。
-- `ShipEditor.vue`、`WeaponEditor.vue`、`ProjectileEditor.vue` 仍较大，但保留了业务流程聚合价值；除非出现稳定语义或真实复用需求，不继续为了行数拆分。
-- `App.vue` 承担 workspace 视图路由、导入/移除 Mod 编排和启动恢复逻辑；弹窗挂载由 `EditorsHost.vue` 承担。
-- `base.css` 中的通用 panel/action 结构只用于稳定跨页面样式；具体业务区样式继续留在对应 CSS 模块。
-- 舰船/武器编辑器的画布交互已经形成局部模式，但坐标、贴图锚点和强选择规则仍是高风险区域，后续修改应先读现有实现。
-- tables.store.ts 使用 computed proxy 模式（per-Mod stateMap + computed 代理），修改对外 API 时需确保 proxy get/set 正确委托到 activeState。
-- 启动恢复期间使用 `restoring` 标志抑制自动保存 watcher；如需修改恢复逻辑，注意保持该标志的 set/reset 对称。
-
-## Planned: Blueprint System (Phase 17)
-
-可视化逻辑编辑器，将 Starsector 模板化 Java 模块抽象为节点图。
-
-### 规划目录结构
-
-- `src/features/blueprint/`：蓝图编辑器 feature 模块
-- `src/features/blueprint/blueprint.store.ts`：蓝图状态管理（节点/连线/选择/历史）
-- `src/features/blueprint/blueprint.service.ts`：序列化/反序列化/代码生成调用
-- `src/features/blueprint/components/BlueprintCanvas.vue`：节点画布（复用 ShipEditor 画布能力）
-- `src/features/blueprint/components/NodePalette.vue`：节点面板（按库/类型分类）
-- `src/features/blueprint/components/NodeInspector.vue`：节点属性检查器
-- `src/features/blueprint/components/DialogueFlowEditor.vue`：对话流专用编辑器
-- `src/features/blueprint/components/TemplateWizard.vue`：模板向导容器
-- `src/features/blueprint/lib/`：节点类型定义、端口类型、代码生成模板
-- `src/features/blueprint/lib/nodes/`：各库节点注册表
-- `src-tauri/src/services/codegen/`：Java 代码生成引擎（Rust 端模板渲染）
-- `src-tauri/src/services/codegen/templates/`：.java 代码模板文件
-- `blueprints/`：随工具分发的节点库定义 JSON
-
-### 社区库集成边界
-
-| 库 | 集成范围 | 节点化目标 |
-|---|---|---|
-| MagicLib | MagicRender 粒子/光束/拖尾、MagicBarEvent JSON 对话、MagicCampaign 工具 | 视觉效果节点 + 对话导出格式 |
-| GraphicsLib | ShaderAPI 光照/泛光/扭曲/涟漪后处理 | 视觉效果节点（着色器参数化） |
-| LazyLib | MathUtils/CollisionUtils/CombatUtils/WeaponUtils | 条件/计算工具节点 |
-| LunaLib | LunaSettings 运行时配置面板、LunaCombatPlugin 钩子 | 配置绑定节点 + 向导选项 |
-| BoxUtil | BoxCollider 区域判定/范围计算/碰撞检测 | 空间判定节点 |
-
-### 代码生成规则
-
-- 生成的 Java 必须 target JDK 7（Starsector 运行时约束）
-- 生成代码保持可读性：合理缩进、import 整理、方法级注释
-- 蓝图元数据保存为 `.blueprint.json`，与生成的 .java 并存
-- 支持从蓝图重新生成（覆盖）或脱离蓝图手动维护两种模式
-- 节点库注册表采用 JSON Schema 描述，允许社区扩展
-
-## Planned: Community Library Data Integration (Phase 18)
-
-将 MagicLib / GraphicsLib / LunaLib 的数据配置文件纳入工具编辑范围（纯数据层，不涉及代码生成）。
-
-### 嵌入策略
-
-| 库文件 | 复用的现有组件 | 改动量 |
-|--------|--------------|--------|
-| `data/config/modSettings.json` (MagicLib) | WorldFilesView / JsonFieldEditor | 扩展扫描范围 |
-| `data/config/magicBounty_data.json` (MagicLib) | SchemaFormRenderer + 列表编辑 | 新建 schema + 列表视图 |
-| `data/lights/light_data.csv` (GraphicsLib) | CampaignView CSV 表格 | 扩展扫描范围 |
-| `data/lights/texture_data.csv` (GraphicsLib) | CampaignView CSV 表格 | 扩展扫描范围 |
-| `ship_systems.csv` (原版) | 主表格模块 | CSV_TABLES 新增条目 |
-| `.system` JSON 文件 (原版) | SchemaFormRenderer + JSON 编辑 | 新建 schema |
-| LunaSettings JSON (LunaLib) | JsonFieldEditor | 扩展扫描范围 |
-
-### 依赖检测逻辑
-
-- 读取 Mod 的 `mod_info.json` 中 `dependencies` 数组
-- 当检测到 `magiclib` 依赖时，暴露 MagicLib 相关编辑入口
-- 当检测到 `shaderLib` 依赖时，暴露 GraphicsLib 相关编辑入口
-- 当检测到 `lunalib` 依赖时，暴露 LunaLib 相关编辑入口
-- 无对应依赖时，相关入口隐藏（不报错、不占空间）
-
-### 新增 Schema 文件
-
-- `schemas/ship-system.schema.json`：.system 文件字段定义
-- `schemas/magic-bounty.schema.json`：magicBounty_data.json 条目字段定义
-- `schemas/csv/ship_systems.columns.json`：ship_systems.csv 列类型注解
-- `schemas/csv/light_data.columns.json`：GraphicsLib light_data.csv 列类型注解
-- `schemas/csv/texture_data.columns.json`：GraphicsLib texture_data.csv 列类型注解
+- 所有文本 IO 必须保持 UTF-8 无 BOM。
+- 所有涉及用户传入路径、id、文件名的删除或写入都必须在后端校验。

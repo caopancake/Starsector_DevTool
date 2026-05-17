@@ -1,13 +1,15 @@
-import type { AppData, RowData } from '../../shared/types';
+import type { AppData, JsonValue, RowData } from '../../shared/types';
 import type { DiscoveredField } from '../../shared/api/tauri';
 import type { FieldSchema, FileSchema, SectionSchema } from './schema.types';
 
 import modInfoSchemaRaw from '../../../schemas/mod-info.schema.json';
 import factionSchemaRaw from '../../../schemas/faction.schema.json';
+import missionSchemaRaw from '../../../schemas/mission.schema.json';
 
 const SCHEMAS: Record<string, FileSchema> = {
   'mod-info': modInfoSchemaRaw as unknown as FileSchema,
   faction: factionSchemaRaw as unknown as FileSchema,
+  mission: missionSchemaRaw as unknown as FileSchema,
 };
 
 /**
@@ -44,6 +46,46 @@ export function getSchemaKeys(schema: FileSchema): string[] {
     }
   }
   return keys;
+}
+
+export function isMultiSourceSchema(schema: FileSchema): boolean {
+  return Boolean(schema.sources?.length);
+}
+
+export function getExtraFieldSource(schema: FileSchema): string | null {
+  return schema.sources?.find((source) => source.extraFields)?.id ?? null;
+}
+
+export function aggregateSchemaSources(sources: Record<string, unknown>): RowData {
+  const result: RowData = {};
+  for (const [sourceId, value] of Object.entries(sources)) {
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      result[sourceId] = value as RowData;
+    } else {
+      result[sourceId] = { content: scalarToJsonValue(value) };
+    }
+  }
+  return result;
+}
+
+function scalarToJsonValue(value: unknown): JsonValue {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
+  return String(value);
+}
+
+export function splitSchemaSources(model: RowData, schema: FileSchema): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const source of schema.sources ?? []) {
+    const value = model[source.id];
+    if (source.type === 'text-file') {
+      result[source.id] =
+        value && typeof value === 'object' && !Array.isArray(value) ? ((value as Record<string, unknown>).content ?? '') : '';
+    } else {
+      result[source.id] = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    }
+  }
+  return result;
 }
 
 export interface SelectOption {
@@ -185,16 +227,17 @@ export function collectAllKeys(fields: FieldSchema[]): string[] {
  */
 export function mergeSchemaWithCoreFields(schema: FileSchema, discoveredFields: DiscoveredField[]): FileSchema {
   if (!discoveredFields || discoveredFields.length === 0) return schema;
+  const coreSourceId = getExtraFieldSource(schema) ?? schema.sources?.[0]?.id ?? null;
 
   // Collect all keys already defined in the static schema
   const definedKeys = new Set<string>();
   const sections = getSections(schema);
   for (const section of sections) {
     for (const field of section.fields) {
-      definedKeys.add(field.key);
+      definedKeys.add(coreFieldKey(field.key, coreSourceId));
       if (field.nested) {
         for (const sub of field.nested) {
-          definedKeys.add(`${field.key}.${sub.key}`);
+          definedKeys.add(coreFieldKey(`${field.key}.${sub.key}`, coreSourceId));
         }
       }
     }
@@ -204,7 +247,7 @@ export function mergeSchemaWithCoreFields(schema: FileSchema, discoveredFields: 
   const newFields: FieldSchema[] = discoveredFields
     .filter((df) => !definedKeys.has(df.key))
     .map((df) => ({
-      key: df.key,
+      key: coreSourceId ? `${coreSourceId}.${df.key}` : df.key,
       type: df.type as FieldSchema['type'],
       label: df.key,
       description: '来自 starsector-core（自动发现）',
@@ -225,4 +268,8 @@ export function mergeSchemaWithCoreFields(schema: FileSchema, discoveredFields: 
       },
     ],
   };
+}
+
+function coreFieldKey(key: string, sourceId: string | null): string {
+  return sourceId && key.startsWith(`${sourceId}.`) ? key.slice(sourceId.length + 1) : key;
 }

@@ -5,14 +5,15 @@
   "description": "Starsector 势力配置文件，定义势力的外观、舰队组成、教条、关系等",
   "fields": [
     {
-      "key": "id",
+      "key": "file.id",
       "type": "string",
       "label": "势力 ID",
       "description": "势力的唯一标识符，用于内部引用",
       "required": true,
       "editable": true,
       "default": null,
-      "warning": "修改 ID 会导致存档不兼容",
+      "warning": null,
+      "danger": "修改 ID 会导致存档不兼容",
       "source": null,
       "min": null,
       "max": null,
@@ -20,7 +21,7 @@
       "nested": null
     },
     {
-      "key": "displayName",
+      "key": "file.displayName",
       "type": "string",
       "label": "显示名称",
       "description": "势力的短显示名称",
@@ -35,7 +36,7 @@
       "nested": null
     },
     {
-      "key": "displayNameWithArticle",
+      "key": "file.displayNameWithArticle",
       "type": "string",
       "label": "带冠词的名称",
       "description": "带冠词的势力名称（英文为 the X，中文可与 displayName 相同）",
@@ -50,7 +51,7 @@
       "nested": null
     },
     {
-      "key": "displayNameLong",
+      "key": "file.displayNameLong",
       "type": "string",
       "label": "长名称",
       "description": "势力的完整长名称",
@@ -65,7 +66,7 @@
       "nested": null
     },
     {
-      "key": "displayNameLongWithArticle",
+      "key": "file.displayNameLongWithArticle",
       "type": "string",
       "label": "带冠词的长名称",
       "description": "带冠词的势力完整名称",
@@ -80,7 +81,7 @@
       "nested": null
     },
     {
-      "key": "displayNameIsOrAre",
+      "key": "file.displayNameIsOrAre",
       "type": "string",
       "label": "Is/Are 后缀",
       "description": "英文语法中 is/are 的选择（中文留空即可）",
@@ -95,7 +96,7 @@
       "nested": null
     },
     {
-      "key": "personNamePrefixAOrAn",
+      "key": "file.personNamePrefixAOrAn",
       "type": "string",
       "label": "人名前缀冠词",
       "description": "人名前的不定冠词 a/an（中文留空即可）",
@@ -110,7 +111,7 @@
       "nested": null
     },
     {
-      "key": "entityNamePrefix",
+      "key": "file.entityNamePrefix",
       "type": "string",
       "label": "实体名称前缀",
       "description": "势力实体（如基地、站点）名称的前缀",
@@ -125,7 +126,7 @@
       "nested": null
     },
     {
-      "key": "personNamePrefix",
+      "key": "file.personNamePrefix",
       "type": "string",
       "label": "人物名称前缀",
       "description": "势力人物名称的前缀修饰词",
@@ -140,7 +141,7 @@
       "nested": null
     },
     {
-      "key": "logo",
+      "key": "file.logo",
       "type": "path-image",
       "label": "势力标志",
       "description": "势力标志图片路径（相对于游戏/mod 根目录）",
@@ -155,7 +156,7 @@
       "nested": null
     },
     {
-      "key": "crest",
+      "key": "file.crest",
       "type": "path-image",
       "label": "势力徽章",
       "description": "势力徽章图片路径（用于 intel 等界面）",
@@ -170,7 +171,7 @@
       "nested": null
     },
     {
-      "key": "shipNamePrefix",
+      "key": "file.shipNamePrefix",
       "type": "string",
       "label": "舰船名前缀",
       "description": "势力舰船名称的前缀缩写（如 HSS, TTS）",
@@ -185,8 +186,8 @@
       "nested": null
     },
     {
-      "key": "color",
-      "type": "color-rgb",
+      "key": "file.color",
+      "type": "color-rgba",
       "label": "主色调",
       "description": "势力主要颜色 [R, G, B, A]，范围 0-255",
       "required": true,
@@ -200,8 +201,8 @@
       "nested": null
     },
     {
-      "key": "baseUIColor",
-      "type": "color-rgb",
+      "key": "file.baseUIColor",
+      "type": "color-rgba",
       "label": "基础 UI 颜色",
       "description": "势力 UI 界面基础颜色 [R, G, B, A]",
       "required": false,
@@ -215,8 +216,8 @@
       "nested": null
     },
     {
-      "key": "darkUIColor",
-      "type": "color-rgb",
+      "key": "file.darkUIColor",
+      "type": "color-rgba",
       "label": "深色 UI 颜色",
       "description": "势力 UI 界面深色 [R, G, B, A]",
       "required": false,
@@ -230,8 +231,8 @@
       "nested": null
     },
     {
-      "key": "gridUIColor",
-      "type": "color-rgb",
+      "key": "file.gridUIColor",
+      "type": "color-rgba",
       "label": "网格 UI 颜色",
       "description": "势力 UI 网格线颜色 [R, G, B, A]",
       "required": false,
@@ -245,8 +246,8 @@
       "nested": null
     },
     {
-      "key": "brightUIColor",
-      "type": "color-rgb",
+      "key": "file.brightUIColor",
+      "type": "color-rgba",
       "label": "亮色 UI 颜色",
       "description": "势力 UI 界面高亮颜色 [R, G, B, A]",
       "required": false,
@@ -260,7 +261,7 @@
       "nested": null
     },
     {
-      "key": "shipNameSources",
+      "key": "file.shipNameSources",
       "type": "key-value",
       "label": "舰名来源",
       "description": "舰名生成器来源及其权重（如 ROMAN:2, GREEK:1）",
@@ -275,7 +276,7 @@
       "nested": null
     },
     {
-      "key": "names",
+      "key": "file.names",
       "type": "key-value",
       "label": "人名来源",
       "description": "人物姓名生成器来源及其权重",
@@ -290,10 +291,10 @@
       "nested": null
     },
     {
-      "key": "variantOverrides",
+      "key": "file.variantOverrides",
       "type": "key-value",
-      "label": "变体覆盖",
-      "description": "限制特定船体使用指定变体并调整其出现概率",
+      "label": "装配覆盖",
+      "description": "限制特定船体使用指定装配并调整其出现概率",
       "required": false,
       "editable": true,
       "default": {},
@@ -305,7 +306,7 @@
       "nested": null
     },
     {
-      "key": "hullFrequency",
+      "key": "file.hullFrequency",
       "type": "object",
       "label": "船体出现频率",
       "description": "船体在势力舰队中出现的频率乘数",
@@ -351,7 +352,7 @@
       ]
     },
     {
-      "key": "shipsWhenImporting",
+      "key": "file.shipsWhenImporting",
       "type": "object",
       "label": "进口时可用舰船",
       "description": "势力在从其他势力进口蓝图时可额外获得的舰船",
@@ -397,7 +398,7 @@
       ]
     },
     {
-      "key": "knownShips",
+      "key": "file.knownShips",
       "type": "object",
       "label": "已知舰船",
       "description": "势力已知（可生产/使用）的舰船蓝图",
@@ -443,7 +444,7 @@
       ]
     },
     {
-      "key": "priorityShips",
+      "key": "file.priorityShips",
       "type": "object",
       "label": "优先舰船",
       "description": "势力优先使用的舰船（即使有其他可用船体也倾向使用这些）",
@@ -489,7 +490,7 @@
       ]
     },
     {
-      "key": "knownFighters",
+      "key": "file.knownFighters",
       "type": "object",
       "label": "已知战机",
       "description": "势力已知（可生产/使用）的战机联队蓝图",
@@ -535,7 +536,7 @@
       ]
     },
     {
-      "key": "priorityFighters",
+      "key": "file.priorityFighters",
       "type": "object",
       "label": "优先战机",
       "description": "势力优先使用的战机联队",
@@ -581,7 +582,7 @@
       ]
     },
     {
-      "key": "knownWeapons",
+      "key": "file.knownWeapons",
       "type": "object",
       "label": "已知武器",
       "description": "势力已知（可生产/使用）的武器蓝图",
@@ -627,7 +628,7 @@
       ]
     },
     {
-      "key": "priorityWeapons",
+      "key": "file.priorityWeapons",
       "type": "object",
       "label": "优先武器",
       "description": "势力优先使用的武器",
@@ -673,7 +674,7 @@
       ]
     },
     {
-      "key": "knownHullMods",
+      "key": "file.knownHullMods",
       "type": "object",
       "label": "已知船插",
       "description": "势力已知（可使用）的船插蓝图",
@@ -719,7 +720,7 @@
       ]
     },
     {
-      "key": "weaponSellFrequency",
+      "key": "file.weaponSellFrequency",
       "type": "key-value",
       "label": "武器出售频率",
       "description": "势力市场上各武器的出售频率权重",
@@ -734,7 +735,7 @@
       "nested": null
     },
     {
-      "key": "fighterSellFrequency",
+      "key": "file.fighterSellFrequency",
       "type": "key-value",
       "label": "战机出售频率",
       "description": "势力市场上各战机联队的出售频率权重",
@@ -749,7 +750,7 @@
       "nested": null
     },
     {
-      "key": "hullmodSellFrequency",
+      "key": "file.hullmodSellFrequency",
       "type": "key-value",
       "label": "船插出售频率",
       "description": "势力市场上各船插的出售频率权重",
@@ -764,7 +765,7 @@
       "nested": null
     },
     {
-      "key": "factionDoctrine",
+      "key": "file.factionDoctrine",
       "type": "object",
       "label": "舰队教条",
       "description": "势力舰队生成的教条参数，决定舰队组成偏好",
@@ -1020,10 +1021,10 @@
       ]
     },
     {
-      "key": "shipRoles",
+      "key": "file.shipRoles",
       "type": "key-value",
       "label": "舰船角色分配",
-      "description": "按角色分类的舰船变体权重配置。每个角色（如 combatSmall, combatLarge）的值是一个对象，包含 includeDefault (boolean) 和若干 变体ID: 权重(number) 的键值对",
+      "description": "按角色分类的舰船装配权重配置。每个角色（如 combatSmall, combatLarge）的值是一个对象，包含 includeDefault (boolean) 和若干 装配ID: 权重(number) 的键值对",
       "required": false,
       "editable": true,
       "default": {},
@@ -1035,7 +1036,7 @@
       "nested": null
     },
     {
-      "key": "illegalCommodities",
+      "key": "file.illegalCommodities",
       "type": "string-array",
       "label": "违禁品",
       "description": "在该势力领地内属于违禁品的商品 ID 列表",
@@ -1050,7 +1051,7 @@
       "nested": null
     },
     {
-      "key": "music",
+      "key": "file.music",
       "type": "object",
       "label": "音乐配置",
       "description": "势力在各场景下播放的音乐 ID",
@@ -1171,7 +1172,7 @@
       ]
     },
     {
-      "key": "internalComms",
+      "key": "file.internalComms",
       "type": "string",
       "label": "内部通讯 ID",
       "description": "势力内部通讯对话的引用 ID",
@@ -1186,7 +1187,7 @@
       "nested": null
     },
     {
-      "key": "portraits",
+      "key": "file.portraits",
       "type": "object",
       "label": "肖像",
       "description": "势力人物肖像图片路径",
@@ -1232,7 +1233,7 @@
       ]
     },
     {
-      "key": "ranks",
+      "key": "file.ranks",
       "type": "object",
       "label": "军衔与职位",
       "description": "势力特有的军衔和职位名称定义",
@@ -1278,7 +1279,7 @@
       ]
     },
     {
-      "key": "voices",
+      "key": "file.voices",
       "type": "object",
       "label": "语音人格",
       "description": "势力人物在不同重要性等级下使用的对话人格权重",
@@ -1339,7 +1340,7 @@
       ]
     },
     {
-      "key": "custom",
+      "key": "file.custom",
       "type": "object",
       "label": "自定义标记",
       "description": "势力特有的行为标记和自定义配置",
@@ -1777,7 +1778,7 @@
       ]
     },
     {
-      "key": "fleetTypeNames",
+      "key": "file.fleetTypeNames",
       "type": "key-value",
       "label": "舰队类型名称",
       "description": "势力各类型舰队的自定义显示名称",
@@ -1790,6 +1791,14 @@
       "max": null,
       "options": null,
       "nested": null
+    }
+  ],
+  "sources": [
+    {
+      "id": "file",
+      "type": "json-file",
+      "path": "data/world/factions/{file.id}.faction",
+      "extraFields": true
     }
   ]
 }

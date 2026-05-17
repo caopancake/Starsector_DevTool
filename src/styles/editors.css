@@ -239,11 +239,6 @@
   font-size: 12px;
 }
 
-.editor-window .n-input-number .n-button,
-.projectile-window .n-input-number .n-button {
-  display: none;
-}
-
 .item-list {
   display: grid;
   gap: 4px;
@@ -328,23 +323,6 @@ textarea {
   padding: 8px;
   color: var(--color-text);
   resize: vertical;
-  background: var(--color-panel);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-}
-
-.color-array {
-  display: grid;
-  grid-template-columns: 100px repeat(4, 1fr);
-  gap: 6px;
-  align-items: center;
-  margin: 8px 0;
-}
-
-.color-array input {
-  width: 100%;
-  padding: 4px;
-  color: var(--color-text);
   background: var(--color-panel);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);

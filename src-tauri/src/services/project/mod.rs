@@ -7,6 +7,7 @@ use crate::{
     errors::AppResult,
     filesystem::{list_sprites, load_json_dir, load_json_dir_by_id, read_json_file},
     models::{AppData, FactionMeta},
+    parsers::read_csv_data,
 };
 use serde_json::{Map, Value};
 use std::{collections::BTreeMap, path::Path};
@@ -23,6 +24,7 @@ pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
     let (mut faction_meta, tag_map) = factions::discover_factions(mod_root);
     ensure_other_faction(&mut faction_meta);
     let faction_files = factions::load_faction_files(mod_root);
+    let mission_count = count_mission_list_entries(mod_root);
 
     let mut loaded_tables = tables::load_csv_tables(mod_root, &tag_map)?;
     let ship_files = load_json_dir_by_id(&mod_root.join("data/hulls"), "ship", "hullId");
@@ -53,6 +55,7 @@ pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
         mod_info,
         faction_meta,
         faction_files,
+        mission_count,
         csv_headers: loaded_tables.csv_headers,
         csv_paths: loaded_tables.csv_paths,
         ships: loaded_tables.rows.remove("ships").unwrap_or_default(),
@@ -96,6 +99,23 @@ fn ensure_other_faction(faction_meta: &mut BTreeMap<String, FactionMeta>) {
             name: "其他".to_string(),
             color: "#6b7280".to_string(),
         });
+}
+
+fn count_mission_list_entries(mod_root: &Path) -> usize {
+    let path = mod_root.join("data/missions/mission_list.csv");
+    read_csv_data(&path)
+        .map(|table| {
+            table
+                .rows
+                .iter()
+                .filter(|row| {
+                    row.get("mission")
+                        .and_then(Value::as_str)
+                        .is_some_and(|mission| !mission.trim().is_empty())
+                })
+                .count()
+        })
+        .unwrap_or(0)
 }
 
 fn load_variants_by_hull(mod_root: &Path) -> BTreeMap<String, Vec<Value>> {

@@ -83,8 +83,8 @@ export function createFaction(modRoot: string, id: string): Promise<RowData> {
   return invoke('create_faction', { payload: { modRoot, id } });
 }
 
-export function deleteFaction(modRoot: string, id: string): Promise<void> {
-  return invoke('delete_faction', { payload: { modRoot, id } });
+export function deleteFaction(modRoot: string, id: string, deleteFile = false): Promise<void> {
+  return invoke('delete_faction', { payload: { modRoot, id, deleteFile } });
 }
 
 export interface CsvTable {
@@ -93,28 +93,34 @@ export interface CsvTable {
   path: string;
 }
 
-export function scanCampaign(modRoot: string): Promise<string[]> {
-  return invoke('scan_campaign', { modRoot });
+export function scanMissionList(modRoot: string): Promise<string[]> {
+  return invoke('scan_mission_list', { modRoot });
 }
 
-export function loadCampaignCsv(modRoot: string, relPath: string): Promise<CsvTable> {
-  return invoke('load_campaign_csv', { payload: { modRoot, relPath } });
+export function loadMissionListCsv(modRoot: string, relPath: string): Promise<CsvTable> {
+  return invoke('load_mission_list_csv', { payload: { modRoot, relPath } });
 }
 
-export function saveCampaignCsv(modRoot: string, relPath: string, header: string[], rows: RowData[]): Promise<void> {
-  return invoke('save_campaign_csv', { payload: { modRoot, relPath, header, rows } });
+export function saveMissionListCsv(modRoot: string, relPath: string, header: string[], rows: RowData[]): Promise<void> {
+  return invoke('save_mission_list_csv', { payload: { modRoot, relPath, header, rows } });
 }
 
-export function scanWorldFiles(modRoot: string): Promise<string[]> {
-  return invoke('scan_world_files', { modRoot });
+export interface MissionData {
+  descriptor: RowData;
+  text: string;
+  iconPath?: string | null;
 }
 
-export function loadWorldFile(modRoot: string, relPath: string): Promise<RowData> {
-  return invoke('load_world_file', { payload: { modRoot, relPath } });
+export function loadMission(modRoot: string, mission: string): Promise<MissionData> {
+  return invoke('load_mission', { payload: { modRoot, mission } });
 }
 
-export function saveWorldFile(modRoot: string, relPath: string, data: RowData): Promise<void> {
-  return invoke('save_world_file', { payload: { modRoot, relPath, data } });
+export function saveMission(modRoot: string, mission: string, descriptor: RowData, text: string): Promise<void> {
+  return invoke('save_mission', { payload: { modRoot, mission, descriptor, text } });
+}
+
+export function deleteMissionDir(modRoot: string, mission: string): Promise<void> {
+  return invoke('delete_mission_dir', { payload: { modRoot, mission } });
 }
 
 export function loadImageDataUrl(modRoot: string, relPath: string, starsectorRoot?: string): Promise<string | null> {

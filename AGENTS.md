@@ -7,7 +7,8 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 - 所有文件都必须以 UTF-8 无 BOM 编码读取
 - 所有文件都必须以 UTF-8 无 BOM 编码写入
 - Get-Content 必须带 -Encoding utf8 参数
-- 本小节不得简化，必须严格遵守
+- 以 CRLF 作为换行
+- 本小节不得简化，不得删改，必须严格遵守
 
 ## 读取顺序
 
@@ -17,12 +18,14 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 4. 相关专题文档：
    - `.trae/frontend-guidelines.md`
    - `.trae/backend-guidelines.md`
+   - `.trae/css-guidelines.md`
    - `.trae/module-map.md`
    - `.trae/editor-flows.md`
    - `.trae/terminology.md` (非常巨大，根据情况决定是否需要读取)
 5. 任务文档：
    - `.trae/todo.md`
    - `.trae/specs/`
+   - `.trae/reference.md` (未实现目标、候选设计和参考资料，需要时读取)
 
 ## 绝对规则
 
@@ -31,7 +34,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 - Rust `clippy` 目标是零 warning
 - Prettier 目标是零 error 零 warn
 - 禁止对 TS / Vue 做全局正则替换
-- 禁止全文重写既有 `.md` 文档，只允许逐条增删改
+- 既有 `.md` 文档优先小范围增删改；用户明确要求重写时才重写
 - 禁止破坏性命令，除非用户明确要求
 - 代码编辑优先 `apply_patch`
 - 优先考虑接入符合项目风格的部分
@@ -53,21 +56,10 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 ## 当前状态
 
 - 当前实现为 Tauri 2 + Vue 3 + TypeScript + Rust。
-- 前端使用 Naive UI，画布编辑器使用 Canvas 2D。
-- Rust 负责 Starsector 宽松 JSON、CSV、Mod 文件扫描、保存、删除和贴图上传。
-- 前端采用多 Mod 工作区架构：workspace.store 编排 Mod 列表和视图路由，project.store 缓存多 Mod 数据，tables.store 和 editors.store 按 Mod 隔离状态。
-- UI 为 IDE 风格壳层：左侧 Mod 树导航、概览页、设置页、数据表格工作区。
-- 已实现持久化：workspace 状态保存至 `%APPDATA%/com.starsector.devtool/workspace.json`，启动时自动恢复。
-- 已实现单例化：`tauri-plugin-single-instance`，第二个实例启动时聚焦第一个窗口。
-- 功能范围包括：
-  - 多 Mod 导入、切换、移除、持久化恢复
-  - CSV 表格编辑、筛选、排序、保存、撤销、新建、删除
-  - 舰船编辑器
-  - 武器编辑器
-  - 弹体编辑器
-  - 发射预览
-- 接下来要做的：
-  - 按 `.trae/todo.md` 中下一个未完成 phase 继续执行
+- 前端是多 Mod 工作区架构：workspace 编排视图，project 缓存 AppData，tables/editors/history 按 Mod 隔离状态。
+- Rust 是文件系统、解析、保存、路径安全和数据校验的权威实现。
+- 已实现 IDE 风格壳层、CSV 表格、舰船/武器/弹体编辑器、发射预览、配置模块、Schema 表单、workspace 持久化和单例化。
+- 当前已实现模块和调用链以 `.trae/module-map.md` 为准；未实现目标和参考设计以 `.trae/reference.md` / `.trae/todo.md` 为准。
 
 ## 改动前先看
 
@@ -75,15 +67,17 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 - `.trae/overview.md`
 - 前端改动看 `.trae/frontend-guidelines.md`
 - 后端改动看 `.trae/backend-guidelines.md`
+- CSS / 视觉改动看 `.trae/css-guidelines.md`
 - 模块边界调整看 `.trae/module-map.md`
 - 舰船、武器、联队等编辑链路看 `.trae/editor-flows.md`
 - 术语和命名看 `.trae/terminology.md` (非常巨大，根据情况决定是否需要读取)
 - 后续阶段看 `.trae/todo.md`
+- 未实现目标和候选设计看 `.trae/reference.md`
 
 ## 关键提醒
 
-- 顶部“保存 CSV”和编辑器“保存 .ship/.wpn/.proj”是两条独立链路，不能混写或互相偷偷代写。
-- dirty state 按稳定 row id 追踪，不能退回按表格索引追踪。
-- 右侧详情面板的预览、摘要和操作必须严格跟随当前记录，不能在切表、切记录或切 Mod 时串状态。
-- 在所有情况下，画布必须以邻近采样方式渲染，不允许退回模糊缩放或线性插值。
-- 贴图上传必须按用途写入正确目录：舰船 `graphics/ships/`，武器 `graphics/weapons/`，弹体 `graphics/missiles/`。
+- 保存边界必须清晰：CSV、spec、配置文件、workspace 私有状态不能互相偷写。
+- 多 Mod 状态必须按 `modRoot` 隔离；dirty、选择、编辑器引用和 history 不能串 Mod。
+- 所有磁盘路径、删除和写入语义以后端校验为准，前端不绕过 Rust。
+- 像素资源画布和预览必须保持邻近采样，不允许模糊缩放。
+- 视觉、CSS、主题和控件风格以 `.trae/css-guidelines.md` 为准。

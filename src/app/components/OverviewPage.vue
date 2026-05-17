@@ -1,7 +1,7 @@
 <template>
   <div class="overview-page">
     <header class="overview-header">
-      <h1>工作区概览</h1>
+      <h1>工作区总览</h1>
       <p class="overview-subtitle">{{ workspace.modCount }} 个 Mod 已导入</p>
     </header>
 
@@ -21,15 +21,10 @@
       >
         <div class="mod-card-header">
           <strong>{{ mod.displayName }}</strong>
-          <span class="mod-card-version" v-if="mod.version">v{{ mod.version }}</span>
           <span class="mod-card-status" :class="mod.status">{{ statusLabel(mod.status) }}</span>
         </div>
+        <div class="mod-card-version">{{ mod.version || '未声明版本' }}</div>
         <div class="mod-card-path">{{ mod.modRoot }}</div>
-        <div v-if="mod.status === 'ready'" class="mod-card-stats">
-          <span v-for="key in TABLE_KEYS" :key="key" class="mod-card-stat">
-            {{ MODULE_LABELS[key] }} {{ getRowCount(mod.modRoot, key) }}
-          </span>
-        </div>
         <div v-if="tables.hasModDirtyChanges(mod.modRoot)" class="mod-card-dirty">有未保存修改</div>
       </div>
     </section>
@@ -38,20 +33,12 @@
 
 <script setup lang="ts">
 import { useWorkspaceStore } from '../../features/workspace/workspace.store';
-import { useProjectStore } from '../../features/project/project.store';
-import { TABLE_KEYS, useTablesStore } from '../../features/tables/tables.store';
-import { MODULE_LABELS } from '../../shared/lib/starsector';
-import type { TableKey } from '../../shared/types';
+import { useTablesStore } from '../../features/tables/tables.store';
 
 defineEmits<{ 'import-mod': [] }>();
 
 const workspace = useWorkspaceStore();
-const project = useProjectStore();
 const tables = useTablesStore();
-
-function getRowCount(modRoot: string, key: TableKey): number {
-  return project.getModData(modRoot)?.[key]?.length ?? 0;
-}
 
 function statusLabel(status: string): string {
   if (status === 'ready') return '已加载';

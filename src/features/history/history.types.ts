@@ -21,6 +21,15 @@ export interface EditorSaveEvent {
   newSpec: RowData;
 }
 
+/** A config document was saved — one atomic event */
+export interface ConfigSaveEvent {
+  type: 'config-save';
+  configKind: 'mod-info' | 'faction';
+  id: string;
+  previousData: RowData;
+  newData: RowData;
+}
+
 /** A sprite path field was written in an editor */
 export interface SpriteFieldWriteEvent {
   type: 'sprite-field-write';
@@ -31,7 +40,7 @@ export interface SpriteFieldWriteEvent {
   newValue: string;
 }
 
-export type HistoryEvent = CsvCellEditEvent | EditorSaveEvent | SpriteFieldWriteEvent;
+export type HistoryEvent = CsvCellEditEvent | EditorSaveEvent | ConfigSaveEvent | SpriteFieldWriteEvent;
 
 // --- Stack items ---
 
@@ -57,7 +66,7 @@ export interface HistoryCheckpoint {
   id: string;
   timestamp: number;
   kind: 'checkpoint';
-  source: 'csv-save' | 'editor-save';
+  source: 'csv-save' | 'editor-save' | 'config-save';
   label: string;
 }
 

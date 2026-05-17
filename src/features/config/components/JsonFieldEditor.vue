@@ -17,6 +17,7 @@
       />
       <n-switch
         v-else-if="typeof modelValue[key] === 'boolean'"
+        class="tool-switch field-switch"
         :value="modelValue[key] as boolean"
         size="small"
         @update:value="updateField(key, $event)"
@@ -29,13 +30,15 @@
         size="small"
         @update:value="updateJsonField(key, $event)"
       />
-      <n-button size="tiny" quaternary @click="removeField(key)">
-        <template #icon>&times;</template>
+      <n-button class="compact-icon-button" size="tiny" quaternary title="删除字段" @click="removeField(key)">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
       </n-button>
     </div>
     <div v-if="extraKeys.length === 0" class="json-field-empty">无额外字段</div>
     <div class="json-field-add">
-      <n-input v-model:value="newKey" size="small" placeholder="新字段名" style="width: 140px" />
+      <n-input v-model:value="newKey" class="json-field-new-key" size="small" placeholder="新字段名" />
       <n-button size="small" :disabled="!newKey.trim()" @click="addField">添加</n-button>
     </div>
   </div>

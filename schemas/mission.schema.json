@@ -1,0 +1,83 @@
+{
+  "$schema": "starsector-devtool/field-schema/v1",
+  "id": "mission",
+  "displayName": "战役",
+  "description": "Starsector 战役配置，聚合 mission_list.csv、descriptor.json 和 mission_text.txt",
+  "sources": [
+    {
+      "id": "list",
+      "type": "csv-row",
+      "path": "data/missions/mission_list.csv",
+      "keyField": "mission"
+    },
+    {
+      "id": "descriptor",
+      "type": "json-file",
+      "path": "data/missions/{list.mission}/descriptor.json",
+      "extraFields": true
+    },
+    {
+      "id": "text",
+      "type": "text-file",
+      "path": "data/missions/{list.mission}/mission_text.txt"
+    }
+  ],
+  "sections": [
+    {
+      "id": "list",
+      "label": "列表项",
+      "fields": [
+        {
+          "key": "list.mission",
+          "type": "string",
+          "label": "mission",
+          "description": "战役 ID，同时作为 data/missions 下的目录名",
+          "required": true,
+          "danger": "修改 mission 会改变保存目标目录"
+        }
+      ]
+    },
+    {
+      "id": "descriptor",
+      "label": "描述文件",
+      "fields": [
+        {
+          "key": "descriptor.title",
+          "type": "string",
+          "label": "title",
+          "description": "战役标题"
+        },
+        {
+          "key": "descriptor.difficulty",
+          "type": "string",
+          "label": "difficulty",
+          "description": "战役难度"
+        },
+        {
+          "key": "descriptor.icon",
+          "type": "path-image",
+          "label": "icon",
+          "description": "战役图标，通常位于 data/missions/{mission}/"
+        },
+        {
+          "key": "descriptor.background",
+          "type": "path-image",
+          "label": "background",
+          "description": "战役背景图"
+        }
+      ]
+    },
+    {
+      "id": "text",
+      "label": "任务文本",
+      "fields": [
+        {
+          "key": "text.content",
+          "type": "text",
+          "label": "mission_text.txt",
+          "description": "战役任务文本"
+        }
+      ]
+    }
+  ]
+}

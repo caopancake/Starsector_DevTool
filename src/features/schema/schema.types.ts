@@ -6,6 +6,7 @@ export type FieldType =
   | 'boolean'
   | 'enum'
   | 'color-rgb'
+  | 'color-rgba'
   | 'path-image'
   | 'path'
   | 'string-array'
@@ -23,6 +24,7 @@ export interface FieldSchema {
   editable?: boolean | null;
   default?: unknown;
   warning?: string | null;
+  danger?: string | null;
   source?: string | null;
   min?: number | null;
   max?: number | null;
@@ -38,6 +40,16 @@ export interface SectionSchema {
   fields: FieldSchema[];
 }
 
+export type SchemaSourceType = 'csv-row' | 'json-file' | 'text-file';
+
+export interface SchemaSource {
+  id: string;
+  type: SchemaSourceType;
+  path: string;
+  keyField?: string;
+  extraFields?: boolean;
+}
+
 export interface FileSchema {
   $schema?: string;
   id: string;
@@ -46,6 +58,7 @@ export interface FileSchema {
   description?: string;
   targetFile?: string;
   gameVersion?: string;
+  sources?: SchemaSource[];
   sections?: SectionSchema[];
   /** Flat field list — used by bundled schemas that have no sections */
   fields?: FieldSchema[];

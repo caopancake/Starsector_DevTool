@@ -93,7 +93,7 @@
   gap: 5px;
 }
 
-.kv-row {
+.detail-pane .kv-row {
   display: grid;
   grid-template-columns: 92px 1fr;
   gap: var(--space-2);
@@ -102,11 +102,11 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.kv-row span {
+.detail-pane .kv-row span {
   color: var(--color-muted);
 }
 
-.kv-row strong {
+.detail-pane .kv-row strong {
   overflow-wrap: anywhere;
   font-weight: 500;
 }

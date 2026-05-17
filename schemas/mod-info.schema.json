@@ -5,14 +5,15 @@
   "description": "Mod 的基本元数据定义文件，包含 ID、名称、版本、依赖等信息",
   "fields": [
     {
-      "key": "id",
+      "key": "file.id",
       "type": "string",
       "label": "Mod ID",
       "description": "Mod 的唯一标识符，用于依赖引用和内部识别",
       "required": true,
       "editable": true,
       "default": null,
-      "warning": "修改 ID 会导致存档不兼容",
+      "warning": null,
+      "danger": "修改 ID 会导致存档不兼容",
       "source": null,
       "min": null,
       "max": null,
@@ -20,7 +21,7 @@
       "nested": null
     },
     {
-      "key": "name",
+      "key": "file.name",
       "type": "string",
       "label": "Mod 名称",
       "description": "Mod 的显示名称",
@@ -35,7 +36,7 @@
       "nested": null
     },
     {
-      "key": "author",
+      "key": "file.author",
       "type": "string",
       "label": "作者",
       "description": "Mod 作者名称",
@@ -50,7 +51,7 @@
       "nested": null
     },
     {
-      "key": "version",
+      "key": "file.version",
       "type": "string",
       "label": "版本号",
       "description": "Mod 版本号。支持字符串格式（如 \"1.0.0\"）或对象格式（如 {\"major\":1, \"minor\":0, \"patch\":0}）。对象格式会显示为 JSON 并可直接编辑",
@@ -65,7 +66,7 @@
       "nested": null
     },
     {
-      "key": "gameVersion",
+      "key": "file.gameVersion",
       "type": "string",
       "label": "游戏版本",
       "description": "Mod 适用的 Starsector 游戏版本",
@@ -80,7 +81,7 @@
       "nested": null
     },
     {
-      "key": "description",
+      "key": "file.description",
       "type": "text",
       "label": "描述",
       "description": "Mod 的简要说明，显示在启动器中",
@@ -95,7 +96,7 @@
       "nested": null
     },
     {
-      "key": "modPlugin",
+      "key": "file.modPlugin",
       "type": "string",
       "label": "Mod 插件类",
       "description": "Mod 的主插件类全限定名（Java class path）",
@@ -110,7 +111,7 @@
       "nested": null
     },
     {
-      "key": "jars",
+      "key": "file.jars",
       "type": "string-array",
       "label": "JAR 文件",
       "description": "Mod 需要加载的 JAR 文件路径列表（相对于 mod 根目录）",
@@ -125,7 +126,7 @@
       "nested": null
     },
     {
-      "key": "dependencies",
+      "key": "file.dependencies",
       "type": "array-of-object",
       "label": "依赖项",
       "description": "Mod 所依赖的其他 Mod 列表",
@@ -186,7 +187,7 @@
       ]
     },
     {
-      "key": "totalConversion",
+      "key": "file.totalConversion",
       "type": "boolean",
       "label": "完全转换",
       "description": "是否为完全转换 Mod（会禁用其他非工具类 Mod）",
@@ -201,7 +202,7 @@
       "nested": null
     },
     {
-      "key": "utility",
+      "key": "file.utility",
       "type": "boolean",
       "label": "工具类 Mod",
       "description": "是否为工具类 Mod（可与完全转换 Mod 共存）",
@@ -216,7 +217,7 @@
       "nested": null
     },
     {
-      "key": "replace",
+      "key": "file.replace",
       "type": "string-array",
       "label": "替换文件",
       "description": "需要完全替换（而非合并）的文件路径列表",
@@ -229,21 +230,14 @@
       "max": null,
       "options": null,
       "nested": null
-    },
+    }
+  ],
+  "sources": [
     {
-      "key": "lazyLib",
-      "type": "boolean",
-      "label": "需要 LazyLib",
-      "description": "是否依赖 LazyLib 库（已弃用，推荐使用 dependencies）",
-      "required": false,
-      "editable": true,
-      "default": false,
-      "warning": "此字段已弃用，推荐在 dependencies 中声明 LazyLib 依赖",
-      "source": null,
-      "min": null,
-      "max": null,
-      "options": null,
-      "nested": null
+      "id": "file",
+      "type": "json-file",
+      "path": "mod_info.json",
+      "extraFields": true
     }
   ]
 }

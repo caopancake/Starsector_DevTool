@@ -40,7 +40,7 @@ export interface ModEditorState {
 export type WorkspaceView = 'overview' | 'table' | 'settings' | 'config';
 
 /** Which config sub-view is shown when currentView === 'config' */
-export type ConfigView = 'mod-info' | 'factions' | 'campaign' | 'world';
+export type ConfigView = 'mod-overview' | 'mod-info' | 'factions' | 'mission';
 
 /** Persisted mod entry (stored to disk) */
 export interface PersistedMod {

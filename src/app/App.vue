@@ -54,7 +54,7 @@ import { useWorkspaceStore } from '../features/workspace/workspace.store';
 import { useCoreSchema } from '../features/schema/composables/useCoreSchema';
 import { pickModRoot } from '../features/project/project.service';
 import { loadWorkspace, saveWorkspace } from '../shared/api/tauri';
-import { cell } from '../shared/lib/starsector';
+import { cell, formatModVersion } from '../shared/lib/starsector';
 import { formatError } from '../shared/lib/errors';
 
 const project = useProjectStore();
@@ -71,13 +71,25 @@ const { message, dialog } = createDiscreteApi(['message', 'dialog'], {
   configProviderProps: computed(() => ({ theme: settings.naiveTheme })),
 });
 
-const themeOverrides: GlobalThemeOverrides = {
+const themeOverrides = computed<GlobalThemeOverrides>(() => ({
   common: {
-    primaryColor: '#2563eb',
-    primaryColorHover: '#1d4ed8',
-    primaryColorPressed: '#1e40af',
+    primaryColor: settings.activeAccentHex,
+    primaryColorHover: cssVar('--color-primary-hover', settings.activeAccentHex),
+    primaryColorPressed: cssVar('--color-primary-pressed', settings.activeAccentHex),
+    primaryColorSuppl: settings.activeAccentHex,
   },
-};
+  Button: {
+    borderRadiusSmall: '5px',
+  },
+  Switch: {
+    railColorActive: settings.activeAccentHex,
+  },
+}));
+
+function cssVar(name: string, fallback: string): string {
+  if (typeof window === 'undefined') return fallback;
+  return window.getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
 
 // Sync workspace active Mod → project/tables/editors stores
 watch(
@@ -118,7 +130,7 @@ onMounted(async () => {
       try {
         const loaded = await project.openProject(mod.modRoot);
         const name = cell(loaded.modInfo?.name) || mod.displayName;
-        const version = cell(loaded.modInfo?.version) || mod.version;
+        const version = formatModVersion(loaded.modInfo?.version) || mod.version;
         workspace.updateModInfo(mod.modRoot, name, version);
         workspace.updateModStatus(mod.modRoot, 'ready');
         tables.hydrateWithoutActivate(mod.modRoot, loaded);
@@ -167,7 +179,7 @@ async function importMod() {
 
     // Update entry info from loaded data
     const displayName = cell(loaded.modInfo?.name) || modRoot.split(/[\\/]/).pop() || 'Mod';
-    const version = cell(loaded.modInfo?.version) || '';
+    const version = formatModVersion(loaded.modInfo?.version) || '';
     workspace.updateModInfo(modRoot, displayName, version);
     workspace.updateModStatus(modRoot, 'ready');
 
@@ -236,7 +248,7 @@ async function addNewRow() {
 function confirmDelete() {
   if (!project.activeModData || !tables.selectedRowId) return;
   const id = tables.selectedRowId;
-  dialog.warning({
+  dialog.error({
     title: '确认删除',
     content: `删除 ${id}？此操作会立即写入文件。`,
     positiveText: '删除',

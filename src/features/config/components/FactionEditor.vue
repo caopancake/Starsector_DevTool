@@ -2,18 +2,18 @@
   <div class="faction-editor-page">
     <header class="faction-editor-header">
       <h2>{{ displayName }}</h2>
-      <n-button type="primary" size="small" :loading="saving" @click="save"> 保存 {{ str(local.id) || factionId }}.faction </n-button>
+      <n-button type="primary" size="small" :loading="saving" @click="save"> 保存 {{ str(factionFile.id) || factionId }}.faction </n-button>
     </header>
 
     <!-- Logo/Crest preview -->
     <div v-if="logoSrc || crestSrc" class="faction-previews">
-      <div v-if="logoSrc" class="faction-preview-item">
+      <div v-if="logoSrc" class="faction-preview-item faction-preview-logo">
         <span>Logo</span>
-        <img :src="logoSrc" class="faction-icon-preview" />
+        <img :src="logoSrc" class="faction-full-preview" />
       </div>
-      <div v-if="crestSrc" class="faction-preview-item">
+      <div v-if="crestSrc" class="faction-preview-item faction-preview-crest">
         <span>Crest</span>
-        <img :src="crestSrc" class="faction-icon-preview" />
+        <img :src="crestSrc" class="faction-full-preview" />
       </div>
     </div>
 
@@ -35,6 +35,7 @@ import { formatError } from '../../../shared/lib/errors';
 import type { JsonValue, RowData } from '../../../shared/types';
 import SchemaFormRenderer from '../../schema/components/SchemaFormRenderer.vue';
 import { useCoreSchema } from '../../schema/composables/useCoreSchema';
+import { aggregateSchemaSources, splitSchemaSources } from '../../schema/schema.service';
 
 const props = defineProps<{ factionId: string }>();
 
@@ -53,15 +54,19 @@ const { message } = createDiscreteApi(['message'], {
 
 const saving = ref(false);
 const local = ref<RowData>({});
+const factionFile = computed<RowData>(() => {
+  const file = local.value.file;
+  return file && typeof file === 'object' && !Array.isArray(file) ? (file as RowData) : {};
+});
 
 watch(
   () => props.factionId,
   (id) => {
     const modData = project.activeModData;
     if (modData && modData.factionFiles[id]) {
-      local.value = deepClone(modData.factionFiles[id]);
+      local.value = aggregateSchemaSources({ file: deepClone(modData.factionFiles[id]) });
     } else {
-      local.value = { id };
+      local.value = aggregateSchemaSources({ file: { id } });
     }
   },
   { immediate: true },
@@ -73,7 +78,7 @@ function str(value: JsonValue | undefined): string {
   return JSON.stringify(value);
 }
 
-const displayName = computed(() => str(local.value.displayName) || props.factionId);
+const displayName = computed(() => str(factionFile.value.displayName) || props.factionId);
 
 // --- Image preview ---
 const logoSrc = ref('');
@@ -82,8 +87,8 @@ const crestSrc = ref('');
 async function refreshImagePreviews() {
   const modRoot = project.activeModData?.modRoot;
   const coreRoot = settings.starsectorRoot || project.activeModData?.starsectorRoot || undefined;
-  const logo = str(local.value.logo);
-  const crest = str(local.value.crest);
+  const logo = str(factionFile.value.logo);
+  const crest = str(factionFile.value.crest);
 
   if (logo && modRoot) {
     try {
@@ -107,7 +112,7 @@ async function refreshImagePreviews() {
 }
 
 watch(
-  () => [str(local.value.logo), str(local.value.crest)],
+  () => [str(factionFile.value.logo), str(factionFile.value.crest)],
   () => refreshImagePreviews(),
   { immediate: true },
 );
@@ -116,31 +121,42 @@ watch(
 async function save() {
   const modData = project.activeModData;
   if (!modData) return;
+  const currentSchema = schema.value;
+  if (!currentSchema) return;
   saving.value = true;
   try {
-    const newId = str(local.value.id) || props.factionId;
+    const split = splitSchemaSources(local.value, currentSchema);
+    const file = split.file && typeof split.file === 'object' && !Array.isArray(split.file) ? (split.file as RowData) : {};
+    const newId = str(file.id) || props.factionId;
     const oldId = props.factionId;
     const idChanged = newId !== oldId;
 
     const previousSpec = deepClone(modData.factionFiles[oldId] ?? {});
 
     // Save with new ID (backend writes to {newId}.faction)
-    await saveFactionData(modData.modRoot, newId, local.value);
+    await saveFactionData(modData.modRoot, newId, file);
 
     if (idChanged) {
       // Delete old faction file
       await deleteFactionFile(modData.modRoot, oldId);
       // Update factionFiles map: remove old, add new
       delete modData.factionFiles[oldId];
+      delete modData.factionMeta[oldId];
     }
 
-    modData.factionFiles[newId] = deepClone(local.value);
+    modData.factionFiles[newId] = deepClone(file);
+    modData.factionMeta[newId] = {
+      name: str(file.displayName) || newId,
+      color: rgbaToCss(file.color),
+    };
 
-    historyStore.pushEvent(
-      { type: 'editor-save', editorKind: 'ship', id: newId, previousSpec, newSpec: deepClone(local.value) },
-      `保存 ${newId}.faction`,
-    );
-    historyStore.pushCheckpoint('editor-save', `${newId}.faction 已保存`);
+    if (!idChanged) {
+      historyStore.pushEvent(
+        { type: 'config-save', configKind: 'faction', id: newId, previousData: previousSpec, newData: deepClone(file) },
+        `保存 ${newId}.faction`,
+      );
+      historyStore.pushCheckpoint('config-save', `${newId}.faction 已保存`);
+    }
     message.success(`${newId}.faction 已保存`);
   } catch (error) {
     message.error(formatError(error));
@@ -148,58 +164,15 @@ async function save() {
     saving.value = false;
   }
 }
+
+function rgbaToCss(color: JsonValue | undefined): string {
+  if (Array.isArray(color) && color.length >= 3) {
+    const r = Math.round(Number(color[0]) || 0);
+    const g = Math.round(Number(color[1]) || 0);
+    const b = Math.round(Number(color[2]) || 0);
+    const a = Math.round(Number(color[3] ?? 255) || 0) / 255;
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+  return 'rgba(128, 128, 128, 1)';
+}
 </script>
-
-<style scoped>
-.faction-editor-page {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 12px 16px;
-  background: var(--color-panel-muted);
-}
-
-.faction-editor-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.faction-editor-header h2 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.faction-previews {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  background: var(--color-surface);
-  border-radius: 6px;
-  border: 1px solid var(--color-border);
-}
-
-.faction-preview-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: var(--color-muted);
-}
-
-.faction-icon-preview {
-  max-width: 48px;
-  max-height: 48px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  image-rendering: pixelated;
-}
-</style>

@@ -15,6 +15,7 @@ export interface AppData {
   modInfo: RowData;
   factionMeta: Record<string, FactionMeta>;
   factionFiles: Record<string, RowData>;
+  missionCount: number;
   csvHeaders: Record<string, string[]>;
   csvPaths: Record<string, string>;
   ships: RowData[];

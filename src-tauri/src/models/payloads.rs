@@ -76,11 +76,12 @@ pub struct FactionPayload {
     pub mod_root: String,
     pub id: String,
     pub data: Option<Value>,
+    pub delete_file: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CampaignCsvPayload {
+pub struct MissionListCsvPayload {
     pub mod_root: String,
     pub rel_path: String,
     pub header: Option<Vec<String>>,
@@ -89,10 +90,19 @@ pub struct CampaignCsvPayload {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WorldFilePayload {
+pub struct MissionPayload {
     pub mod_root: String,
-    pub rel_path: String,
-    pub data: Option<Value>,
+    pub mission: String,
+    pub descriptor: Option<Value>,
+    pub text: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MissionData {
+    pub descriptor: Value,
+    pub text: String,
+    pub icon_path: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

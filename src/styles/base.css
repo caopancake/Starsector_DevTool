@@ -19,6 +19,8 @@
   --color-muted: #7b8491;
   --color-faint: #a2a8b3;
   --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-pressed: #1e40af;
   --color-primary-soft: #e8f0ff;
   --color-primary-border: #bfdbfe;
   --color-warning: #b7791f;
@@ -58,6 +60,8 @@
   --color-muted: #8f98a7;
   --color-faint: #626b7a;
   --color-primary: #60a5fa;
+  --color-primary-hover: #7db7fb;
+  --color-primary-pressed: #3b82f6;
   --color-primary-soft: #17263d;
   --color-primary-border: #24466d;
   --color-warning: #fbbf24;
@@ -96,6 +100,299 @@ button,
 input,
 textarea {
   font: inherit;
+}
+
+.n-input-number .n-button,
+.n-input-number .n-button-group {
+  display: none;
+}
+
+.n-base-selection {
+  min-height: 30px;
+  font-size: 12px;
+  --n-border: 1px solid var(--color-border) !important;
+  --n-border-hover: 1px solid var(--color-border-strong) !important;
+  --n-border-active: 1px solid var(--color-primary-border) !important;
+  --n-border-focus: 1px solid var(--color-primary-border) !important;
+  --n-box-shadow-active: inset 0 0 0 1px var(--color-primary-border) !important;
+  --n-box-shadow-focus: inset 0 0 0 1px var(--color-primary-border) !important;
+  --n-color: var(--color-panel) !important;
+  --n-color-active: var(--color-panel) !important;
+  --n-color-disabled: var(--color-surface) !important;
+  --n-placeholder-color: var(--color-muted) !important;
+  --n-text-color: var(--color-text) !important;
+  --n-arrow-color: var(--color-muted) !important;
+  --n-border-radius: var(--radius-sm) !important;
+}
+
+.n-base-selection .n-base-selection-label {
+  min-height: 30px;
+  background: var(--color-panel) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+.n-base-selection:hover .n-base-selection-label {
+  background: var(--color-panel-muted) !important;
+}
+
+.n-base-selection .n-base-selection__border,
+.n-base-selection .n-base-selection__state-border {
+  border-radius: var(--radius-sm) !important;
+}
+
+.n-base-selection .n-base-selection-input,
+.n-base-selection .n-base-selection-placeholder,
+.n-base-selection .n-base-selection-label__render-label {
+  color: var(--color-text) !important;
+  font-size: 12px;
+}
+
+.n-base-selection .n-base-selection-placeholder {
+  color: var(--color-muted) !important;
+}
+
+.n-base-selection .n-base-selection__suffix,
+.n-base-selection .n-base-selection__clear {
+  color: var(--color-muted) !important;
+}
+
+.n-base-selection-tags {
+  gap: 4px;
+  padding: 3px 4px !important;
+}
+
+.n-base-selection-tags .n-base-selection-input-tag {
+  margin-left: 0 !important;
+}
+
+.n-base-selection-tags .n-tag {
+  --n-color: var(--color-primary-soft) !important;
+  --n-border: 1px solid var(--color-primary-border) !important;
+  --n-text-color: var(--color-primary) !important;
+  --n-border-radius: var(--radius-sm) !important;
+}
+
+.n-base-select-menu {
+  --n-color: var(--color-panel) !important;
+  --n-border-radius: var(--radius-md) !important;
+  --n-box-shadow: var(--shadow-floating) !important;
+  --n-option-height: 28px !important;
+  --n-option-font-size: 12px !important;
+  --n-option-text-color: var(--color-text-soft) !important;
+  --n-option-text-color-active: var(--color-primary) !important;
+  --n-option-text-color-disabled: var(--color-faint) !important;
+  --n-option-color-pending: var(--color-surface-hover) !important;
+  --n-option-color-active: var(--color-primary-soft) !important;
+  --n-option-color-active-pending: var(--color-primary-soft) !important;
+  padding: var(--space-1);
+  background: var(--color-panel) !important;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-floating) !important;
+}
+
+.n-base-select-menu .n-base-select-option {
+  min-height: 28px;
+  margin: 1px 0;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.n-base-select-menu .n-base-select-option:hover,
+.n-base-select-menu .n-base-select-option.n-base-select-option--pending {
+  background: var(--color-surface-hover) !important;
+}
+
+.n-base-select-menu .n-base-select-option.n-base-select-option--selected {
+  color: var(--color-primary) !important;
+  background: var(--color-primary-soft) !important;
+}
+
+.n-base-select-menu .n-base-select-option__content {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.schema-select-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.schema-select-option-thumb {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  border-radius: 2px;
+  image-rendering: pixelated;
+}
+
+.schema-select-option-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.color-picker {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1);
+  align-items: center;
+  min-width: 0;
+}
+
+.color-picker-label {
+  grid-column: 1 / -1;
+  color: var(--color-text-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.color-picker-preview {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  cursor: pointer;
+  background:
+    linear-gradient(45deg, var(--color-border) 25%, transparent 25%) 0 0 / 8px 8px,
+    linear-gradient(45deg, transparent 75%, var(--color-border) 75%) 0 0 / 8px 8px,
+    linear-gradient(45deg, transparent 75%, var(--color-border) 75%) 4px 4px / 8px 8px,
+    linear-gradient(45deg, var(--color-border) 25%, transparent 25%) 4px 4px / 8px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.color-picker-preview::after {
+  display: block;
+  width: 100%;
+  height: 100%;
+  content: '';
+  background: var(--preview-color);
+  border-radius: calc(var(--radius-sm) - 1px);
+}
+
+.color-picker-preview.small {
+  display: block;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.color-picker-channels {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(48px, 1fr));
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.color-picker-channels label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px;
+  align-items: center;
+  min-width: 0;
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.color-picker-channel-input {
+  min-width: 0;
+}
+
+.color-picker-text-input {
+  min-width: 0;
+}
+
+.color-picker-panel {
+  display: grid;
+  gap: var(--space-2);
+  width: 248px;
+  padding: var(--space-3);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-floating);
+}
+
+.color-picker-sv {
+  position: relative;
+  height: 140px;
+  cursor: crosshair;
+  background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent), var(--hue-color);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.color-picker-sv-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.72);
+  transform: translate(-50%, -50%);
+}
+
+.color-picker-slider-row {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  gap: var(--space-1);
+  align-items: center;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.color-picker-slider-row input {
+  width: 100%;
+  margin: 0;
+}
+
+.color-picker-hue {
+  accent-color: var(--color-primary);
+}
+
+.color-picker-alpha {
+  accent-color: var(--color-primary);
+}
+
+.color-picker-alpha-value {
+  min-width: 24px;
+  text-align: right;
+}
+
+.color-picker-panel-preview {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--color-text-soft);
+  font-size: 11px;
+}
+
+.color-picker-panel-preview span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.color-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.tool-switch {
+  --n-rail-color: var(--color-surface-active) !important;
+  --n-rail-color-active: var(--color-primary) !important;
+  --n-button-color: var(--color-panel) !important;
+  --n-button-box-shadow: var(--shadow-subtle) !important;
+  --n-box-shadow-focus: inset 0 0 0 1px var(--color-primary-border) !important;
 }
 
 ::-webkit-scrollbar {

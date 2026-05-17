@@ -25,6 +25,7 @@ import { formatError } from '../../../shared/lib/errors';
 import type { RowData } from '../../../shared/types';
 import SchemaFormRenderer from '../../schema/components/SchemaFormRenderer.vue';
 import { useCoreSchema } from '../../schema/composables/useCoreSchema';
+import { aggregateSchemaSources, splitSchemaSources } from '../../schema/schema.service';
 
 const project = useProjectStore();
 const configStore = useConfigStore();
@@ -44,7 +45,7 @@ const local = ref<RowData>({});
 watch(
   () => project.activeModData?.modInfo,
   (modInfo) => {
-    if (modInfo) local.value = deepClone(modInfo);
+    if (modInfo) local.value = aggregateSchemaSources({ file: deepClone(modInfo) });
   },
   { immediate: true },
 );
@@ -52,17 +53,21 @@ watch(
 async function save() {
   const modData = project.activeModData;
   if (!modData) return;
+  const currentSchema = schema.value;
+  if (!currentSchema) return;
   saving.value = true;
   try {
     const previousSpec = deepClone(modData.modInfo);
-    await saveModInfoData(modData.modRoot, local.value);
-    modData.modInfo = deepClone(local.value);
-    configStore.updateSnapshot(local.value);
+    const split = splitSchemaSources(local.value, currentSchema);
+    const file = split.file && typeof split.file === 'object' && !Array.isArray(split.file) ? (split.file as RowData) : {};
+    await saveModInfoData(modData.modRoot, file);
+    modData.modInfo = deepClone(file);
+    configStore.updateSnapshot(file);
     historyStore.pushEvent(
-      { type: 'editor-save', editorKind: 'ship', id: '__mod_info__', previousSpec, newSpec: deepClone(local.value) },
+      { type: 'config-save', configKind: 'mod-info', id: '__mod_info__', previousData: previousSpec, newData: deepClone(file) },
       '保存 mod_info.json',
     );
-    historyStore.pushCheckpoint('editor-save', 'mod_info.json 已保存');
+    historyStore.pushCheckpoint('config-save', 'mod_info.json 已保存');
     message.success('mod_info.json 已保存');
   } catch (error) {
     message.error(formatError(error));

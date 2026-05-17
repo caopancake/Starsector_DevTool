@@ -7,8 +7,8 @@
       </div>
       <div class="top-actions">
         <div class="top-action-group">
-          <n-input v-model:value="tables.searchText" clearable placeholder="搜索 ID / 名称" style="width: 240px" />
-          <n-select v-model:value="tables.currentFaction" :options="factionOptions" placeholder="势力" style="width: 180px" />
+          <n-input v-model:value="tables.searchText" class="top-search-input" clearable placeholder="搜索 ID / 名称" />
+          <n-select v-model:value="tables.currentFaction" class="top-faction-select" :options="factionOptions" placeholder="势力" />
         </div>
         <div class="top-action-group">
           <n-button :disabled="!activeData" @click="$emit('add-row')">新建</n-button>
