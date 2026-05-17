@@ -1,6 +1,7 @@
 <template>
   <main class="config-workspace">
     <ModOverview v-if="workspace.configView === 'mod-overview'" />
+    <FileHistoryView v-else-if="workspace.configView === 'file-history'" />
     <ModInfoEditor v-else-if="workspace.configView === 'mod-info'" />
     <div v-else-if="workspace.configView === 'factions'" class="config-factions-layout">
       <FactionList @select="selectedFaction = $event" />
@@ -13,8 +14,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useWorkspaceStore } from '../../workspace/workspace.store';
+import { useWorkspaceStore } from '../../workspace/workspace-store';
 import ModOverview from './ModOverview.vue';
+import FileHistoryView from './FileHistoryView.vue';
 import ModInfoEditor from './ModInfoEditor.vue';
 import FactionList from './FactionList.vue';
 import FactionEditor from './FactionEditor.vue';

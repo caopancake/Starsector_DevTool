@@ -12,7 +12,7 @@
             <TableWorkspace
               v-else-if="workspace.currentView === 'table' && project.activeModData"
               @add-row="addNewRow"
-              @delete-row="confirmDelete"
+              @delete-row="deleteSelectedRow"
               @revert="revertChanges"
               @save="saveChanges"
               @open-file-editor="openRequestedFileEditor"
@@ -36,7 +36,6 @@
 </template>
 
 <script setup lang="ts">
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { computed, h, ref, onMounted, onUnmounted, watch } from 'vue';
 import { NButton, NCheckbox, NSpace, NText, createDiscreteApi } from 'naive-ui';
 import TitleBar from './TitleBar.vue';
@@ -45,20 +44,23 @@ import OverviewPage from './components/OverviewPage.vue';
 import SettingsPage from './components/SettingsPage.vue';
 import TableWorkspace from './components/TableWorkspace.vue';
 import ConfigWorkspace from '../features/config/components/ConfigWorkspace.vue';
-import { useSettingsStore } from './settings.store';
-import { useEditorsStore } from '../features/editors/editors.store';
-import { useFileHistoryStore } from '../features/file-history/file.history.store';
-import { useMainWindowShortcuts } from '../features/history/composables/useMainWindowShortcuts';
-import { useProjectStore } from '../features/project/project.store';
-import { useTablesStore } from '../features/tables/tables.store';
-import { useTablesEditHistoryStore } from '../features/tables/tables.edit-history.store';
-import { useWorkspaceStore } from '../features/workspace/workspace.store';
-import { useCoreSchema } from '../features/schema/composables/useCoreSchema';
-import { pickDirectory } from '../features/project/project.service';
-import { loadWorkspace, saveWorkspace } from '../shared/api/tauri';
-import { cell, formatModVersion } from '../shared/lib/starsector';
+import { useSettingsStore } from './settings-store';
+import { useEditorsStore } from '../features/editors/editors-store';
+import { useFileHistoryStore } from '../features/file-history/file-history-store';
+import { useMainWindowShortcuts } from '../features/undo-redo/composables/use-main-window-shortcuts';
+import { useProjectStore } from '../features/project/project-store';
+import { useTablesStore } from '../features/tables/tables-store';
+import { useTablesEditHistoryStore } from '../features/tables/tables-edit-history-store';
+import { useWorkspaceStore } from '../features/workspace/workspace-store';
+import { pickDirectory } from '../features/project/project-service';
+import { cell } from '../shared/lib/starsector';
 import { extractFileReferenceFromError, formatError } from '../shared/lib/errors';
-import { loadModFromOverview, openDetectedDirectory, restoreWorkspaceMod } from '../features/workspace/open-directory.service';
+import { loadModFromOverview, openDetectedDirectory } from '../features/workspace/open-directory-service';
+import {
+  restorePersistedWorkspace,
+  watchWorkspacePersistence,
+  type WorkspacePersistenceWatcher,
+} from '../features/workspace/workspace-persistence';
 import { openFileEditorWindow, type FileEditorRequest } from '../features/workspace/file-editor-window';
 import { buildThemeOverrides, discreteConfigProviderProps } from './theme-overrides';
 import {
@@ -67,9 +69,8 @@ import {
   openWeaponPreviewWindow,
   type EditorSpecSavedEvent,
 } from '../features/editors/editor-window';
-import { WINDOW_EVENTS, type FileEditorSavedEvent } from '../features/windowing/window-events';
-import { parseJsonSpecFileChange, resolveLoadedModRootForPath } from '../features/file-history/file.history.sync';
-import type { AssociatedFileCandidate } from '../features/tables/tables.store';
+import { listenWindowSaveEvents } from '../features/windowing/window-save-events';
+import type { AssociatedFileCandidate } from '../features/tables/associated-file-candidates';
 
 const project = useProjectStore();
 const tables = useTablesStore();
@@ -78,7 +79,6 @@ const settings = useSettingsStore();
 const workspace = useWorkspaceStore();
 const fileHistory = useFileHistoryStore();
 const csvEditHistory = useTablesEditHistoryStore();
-const { loadCoreFields } = useCoreSchema();
 const selectedAssociatedFileKeys = ref<Set<string>>(new Set());
 
 useMainWindowShortcuts();
@@ -101,70 +101,37 @@ watch(
   },
 );
 
-// Auto-save workspace state (debounced, skipped during restore)
-let saveTimer: number | null = null;
-let restoring = false;
-watch(
-  () => workspace.toPersistedState(),
-  (state) => {
-    if (restoring) return;
-    if (saveTimer !== null) window.clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(() => void saveWorkspace(state), 500);
-  },
-  { deep: true },
-);
-
-// Startup: restore persisted workspace
-// Startup: restore persisted workspace
-let unlistenEditorSaved: UnlistenFn | null = null;
-let unlistenFileEditorSaved: UnlistenFn | null = null;
+let stopWindowSaveEvents: (() => void) | null = null;
+let workspacePersistence: WorkspacePersistenceWatcher | null = null;
 
 onMounted(async () => {
-  unlistenEditorSaved = await listen<EditorSpecSavedEvent>(WINDOW_EVENTS.editorSpecSaved, (event) => {
-    handleEditorSpecSaved(event.payload);
-  });
-  unlistenFileEditorSaved = await listen<FileEditorSavedEvent>(WINDOW_EVENTS.fileEditorSaved, (event) => {
-    handleFileEditorSaved(event.payload);
+  workspacePersistence = watchWorkspacePersistence();
+  stopWindowSaveEvents = await listenWindowSaveEvents({
+    onEditorSpecSaved: (payload) => {
+      message.success(`${payload.id}.${editorExtension(payload.kind)} 已保存`);
+    },
   });
   try {
-    const persisted = await loadWorkspace();
-    if (persisted.mods.length === 0 && !persisted.starsectorRoot) return;
-    restoring = true;
-    workspace.restoreFrom(persisted);
-
-    // Hydrate all mods (this no longer sets activeRoot)
-    for (const mod of persisted.mods) {
-      try {
-        const loaded = await restoreWorkspaceMod(mod, persisted.starsectorRoot ?? settings.starsectorRoot);
-        const name = cell(loaded.modInfo?.name) || mod.displayName;
-        const version = formatModVersion(loaded.modInfo?.version) || mod.version;
-        workspace.updateModInfo(mod.modRoot, name, version);
-        workspace.updateModStatus(mod.modRoot, 'ready');
-      } catch (err) {
-        removeMod(mod.modRoot, false);
-        showError(`恢复 ${mod.displayName || mod.modRoot} 失败: ${formatError(err)}`, err);
-      }
-    }
-
-    // Only after all hydrations complete, activate the previously active mod
-    if (persisted.activeModRoot && workspace.isModImported(persisted.activeModRoot)) {
-      const activeMod = workspace.mods.get(persisted.activeModRoot);
-      if (activeMod?.status === 'ready') {
-        workspace.setActiveMod(persisted.activeModRoot);
-      }
-    }
-    restoring = false;
-    loadCoreFields();
+    workspacePersistence.setRestoring(true);
+    await restorePersistedWorkspace({
+      fallbackStarsectorRoot: settings.starsectorRoot,
+      onModRestoreError: (modRoot, displayName, error) => {
+        removeMod(modRoot, false);
+        showError(`恢复 ${displayName} 失败: ${formatError(error)}`, error);
+      },
+    });
   } catch {
-    restoring = false;
+    // Damaged workspace state is treated as a blank startup.
+  } finally {
+    workspacePersistence.setRestoring(false);
   }
 });
 
 onUnmounted(() => {
-  unlistenEditorSaved?.();
-  unlistenEditorSaved = null;
-  unlistenFileEditorSaved?.();
-  unlistenFileEditorSaved = null;
+  stopWindowSaveEvents?.();
+  stopWindowSaveEvents = null;
+  workspacePersistence?.stop();
+  workspacePersistence = null;
 });
 
 async function openDirectory() {
@@ -297,23 +264,14 @@ async function addNewRow() {
   }
 }
 
-function confirmDelete() {
-  if (!project.activeModData || !tables.selectedRowId) return;
-  const id = tables.selectedRowId;
-  dialog.error({
-    title: '确认删除',
-    content: `删除 ${id}？此操作只会修改当前表格内存状态，点击“保存 CSV”后才会写入文件。`,
-    positiveText: '删除',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      try {
-        await tables.deleteSelected();
-        message.success('已删除');
-      } catch (err) {
-        showError(formatError(err), err);
-      }
-    },
-  });
+async function deleteSelectedRow() {
+  if (!project.activeModData || !tables.selectedRowKey) return;
+  try {
+    await tables.deleteSelected();
+    message.success('已删除');
+  } catch (err) {
+    showError(formatError(err), err);
+  }
 }
 
 function openShip(id: string) {
@@ -351,48 +309,10 @@ function editorRequest(id: string) {
   };
 }
 
-function handleEditorSpecSaved(payload: EditorSpecSavedEvent) {
-  const modData = project.getModData(payload.modRoot);
-  if (!modData) return;
-  if (payload.kind === 'ship') {
-    project.updateShipFile(payload.modRoot, payload.id, payload.spec);
-  } else if (payload.kind === 'weapon') {
-    project.updateWeaponFile(payload.modRoot, payload.id, payload.spec);
-  } else {
-    project.updateProjectileFile(payload.modRoot, payload.id, payload.spec);
-  }
-  if (payload.changes?.length) {
-    fileHistory.pushFileSaveEntry(payload.modRoot, payload.changes, `保存 ${payload.id}.${editorExtension(payload.kind)}`);
-  }
-  message.success(`${payload.id}.${editorExtension(payload.kind)} 已保存`);
-}
-
-function handleFileEditorSaved(payload: FileEditorSavedEvent) {
-  if (!payload.changes.length) return;
-  const modRoot = resolveLoadedModRootForPath(project.modsData, payload.path);
-  if (!modRoot) return;
-  fileHistory.pushFileSaveEntry(modRoot, payload.changes, `保存 ${fileName(payload.path)}`);
-  syncFileEditorSpecChanges(payload);
-}
-
 function editorExtension(kind: EditorSpecSavedEvent['kind']) {
   if (kind === 'ship') return 'ship';
   if (kind === 'weapon') return 'wpn';
   return 'proj';
-}
-
-function fileName(path: string): string {
-  return path.split(/[\\/]/).filter(Boolean).pop() || path;
-}
-
-function syncFileEditorSpecChanges(payload: FileEditorSavedEvent) {
-  for (const change of payload.changes) {
-    const specChange = parseJsonSpecFileChange(project.modsData, change.path, change.afterText ?? null);
-    if (!specChange) continue;
-    if (specChange.kind === 'ship') project.updateShipFile(specChange.modRoot, specChange.id, specChange.spec);
-    else if (specChange.kind === 'weapon') project.updateWeaponFile(specChange.modRoot, specChange.id, specChange.spec);
-    else project.updateProjectileFile(specChange.modRoot, specChange.id, specChange.spec);
-  }
 }
 
 function showError(text: string, error: unknown = text) {

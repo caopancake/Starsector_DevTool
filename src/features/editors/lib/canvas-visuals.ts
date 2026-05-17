@@ -1,4 +1,4 @@
-import type { Point } from '../composables/useCanvasViewport';
+import type { Point } from '../composables/use-canvas-viewport';
 import { SLOT_RADIUS, WEAPON_COLORS } from '../../../shared/lib/starsector';
 
 interface WeaponSlotVisualOptions {

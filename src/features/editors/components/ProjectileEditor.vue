@@ -111,14 +111,14 @@ import ColorPicker from '../../../shared/components/ColorPicker.vue';
 import EditorFooter from './common/EditorFooter.vue';
 import EditorHeader from './common/EditorHeader.vue';
 import ObjectEditor from './common/ObjectEditor.vue';
-import { saveProjectileSpecWithHistory } from '../editor.service';
+import { saveProjectileSpecWithHistory } from '../editor-service';
 import type { RowData } from '../../../shared/types';
-import type { FileChangeRecord } from '../../../shared/api/tauri';
+import type { FileChangeRecord } from '../../../shared/api/files-api';
 import { arr, str } from '../../../shared/lib/starsector';
 import { formatError } from '../../../shared/lib/errors';
 import { normalizeProjectileSpec } from '../lib/normalize';
-import { useObjectField } from '../composables/useObjectField';
-import { useSpriteUpload } from '../composables/useSpriteUpload';
+import { useObjectField } from '../composables/use-object-field';
+import { useSpriteUpload } from '../composables/use-sprite-upload';
 import { editorCollapseTheme, toOptions as opts } from '../lib/editor-constants';
 
 const props = defineProps<{ modRoot: string; projectileId: string; projectile?: RowData }>();

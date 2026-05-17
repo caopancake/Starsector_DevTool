@@ -51,8 +51,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useTablesStore } from '../features/tables/tables.store';
-import { useProjectStore } from '../features/project/project.store';
+import { useTablesStore } from '../features/tables/tables-store';
+import { useProjectStore } from '../features/project/project-store';
 import { cell, MODULE_LABELS, rowId, str } from '../shared/lib/starsector';
 import type { FileEditorRequest } from '../features/workspace/file-editor-window';
 import type { RowData, TableKey } from '../shared/types';

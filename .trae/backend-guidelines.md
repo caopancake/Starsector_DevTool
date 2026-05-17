@@ -36,6 +36,15 @@
 - multi-source schema 的聚合/拆分不能改变原文件边界：列表行、JSON 文件、文本文件分别写回对应位置。
 - 删除操作要区分“从索引删除”和“删除实体文件/目录”，默认选择风险较低的行为。
 
+## 文件变更集
+
+- 文件级保存 history 以后端 changeset 为权威，统一通过 `FileChangeRecord[]` 表达。
+- `FileChangeRecord` 可表示文本文件变更，也可表示目录删除/恢复快照；命名里的 file 表示“文件级 history”，不表示只能包含普通文件。
+- `FileChangeSetBuilder` 负责构建文本文件 create/update/delete 和目录 delete changeset，并统一 apply。
+- `apply_file_change_set` 是 undo/redo 的权威回放入口；失败时必须尽力回滚已写入内容。
+- `file_changes.rs` 只处理 changeset 构建、快照和回放，不理解 `.ship/.wpn/.proj` 的 id 查找语义。
+- spec 目标文件查找属于 `editor_specs.rs`；配置领域逻辑属于 `services/config/` 下的 factions、missions、assets 模块。
+
 ## 贴图规则
 
 - 贴图上传按用途写入固定目录：舰船 `graphics/ships/`，武器 `graphics/weapons/`，弹体 `graphics/missiles/`。

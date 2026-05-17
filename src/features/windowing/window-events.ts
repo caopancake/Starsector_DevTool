@@ -1,5 +1,5 @@
 import type { RowData } from '../../shared/types';
-import type { FileChangeRecord } from '../../shared/api/tauri';
+import type { FileChangeRecord } from '../../shared/api/files-api';
 import type { EditorWindowKind } from '../editors/editor-window';
 
 export const WINDOW_EVENTS = {

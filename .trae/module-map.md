@@ -24,7 +24,7 @@
 
 ### 窗口类型
 
-- 主窗口：`App.vue`，负责工作区、目录打开、Mod 概览、表格、配置和主界面级快捷键。
+- 主窗口：`App.vue`，负责全局 provider、顶层视图路由、用户入口事件和消息反馈。
 - 文件编辑器窗口：`FileEditorApp.vue`，由 `file-editor-window.ts` 打开，窗口 label 为 `file-editor-*`，按文件绝对路径单例复用。
 - 编辑器窗口：`EditorWindowApp.vue`，由 `editor-window.ts` 打开，窗口 label 为 `editor-*`，按 `kind + modRoot + id` 单例复用。
 - 当前编辑器窗口 kind：`ship`、`weapon`、`projectile`、`weapon-preview`。
@@ -47,49 +47,59 @@
 
 ### 应用壳组件
 
-- `src/app/App.vue`：应用壳，负责 workspace 视图路由、导入/移除 Mod 编排、启动恢复和全局 provider 下的主布局。
+- `src/app/App.vue`：应用壳，负责 workspace 视图路由、导入/移除 Mod 入口和全局 provider 下的主布局。
 - `src/app/TitleBar.vue`：自定义窗口标题栏，集中处理主题切换和窗口控制，显示当前 Mod 名。
 - `src/app/providers/`：Naive UI 等全局 provider 初始化。
 - `src/app/components/NavSidebar.vue`：左侧导航面板，包含总览/设置入口和已完整读取 Mod 树。
-- `src/app/components/ModTreeItem.vue`：单个 Mod 树节点，展开显示已实现的数据和配置模块。
+- `src/app/components/ModTreeItem.vue`：单个 Mod 树节点，展开显示已实现的数据、文件历史检查页和配置模块。
 - `src/app/components/SettingsPage.vue`：设置页，管理主题、主题色、Starsector 路径和撤销上限等工具设置。
 
 ### 工作区状态
 
 - `src/features/workspace/`：工作区编排状态，管理游戏目录上下文、轻量 Mod 索引、已完整读取 Mod 列表、活动 Mod、当前视图和展开状态。
-- `workspace.store` 不持有 `AppData`；项目数据归 `project.store` 管理。
+- `workspace-store` 不持有 `AppData`；项目数据归 `project-store` 管理。
 - 工作区持久化只保存工具私有状态，不把私有 UI 状态写进 Mod 目录。
 - `src/features/workspace/file-editor-window.ts`：文件编辑器窗口的业务适配层。
+- `src/features/workspace/workspace-persistence.ts`：启动恢复和 workspace 自动保存防抖；根组件只负责启动/停止该 watcher 和展示恢复错误。
 
 ### 项目缓存
 
 - `src/features/project/`：项目加载与 per-Mod `AppData` 缓存。
-- `project.store` 使用 `Map<modRoot, AppData>` 隔离多个 Mod。
+- `project-store` 使用 `Map<modRoot, AppData>` 隔离多个 Mod。
 - 当前缓存 CSV 表、spec 文件、战术系统 `.system` 文件、配置文件和资源预览数据。
-- `project.store` 不负责视图路由。
+- `project-store` 不负责视图路由。
+
+### 配置与检查页
+
+- `src/features/config/components/ModOverview.vue`：当前 Mod 的轻量总览页。
+- `src/features/config/components/FileHistoryView.vue`：当前 Mod 的文件级历史检查页，显示“可撤销”“可重做”和每条保存历史的文件变更摘要。
+- `FileHistoryView` 可对文件级历史执行单步“撤销”“重做”，回放前二次确认；“清空文件历史”只清空当前 Mod 的文件历史栈，不修改磁盘文件，且必须二次确认。
+- `src/features/config/components/ModInfoEditor.vue`：`mod_info.json` Schema 表单编辑页。
 
 ### 工作区加载链路
 
 1. 用户在 `OverviewPage` / `App.vue` 中选择打开目录。
-2. `workspace/open-directory.service.ts` 调用 `detect_directory`，判断结果为 `game-root`、`mod-in-game`、`external-mod` 或 `unknown`。
+2. `workspace/open-directory-service.ts` 调用 `detect_directory`，判断结果为 `game-root`、`mod-in-game`、`external-mod` 或 `unknown`。
 3. 若是 `game-root`，`scan_game_overview` 只读取 `mods/*/mod_info.json`，写入 `workspace.gameOverview` 并停留在概览页。
 4. 若是 `mod-in-game`，先写入游戏目录概览，再完整读取所选 Mod，并回到概览页。
 5. 若是 `external-mod`，只完整读取该 Mod，设置页游戏目录只作为原版资源 fallback。
-6. 若用户在概览页点击“完整读取”，`open-directory.service` 调用带显式 `starsectorRoot` 的 `load_mod_data`。
+6. 若用户在概览页点击“完整读取”，`open-directory-service` 调用带显式 `starsectorRoot` 的 `load_mod_data`。
 7. Rust 返回 `AppData`。
-8. `project.store` 将数据写入 `modsData`。
-9. `workspace.store` 注册 Mod、设置活动 Mod 和视图状态。
-10. `tables.store`、`editors.store`、`file.history.store` 按活动 Mod 激活各自状态。
+8. `project-store` 将数据写入 `modsData`。
+9. `workspace-store` 注册 Mod、设置活动 Mod 和视图状态。
+10. `tables-store`、`editors-store`、`tables-edit-history-store`、`file-history-store` 按活动 Mod 激活各自状态。
 
 ### 启动恢复链路
 
-1. `App.vue` 的 `onMounted` 调用 `loadWorkspace()`。
+1. `App.vue` 的 `onMounted` 启动 `watchWorkspacePersistence()`，并调用 `restorePersistedWorkspace()`。
 2. Rust 从 Tauri `app_data_dir()` 读取 `%APPDATA%/com.starsector.devtool/workspace.json`。
 3. 若文件不存在或损坏，返回空默认值。
-4. `workspace.restoreFrom(persisted)` 恢复游戏目录概览、已完整读取 Mod 列表、视图和展开状态。
-5. 前端逐个 Mod 调用 `project.openProject(modRoot)` 重新加载数据。
-6. 加载成功后刷新 workspace、project、tables、editors 和 file history 状态。
-7. 加载失败时移除该 Mod 的工作区状态，不在左侧栏保留空节点；若错误能定位文件，顶部错误提示提供“打开错误文件”。
+4. `workspace.restoreFrom(persisted)` 恢复已完整读取 Mod 列表和展开状态；启动落点统一为工作区总览，不恢复上次具体标签页。
+5. 若持久化状态里有游戏目录，前端重新调用 `scan_game_overview` 刷新轻量 Mod 概览和 warning，不复用 `workspace.json` 里的旧扫描结果。
+6. 前端逐个 Mod 调用 `project.openProject(modRoot)` 重新加载数据。
+7. 加载成功后刷新 workspace、project、tables、editors 和 file history 状态。
+8. 加载失败时移除该 Mod 的工作区状态，不在左侧栏保留空节点；若错误能定位文件，顶部错误提示提供“打开错误文件”。
+9. 若上次活动 Mod 恢复成功，只恢复活动 Mod 标记；主内容区仍停留在总览页。
 
 ### 工作区持久化链路
 
@@ -132,14 +142,31 @@
 - `src/features/tables/`：CSV 表格状态与操作，包含 per-Mod table state、dirty tracking、搜索、筛选、保存、新建、删除和 CSV 草稿历史。
 - 表格 dirty state 按稳定 row key 追踪，不能退回按表格索引追踪。
 - 表格本体只负责展示、选择和单元格编辑；上下文操作集中到顶栏、详情面板或后续右键菜单。
+- `associated-file-candidates.ts`：根据表格 dirty state 和 AppData 生成可选关联 spec 创建/删除候选。
+- `table-cache-sync.ts`：保存成功后同步 AppData 表格缓存和关联 spec cache。
+- `tables-store.ts` 不直接依赖文件级 history store，也不直接硬编码 `.ship/.wpn/.system` 的路径推导。
+
+### CSV 草稿历史
+
+- `src/features/tables/tables-edit-history-*`：只记录未写盘的 CSV 单元格编辑、新建行和删除行。
+- CSV 草稿历史按 `modRoot + tableKey` 隔离，undo/redo 只修改内存表格状态和 dirty state。
+- 当前表保存 CSV 成功后，清空该表的 CSV 草稿历史；保存后的撤销粒度进入文件级历史。
+
+### 文件级保存历史
+
+- `src/features/file-history/file-history-*`：只记录已经写盘的文件级保存历史和不可逆屏障。
+- 每条可回放历史都是 `file-save` entry，payload 为 `FileChangeRecord[]`；单文件保存和多文件保存走同一结构。
+- 文件级 undo/redo 先二次确认，再通过 `apply_file_change_set` 写回磁盘；写盘成功后才移动 undo/redo 栈。
+- `FileHistoryView` 提供当前 Mod 文件历史栈的检查入口，并允许用户单步撤销/重做或手动清空当前 Mod 的 undo/redo 栈。
+- 二进制贴图暂不进入文件级 changeset；贴图覆盖以文件级屏障记录，后续若接入需要单独评估性能和存储策略。
 
 ### 表格编辑链路
 
 1. `TableWorkspace` 根据当前 Mod 和 tab 显示 `DataTable` 与 `DetailPane`。
 2. 当前 tab 包括舰船、武器、联队、舰船插件、战术系统和工业。
-3. `DataTable` 将单元格编辑写入 `tables.store`，dirty state 按稳定 row key 追踪。
-4. 单元格编辑、新建、删除只修改内存表格并进入 CSV 草稿历史。
-5. 保存通过 `features/tables/table.service.ts` 调用 `save_csv_with_history`。
+3. `DataTable` 将单元格编辑写入 `tables-store`，dirty state 按稳定 row key 追踪。
+4. 单元格编辑、新建、删除只修改内存表格并进入 CSV 草稿历史；新建/删除行不二次确认，空行按稳定 row key 删除。
+5. 保存通过 `features/tables/table-service.ts` 调用 `save_csv_with_history`。
 6. 后端返回 changeset，前端更新 per-Mod 数据缓存并推入文件级保存历史。
 
 ### CSV 保存链路
@@ -181,9 +208,10 @@
 1. 编辑器保存时调用 `save_json_with_history` 写回 `.ship/.wpn/.proj`。
 2. spec 保存不隐式保存 CSV。
 3. 保存成功后窗口通过带 changeset 的 `WINDOW_EVENTS.editorSpecSaved` 事件通知主窗口。
-4. 主窗口若已加载该 Mod，则更新 `project.modsData` 并推入文件级保存历史。
-5. 文件级 undo/redo 通过 `apply_file_change_set` 写回 `.ship/.wpn/.proj`。
-6. 主窗口更新缓存，并发送 `WINDOW_EVENTS.editorSpecApplied` 刷新已打开的对应编辑器窗口。
+4. `window-save-events.ts` 监听保存事件并委托 `file-save-orchestrator.ts`。
+5. 主窗口若已加载该 Mod，则更新 `project.modsData` 并推入文件级保存历史。
+6. 文件级 undo/redo 通过 `apply_file_change_set` 写回 `.ship/.wpn/.proj`。
+7. 主窗口更新缓存，并发送 `WINDOW_EVENTS.editorSpecApplied` 刷新已打开的对应编辑器窗口。
 
 ### 画布交互边界
 
@@ -214,9 +242,10 @@
 1. 文件编辑器调用 `load_editable_file` 读取 UTF-8 无 BOM 文本。
 2. 用户保存时调用 `save_text_file_with_history` 原样写回当前文本并返回单文件 changeset。
 3. 保存成功后窗口发送 `WINDOW_EVENTS.fileEditorSaved`。
-4. 主窗口按绝对路径判断文件是否属于已加载 Mod。
-5. 属于已加载 Mod 时，将 changeset 推入该 Mod 的文件级保存历史。
-6. 文件级 undo/redo 会调用 `apply_file_change_set` 写回目标文件，并发送 `WINDOW_EVENTS.fileEditorTextApplied` 刷新已打开的同一文件编辑器。
+4. `window-save-events.ts` 监听保存事件并委托 `file-save-orchestrator.ts`。
+5. orchestrator 按绝对路径判断文件是否属于已加载 Mod。
+6. 属于已加载 Mod 时，将 changeset 推入该 Mod 的文件级保存历史。
+7. 文件级 undo/redo 会调用 `apply_file_change_set` 写回目标文件，并发送 `WINDOW_EVENTS.fileEditorTextApplied` 刷新已打开的同一文件编辑器。
 
 ### 文件编辑器快捷键
 
@@ -240,7 +269,7 @@
 2. 配置编辑器通过 schema 聚合当前数据为单个 `RowData`。
 3. `SchemaFormRenderer` 负责表单展示和字段编辑。
 4. 保存时由业务组件拆回原始 source。
-5. 配置保存通过 `save_mod_files_with_history` 或配置专用 history command 生成 changeset。
+5. 配置保存通过文本文件 changeset 或配置专用 history command 生成 changeset。
 6. 保存成功后前端更新配置缓存并推入文件级保存历史。
 
 ### 势力保存边界
@@ -267,14 +296,16 @@
 
 ### CSV 草稿历史
 
-- 位置：`tables.edit-history.store.ts` / `tables.edit-history.service.ts`。
+- 位置：`tables-edit-history-store.ts` / `tables-edit-history-service.ts`。
 - 范围：CSV 单元格编辑、新建行、删除行。
 - 作用域：按 `modRoot + tableKey` 隔离，只修改内存表格和 dirty，不写磁盘。
+- 行操作：新建/删除行不二次确认，删除按稳定 row key 执行，因此空行也可删除。
 - 保存成功后：清空对应 Mod + 表的 CSV 草稿历史；之后撤销粒度变为文件级保存。
 
 ### 文件级保存历史
 
-- 位置：`file.history.store.ts` / `file.history.service.ts` / `file.history.sync.ts`。
+- 位置：`file-history-store.ts` / `file-history-service.ts` / `file-history-sync.ts`。
+- 统一入口：`file-save-orchestrator.ts` 负责保存级 history push、不可逆屏障记录和保存后缓存同步。
 - 范围：CSV 保存、CSV + 关联 spec 创建/删除、文件编辑器保存、舰船/武器/弹体 spec 保存、配置保存。
 - 事件：每次写盘保存都是一个 `FileSaveHistoryEntry`，payload 是 `FileChangeRecord[]`。
 - 文件记录：`kind=file`，记录单个文本文件的 before/after 存在状态和文本。
@@ -282,27 +313,27 @@
 - 回放：通过后端 `apply_file_change_set` 写回磁盘。
 - 回放成功后刷新项目缓存、表格状态、文件编辑器和独立编辑器窗口。
 - 失败处理：文件级 undo/redo 先 peek，写盘成功后才 commit 移动栈；失败时历史栈保持原样。
-- 二次确认：文件级 undo/redo 在主窗口执行前弹窗确认，CSV 草稿历史不弹确认。
+- 二次确认：文件级 undo/redo 在主窗口快捷键或 `FileHistoryView` 按钮执行前弹窗确认，CSV 草稿历史不弹确认。
 
 ### 主窗口撤销重做
 
-1. `useMainWindowShortcuts()` 捕获主窗口 Ctrl+Z / Ctrl+Shift+Z。
-2. `main-undo-redo.service.ts` 优先回放当前表的 CSV 草稿历史。
+1. `use-main-window-shortcuts()` 捕获主窗口 Ctrl+Z / Ctrl+Shift+Z。
+2. `main-undo-redo-service.ts` 优先回放当前表的 CSV 草稿历史。
 3. 当前表没有 CSV 草稿可回放时，回放文件级保存历史。
 4. 文件级保存历史先 peek，后端写盘成功后才 commit 移动栈；失败时栈保持原样。
 
 ### 历史触发点
 
-| 操作           | 历史系统     | 触发位置                                       |
-| -------------- | ------------ | ---------------------------------------------- |
-| CSV 单元格编辑 | CSV 草稿历史 | `tables.store.ts` → `finishCellEdit()`         |
-| 新建行         | CSV 草稿历史 | `tables.store.ts` → `addNewRow()`              |
-| 删除行         | CSV 草稿历史 | `tables.store.ts` → `deleteSelected()`         |
-| CSV 保存       | 文件级历史   | `tables.store.ts` → `saveChanges()`            |
-| 配置保存       | 文件级历史   | config 组件保存链路                            |
-| 编辑器保存     | 文件级历史   | `App.vue` 监听 `WINDOW_EVENTS.editorSpecSaved` |
-| 文件编辑器保存 | 文件级历史   | `App.vue` 监听 `WINDOW_EVENTS.fileEditorSaved` |
-| 贴图覆盖       | 文件级屏障   | `useSpriteUpload.ts`                           |
+| 操作           | 历史系统     | 触发位置                                              |
+| -------------- | ------------ | ----------------------------------------------------- |
+| CSV 单元格编辑 | CSV 草稿历史 | `tables-store.ts` → `finishCellEdit()`                |
+| 新建行         | CSV 草稿历史 | `tables-store.ts` → `addNewRow()`                     |
+| 删除行         | CSV 草稿历史 | `tables-store.ts` → `deleteSelected()`                |
+| CSV 保存       | 文件级历史   | `tables-store.ts` → `file-save-orchestrator.ts`       |
+| 配置保存       | 文件级历史   | config 组件保存链路 → `file-save-orchestrator.ts`     |
+| 编辑器保存     | 文件级历史   | `window-save-events.ts` → `file-save-orchestrator.ts` |
+| 文件编辑器保存 | 文件级历史   | `window-save-events.ts` → `file-save-orchestrator.ts` |
+| 贴图覆盖       | 文件级屏障   | `use-sprite-upload.ts` → `file-save-orchestrator.ts`  |
 
 ### 历史作用域
 
@@ -316,7 +347,7 @@
 
 ### 历史限制
 
-- 历史上限由 `settings.store.ts` 的 `historyLimit` 控制，默认 128，可在设置页配置。
+- 历史上限由 `settings-store.ts` 的 `historyLimit` 控制，默认 128，可在设置页配置。
 - CSV 草稿历史和文件级历史分别按该上限裁剪。
 - 贴图覆盖作为 `sprite-overwrite` 文件级屏障；二进制贴图文件暂不纳入文本 changeset，后续若要支持需扩展二进制 changeset 或资产级快照。
 
@@ -327,7 +358,7 @@
 - `save_text_file_with_history`：保存单个任意文本文件。
 - `save_json_with_history`：保存 `.ship/.wpn/.proj` 等 JSON spec。
 - `save_csv_with_history`：保存 CSV 和可选关联文件。
-- `save_mod_files_with_history`：保存配置模块的多个文本文件。
+- `save_mod_files_with_history`：保存配置模块的多个 UTF-8 文本文件，是后端 `FileChangeSetBuilder` 的薄包装。
 - `apply_file_change_set`：文件级 undo/redo 的权威回放入口。
 
 ### 变更集回放链路
@@ -349,7 +380,7 @@
 
 ### 贴图上传链路
 
-- 前端 composable：`src/features/editors/composables/useSpriteUpload.ts`
+- 前端 composable：`src/features/editors/composables/use-sprite-upload.ts`
 - 前端服务：`uploadEditorSprite()`
 - API adapter：`uploadSprite()`
 - Tauri command：`upload_sprite`
@@ -386,7 +417,7 @@
 - API：`scanCoreGraphics(starsectorRoot)`
 - Tauri command：`scan_core_graphics`
 - Rust service：`services::scan_core_graphics`
-- 前端缓存：`useCoreGraphics` composable。
+- 前端缓存：`use-core-graphics` composable。
 - 用途：`path-image` 字段的下拉候选列表，合并 Mod sprites + core graphics。
 
 ## 共享层
@@ -394,9 +425,17 @@
 ### 前端共享层
 
 - `src/shared/api/`：Tauri API 薄 adapter，只封装 command payload 和返回类型，不承载业务流程。
+- `project-api.ts`：项目加载、目录识别和游戏目录概览。
+- `workspace-api.ts`：workspace load/save。
+- `config-api.ts`：势力、战役和配置页相关 command。
+- `files-api.ts`：文件编辑器、spec 保存和文件级 changeset 回放。
+- `tables-api.ts`：CSV 保存与 CSV table payload。
+- `assets-api.ts`：图片加载、贴图上传、core graphics/fields 扫描。
+- `tauri.ts`：仅保留 re-export 兼容层，不再承载具体 command 实现。
 - `src/shared/components/ColorPicker.vue`：跨 Schema 表单、设置页和编辑器复用的颜色输入组件。
 - `src/shared/types/`：前端共享类型，包括 `AppData`、workspace 状态和表格状态类型。
 - `src/shared/lib/`：Starsector 通用工具、默认数据、格式转换和 store 辅助函数。
+- `src/shared/lib/paths.ts`：前端路径 basename/stem/normalize 工具。
 - `schemas/`：随工具分发的 schema 文件，当前包含 `mod-info`、`faction`、`mission` 等已接入配置。
 - `src/styles/`：按语义拆分的 CSS 模块和主题 token。具体规则见 `.trae/css-guidelines.md`。
 
@@ -413,9 +452,10 @@
 ### Rust 服务
 
 - `src-tauri/src/services/project/`：目录识别、游戏目录轻量概览扫描、项目加载、CSV 表扫描、势力发现、贴图、弹体资源和战术系统 `.system` 聚合。
-- `src-tauri/src/services/config.rs`：Mod 信息、势力、战役列表/任务文件等配置保存流程。
+- `src-tauri/src/services/config/`：配置保存流程，`factions.rs` 负责势力，`missions.rs` 负责战役，`assets.rs` 负责配置页相关图片/core 字段扫描。
 - `src-tauri/src/services/tables.rs`：CSV 保存和 CSV changeset 生成流程。
-- `src-tauri/src/services/file_changes.rs`：统一文本文件 changeset 生成、保存和回放逻辑。
+- `src-tauri/src/services/file_changes.rs`：统一文本文件/目录 changeset 生成、保存和回放逻辑，不包含 spec id 查找语义；`FileChangeRecord` 是文件级历史记录，可包含 directory change。
+- `src-tauri/src/services/editor_specs.rs`：`.ship/.wpn/.proj` 的目标文件查找和 spec 保存。
 - `src-tauri/src/services/workspace.rs`：工具私有 `workspace.json` 读写。
 
 ## 边界规则
@@ -424,7 +464,7 @@
 
 - 组件不直接拼 Tauri command payload；通过 feature service 或 shared API adapter。
 - Store 不直接调用 Tauri 插件；持久化、文件读写和系统对话应通过 service 或 app 边界。
-- `workspace.store` 不持有 `AppData`；`project.store` 不负责视图路由。
+- `workspace-store` 不持有 `AppData`；`project-store` 不负责视图路由。
 - 游戏目录轻量扫描不创建 `AppData`，未完整读取的 Mod 不进入 tables、editors、history。
 - SchemaFormRenderer 只渲染单个聚合对象；保存边界由业务组件拆分处理。
 

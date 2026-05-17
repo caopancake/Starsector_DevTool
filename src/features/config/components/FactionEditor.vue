@@ -25,23 +25,22 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
-import { useProjectStore } from '../../project/project.store';
-import { useFileHistoryStore } from '../../file-history/file.history.store';
-import { useSettingsStore } from '../../../app/settings.store';
-import { saveFactionData } from '../config.service';
-import { loadImageDataUrl } from '../../../shared/api/tauri';
+import { useProjectStore } from '../../project/project-store';
+import { recordFileSave } from '../../file-history/file-save-orchestrator';
+import { useSettingsStore } from '../../../app/settings-store';
+import { saveFactionData } from '../config-service';
+import { loadImageDataUrl } from '../../../shared/api/assets-api';
 import { deepClone } from '../../../shared/lib/starsector';
 import { formatError } from '../../../shared/lib/errors';
 import type { JsonValue, RowData } from '../../../shared/types';
 import SchemaFormRenderer from '../../schema/components/SchemaFormRenderer.vue';
-import { useCoreSchema } from '../../schema/composables/useCoreSchema';
-import { aggregateSchemaSources, splitSchemaSources } from '../../schema/schema.service';
+import { useCoreSchema } from '../../schema/composables/use-core-schema';
+import { aggregateSchemaSources, splitSchemaSources } from '../../schema/schema-service';
 import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
 
 const props = defineProps<{ factionId: string }>();
 
 const project = useProjectStore();
-const fileHistory = useFileHistoryStore();
 const settings = useSettingsStore();
 const themeOverrides = computed(() => buildThemeOverrides(settings));
 
@@ -146,7 +145,7 @@ async function save() {
       color: rgbaToCss(file.color),
     };
 
-    fileHistory.pushFileSaveEntry(modData.modRoot, changes, `保存 ${newId}.faction`);
+    recordFileSave(modData.modRoot, changes, `保存 ${newId}.faction`);
     message.success(`${newId}.faction 已保存`);
   } catch (error) {
     message.error(formatError(error));

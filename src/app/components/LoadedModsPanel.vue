@@ -19,8 +19,8 @@
 </template>
 
 <script setup lang="ts">
-import { useTablesStore } from '../../features/tables/tables.store';
-import { useWorkspaceStore } from '../../features/workspace/workspace.store';
+import { useTablesStore } from '../../features/tables/tables-store';
+import { useWorkspaceStore } from '../../features/workspace/workspace-store';
 
 const workspace = useWorkspaceStore();
 const tables = useTablesStore();

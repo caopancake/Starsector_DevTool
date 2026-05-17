@@ -48,7 +48,7 @@
 
 <script setup lang="ts">
 import type { GameOverviewData } from '../../shared/types';
-import { useWorkspaceStore } from '../../features/workspace/workspace.store';
+import { useWorkspaceStore } from '../../features/workspace/workspace-store';
 
 defineProps<{ overview: GameOverviewData }>();
 defineEmits<{ 'import-mod': []; 'load-mod': [modRoot: string] }>();

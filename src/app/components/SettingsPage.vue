@@ -75,7 +75,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { open } from '@tauri-apps/plugin-dialog';
-import { ACCENT_PRESETS, useSettingsStore } from '../settings.store';
+import { ACCENT_PRESETS, useSettingsStore } from '../settings-store';
 import ColorPicker from '../../shared/components/ColorPicker.vue';
 
 const settings = useSettingsStore();

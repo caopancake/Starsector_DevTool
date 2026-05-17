@@ -13,28 +13,29 @@
 
 ## 启动恢复链路
 
-- 触发：`App.vue` 的 `onMounted` 钩子。
+- 触发：`App.vue` 的 `onMounted` 钩子启动 `workspace-persistence.ts`。
 - 流程：
   1. `loadWorkspace()` → Tauri command `load_workspace` → Rust 读取 `%APPDATA%/com.starsector.devtool/workspace.json`。
   2. 若文件不存在或损坏，返回空默认值，视为首次启动。
-  3. `workspace.restoreFrom(persisted)` 恢复游戏目录概览、已完整读取 Mod 列表（status: loading）、视图、展开状态。
-  4. 逐个 Mod 调用 `project.openProject(modRoot)` 加载数据。
-  5. 加载成功：`workspace.updateModStatus('ready')`，`tables.hydrate(modRoot, loaded)`。
-  6. 加载失败：从 workspace、tables、editors、history、project 缓存中移除该 Mod，不在左侧栏保留空节点；若错误能定位文件，顶部错误提示提供“打开错误文件”。
-  7. 恢复 activeModRoot：仅当该 Mod 状态为 ready 时激活。
+  3. `workspace.restoreFrom(persisted)` 恢复已完整读取 Mod 列表（status: loading）和展开状态；启动落点统一为工作区总览，不恢复上次具体标签页。
+  4. 若持久化状态里有游戏目录，重新调用 `scan_game_overview` 刷新轻量 Mod 概览和 warning，不复用 `workspace.json` 里的旧扫描结果。
+  5. 逐个 Mod 调用 `project.openProject(modRoot)` 加载数据。
+  6. 加载成功：`workspace.updateModStatus('ready')`，`tables.hydrate(modRoot, loaded)`。
+  7. 加载失败：从 workspace、tables、editors、history、project 缓存中移除该 Mod，不在左侧栏保留空节点；若错误能定位文件，顶部错误提示提供“打开错误文件”。
+  8. 恢复 activeModRoot：仅当该 Mod 状态为 ready 时恢复活动 Mod 标记，但仍停留在工作区总览。
 - 持久化触发：workspace store 状态变化时，通过 `watch(workspace.toPersistedState())` 防抖 500ms 后写入。
 - Tauri command：`save_workspace` → Rust 写 workspace.json。
 - 单例化：`tauri-plugin-single-instance` 在 Rust 端注册，第二个实例启动时聚焦第一个窗口。
 
-7. 编辑器组件通过 `src/features/editors/editor.service.ts` 调用保存或上传能力。
-8. `src/shared/api/tauri.ts` 统一封装 Tauri command。
+7. 编辑器组件通过 `src/features/editors/editor-service.ts` 调用保存或上传能力。
+8. `src/shared/api/*-api.ts` 按项目、表格、配置、文件、资源和 workspace 分组封装 Tauri command；`tauri.ts` 只做 re-export。
 9. Rust `src-tauri/src/commands/` 接收 payload，转交 `src-tauri/src/services/`。
 10. Rust service 组合 parser、filesystem 和 models 执行读写。
 
 ## 项目打开链路（多 Mod 工作区）
 
 - 入口：OverviewPage 的“打开目录”按钮。
-- 编排：`App.vue` 只负责选择目录和提示；具体打开流程由 `src/features/workspace/open-directory.service.ts` 执行。
+- 编排：`App.vue` 只负责选择目录和提示；具体打开流程由 `src/features/workspace/open-directory-service.ts` 执行。
 - 流程：
   1. `pickDirectory()` 选择目录。
   2. `detect_directory()` 返回 `game-root`、`mod-in-game`、`external-mod` 或 `unknown`。
@@ -53,14 +54,11 @@
   1. `scan_game_overview()` 只读取 `mods/*/mod_info.json`。
   2. 概览页显示 Mod 名称、版本、路径、warning 和“完整读取”按钮。
   3. 未完整读取的 Mod 不进入 `project.modsData`、`tables.stateMap`、`editors` 或 `history`。
-- 旧单 Mod 链路兼容：
-  1. `pickModRoot()` 仍作为 `pickDirectory()` 的兼容别名。
-  2. 检查是否已导入（`workspace.isModImported(modRoot)`），若是则仅激活。
 - 前端状态：
-  - `workspace.store.ts` 管理游戏目录上下文、已完整读取 Mod 列表和活动 Mod。
+  - `workspace-store.ts` 管理游戏目录上下文、已完整读取 Mod 列表和活动 Mod。
   - `workspace.gameOverview` / `workspace.gameWorkspace` 管理游戏目录轻量扫描结果和已完整读取 Mod 状态。
-  - `project.store.ts` 的 `modsData: Map<modRoot, AppData>` 缓存所有已加载数据。
-  - `project.data` 是 computed，指向当前活动 Mod 的 AppData。
+  - `project-store.ts` 的 `modsData: Map<modRoot, AppData>` 缓存所有已加载数据。
+  - `project.activeModData` 是 computed，指向当前活动 Mod 的 AppData；跨 Mod 读取使用 `project.getModData(modRoot)`。
 - Tauri command：`detect_directory`、`scan_game_overview`、`load_mod_data`、`load_mod_data_with_root`
 - 保存边界：打开项目只加载数据，不写入任何 Mod 文件。
 - 文件编辑器：解析/读取失败或右侧详情面板的“文件编辑器”操作可打开独立文件编辑器窗口，窗口显示文件路径、可选上下文消息和可选红色目标行；同一文件通过 `openManagedWindow()` 按规范化绝对路径复用已有窗口，不重复打开。保存通过 `save_text_file_with_history` 写回该文件并返回单文件 changeset，不触发重新加载。若目标文件属于已加载 Mod，保存事件会进入该 Mod 的文件级保存历史；窗口内 `Ctrl+Z` / `Ctrl+Shift+Z` 仍只操作本窗口文本历史。
@@ -68,10 +66,11 @@
 ## Mod 切换链路
 
 - 入口：左侧 ModTreeItem 点击 Mod 名。
+- Mod 树配置入口顺序：`Mod 概览` → `文件历史` → 分割线 → `Mod 信息` → 分割线 → 其它数据与配置模块。
 - 流程：
   1. `workspace.setActiveMod(modRoot)` 更新 `activeModRoot` 和 `currentView`。
   2. App.vue 的 `watch(workspace.activeModRoot)` 同步触发：
-     - `project.setActiveModRoot(modRoot)` → `data` computed 自动指向新 Mod
+     - `project.setActiveModRoot(modRoot)` → `activeModData` computed 自动指向新 Mod
      - `tables.activateFor(modRoot)` → 表格状态切换到该 Mod 的 ModTableState
      - `editors.activateFor(modRoot)` → 编辑器状态切换
   3. UI 自动响应 computed 变化渲染。
@@ -88,18 +87,20 @@
   5. `project.removeModData(modRoot)` 释放 AppData 缓存。
 - 保存边界：移除只取消导入，不删除本地文件。
 
-`project.store.ts` 不直接调用 Tauri command 或 Tauri 插件；project feature service 是项目打开链路的边界。
+`project-store.ts` 不直接调用 Tauri command 或 Tauri 插件；project feature service 是项目打开链路的边界。
 
 ## CSV 表格链路
 
-- 前端状态：`src/features/tables/tables.store.ts`
-- 前端服务：`src/features/tables/table.service.ts`
+- 前端状态：`src/features/tables/tables-store.ts`
+- 前端服务：`src/features/tables/table-service.ts`
 - API adapter：`saveCsvWithHistory`
 - Tauri command：`save_csv_with_history`
 - Rust service：`src-tauri/src/services/tables.rs`
 - CSV parser：`src-tauri/src/parsers/csv.rs`
 
 顶部“保存 CSV”只保存当前 CSV 表格相关数据，不保存 `.ship`、`.wpn` 或 `.proj` spec 文件。CSV 写回必须保留表头和空字段语义；`#` 开头行、真正空行和全逗号行会作为表格里的可见空行处理。
+
+CSV 表格里的新建行和删除行只修改内存草稿历史，不弹二次确认；删除按稳定 row key 执行，允许删除没有 id 的空行。
 
 ## 舰船链路
 
@@ -202,14 +203,14 @@
 - 缺失贴图：当当前记录或 spec 能推导出相对路径但对应数据未加载时，右侧详情显示“贴图缺失”和该路径；无法推导路径时显示“无预览”。
 - 独立编辑器窗口：舰船、武器、弹体等复杂编辑和发射预览。
 - 抽屉：当前不引入；未来若出现轻量编辑场景，应先定义和 modal 的分工。
-- `EditorWindowApp.vue`：集中挂载编辑器/预览窗口内容；主窗口监听 `WINDOW_EVENTS.editorSpecSaved` 并处理 spec 保存成功后的提示和 history。
+- `EditorWindowApp.vue`：集中挂载编辑器/预览窗口内容；`window-save-events.ts` 监听 `WINDOW_EVENTS.editorSpecSaved` 并委托 `file-save-orchestrator.ts` 处理 spec 保存后的缓存同步和文件级 history。
 - `features/windowing/`：集中管理窗口单例打开、聚焦事件、窗口尺寸和跨窗口事件名/payload 类型。
 - 失败提示：具体编辑器本地 catch 并展示，保持错误上下文贴近操作来源。
 
 ## 联队链路
 
 - 主数据：`data/hulls/wing_data.csv`
-- 前端状态：`tables.store.ts` 的 `wings` 表。
+- 前端状态：`tables-store.ts` 的 `wings` 表。
 - 保存：顶部保存通过 `save_csv_with_history` 写回 CSV。
 - 新建/删除：当前只操作内存 CSV 行，保存 CSV 时才写盘。
 - 专用编辑器：暂无。
@@ -219,17 +220,17 @@
 ## 舰船插件链路
 
 - 主数据：`data/hullmods/hull_mods.csv`
-- 前端状态：`tables.store.ts` 的 `hullmods` 表。
+- 前端状态：`tables-store.ts` 的 `hullmods` 表。
 - 保存：顶部保存通过 `save_csv_with_history` 写回 CSV。
 - 新建/删除：当前只操作内存 CSV 行，保存 CSV 时才写盘。
 - 专用编辑器：暂无。
-- 资源预览：右侧详情面板可根据 `project.data.hullmodSprites` 显示贴图。
+- 资源预览：右侧详情面板可根据 `project.activeModData.hullmodSprites` 显示贴图。
 
 ## 战术系统链路
 
 - 主数据：`data/shipsystems/ship_systems.csv`
 - 关联 spec：`data/shipsystems/*.system`
-- 前端状态：`tables.store.ts` 的 `shipSystems` 表，`project.store.ts` 的 `systemFiles`。
+- 前端状态：`tables-store.ts` 的 `shipSystems` 表，`project-store.ts` 的 `systemFiles`。
 - 保存 CSV：顶部保存通过 `save_csv_with_history` 写回 `ship_systems.csv`。
 - 编辑 `.system`：右侧详情操作区的“文件编辑器”按钮打开 `data/shipsystems/{id}.system`，由通用文件编辑器读取和保存。
 - 新建/删除：当前只操作内存 CSV 行，保存 CSV 时才写盘；不自动创建或删除 `.system` 文件。
@@ -240,7 +241,7 @@
 ## 工业链路
 
 - 主数据：`data/campaign/industries.csv`
-- 前端状态：`tables.store.ts` 的 `industries` 表。
+- 前端状态：`tables-store.ts` 的 `industries` 表。
 - 保存：顶部保存通过 `save_csv_with_history` 写回 CSV。
 - 新建/删除：当前只操作内存 CSV 行，保存 CSV 时才写盘。
 - 专用编辑器：暂无。
@@ -248,7 +249,7 @@
 
 ## 贴图上传链路
 
-- 前端 composable：`src/features/editors/composables/useSpriteUpload.ts`
+- 前端 composable：`src/features/editors/composables/use-sprite-upload.ts`
 - 前端服务：`uploadEditorSprite()`
 - API adapter：`uploadSprite()`
 - Tauri command：`upload_sprite`
@@ -280,7 +281,7 @@
 - API：`scanCoreGraphics(starsectorRoot)`
 - Tauri command：`scan_core_graphics`
 - Rust service：`services::scan_core_graphics` 遍历 `starsector-core/graphics/` 下所有 png/jpg
-- 前端缓存：`useCoreGraphics` composable（模块级单例，启动时加载一次）
+- 前端缓存：`use-core-graphics` composable（模块级单例，启动时加载一次）
 - 用途：`path-image` 字段的下拉候选列表，合并 Mod sprites + core graphics
 
 ### path-image 字段 UI

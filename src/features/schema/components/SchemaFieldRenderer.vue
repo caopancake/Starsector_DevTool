@@ -220,11 +220,11 @@
 import { computed, h, ref } from 'vue';
 import { open } from '@tauri-apps/plugin-dialog';
 import type { AppData, JsonValue } from '../../../shared/types';
-import type { FieldSchema } from '../schema.types';
-import type { SelectOption } from '../schema.service';
-import { resolveSource } from '../schema.service';
+import type { FieldSchema } from '../schema-types';
+import type { SelectOption } from '../schema-service';
+import { resolveSource } from '../schema-service';
 import ColorPicker from '../../../shared/components/ColorPicker.vue';
-import { useCoreGraphics } from '../composables/useCoreGraphics';
+import { useCoreGraphics } from '../composables/use-core-graphics';
 
 const { graphicsPaths, loadGraphics } = useCoreGraphics();
 loadGraphics(); // Fire-and-forget, loads once and caches

@@ -36,9 +36,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { useProjectStore } from '../features/project/project.store';
-import { useWorkspaceStore } from '../features/workspace/workspace.store';
-import { useSettingsStore } from './settings.store';
+import { useProjectStore } from '../features/project/project-store';
+import { useWorkspaceStore } from '../features/workspace/workspace-store';
+import { useSettingsStore } from './settings-store';
 
 const appWindow = getCurrentWindow();
 const project = useProjectStore();

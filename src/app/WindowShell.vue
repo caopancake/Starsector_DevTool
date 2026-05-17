@@ -10,7 +10,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useSettingsStore } from './settings.store';
+import { useSettingsStore } from './settings-store';
 import { buildThemeOverrides } from './theme-overrides';
 
 const settings = useSettingsStore();

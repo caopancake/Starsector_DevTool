@@ -10,6 +10,14 @@
 - `src/styles/`：全局样式模块和主题 token；具体规则见 `.trae/css-guidelines.md`。
 - 新增目录或跨层复用前，先确认它表达的是稳定边界，而不是为了减少单文件行数。
 
+## 文件命名
+
+- Vue 单文件组件统一使用 PascalCase，例如 `DetailPane.vue`、`FileEditorApp.vue`。
+- 其它前端源码文件统一使用 kebab-case，例如 `table-service.ts`、`file-history-store.ts`。
+- 前端目录名统一使用 kebab-case。
+- 不允许在前端文件名里混用 dot 分层风格和 kebab-case；扩展名分隔点不计入此规则。
+- 重命名文件时必须同步更新所有 import、文档路径和测试引用。
+
 ## 职责规则
 
 - 组件负责展示、用户事件和局部流程编排；复杂业务流程应沉到 feature service 或 store。

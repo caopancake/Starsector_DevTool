@@ -52,9 +52,10 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { emit, listen } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { createDiscreteApi } from 'naive-ui';
-import { loadEditableFile, saveTextFileWithHistory } from '../shared/api/tauri';
+import { loadEditableFile, saveTextFileWithHistory } from '../shared/api/files-api';
 import { formatError } from '../shared/lib/errors';
-import { useSettingsStore } from './settings.store';
+import { normalizeFsPath } from '../shared/lib/paths';
+import { useSettingsStore } from './settings-store';
 import { buildThemeOverrides, discreteConfigProviderProps } from './theme-overrides';
 import WindowShell from './WindowShell.vue';
 import { WINDOW_EVENTS, type FileEditorFocusLineEvent, type FileEditorTextAppliedEvent } from '../features/windowing/window-events';
@@ -221,7 +222,7 @@ onMounted(() => {
     scrollToTargetLine();
   });
   void listen<FileEditorTextAppliedEvent>(WINDOW_EVENTS.fileEditorTextApplied, (event) => {
-    if (normalizePath(event.payload.path) !== normalizePath(filePath)) return;
+    if (normalizeFsPath(event.payload.path) !== normalizeFsPath(filePath)) return;
     setTextSnapshot(event.payload.text);
     originalText.value = event.payload.text;
   });
@@ -230,8 +231,4 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleEditorKeydown);
 });
-
-function normalizePath(path: string): string {
-  return path.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
-}
 </script>

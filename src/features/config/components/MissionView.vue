@@ -81,26 +81,19 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
-import { useProjectStore } from '../../project/project.store';
-import { useFileHistoryStore } from '../../file-history/file.history.store';
-import { useSettingsStore } from '../../../app/settings.store';
-import { loadImageDataUrl } from '../../../shared/api/tauri';
+import { useProjectStore } from '../../project/project-store';
+import { recordFileSave } from '../../file-history/file-save-orchestrator';
+import { useSettingsStore } from '../../../app/settings-store';
+import { loadImageDataUrl } from '../../../shared/api/assets-api';
 import { formatError } from '../../../shared/lib/errors';
-import type { CsvTable } from '../../../shared/api/tauri';
+import type { CsvTable } from '../../../shared/api/tables-api';
 import type { JsonValue, RowData } from '../../../shared/types';
 import SchemaFormRenderer from '../../schema/components/SchemaFormRenderer.vue';
-import { aggregateSchemaSources, getSchema, splitSchemaSources } from '../../schema/schema.service';
-import {
-  loadMissionData,
-  loadMissionListData,
-  deleteMissionDataWithHistory,
-  saveMissionDataWithHistory,
-  scanMissionListFiles,
-} from '../config.service';
+import { aggregateSchemaSources, getSchema, splitSchemaSources } from '../../schema/schema-service';
+import { loadMissionData, loadMissionListData, deleteMissionData, saveMissionData, scanMissionListFiles } from '../config-service';
 import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
 
 const project = useProjectStore();
-const fileHistory = useFileHistoryStore();
 const settings = useSettingsStore();
 const themeOverrides = computed(() => buildThemeOverrides(settings));
 
@@ -242,7 +235,7 @@ async function save() {
   }
   saving.value = true;
   try {
-    const changes = await saveMissionDataWithHistory(
+    const changes = await saveMissionData(
       modRoot.value,
       id,
       descriptorSource,
@@ -255,7 +248,7 @@ async function save() {
     );
     descriptor.value = descriptorSource;
     missionText.value = textSource;
-    fileHistory.pushFileSaveEntry(modRoot.value, changes, `保存战役 ${id}`);
+    recordFileSave(modRoot.value, changes, `保存战役 ${id}`);
     await loadMissionIcons();
     if (oldId !== id) {
       await selectMission(selectedMissionIndex.value);
@@ -299,7 +292,7 @@ async function doCreateMission() {
   tableData.value.rows.push(row);
 
   try {
-    const changes = await saveMissionDataWithHistory(
+    const changes = await saveMissionData(
       modRoot.value,
       id,
       { title: id },
@@ -308,7 +301,7 @@ async function doCreateMission() {
       tableData.value.header,
       tableData.value.rows,
     );
-    fileHistory.pushFileSaveEntry(modRoot.value, changes, `创建战役 ${id}`);
+    recordFileSave(modRoot.value, changes, `创建战役 ${id}`);
     syncMissionCount();
     message.success(`战役 "${id}" 已创建`);
     showCreateDialog.value = false;
@@ -340,7 +333,7 @@ async function deleteMissionRow(mission: { id: string; index: number }, deleteDi
   const removed = tableData.value.rows.splice(mission.index, 1);
   const previousSelected = selectedMissionIndex.value;
   try {
-    const changes = await deleteMissionDataWithHistory(
+    const changes = await deleteMissionData(
       modRoot.value,
       mission.id,
       missionListPath.value,
@@ -348,7 +341,7 @@ async function deleteMissionRow(mission: { id: string; index: number }, deleteDi
       tableData.value.rows,
       deleteDirectory,
     );
-    fileHistory.pushFileSaveEntry(modRoot.value, changes, `删除战役列表项 ${mission.id}`);
+    recordFileSave(modRoot.value, changes, `删除战役列表项 ${mission.id}`);
     syncMissionCount();
     const nextMission = missions.value[Math.min(mission.index, missions.value.length - 1)] ?? null;
     delete missionIcons.value[mission.id];

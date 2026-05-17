@@ -65,11 +65,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
-import { useProjectStore } from '../../project/project.store';
-import { useFileHistoryStore } from '../../file-history/file.history.store';
-import { useSettingsStore } from '../../../app/settings.store';
-import { createFactionFile, deleteFactionFile } from '../config.service';
-import { loadImageDataUrl } from '../../../shared/api/tauri';
+import { useProjectStore } from '../../project/project-store';
+import { recordFileSave } from '../../file-history/file-save-orchestrator';
+import { useSettingsStore } from '../../../app/settings-store';
+import { createFactionFile, deleteFactionFile } from '../config-service';
+import { loadImageDataUrl } from '../../../shared/api/assets-api';
 import { formatError } from '../../../shared/lib/errors';
 import type { JsonValue } from '../../../shared/types';
 import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
@@ -77,7 +77,6 @@ import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/t
 const emit = defineEmits<{ select: [factionId: string] }>();
 
 const project = useProjectStore();
-const fileHistory = useFileHistoryStore();
 const settings = useSettingsStore();
 const themeOverrides = computed(() => buildThemeOverrides(settings));
 
@@ -188,7 +187,7 @@ async function doCreate() {
       name: String(data.displayName ?? trimmedId),
       color: rgbaToCss(data.color),
     };
-    fileHistory.pushFileSaveEntry(modData.modRoot, changes, `创建势力 ${trimmedId}`);
+    recordFileSave(modData.modRoot, changes, `创建势力 ${trimmedId}`);
     message.success(`势力 "${trimmedId}" 已创建`);
     showCreateDialog.value = false;
     await refreshFactionCrests();
@@ -224,7 +223,7 @@ async function doDelete(id: string, deleteFile: boolean) {
       selectedFaction.value = null;
       emit('select', '');
     }
-    fileHistory.pushFileSaveEntry(modData.modRoot, changes, `删除势力 ${id}`);
+    recordFileSave(modData.modRoot, changes, `删除势力 ${id}`);
     message.success(`势力 "${id}" 已删除`);
   } catch (error) {
     message.error(formatError(error));

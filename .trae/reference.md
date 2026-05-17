@@ -9,8 +9,8 @@
 ### Candidate Directory Layout
 
 - `src/features/blueprint/`：蓝图编辑器 feature 模块。
-- `src/features/blueprint/blueprint.store.ts`：蓝图状态管理（节点、连线、选择、历史）。
-- `src/features/blueprint/blueprint.service.ts`：序列化、反序列化和代码生成调用。
+- `src/features/blueprint/blueprint-store.ts`：蓝图状态管理（节点、连线、选择、历史）。
+- `src/features/blueprint/blueprint-service.ts`：序列化、反序列化和代码生成调用。
 - `src/features/blueprint/components/BlueprintCanvas.vue`：节点画布。
 - `src/features/blueprint/components/NodePalette.vue`：节点面板。
 - `src/features/blueprint/components/NodeInspector.vue`：节点属性检查器。

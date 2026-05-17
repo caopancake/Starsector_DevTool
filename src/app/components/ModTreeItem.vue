@@ -22,6 +22,16 @@
       </button>
       <button
         class="mod-tree-module-btn"
+        :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'file-history' }"
+        @click="$emit('switch-config', mod.modRoot, 'file-history')"
+      >
+        <span>文件历史</span>
+      </button>
+
+      <div class="mod-tree-separator" />
+
+      <button
+        class="mod-tree-module-btn"
         :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'mod-info' }"
         @click="$emit('switch-config', mod.modRoot, 'mod-info')"
       >
@@ -78,9 +88,9 @@
 import { computed, ref } from 'vue';
 import type { ConfigView, ModEntry, TableKey } from '../../shared/types';
 import { MODULE_LABELS } from '../../shared/lib/starsector';
-import { useTablesStore } from '../../features/tables/tables.store';
-import { useProjectStore } from '../../features/project/project.store';
-import { useWorkspaceStore } from '../../features/workspace/workspace.store';
+import { useTablesStore } from '../../features/tables/tables-store';
+import { useProjectStore } from '../../features/project/project-store';
+import { useWorkspaceStore } from '../../features/workspace/workspace-store';
 
 const props = defineProps<{ mod: ModEntry; isActive: boolean; isExpanded: boolean }>();
 const emit = defineEmits<{

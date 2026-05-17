@@ -15,22 +15,21 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
-import { useProjectStore } from '../../project/project.store';
-import { useConfigStore } from '../config.store';
-import { useFileHistoryStore } from '../../file-history/file.history.store';
-import { useSettingsStore } from '../../../app/settings.store';
-import { saveModInfoData } from '../config.service';
+import { useProjectStore } from '../../project/project-store';
+import { useConfigStore } from '../config-store';
+import { recordFileSave } from '../../file-history/file-save-orchestrator';
+import { useSettingsStore } from '../../../app/settings-store';
+import { saveModInfoData } from '../config-service';
 import { deepClone } from '../../../shared/lib/starsector';
 import { formatError } from '../../../shared/lib/errors';
 import type { RowData } from '../../../shared/types';
 import SchemaFormRenderer from '../../schema/components/SchemaFormRenderer.vue';
-import { useCoreSchema } from '../../schema/composables/useCoreSchema';
-import { aggregateSchemaSources, splitSchemaSources } from '../../schema/schema.service';
+import { useCoreSchema } from '../../schema/composables/use-core-schema';
+import { aggregateSchemaSources, splitSchemaSources } from '../../schema/schema-service';
 import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
 
 const project = useProjectStore();
 const configStore = useConfigStore();
-const fileHistory = useFileHistoryStore();
 const settings = useSettingsStore();
 const themeOverrides = computed(() => buildThemeOverrides(settings));
 
@@ -64,7 +63,7 @@ async function save() {
     const changes = await saveModInfoData(modData.modRoot, file);
     modData.modInfo = deepClone(file);
     configStore.updateSnapshot(file);
-    fileHistory.pushFileSaveEntry(modData.modRoot, changes, '保存 mod_info.json');
+    recordFileSave(modData.modRoot, changes, '保存 mod_info.json');
     message.success('mod_info.json 已保存');
   } catch (error) {
     message.error(formatError(error));

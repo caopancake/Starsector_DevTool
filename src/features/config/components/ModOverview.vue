@@ -41,7 +41,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useProjectStore } from '../../project/project.store';
+import { useProjectStore } from '../../project/project-store';
 import { cell, formatModVersion } from '../../../shared/lib/starsector';
 
 const project = useProjectStore();

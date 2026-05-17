@@ -68,8 +68,8 @@ import {
   type EditorSpecSavedEvent,
   type EditorWindowKind,
 } from '../features/editors/editor-window';
-import { useSettingsStore } from './settings.store';
-import { loadProject } from '../features/project/project.service';
+import { useSettingsStore } from './settings-store';
+import { loadProject } from '../features/project/project-service';
 import type { AppData, RowData } from '../shared/types';
 import { deepClone, defaultWeapon, rowId } from '../shared/lib/starsector';
 import { formatError } from '../shared/lib/errors';

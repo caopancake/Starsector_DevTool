@@ -1,13 +1,12 @@
 use crate::{
     errors::{AppError, AppResult},
-    filesystem::{read_utf8_no_bom, strip_internal_fields, write_utf8_no_bom},
+    filesystem::{read_utf8_no_bom, write_utf8_no_bom},
     models::{
         ApplyFileChangeSetPayload, FileChangeKind, FileChangeRecord, FileSnapshot,
-        SaveJsonWithHistoryPayload, SaveModFilesWithHistoryPayload, SaveTextFileWithHistoryPayload,
+        SaveModFilesWithHistoryPayload, SaveTextFileWithHistoryPayload,
     },
 };
 use base64::{engine::general_purpose, Engine as _};
-use serde_json::Value;
 use std::{
     fs,
     path::{Component, Path},
@@ -23,38 +22,14 @@ pub fn save_text_file_with_history(
     Ok(vec![change])
 }
 
-pub fn save_json_with_history(
-    payload: SaveJsonWithHistoryPayload,
-) -> AppResult<Vec<FileChangeRecord>> {
-    let mod_root = Path::new(&payload.mod_root);
-    let target = find_json_target(
-        mod_root,
-        &payload.rel_dir,
-        &payload.ext,
-        &payload.id_key,
-        &payload.id,
-    );
-    let clean = strip_internal_fields(&payload.data);
-    let text = serde_json::to_string_pretty(&clean)?;
-    let change = build_text_change(&target, Some(text))?;
-    apply_changes(std::slice::from_ref(&change), ChangeDirection::Redo)?;
-    Ok(vec![change])
-}
-
 pub fn save_mod_files_with_history(
     payload: SaveModFilesWithHistoryPayload,
 ) -> AppResult<Vec<FileChangeRecord>> {
-    let mod_root = Path::new(&payload.mod_root);
-    let mut changes = Vec::new();
+    let mut builder = FileChangeSetBuilder::new(Path::new(&payload.mod_root));
     for file in payload.files {
-        let rel_path = validate_relative_path(&file.rel_path)?;
-        changes.push(build_text_change(
-            &mod_root.join(rel_path),
-            file.after_text,
-        )?);
+        builder.text_file(&file.rel_path, file.after_text)?;
     }
-    apply_changes(&changes, ChangeDirection::Redo)?;
-    Ok(changes)
+    builder.apply()
 }
 
 pub fn apply_file_change_set(payload: ApplyFileChangeSetPayload) -> AppResult<()> {
@@ -112,6 +87,52 @@ pub fn build_directory_delete_change(path: &Path) -> AppResult<FileChangeRecord>
         after_text: None,
         after_files: vec![],
     })
+}
+
+pub struct FileChangeSetBuilder {
+    root: std::path::PathBuf,
+    changes: Vec<FileChangeRecord>,
+}
+
+impl FileChangeSetBuilder {
+    pub fn new(root: &Path) -> Self {
+        Self {
+            root: root.to_path_buf(),
+            changes: Vec::new(),
+        }
+    }
+
+    pub fn text_file(
+        &mut self,
+        rel_path: impl AsRef<str>,
+        after_text: Option<String>,
+    ) -> AppResult<&mut Self> {
+        let rel_path = validate_relative_path(rel_path.as_ref())?;
+        self.changes
+            .push(build_text_change(&self.root.join(rel_path), after_text)?);
+        Ok(self)
+    }
+
+    pub fn absolute_text_file(
+        &mut self,
+        path: &Path,
+        after_text: Option<String>,
+    ) -> AppResult<&mut Self> {
+        self.changes.push(build_text_change(path, after_text)?);
+        Ok(self)
+    }
+
+    pub fn delete_directory(&mut self, rel_path: impl AsRef<str>) -> AppResult<&mut Self> {
+        let rel_path = validate_relative_path(rel_path.as_ref())?;
+        self.changes
+            .push(build_directory_delete_change(&self.root.join(rel_path))?);
+        Ok(self)
+    }
+
+    pub fn apply(self) -> AppResult<Vec<FileChangeRecord>> {
+        apply_changes(&self.changes, ChangeDirection::Redo)?;
+        Ok(self.changes)
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -284,29 +305,6 @@ fn restore_snapshot_file(path: &Path, file: &FileSnapshot) -> AppResult<()> {
     let bytes = general_purpose::STANDARD.decode(data)?;
     fs::write(path, bytes)?;
     Ok(())
-}
-
-fn find_json_target(
-    mod_root: &Path,
-    rel_dir: &str,
-    ext: &str,
-    id_key: &str,
-    id: &str,
-) -> std::path::PathBuf {
-    let dir = mod_root.join(rel_dir);
-    if dir.exists() {
-        for entry in WalkDir::new(&dir).into_iter().flatten() {
-            if entry.path().extension().and_then(|s| s.to_str()) != Some(ext) {
-                continue;
-            }
-            if let Ok(value) = crate::filesystem::read_json_file(entry.path()) {
-                if value.get(id_key).and_then(Value::as_str) == Some(id) {
-                    return entry.path().to_path_buf();
-                }
-            }
-        }
-    }
-    dir.join(format!("{id}.{ext}"))
 }
 
 #[cfg(test)]

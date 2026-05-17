@@ -41,8 +41,8 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
 import type { AppData, RowData } from '../../../shared/types';
-import type { FileSchema, SectionSchema } from '../schema.types';
-import { getExtraFieldSource, getNestedValue, getSchemaKeys, getSections, isMultiSourceSchema, setNestedValue } from '../schema.service';
+import type { FileSchema, SectionSchema } from '../schema-types';
+import { getExtraFieldSource, getNestedValue, getSchemaKeys, getSections, isMultiSourceSchema, setNestedValue } from '../schema-service';
 import SchemaFieldRenderer from './SchemaFieldRenderer.vue';
 import JsonFieldEditor from '../../config/components/JsonFieldEditor.vue';
 

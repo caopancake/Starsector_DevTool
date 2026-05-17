@@ -12,7 +12,7 @@
         </div>
         <div class="top-action-group">
           <n-button :disabled="!activeData" @click="$emit('add-row')">新建</n-button>
-          <n-button type="error" ghost :disabled="!tables.selectedRowId" @click="$emit('delete-row')">删除</n-button>
+          <n-button type="error" ghost :disabled="!tables.selectedRowKey" @click="$emit('delete-row')">删除</n-button>
         </div>
         <div class="top-action-group">
           <n-button :disabled="!tables.hasChanges" @click="$emit('revert')">撤销修改</n-button>
@@ -44,8 +44,8 @@
 import { computed } from 'vue';
 import DataTable from '../DataTable.vue';
 import DetailPane from '../DetailPane.vue';
-import { useTablesStore } from '../../features/tables/tables.store';
-import { useProjectStore } from '../../features/project/project.store';
+import { useTablesStore } from '../../features/tables/tables-store';
+import { useProjectStore } from '../../features/project/project-store';
 import { MODULE_LABELS } from '../../shared/lib/starsector';
 import type { FileEditorRequest } from '../../features/workspace/file-editor-window';
 
