@@ -34,10 +34,12 @@ export function saveFactionWithHistory(
   modRoot: string,
   id: string,
   data: RowData,
-  oldId?: string | null,
-  deleteOldFile = false,
+  previousId?: string | null,
+  deletePreviousFile = false,
 ): Promise<FileChangeRecord[]> {
-  return invoke('save_faction_with_history', { payload: { modRoot, id, oldId: oldId ?? null, data, deleteFile: deleteOldFile } });
+  return invoke('save_faction_with_history', {
+    payload: { modRoot, id, previousId: previousId ?? null, data, deletePreviousFile },
+  });
 }
 
 export function deleteFactionWithHistory(modRoot: string, id: string, deleteFile = false): Promise<FileChangeRecord[]> {
@@ -52,20 +54,20 @@ export function saveMissionWithHistory(
   missionListRelPath: string,
   header: string[],
   rows: RowData[],
-  oldMission?: string | null,
-  deleteOldDirectory = false,
+  previousMissionId?: string | null,
+  deletePreviousDirectory = false,
 ): Promise<FileChangeRecord[]> {
   return invoke('save_mission_with_history', {
     payload: {
       modRoot,
       mission,
-      oldMission: oldMission ?? null,
+      previousMissionId: previousMissionId ?? null,
       descriptor,
       text,
       missionListRelPath,
       header,
       rows,
-      deleteOldDirectory,
+      deletePreviousDirectory,
     },
   });
 }
@@ -76,7 +78,7 @@ export function deleteMissionWithHistory(
   missionListRelPath: string,
   header: string[],
   rows: RowData[],
-  deleteDirectory = false,
+  deleteMissionDirectory = false,
 ): Promise<FileChangeRecord[]> {
   return invoke('delete_mission_with_history', {
     payload: {
@@ -85,7 +87,7 @@ export function deleteMissionWithHistory(
       missionListRelPath,
       header,
       rows,
-      deleteOldDirectory: deleteDirectory,
+      deleteMissionDirectory,
     },
   });
 }

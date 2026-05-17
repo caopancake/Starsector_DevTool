@@ -14,13 +14,13 @@ type FactionIndexTable = (Vec<String>, Vec<Map<String, Value>>);
 
 pub fn save_faction_with_history(
     mod_root: &str,
-    old_id: Option<&str>,
+    previous_id: Option<&str>,
     id: &str,
     data: &Value,
-    delete_old_file: bool,
+    delete_previous_file: bool,
 ) -> AppResult<Vec<FileChangeRecord>> {
     let id = validate_config_id(id, "无效势力 ID")?;
-    let old_id = old_id
+    let previous_id = previous_id
         .filter(|value| !value.trim().is_empty())
         .map(|value| validate_config_id(value, "无效势力 ID"))
         .transpose()?;
@@ -31,14 +31,14 @@ pub fn save_faction_with_history(
         after_text: Some(faction_text),
     }];
     files.push(faction_index_change(mod_root, |header, rows| {
-        if let Some(old) = old_id {
-            remove_faction_index_row(header, rows, old);
+        if let Some(previous) = previous_id {
+            remove_faction_index_row(header, rows, previous);
         }
         upsert_faction_index_row(header, rows, id);
     })?);
-    if delete_old_file && old_id.is_some_and(|old| old != id) {
+    if delete_previous_file && previous_id.is_some_and(|previous| previous != id) {
         files.push(AssociatedFileChangePayload {
-            rel_path: format!("data/world/factions/{}.faction", old_id.unwrap()),
+            rel_path: format!("data/world/factions/{}.faction", previous_id.unwrap()),
             after_text: None,
         });
     }

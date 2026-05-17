@@ -1,0 +1,216 @@
+/* Overview and game overview pages */
+
+/* --- Overview Page --- */
+.overview-page {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 28px 36px;
+  overflow-y: auto;
+}
+
+.overview-header h1 {
+  margin: 0 0 var(--space-1);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.overview-subtitle {
+  margin: 0 0 22px;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-4);
+}
+
+.game-overview {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.game-overview-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-4);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-subtle);
+}
+
+.game-overview-summary div {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.game-overview-summary strong,
+.game-overview-summary span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-overview-summary strong {
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.game-overview-summary span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.game-warning-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.game-warning-item {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-md);
+}
+
+.game-warning-item strong {
+  color: var(--color-warning);
+  font-size: 12px;
+}
+
+.game-warning-item span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-overview-empty {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding: var(--space-5);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-subtle);
+}
+
+.game-overview-empty h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.game-overview-empty p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.overview-mod-card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  cursor: pointer;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-subtle);
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
+}
+
+.overview-mod-card:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-panel-muted);
+}
+
+.overview-mod-card.card-active {
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary-border);
+}
+
+.mod-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mod-card-header strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mod-card-version {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.mod-card-status {
+  padding: 1px 6px;
+  color: var(--color-muted);
+  font-size: 11px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.mod-card-status.ready {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.mod-card-status.error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+.mod-card-path {
+  margin-bottom: 0;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mod-card-description {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-text-soft);
+  font-size: 12px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.mod-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-1);
+}
+
+.mod-card-dirty {
+  margin-top: var(--space-1);
+  font-size: 11px;
+  color: var(--color-warning);
+}

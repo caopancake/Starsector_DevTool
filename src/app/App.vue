@@ -5,27 +5,28 @@
         <div class="app-frame" :data-theme="settings.theme">
           <TitleBar />
           <div class="app-shell">
-            <NavSidebar @remove-mod="confirmRemoveMod" />
+            <NavSidebar @remove-mod="actions.confirmRemoveMod" />
 
-            <OverviewPage v-if="workspace.currentView === 'overview'" @import-mod="openDirectory" @load-mod="loadOverviewMod" />
+            <OverviewPage
+              v-if="workspace.currentView === 'overview'"
+              @import-mod="actions.openDirectory"
+              @load-mod="actions.loadOverviewMod"
+            />
             <SettingsPage v-else-if="workspace.currentView === 'settings'" />
             <TableWorkspace
               v-else-if="workspace.currentView === 'table' && project.activeModData"
-              @add-row="addNewRow"
-              @delete-row="deleteSelectedRow"
-              @revert="revertChanges"
-              @save="saveChanges"
-              @open-file-editor="openRequestedFileEditor"
-              @open-ship="openShip"
-              @open-weapon="openWeapon"
-              @open-weapon-preview="openWeaponPreview"
+              @add-row="actions.addNewRow"
+              @delete-row="actions.deleteSelectedRow"
+              @revert="actions.revertChanges"
+              @save="actions.saveChanges"
+              @detail-action="actions.handleDetailAction"
             />
             <ConfigWorkspace v-else-if="workspace.currentView === 'config' && project.activeModData" />
             <main v-else class="workspace">
               <section class="empty-state">
                 <h1>选择一个 Starsector 目录</h1>
                 <p>可以打开游戏目录查看 Mod 概览，也可以直接打开一个 Mod 目录。</p>
-                <n-button type="primary" size="large" @click="openDirectory">打开目录</n-button>
+                <n-button type="primary" size="large" @click="actions.openDirectory">打开目录</n-button>
               </section>
             </main>
           </div>
@@ -36,8 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, ref, onMounted, onUnmounted, watch } from 'vue';
-import { NButton, NCheckbox, NSpace, NText, createDiscreteApi } from 'naive-ui';
+import { computed } from 'vue';
 import TitleBar from './TitleBar.vue';
 import NavSidebar from './components/NavSidebar.vue';
 import OverviewPage from './components/OverviewPage.vue';
@@ -45,311 +45,17 @@ import SettingsPage from './components/SettingsPage.vue';
 import TableWorkspace from './components/TableWorkspace.vue';
 import ConfigWorkspace from '../features/config/components/ConfigWorkspace.vue';
 import { useSettingsStore } from './settings-store';
-import { useEditorsStore } from '../features/editors/editors-store';
-import { useFileHistoryStore } from '../features/file-history/file-history-store';
-import { useMainWindowShortcuts } from '../features/undo-redo/composables/use-main-window-shortcuts';
 import { useProjectStore } from '../features/project/project-store';
-import { useTablesStore } from '../features/tables/tables-store';
-import { useTablesEditHistoryStore } from '../features/tables/tables-edit-history-store';
 import { useWorkspaceStore } from '../features/workspace/workspace-store';
-import { pickDirectory } from '../features/project/project-service';
-import { cell } from '../shared/lib/starsector';
-import { extractFileReferenceFromError, formatError } from '../shared/lib/errors';
-import { loadModFromOverview, openDetectedDirectory } from '../features/workspace/open-directory-service';
-import {
-  restorePersistedWorkspace,
-  watchWorkspacePersistence,
-  type WorkspacePersistenceWatcher,
-} from '../features/workspace/workspace-persistence';
-import { openFileEditorWindow, type FileEditorRequest } from '../features/workspace/file-editor-window';
-import { buildThemeOverrides, discreteConfigProviderProps } from './theme-overrides';
-import {
-  openShipEditorWindow,
-  openWeaponEditorWindow,
-  openWeaponPreviewWindow,
-  type EditorSpecSavedEvent,
-} from '../features/editors/editor-window';
-import { listenWindowSaveEvents } from '../features/windowing/window-save-events';
-import type { AssociatedFileCandidate } from '../features/tables/associated-file-candidates';
+import { buildThemeOverrides } from './theme-overrides';
+import { createAppFeedback } from './app-feedback';
+import { useWorkspaceShellActions } from '../features/workspace/workspace-shell-actions';
 
 const project = useProjectStore();
-const tables = useTablesStore();
-const editors = useEditorsStore();
 const settings = useSettingsStore();
 const workspace = useWorkspaceStore();
-const fileHistory = useFileHistoryStore();
-const csvEditHistory = useTablesEditHistoryStore();
-const selectedAssociatedFileKeys = ref<Set<string>>(new Set());
-
-useMainWindowShortcuts();
 
 const themeOverrides = computed(() => buildThemeOverrides(settings));
-
-const { message, dialog } = createDiscreteApi(['message', 'dialog'], {
-  configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
-});
-
-// Sync workspace active Mod → project/tables/editors stores
-watch(
-  () => workspace.activeModRoot,
-  (modRoot) => {
-    project.setActiveModRoot(modRoot);
-    const appData = modRoot ? project.getModData(modRoot) : null;
-    tables.activateFor(modRoot ?? '', appData);
-    editors.activateFor(modRoot ?? '');
-    fileHistory.activateFor(modRoot ?? '');
-  },
-);
-
-let stopWindowSaveEvents: (() => void) | null = null;
-let workspacePersistence: WorkspacePersistenceWatcher | null = null;
-
-onMounted(async () => {
-  workspacePersistence = watchWorkspacePersistence();
-  stopWindowSaveEvents = await listenWindowSaveEvents({
-    onEditorSpecSaved: (payload) => {
-      message.success(`${payload.id}.${editorExtension(payload.kind)} 已保存`);
-    },
-  });
-  try {
-    workspacePersistence.setRestoring(true);
-    await restorePersistedWorkspace({
-      fallbackStarsectorRoot: settings.starsectorRoot,
-      onModRestoreError: (modRoot, displayName, error) => {
-        removeMod(modRoot, false);
-        showError(`恢复 ${displayName} 失败: ${formatError(error)}`, error);
-      },
-    });
-  } catch {
-    // Damaged workspace state is treated as a blank startup.
-  } finally {
-    workspacePersistence.setRestoring(false);
-  }
-});
-
-onUnmounted(() => {
-  stopWindowSaveEvents?.();
-  stopWindowSaveEvents = null;
-  workspacePersistence?.stop();
-  workspacePersistence = null;
-});
-
-async function openDirectory() {
-  try {
-    const selected = await pickDirectory();
-    if (!selected) return;
-    const outcome = await openDetectedDirectory(selected, settings.starsectorRoot || null);
-    handleOpenOutcome(outcome);
-  } catch (err) {
-    showError(formatError(err), err);
-  }
-}
-
-async function loadOverviewMod(modRoot: string) {
-  try {
-    const outcome = await loadModFromOverview(modRoot);
-    handleOpenOutcome(outcome);
-  } catch (err) {
-    showError(formatError(err), err);
-  }
-}
-
-function handleOpenOutcome(outcome: { type: string; modName?: string; availableModCount?: number; message?: string }) {
-  if (outcome.type === 'game-overview') {
-    if (workspace.gameOverview?.starsectorRoot) settings.setStarsectorRoot(workspace.gameOverview.starsectorRoot);
-    message.success(`已扫描游戏目录: ${outcome.availableModCount ?? 0} 个 Mod`);
-  } else if (outcome.type === 'mod-loaded') {
-    if (workspace.gameOverview?.starsectorRoot) settings.setStarsectorRoot(workspace.gameOverview.starsectorRoot);
-    message.success(`已导入: ${outcome.modName ?? 'Mod'}`);
-  } else if (outcome.type === 'already-loaded') {
-    message.info('该 Mod 已在工作区中');
-  } else {
-    message.error(outcome.message ?? '未识别该目录');
-  }
-}
-
-function confirmRemoveMod(modRoot: string) {
-  if (tables.hasModDirtyChanges(modRoot)) {
-    dialog.warning({
-      title: '移除 Mod',
-      content: '该 Mod 有未保存修改，移除后修改将丢失。确认移除？',
-      positiveText: '移除',
-      negativeText: '取消',
-      onPositiveClick: () => removeMod(modRoot),
-    });
-  } else {
-    removeMod(modRoot);
-  }
-}
-
-function removeMod(modRoot: string, showMessage = true) {
-  workspace.removeMod(modRoot);
-  tables.removeModState(modRoot);
-  editors.removeModState(modRoot);
-  fileHistory.removeModState(modRoot);
-  csvEditHistory.clearForMod(modRoot);
-  project.removeModData(modRoot);
-  if (showMessage) message.success('已从工作区移除');
-}
-
-async function saveChanges() {
-  try {
-    if (!project.activeModData) return;
-    const candidates = tables.getAssociatedFileCandidates(project.activeModData);
-    if (candidates.length > 0) {
-      selectedAssociatedFileKeys.value = new Set(candidates.map((candidate) => candidate.key));
-      dialog.warning({
-        title: '保存 CSV',
-        content: () => renderAssociatedFileDialog(candidates),
-        positiveText: '保存',
-        negativeText: '取消',
-        onPositiveClick: async () => {
-          try {
-            const selected = candidates
-              .filter((candidate) => selectedAssociatedFileKeys.value.has(candidate.key))
-              .map(({ relPath, afterText }) => ({ relPath, afterText }));
-            const result = await tables.saveChanges(project.activeModData, selected);
-            message[result === 'saved' ? 'success' : 'info'](result === 'saved' ? '已保存 CSV 修改' : '没有需要保存的修改');
-          } catch (err) {
-            showError(formatError(err), err);
-          }
-        },
-      });
-      return;
-    }
-    const result = await tables.saveChanges(project.activeModData);
-    message[result === 'saved' ? 'success' : 'info'](result === 'saved' ? '已保存 CSV 修改' : '没有需要保存的修改');
-  } catch (err) {
-    showError(formatError(err), err);
-  }
-}
-
-function renderAssociatedFileDialog(candidates: AssociatedFileCandidate[]) {
-  return h('div', { class: 'associated-save-dialog' }, [
-    h('p', '检测到 CSV 行变更可能需要同步关联 spec 文件。只有勾选的文件会随本次 CSV 保存一起写入，并作为单次 history 记录。'),
-    h(
-      'div',
-      { class: 'associated-save-list' },
-      candidates.map((candidate) =>
-        h(
-          NCheckbox,
-          {
-            checked: selectedAssociatedFileKeys.value.has(candidate.key),
-            'onUpdate:checked': (checked: boolean) => {
-              const next = new Set(selectedAssociatedFileKeys.value);
-              if (checked) next.add(candidate.key);
-              else next.delete(candidate.key);
-              selectedAssociatedFileKeys.value = next;
-            },
-          },
-          { default: () => `${candidate.action === 'create' ? '创建' : '删除'} ${candidate.relPath}` },
-        ),
-      ),
-    ),
-  ]);
-}
-
-function revertChanges() {
-  tables.revertChanges();
-  message.success('已撤销未保存修改');
-}
-
-async function addNewRow() {
-  if (!project.activeModData) return;
-  try {
-    await tables.addNewRow(project.activeModData);
-    message.success(`已新建 ${tables.selectedRowId}`);
-  } catch (err) {
-    showError(formatError(err), err);
-  }
-}
-
-async function deleteSelectedRow() {
-  if (!project.activeModData || !tables.selectedRowKey) return;
-  try {
-    await tables.deleteSelected();
-    message.success('已删除');
-  } catch (err) {
-    showError(formatError(err), err);
-  }
-}
-
-function openShip(id: string) {
-  if (!project.activeModData?.shipFiles[id]) {
-    message.error(`找不到 ${id}.ship`);
-    return;
-  }
-  void openShipEditorWindow(editorRequest(id));
-}
-
-function openWeapon(id: string) {
-  if (!project.activeModData) return;
-  if (!project.activeModData.wpnFiles[id] && !project.activeModData.weapons.some((weapon) => cell(weapon.id) === id)) {
-    message.error(`找不到 ${id}.wpn`);
-    return;
-  }
-  void openWeaponEditorWindow(editorRequest(id));
-}
-
-function openWeaponPreview(id: string) {
-  if (!project.activeModData) return;
-  void openWeaponPreviewWindow(editorRequest(id));
-}
-
-function openRequestedFileEditor(request: FileEditorRequest) {
-  void openFileEditorWindow(request);
-}
-
-function editorRequest(id: string) {
-  const data = project.activeModData!;
-  return {
-    modRoot: data.modRoot,
-    id,
-    starsectorRoot: data.starsectorRoot ?? workspace.gameOverview?.starsectorRoot ?? settings.starsectorRoot,
-  };
-}
-
-function editorExtension(kind: EditorSpecSavedEvent['kind']) {
-  if (kind === 'ship') return 'ship';
-  if (kind === 'weapon') return 'wpn';
-  return 'proj';
-}
-
-function showError(text: string, error: unknown = text) {
-  const reference = extractFileReferenceFromError(error) ?? extractFileReferenceFromError(text);
-  if (!reference) {
-    message.error(text);
-    return;
-  }
-  message.error(
-    () =>
-      h(
-        NSpace,
-        { align: 'center', wrap: false },
-        {
-          default: () => [
-            h(NText, { type: 'error', style: { maxWidth: '680px', overflowWrap: 'anywhere' } }, { default: () => text }),
-            h(
-              NButton,
-              {
-                size: 'tiny',
-                type: 'error',
-                secondary: true,
-                onClick: () =>
-                  void openFileEditorWindow({
-                    path: reference.path,
-                    line: reference.line,
-                    title: '文件编辑器',
-                    contextLabel: '错误',
-                    message: reference.message,
-                  }),
-              },
-              { default: () => '打开错误文件' },
-            ),
-          ],
-        },
-      ),
-    { duration: 10000, closable: true },
-  );
-}
+const { message, dialog } = createAppFeedback(['message', 'dialog']);
+const actions = useWorkspaceShellActions(message, dialog);
 </script>

@@ -1,21 +1,12 @@
 import { defineStore } from 'pinia';
 import { computed, reactive, ref } from 'vue';
-import type { AssociatedFileChange } from '../../shared/api/tables-api';
 import type { AppData, ModTableState, RowData, TableKey } from '../../shared/types';
-import { cell, deepClone, getColumns, MODULE_LABELS, rowId } from '../../shared/lib/starsector';
-import { saveTableRows } from './table-service';
+import { cell, deepClone, getColumns, MODULE_LABELS, rowDisplayId } from '../../shared/lib/starsector';
 import { getNextActiveKeyAfterRemoval } from '../../shared/lib/store-utils';
 import { useTablesEditHistoryStore } from './tables-edit-history-store';
-import { recordFileSave } from '../file-history/file-save-orchestrator';
-import {
-  getAssociatedFileCandidates as collectAssociatedFileCandidates,
-  isAssociatedFileForTable,
-  type AssociatedFileCandidate,
-} from './associated-file-candidates';
-import { applyAssociatedFileCache, assignAppDataTable } from './table-cache-sync';
+import { assignTableRowKey, assignTableRowKeys, resolveTableRowKey } from './table-row-key';
 
 export const TABLE_KEYS: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'shipSystems', 'industries'];
-const ROW_KEY_FIELD = '_rowKey';
 
 function emptyDirtyState(): Record<TableKey, Record<string, Record<string, string>>> {
   return { ships: {}, weapons: {}, wings: {}, hullmods: {}, shipSystems: {}, industries: {} };
@@ -48,8 +39,6 @@ export const useTablesStore = defineStore('tables', () => {
   function getActiveState(): ModTableState | undefined {
     return stateMap.get(activeRoot.value);
   }
-
-  // --- Proxy computed/refs for backward-compatible API ---
 
   const tables = computed(() => getActiveState()?.tables ?? emptyTablesRecord());
   const currentTab = computed({
@@ -117,10 +106,10 @@ export const useTablesStore = defineStore('tables', () => {
     return list;
   });
   const selectedRow = computed(() => rows.value.find((row, index) => tableRowKey(row, index) === selectedRowKey.value));
-  const selectedRowId = computed(() => (selectedRow.value ? rowId(selectedRow.value) : ''));
   const tableInfo = computed(() => `显示 ${filteredRows.value.length} / ${rows.value.length} 行`);
   const hasDirtyChanges = computed(() => TABLE_KEYS.some((key) => Object.keys(dirty.value[key]).length > 0));
   const hasChanges = computed(() => hasDirtyChanges.value || editing.value !== null);
+  const activeModRoot = computed(() => activeRoot.value);
 
   // --- Per-Mod lifecycle ---
 
@@ -128,7 +117,7 @@ export const useTablesStore = defineStore('tables', () => {
     const state = createModTableState();
     for (const key of TABLE_KEYS) {
       state.tables[key] = deepClone(appData[key] as RowData[]);
-      assignRowKeys(state, key, state.tables[key]);
+      assignTableRowKeys(state, key, state.tables[key]);
       state.originalTables[key] = deepClone(state.tables[key]);
     }
     stateMap.set(modRoot, state);
@@ -139,7 +128,7 @@ export const useTablesStore = defineStore('tables', () => {
     const state = createModTableState();
     for (const key of TABLE_KEYS) {
       state.tables[key] = deepClone(appData[key] as RowData[]);
-      assignRowKeys(state, key, state.tables[key]);
+      assignTableRowKeys(state, key, state.tables[key]);
       state.originalTables[key] = deepClone(state.tables[key]);
     }
     stateMap.set(modRoot, state);
@@ -239,42 +228,6 @@ export const useTablesStore = defineStore('tables', () => {
     editing.value = null;
   }
 
-  async function saveChanges(appData: AppData | null, associatedFiles: AssociatedFileChange[] = []): Promise<'saved' | 'noop'> {
-    const capturedModRoot = activeRoot.value;
-    const state = stateMap.get(capturedModRoot);
-    if (!appData || !state || saving.value) return 'noop';
-    if (appData.modRoot !== capturedModRoot) return 'noop';
-    saving.value = true;
-    try {
-      finishCellEdit();
-      if (!hasDirtyChanges.value) return 'noop';
-      const savedChanges = [];
-      const savedLabels = [];
-      for (const key of TABLE_KEYS) {
-        if (Object.keys(state.dirty[key]).length === 0) continue;
-        const tableAssociatedFiles = associatedFiles.filter((file) => isAssociatedFileForTable(key, file.relPath));
-        const changes = await saveTableRows(capturedModRoot, key, appData.csvHeaders[key], state.tables[key], tableAssociatedFiles);
-        assignAppDataTable(appData, key, state.tables[key]);
-        applyAssociatedFileCache(appData, tableAssociatedFiles);
-        state.originalTables[key] = deepClone(state.tables[key]);
-        state.dirty[key] = {};
-        if (changes.length > 0) {
-          savedChanges.push(...changes);
-          savedLabels.push(`${key} CSV`);
-          const csvEditHistory = useTablesEditHistoryStore();
-          csvEditHistory.clearCsvEditHistory(capturedModRoot, key);
-        }
-      }
-      if (savedChanges.length > 0) {
-        const label = savedLabels.join('、');
-        recordFileSave(capturedModRoot, savedChanges, `保存 ${label}`);
-      }
-      return 'saved';
-    } finally {
-      saving.value = false;
-    }
-  }
-
   function revertChanges() {
     const state = getActiveState();
     if (!state) return;
@@ -298,7 +251,7 @@ export const useTablesStore = defineStore('tables', () => {
     row._faction = 'other';
 
     state.tables[tab].push(row);
-    assignRowKey(state, tab, row);
+    assignTableRowKey(state, tab, row);
     selectedRowKey.value = rowSelectionKey(row);
     markFullRowDirty(state, tab, row);
 
@@ -325,7 +278,7 @@ export const useTablesStore = defineStore('tables', () => {
     }
 
     const rowIndex = state.tables[tab].findIndex((candidate, index) => tableRowKeyForTab(tab, candidate, index) === rowKey);
-    const id = rowId(row) || `第 ${rowIndex + 1} 行`;
+    const id = rowDisplayId(row) || `第 ${rowIndex + 1} 行`;
     state.tables[tab] = state.tables[tab].filter((r) => r !== row);
     if (rowKey) {
       const originalExists = state.originalTables[tab].some((candidate, index) => tableRowKeyForTab(tab, candidate, index) === rowKey);
@@ -346,23 +299,8 @@ export const useTablesStore = defineStore('tables', () => {
     );
   }
 
-  function assignRowKeys(state: ModTableState, tab: TableKey, list: RowData[]) {
-    for (const row of list) {
-      assignRowKey(state, tab, row);
-    }
-  }
-
-  function assignRowKey(state: ModTableState, tab: TableKey, row: RowData) {
-    if (!cell(row[ROW_KEY_FIELD])) {
-      row[ROW_KEY_FIELD] = `${tab}:rowKey:${state.nextRowKey++}`;
-    }
-  }
-
   function tableRowKeyForTab(tab: TableKey, row: RowData, index: number): string {
-    const existingKey = cell(row[ROW_KEY_FIELD]);
-    if (existingKey) return existingKey;
-    const id = rowId(row);
-    return id ? `${tab}:id:${id}` : `${tab}:row:${index}`;
+    return resolveTableRowKey(tab, row, index);
   }
 
   function markFullRowDirty(state: ModTableState, tab: TableKey, row: RowData) {
@@ -377,33 +315,40 @@ export const useTablesStore = defineStore('tables', () => {
     return getActiveState();
   }
 
-  function getAssociatedFileCandidates(appData: AppData | null): AssociatedFileCandidate[] {
-    const state = getActiveState();
-    return collectAssociatedFileCandidates(state, appData, tableRowKeyForTab);
-  }
-
   function replaceTableForMod(modRoot: string, tab: TableKey, rows: RowData[]) {
     const state = stateMap.get(modRoot);
     if (!state) return;
     state.tables[tab] = deepClone(rows);
-    assignRowKeys(state, tab, state.tables[tab]);
+    assignTableRowKeys(state, tab, state.tables[tab]);
     state.originalTables[tab] = deepClone(state.tables[tab]);
     state.dirty[tab] = {};
+  }
+
+  function markTableSaved(tab: TableKey) {
+    const state = getActiveState();
+    if (!state) return;
+    state.originalTables[tab] = deepClone(state.tables[tab]);
+    state.dirty[tab] = {};
+  }
+
+  function setSaving(value: boolean) {
+    saving.value = value;
   }
 
   return {
     currentFaction,
     currentTab,
+    activeModRoot,
     dirty,
     editing,
     filteredRows,
     hasChanges,
+    hasDirtyChanges,
     isDirty,
     rows,
     saving,
     searchText,
     selectedRow,
-    selectedRowId,
     selectedRowKey,
     tableInfo,
     tables,
@@ -413,18 +358,18 @@ export const useTablesStore = defineStore('tables', () => {
     cancelCellEdit,
     deleteSelected,
     finishCellEdit,
-    getAssociatedFileCandidates,
     getActiveModTableState,
     hasModDirtyChanges,
     hydrate,
     hydrateWithoutActivate,
+    markTableSaved,
     removeModState,
     replaceTableForMod,
     revertChanges,
     rowSelectionKey,
     rowsFor,
-    saveChanges,
     selectRow,
+    setSaving,
     startCellEdit,
     switchTab,
     tableRowKey,

@@ -15,20 +15,27 @@
             <span>{{ previewState.detail }}</span>
           </div>
         </div>
-        <div class="detail-id">{{ rowId(tables.selectedRow) }}</div>
+        <div class="detail-id">{{ selectedDisplayId }}</div>
         <div class="detail-name">{{ displayName }}</div>
       </section>
       <section class="panel-card detail-card">
         <div class="panel-section-title">操作</div>
         <div class="detail-actions">
-          <n-button v-if="fileEditorRequest" block tertiary @click="$emit('open-file-editor', fileEditorRequest)">文件编辑器</n-button>
-          <n-button v-if="tables.currentTab === 'ships'" block @click="$emit('open-ship', rowId(tables.selectedRow))">舰船编辑器</n-button>
-          <n-button v-if="tables.currentTab === 'weapons'" block @click="$emit('open-weapon', rowId(tables.selectedRow))"
-            >武器编辑器</n-button
+          <n-button v-if="fileEditorAction" block tertiary @click="$emit('detail-action', fileEditorAction)">文件编辑器</n-button>
+          <n-button v-if="canOpenShipEditor" block @click="$emit('detail-action', { type: 'ship-editor', id: selectedSpecId })">
+            舰船编辑器
+          </n-button>
+          <n-button v-if="canOpenWeaponEditor" block @click="$emit('detail-action', { type: 'weapon-editor', id: selectedSpecId })">
+            武器编辑器
+          </n-button>
+          <n-button
+            v-if="canOpenWeaponEditor"
+            block
+            tertiary
+            @click="$emit('detail-action', { type: 'weapon-preview', id: selectedSpecId })"
           >
-          <n-button v-if="tables.currentTab === 'weapons'" block tertiary @click="$emit('open-weapon-preview', rowId(tables.selectedRow))"
-            >发射预览</n-button
-          >
+            发射预览
+          </n-button>
         </div>
         <div v-if="!hasActions" class="muted">当前模块没有专用编辑器。</div>
       </section>
@@ -53,15 +60,12 @@
 import { computed } from 'vue';
 import { useTablesStore } from '../features/tables/tables-store';
 import { useProjectStore } from '../features/project/project-store';
-import { cell, MODULE_LABELS, rowId, str } from '../shared/lib/starsector';
-import type { FileEditorRequest } from '../features/workspace/file-editor-window';
+import { cell, MODULE_LABELS, rowDisplayId, rowSpecId, str } from '../shared/lib/starsector';
+import { fileEditorActionForRow, type TableDetailAction } from '../features/tables/table-detail-actions';
 import type { RowData, TableKey } from '../shared/types';
 
 defineEmits<{
-  'open-ship': [id: string];
-  'open-weapon': [id: string];
-  'open-weapon-preview': [id: string];
-  'open-file-editor': [request: FileEditorRequest];
+  'detail-action': [request: TableDetailAction];
 }>();
 
 const tables = useTablesStore();
@@ -72,25 +76,16 @@ const displayName = computed(() => {
   return cell(tables.selectedRow.name) || cell(tables.selectedRow.hullName) || cell(tables.selectedRow.designation) || '未命名记录';
 });
 
-const hasActions = computed(() => tables.currentTab === 'ships' || tables.currentTab === 'weapons');
+const selectedDisplayId = computed(() => (tables.selectedRow ? rowDisplayId(tables.selectedRow) : ''));
+const selectedSpecId = computed(() => (tables.selectedRow ? rowSpecId(tables.selectedRow, tables.currentTab) : ''));
+const canOpenShipEditor = computed(() => tables.currentTab === 'ships' && Boolean(selectedSpecId.value));
+const canOpenWeaponEditor = computed(() => tables.currentTab === 'weapons' && Boolean(selectedSpecId.value));
+const hasActions = computed(() => Boolean(fileEditorAction.value || canOpenShipEditor.value || canOpenWeaponEditor.value));
 const summaryColumns = computed(() => tables.visibleColumns.slice(0, 8));
-const fileEditorRequest = computed<FileEditorRequest | null>(() => {
+const fileEditorAction = computed<TableDetailAction | null>(() => {
   const row = tables.selectedRow;
   const data = project.activeModData;
-  if (!row || !data) return null;
-  const id = rowId(row);
-  if (!id) return null;
-
-  if (tables.currentTab === 'ships') {
-    return specFileRequest(data.modRoot, ['data', 'hulls', `${id}.ship`], `${id}.ship`);
-  }
-  if (tables.currentTab === 'weapons') {
-    return specFileRequest(data.modRoot, ['data', 'weapons', `${id}.wpn`], `${id}.wpn`);
-  }
-  if (tables.currentTab === 'shipSystems') {
-    return specFileRequest(data.modRoot, ['data', 'shipsystems', `${id}.system`], `${id}.system`);
-  }
-  return null;
+  return data ? fileEditorActionForRow(data.modRoot, tables.currentTab, row) : null;
 });
 
 interface PreviewState {
@@ -105,7 +100,7 @@ const previewState = computed<PreviewState>(() => {
   const data = project.activeModData;
   if (!row || !data) return noPreview(tables.currentTab);
 
-  const id = rowId(row);
+  const id = rowSpecId(row, tables.currentTab) || rowDisplayId(row);
   if (tables.currentTab === 'ships') {
     return previewFromMap(data.shipSprites[id], expectedShipSprite(data.shipFiles[id]), id, tables.currentTab);
   }
@@ -161,19 +156,6 @@ function expectedWeaponSprite(weapon: RowData | undefined): string {
     str(weapon?.turretGlowSprite) ||
     str(weapon?.hardpointGlowSprite)
   );
-}
-
-function specFileRequest(modRoot: string, parts: string[], title: string): FileEditorRequest {
-  return {
-    path: joinModPath(modRoot, ...parts),
-    title: '文件编辑器',
-    contextLabel: title,
-    message: title,
-  };
-}
-
-function joinModPath(modRoot: string, ...parts: string[]): string {
-  return [modRoot.replace(/[\\/]+$/, ''), ...parts].join('\\');
 }
 
 function weaponPreviewSprite(sprites: Record<string, string> | undefined): string | undefined {

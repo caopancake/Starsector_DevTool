@@ -34,9 +34,10 @@ pub struct UploadSpritePayload {
 pub struct FactionPayload {
     pub mod_root: String,
     pub id: String,
-    pub old_id: Option<String>,
+    pub previous_id: Option<String>,
     pub data: Option<Value>,
     pub delete_file: Option<bool>,
+    pub delete_previous_file: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -48,16 +49,24 @@ pub struct MissionListCsvPayload {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct LoadCsvTablePayload {
+    pub mod_root: String,
+    pub table: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MissionPayload {
     pub mod_root: String,
     pub mission: String,
-    pub old_mission: Option<String>,
+    pub previous_mission_id: Option<String>,
     pub descriptor: Option<Value>,
     pub text: Option<String>,
     pub mission_list_rel_path: Option<String>,
     pub header: Option<Vec<String>>,
     pub rows: Option<Vec<Map<String, Value>>>,
-    pub delete_old_directory: Option<bool>,
+    pub delete_previous_directory: Option<bool>,
+    pub delete_mission_directory: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]

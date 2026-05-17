@@ -2,6 +2,11 @@
 @import './titlebar.css';
 @import './app-shell.css';
 @import './workspace.css';
+@import './overview.css';
+@import './settings.css';
+@import './config.css';
+@import './file-history.css';
+@import './schema-forms.css';
 @import './tables.css';
 @import './detail-pane.css';
 @import './editors.css';

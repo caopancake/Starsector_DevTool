@@ -14,28 +14,20 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { createDiscreteApi } from 'naive-ui';
 import { useProjectStore } from '../../project/project-store';
 import { useConfigStore } from '../config-store';
-import { recordFileSave } from '../../file-history/file-save-orchestrator';
-import { useSettingsStore } from '../../../app/settings-store';
-import { saveModInfoData } from '../config-service';
+import { saveModInfoWithFileHistory } from '../config-save-orchestrator';
 import { deepClone } from '../../../shared/lib/starsector';
 import { formatError } from '../../../shared/lib/errors';
 import type { RowData } from '../../../shared/types';
 import SchemaFormRenderer from '../../schema/components/SchemaFormRenderer.vue';
 import { useCoreSchema } from '../../schema/composables/use-core-schema';
 import { aggregateSchemaSources, splitSchemaSources } from '../../schema/schema-service';
-import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
+import { createAppFeedback } from '../../../app/app-feedback';
 
 const project = useProjectStore();
 const configStore = useConfigStore();
-const settings = useSettingsStore();
-const themeOverrides = computed(() => buildThemeOverrides(settings));
-
-const { message } = createDiscreteApi(['message'], {
-  configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
-});
+const { message } = createAppFeedback(['message']);
 
 const { getMergedSchema, loadCoreFields } = useCoreSchema();
 loadCoreFields();
@@ -60,10 +52,9 @@ async function save() {
   try {
     const split = splitSchemaSources(local.value, currentSchema);
     const file = split.file && typeof split.file === 'object' && !Array.isArray(split.file) ? (split.file as RowData) : {};
-    const changes = await saveModInfoData(modData.modRoot, file);
+    await saveModInfoWithFileHistory(modData.modRoot, file);
     modData.modInfo = deepClone(file);
     configStore.updateSnapshot(file);
-    recordFileSave(modData.modRoot, changes, '保存 mod_info.json');
     message.success('mod_info.json 已保存');
   } catch (error) {
     message.error(formatError(error));

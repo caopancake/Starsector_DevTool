@@ -52,21 +52,21 @@ pub fn load_mission(mod_root: &str, mission: &str) -> AppResult<MissionData> {
 pub struct MissionHistorySaveInput<'a> {
     pub mod_root: &'a str,
     pub mission: &'a str,
-    pub old_mission: Option<&'a str>,
+    pub previous_mission_id: Option<&'a str>,
     pub descriptor: &'a Value,
     pub text: &'a str,
     pub mission_list_rel_path: &'a str,
     pub header: &'a [String],
     pub rows: &'a [Map<String, Value>],
-    pub delete_old_directory: bool,
+    pub delete_previous_directory: bool,
 }
 
 pub fn save_mission_with_history(
     input: MissionHistorySaveInput<'_>,
 ) -> AppResult<Vec<FileChangeRecord>> {
     let mission = validate_config_id(input.mission, "无效战役 ID")?;
-    let old_mission = input
-        .old_mission
+    let previous_mission_id = input
+        .previous_mission_id
         .filter(|value| !value.trim().is_empty())
         .map(|value| validate_config_id(value, "无效战役 ID"))
         .transpose()?;
@@ -84,9 +84,11 @@ pub fn save_mission_with_history(
             format!("data/missions/{mission}/mission_text.txt"),
             Some(input.text.to_string()),
         )?;
-    if input.delete_old_directory && old_mission.is_some_and(|old| old != mission) {
-        let old = old_mission.unwrap();
-        builder.delete_directory(format!("data/missions/{old}"))?;
+    if input.delete_previous_directory
+        && previous_mission_id.is_some_and(|previous| previous != mission)
+    {
+        let previous = previous_mission_id.unwrap();
+        builder.delete_directory(format!("data/missions/{previous}"))?;
     }
     builder.apply()
 }

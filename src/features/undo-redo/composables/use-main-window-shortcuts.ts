@@ -1,16 +1,9 @@
-import { computed, onMounted, onUnmounted } from 'vue';
-import { createDiscreteApi } from 'naive-ui';
-import { useSettingsStore } from '../../../app/settings-store';
-import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
+import { onMounted, onUnmounted } from 'vue';
+import { createAppFeedback } from '../../../app/app-feedback';
 import { redoMainWindow, undoMainWindow } from '../main-undo-redo-service';
 
 export function useMainWindowShortcuts() {
-  const settings = useSettingsStore();
-  const themeOverrides = computed(() => buildThemeOverrides(settings));
-
-  const { message, dialog } = createDiscreteApi(['message', 'dialog'], {
-    configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
-  });
+  const { message, dialog } = createAppFeedback(['message', 'dialog']);
 
   function handleKeyDown(event: KeyboardEvent) {
     const target = event.target as HTMLElement | null;

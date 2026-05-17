@@ -172,8 +172,14 @@ export function arr(value: JsonValue | undefined, fallback: number[] = []): numb
   return Array.isArray(value) ? value.map((v) => num(v)) : [...fallback];
 }
 
-export function rowId(row: RowData): string {
+export function rowDisplayId(row: RowData): string {
   return str(row.id) || str(row.hullId) || str(row.name);
+}
+
+export function rowSpecId(row: RowData, tab?: TableKey): string {
+  if (tab === 'ships') return str(row.id) || str(row.hullId);
+  if (tab === 'weapons' || tab === 'shipSystems') return str(row.id);
+  return str(row.id) || str(row.hullId);
 }
 
 export function getColumns(tab: TableKey, headers: string[]): string[] {

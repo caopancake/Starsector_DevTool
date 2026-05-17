@@ -203,6 +203,6 @@
 - [ ] 在全部大功能完成后，统一回查前后端模块边界、命名一致性、状态链路和保存语义。
 - [ ] 清理临时兼容层和死代码。
 - [ ] 重新审视 store、service、component、composable 和 shared API 是否再次出现职责漂移。
-- [ ] 更新 `.trae/module-map.md`、`.trae/editor-flows.md`、`.trae/frontend-guidelines.md`、`.trae/backend-guidelines.md` 和 `README.md`。
+- [ ] 更新 `.trae/module-map.md`、`.trae/modules/`、`.trae/frontend-guidelines.md`、`.trae/backend-guidelines.md` 和 `README.md`。
 - [ ] 跑前后端全套检查，并补最关键的跨阶段回归清单。
 - [ ] 记录仍然存在但可接受的技术债和后续改进方向，避免项目再次进入迁移期状态。

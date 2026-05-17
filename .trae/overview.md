@@ -1,14 +1,15 @@
 # Overview
 
-Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。当前项目使用 Tauri 2 + Vue 3 + TypeScript + Rust，目标是提供长期可维护的原生桌面工具。
+Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 
 ## 项目目标
 
-- 打开 Starsector Mod 根目录并在原位读取、编辑、保存配置文件。
-- 支持多 Mod 工作区：同时导入多个 Mod，隔离状态，自由切换。
-- 覆盖 CSV 表格编辑、舰船编辑器、武器编辑器、弹体编辑器、发射预览和 PNG 贴图导入。
-- 舰船和武器编辑器以画布为主操作面，支持快捷键、自动吸附选择、右侧检查器联动和局部 undo/redo。
-- 让工程结构保持清晰边界，避免臃肿调用链和”为了拆而拆”的碎片化。
+- 打开 Starsector 游戏目录或任意 Mod 目录，并在原位读取、编辑、保存 Mod 文件。
+- 支持多 Mod 工作区：同时读取多个 Mod，隔离状态，自由切换。
+- 游戏目录先进入轻量概览，只有用户选择“完整读取”后才加载单个 Mod 的完整数据。
+- 覆盖 CSV 表格编辑、配置编辑、舰船编辑器、武器编辑器、弹体编辑器、发射预览、文件编辑器和 PNG 贴图导入。
+- 舰船和武器编辑器以独立窗口承载画布操作，支持快捷键、自动吸附选择、右侧检查器联动和局部 undo/redo。
+- 让工程结构保持清晰边界，避免臃肿调用链和“为了拆而拆”的碎片化。
 
 ## 技术栈
 
@@ -19,23 +20,44 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。当
 - 编辑画布：Canvas 2D
 - 构建：Vite + Tauri CLI
 
-## 功能边界
+## 总体架构边界
 
-- Rust 负责文件扫描、解析、读写、校验和贴图写入。
-- Vue 负责 UI 状态、表格交互、编辑器表单、Canvas 交互和用户反馈。
+- `src/main.ts` 是前端运行时入口，按 URL 参数挂载主窗口、编辑器窗口或文件编辑器窗口。
+- `src/app/` 承载应用壳、窗口根组件、全局 provider、主题和反馈入口。
+- `src/features/` 承载业务系统，每个子目录是一条稳定业务边界。
+- `src/shared/api/` 只封装 Tauri command 和 event 的调用形状。
+- `src/shared/lib/` 承载跨业务纯工具，例如路径、错误和 Starsector 数据辅助函数。
+- `src/shared/types.ts` 承载跨模块共享的前端数据类型。
+- `src/styles/` 承载全局 CSS 模块，视觉边界以 `css-guidelines.md` 为准。
+- `src-tauri/src/lib.rs` 注册 Tauri command、plugin 和应用启动能力。
+- `src-tauri/src/commands/` 是 Tauri command 层，只负责参数接收、错误转换和调用 service。
+- `src-tauri/src/services/` 是 Rust 业务层，负责项目加载、保存、changeset、配置和资源扫描。
+- `src-tauri/src/parsers/` 是格式解析和渲染层。
+- `src-tauri/src/filesystem/` 是 UTF-8、JSON-like、图片和路径相关 IO 层。
+- `src-tauri/src/models/` 是 Rust 与前端交换的数据结构和 payload。
+
+## 规范
+
+- 前端不能把磁盘写入当成普通状态变更，所有写盘必须经过 shared API 到 Rust command。
+- Rust 是磁盘路径、删除语义、文件写入、parser 和 changeset 回放的权威。
+- Tauri command 层显式调用 `services::<module>::function()`，不依赖 `services::function()` 形式的宽泛 re-export。
+- 主窗口状态按 `modRoot` 隔离，独立窗口按窗口 URL 自行加载目标 Mod。
+- `workspace` 记录打开了什么，`project` 缓存完整 `AppData`，`tables` 记录 CSV 草稿，`file-history` 记录已经写盘的 changeset。
+- CSV 草稿历史、文件级 history、编辑器窗口局部 history 是三套系统，不共用栈。
+- CSV、spec、配置文件、workspace 私有状态和二进制贴图有不同保存边界，不能互相偷写。
 - Canvas 编辑器使用 Starsector 资源朝向约定做显示转换，但保存边界仍是对应 spec 文件本身。
-- 保存 JSON 时采用结构保真：内容正确、字段保留、规范缩进写回；不承诺保留原注释、尾逗号和手写格式。
-- 保存 CSV 时必须保留表头和空字段语义；`#` 开头行、真正空行和全逗号行按可见空行处理。
+- 保存 JSON-like spec 时采用结构保真：内容正确、字段保留、规范缩进写回；不承诺保留原注释、尾逗号和手写格式。
+- `starsector-core` 只读，只作为 core fallback 和数据来源，不注册成可编辑 Mod。
 
 ## 核心数据流
 
-1. 用户通过目录选择器导入 Mod 根目录（支持多个）。
-2. 前端 workspace store 注册 Mod，调用 Tauri command 请求加载项目数据。
-3. Rust 扫描 `data/`、`graphics/` 和 `mod_info.json`，解析 CSV、宽松 JSON 和资源列表。
-4. 前端将数据写入 project store（per-Mod Map），并驱动表格、右侧详情和编辑器弹窗。
-5. 用户编辑 CSV 或 spec 文件后，前端通过 feature service 调用 Tauri command。
-6. Rust service 执行路径解析、数据校验和文件写回。
-7. workspace 状态自动持久化至 `%APPDATA%/com.starsector.devtool/workspace.json`，启动时恢复。
+- 用户通过目录选择器打开游戏目录或 Mod 目录。
+- 前端调用目录识别 command，决定进入游戏概览或完整读取单个 Mod。
+- Rust 扫描 `data/`、`graphics/` 和配置入口，解析 CSV、宽松 JSON-like 文件和资源列表。
+- 前端将数据写入 project store，并驱动表格、右侧详情和独立编辑器窗口。
+- 用户编辑 CSV、spec、配置或文本文件后，前端通过对应 orchestrator 或 service 调用 Tauri command。
+- Rust service 执行路径解析、数据校验、文件写回和 changeset 回放。
+- workspace 状态自动持久化至 `%APPDATA%/com.starsector.devtool/workspace.json`，启动时按当前 parser 重新加载。
 
 ## 发布策略
 

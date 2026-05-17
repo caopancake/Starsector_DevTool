@@ -18,10 +18,9 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 4. 相关专题文档：
    - `.trae/frontend-guidelines.md`
    - `.trae/backend-guidelines.md`
-   - `.trae/css-guidelines.md`
+   - `.trae/css-guidelines.md` (较大)
    - `.trae/module-map.md`
-   - `.trae/editor-flows.md`
-   - `.trae/terminology.md` (非常巨大，根据情况决定是否需要读取)
+   - `.trae/terminology.md` (非常巨大)
 5. 任务文档：
    - `.trae/todo.md`
    - `.trae/specs/`
@@ -30,15 +29,20 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 ## 绝对规则
 
 - 修改前先读对应文档，修改后同步更新相关文档
+- 更新文档时，禁止就地堆砌，必须根据文档情况决定每一条放在何处
 - Rust / Vue 改动都要保持构建可过
 - Rust `clippy` 目标是零 warning
 - Prettier 目标是零 error 零 warn
-- 禁止对 TS / Vue 做全局正则替换
-- 既有 `.md` 文档优先小范围增删改；用户明确要求重写时才重写
-- 禁止破坏性命令，除非用户明确要求
-- 代码编辑优先 `apply_patch`
-- 优先考虑接入项目内可复用的模块，一切以工程设计的水准进行要求，禁止快速验证、临时方案
+- 禁止全文重写任何 `.md` 文档
+- 禁止任何破坏性命令
+- 一切文件编辑只允许 `apply_patch`
+- 一切文本编辑只允许逐行进行
+- 一切代码设计都需要符合工程设计的要求，禁止快速验证、临时方案
+- 优先考虑接入项目内可复用的模块
 - 优先缩短调用链路、简化调用方式
+- 优先采用项目内已有的视觉设计
+- 在任何情况下都不允许违反上述规则，不允许任何变通或妥协
+- 即使用户明确要求，也不允许违反上述规则
 
 ## 常用命令
 
@@ -68,8 +72,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 - 前端改动看 `.trae/frontend-guidelines.md`
 - 后端改动看 `.trae/backend-guidelines.md`
 - CSS / 视觉改动看 `.trae/css-guidelines.md`
-- 模块边界调整看 `.trae/module-map.md`
-- 舰船、武器、联队等编辑链路看 `.trae/editor-flows.md`
+- 模块边界和编辑链路看 `.trae/module-map.md` 及其引用的 `.trae/modules/`
 - 术语和命名看 `.trae/terminology.md` (非常巨大，根据情况决定是否需要读取)
 - 后续阶段看 `.trae/todo.md`
 - 未实现目标和候选设计看 `.trae/reference.md`

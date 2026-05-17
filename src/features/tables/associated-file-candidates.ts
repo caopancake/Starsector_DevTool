@@ -1,7 +1,7 @@
 import type { AssociatedFileChange } from '../../shared/api/tables-api';
 import { normalizeRelPath, pathStem } from '../../shared/lib/paths';
 import type { AppData, ModTableState, RowData, TableKey } from '../../shared/types';
-import { defaultShip, defaultWeapon, rowId } from '../../shared/lib/starsector';
+import { defaultShip, defaultWeapon, rowSpecId } from '../../shared/lib/starsector';
 
 export interface AssociatedFileCandidate extends AssociatedFileChange {
   key: string;
@@ -37,7 +37,7 @@ export function getAssociatedFileCandidates(
       if (dirtyRow._deleted === 'true') {
         const originalIndex = state.originalTables[table].findIndex((row, index) => rowKeyForTab(table, row, index) === rowKey);
         const original = originalIndex >= 0 ? state.originalTables[table][originalIndex] : null;
-        const id = original ? rowId(original) : '';
+        const id = original ? rowSpecId(original, table) : '';
         const relPath = associatedRelPath(table, id);
         if (!id || !relPath || !hasAssociatedFile(appData, table, id)) continue;
         result.push({
@@ -55,7 +55,7 @@ export function getAssociatedFileCandidates(
       const originalExists = state.originalTables[table].some((row, index) => rowKeyForTab(table, row, index) === rowKey);
       if (originalExists) continue;
       const row = state.tables[table].find((candidate, index) => rowKeyForTab(table, candidate, index) === rowKey);
-      const id = row ? rowId(row) : '';
+      const id = row ? rowSpecId(row, table) : '';
       const relPath = associatedRelPath(table, id);
       if (!row || !id || !relPath || hasAssociatedFile(appData, table, id)) continue;
       result.push({

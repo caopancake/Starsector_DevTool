@@ -17,6 +17,10 @@ export function saveCsvWithHistory(
   return invoke('save_csv_with_history', { payload: { modRoot, table, header, rows, associatedFiles } });
 }
 
+export function loadCsvTable(modRoot: string, table: TableKey): Promise<CsvTable> {
+  return invoke('load_csv_table', { payload: { modRoot, table } });
+}
+
 export interface CsvTable {
   header: string[];
   rows: RowData[];

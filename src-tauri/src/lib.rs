@@ -22,6 +22,7 @@ pub fn run() {
             commands::detect_directory,
             commands::scan_game_overview,
             commands::save_csv_with_history,
+            commands::load_csv_table,
             commands::upload_sprite,
             commands::load_workspace,
             commands::save_workspace,

@@ -1,0 +1,242 @@
+/* Schema forms */
+
+/* --- Schema Forms --- */
+.schema-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.schema-section {
+  margin-bottom: 6px;
+  overflow: hidden;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-subtle);
+}
+
+.section-header {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  user-select: none;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  transition: background 0.1s;
+}
+
+.section-header:hover {
+  background: var(--color-surface-hover);
+}
+
+.section-chevron {
+  display: grid;
+  width: 12px;
+  height: 12px;
+  place-items: center;
+  color: var(--color-muted);
+  transition: transform 0.15s ease;
+  transform: rotate(90deg);
+}
+
+.section-chevron.collapsed {
+  transform: rotate(0deg);
+}
+
+.section-chevron svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.section-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: var(--space-2) var(--space-3);
+}
+
+.schema-field {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 4px var(--space-2);
+  align-items: start;
+  min-width: 0;
+  padding: 3px 0;
+}
+
+.schema-field.nested-row {
+  padding-left: var(--space-3);
+}
+
+.field-label {
+  padding-top: 5px;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.field-control {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.field-switch {
+  align-self: flex-start;
+  margin-top: 1px;
+}
+
+.field-warning {
+  color: var(--color-warning);
+  font-size: 10px;
+}
+
+.field-danger {
+  color: var(--color-danger);
+  font-size: 10px;
+}
+
+.nested-object {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  padding: var(--space-1) 0 var(--space-1) var(--space-2);
+  overflow: hidden;
+  border-left: 2px solid var(--color-border);
+}
+
+.array-of-object,
+.key-value-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.array-item {
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  padding: 6px var(--space-2);
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.array-item-header,
+.path-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.kv-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(80px, 1fr) 28px;
+  gap: var(--space-1);
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.array-item-header {
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.array-item-index {
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.path-field .n-input,
+.path-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.kv-key-select {
+  width: 100%;
+  min-width: 0;
+}
+
+.kv-value-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.json-field-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: start;
+  padding: 3px 0;
+}
+
+.json-field-key {
+  padding-top: 5px;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.json-field-empty {
+  padding: var(--space-2) 0;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.json-field-add {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding-top: var(--space-2);
+}
+
+.json-field-new-key {
+  width: 140px;
+}
+
+.compact-icon-button {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
+.compact-icon-button svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}

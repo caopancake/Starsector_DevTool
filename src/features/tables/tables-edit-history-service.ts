@@ -1,6 +1,7 @@
 import type { ModTableState, RowData, TableKey } from '../../shared/types';
 import { cell, deepClone } from '../../shared/lib/starsector';
 import type { CsvEditHistoryEntry } from './tables-edit-history-types';
+import { resolveTableRowKey, TABLE_ROW_KEY_FIELD } from './table-row-key';
 
 export function applyCsvEditUndo(entry: CsvEditHistoryEntry, tableState: ModTableState | undefined): boolean {
   const event = entry.event;
@@ -28,11 +29,11 @@ export function applyCsvEditRedo(entry: CsvEditHistoryEntry, tableState: ModTabl
 
 function applyCsvCellValue(tableState: ModTableState | undefined, tab: TableKey, rowKey: string, col: string, value: string): boolean {
   if (!tableState) return false;
-  const row = tableState.tables[tab].find((candidate, index) => resolveRowKey(tab, candidate, index) === rowKey);
+  const row = tableState.tables[tab].find((candidate, index) => resolveTableRowKey(tab, candidate, index) === rowKey);
   if (!row) return false;
 
   row[col] = value;
-  const original = tableState.originalTables[tab].find((candidate, index) => resolveRowKey(tab, candidate, index) === rowKey);
+  const original = tableState.originalTables[tab].find((candidate, index) => resolveTableRowKey(tab, candidate, index) === rowKey);
   const originalValue = cell(original?.[col]);
   if (value !== originalValue) {
     tableState.dirty[tab][rowKey] ||= {};
@@ -47,9 +48,9 @@ function applyCsvCellValue(tableState: ModTableState | undefined, tab: TableKey,
 function insertTableRow(tableState: ModTableState | undefined, tab: TableKey, rowIndex: number, rowKey: string, row: RowData): boolean {
   if (!tableState) return false;
   const rows = tableState.tables[tab];
-  if (rows.some((candidate, index) => resolveRowKey(tab, candidate, index) === rowKey)) return true;
+  if (rows.some((candidate, index) => resolveTableRowKey(tab, candidate, index) === rowKey)) return true;
   const next = deepClone(row);
-  next._rowKey = rowKey;
+  next[TABLE_ROW_KEY_FIELD] = rowKey;
   rows.splice(Math.max(0, Math.min(rowIndex, rows.length)), 0, next);
   markRowDirty(tableState, tab, rowKey, next);
   return true;
@@ -57,11 +58,13 @@ function insertTableRow(tableState: ModTableState | undefined, tab: TableKey, ro
 
 function removeTableRow(tableState: ModTableState | undefined, tab: TableKey, rowKey: string): boolean {
   if (!tableState) return false;
-  const index = tableState.tables[tab].findIndex((candidate, candidateIndex) => resolveRowKey(tab, candidate, candidateIndex) === rowKey);
+  const index = tableState.tables[tab].findIndex(
+    (candidate, candidateIndex) => resolveTableRowKey(tab, candidate, candidateIndex) === rowKey,
+  );
   if (index < 0) return false;
   tableState.tables[tab].splice(index, 1);
   const originalExists = tableState.originalTables[tab].some(
-    (candidate, candidateIndex) => resolveRowKey(tab, candidate, candidateIndex) === rowKey,
+    (candidate, candidateIndex) => resolveTableRowKey(tab, candidate, candidateIndex) === rowKey,
   );
   if (originalExists) {
     tableState.dirty[tab][rowKey] = { _deleted: 'true' };
@@ -72,7 +75,7 @@ function removeTableRow(tableState: ModTableState | undefined, tab: TableKey, ro
 }
 
 function markRowDirty(tableState: ModTableState, tab: TableKey, rowKey: string, row: RowData) {
-  const original = tableState.originalTables[tab].find((candidate, index) => resolveRowKey(tab, candidate, index) === rowKey);
+  const original = tableState.originalTables[tab].find((candidate, index) => resolveTableRowKey(tab, candidate, index) === rowKey);
   delete tableState.dirty[tab][rowKey];
   if (!original) {
     tableState.dirty[tab][rowKey] = {};
@@ -90,11 +93,4 @@ function markRowDirty(tableState: ModTableState, tab: TableKey, rowKey: string, 
       tableState.dirty[tab][rowKey][key] = next;
     }
   }
-}
-
-function resolveRowKey(tab: TableKey, row: RowData, index: number): string {
-  const existingKey = cell(row._rowKey);
-  if (existingKey) return existingKey;
-  const id = cell(row.id) || cell(row.hullId) || cell(row.name);
-  return id ? `${tab}:id:${id}` : `${tab}:row:${index}`;
 }

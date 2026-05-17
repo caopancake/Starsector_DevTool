@@ -71,7 +71,7 @@ import {
 import { useSettingsStore } from './settings-store';
 import { loadProject } from '../features/project/project-service';
 import type { AppData, RowData } from '../shared/types';
-import { deepClone, defaultWeapon, rowId } from '../shared/lib/starsector';
+import { deepClone, defaultWeapon, rowSpecId } from '../shared/lib/starsector';
 import { formatError } from '../shared/lib/errors';
 import WindowShell from './WindowShell.vue';
 import { WINDOW_EVENTS } from '../features/windowing/window-events';
@@ -90,7 +90,7 @@ let unlistenEditorSpecApplied: UnlistenFn | null = null;
 const weaponForEditor = computed<RowData>(() => {
   const data = appData.value;
   if (!data) return {};
-  const csvRow = data.weapons.find((weapon) => rowId(weapon) === id);
+  const csvRow = data.weapons.find((weapon) => rowSpecId(weapon, 'weapons') === id);
   return data.wpnFiles[id] || defaultWeapon(id, csvRow);
 });
 

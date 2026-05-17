@@ -24,11 +24,9 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { createDiscreteApi } from 'naive-ui';
 import { useProjectStore } from '../../project/project-store';
-import { recordFileSave } from '../../file-history/file-save-orchestrator';
 import { useSettingsStore } from '../../../app/settings-store';
-import { saveFactionData } from '../config-service';
+import { saveFactionWithFileHistory } from '../config-save-orchestrator';
 import { loadImageDataUrl } from '../../../shared/api/assets-api';
 import { deepClone } from '../../../shared/lib/starsector';
 import { formatError } from '../../../shared/lib/errors';
@@ -36,22 +34,19 @@ import type { JsonValue, RowData } from '../../../shared/types';
 import SchemaFormRenderer from '../../schema/components/SchemaFormRenderer.vue';
 import { useCoreSchema } from '../../schema/composables/use-core-schema';
 import { aggregateSchemaSources, splitSchemaSources } from '../../schema/schema-service';
-import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
+import { createAppFeedback } from '../../../app/app-feedback';
 
 const props = defineProps<{ factionId: string }>();
 
 const project = useProjectStore();
 const settings = useSettingsStore();
-const themeOverrides = computed(() => buildThemeOverrides(settings));
 
 const { getMergedSchema, loadCoreFields } = useCoreSchema();
 loadCoreFields();
 
 const schema = computed(() => getMergedSchema('faction'));
 
-const { message } = createDiscreteApi(['message'], {
-  configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
-});
+const { message } = createAppFeedback(['message']);
 
 const saving = ref(false);
 const local = ref<RowData>({});
@@ -129,14 +124,14 @@ async function save() {
     const split = splitSchemaSources(local.value, currentSchema);
     const file = split.file && typeof split.file === 'object' && !Array.isArray(split.file) ? (split.file as RowData) : {};
     const newId = str(file.id) || props.factionId;
-    const oldId = props.factionId;
-    const idChanged = newId !== oldId;
+    const previousId = props.factionId;
+    const idChanged = newId !== previousId;
 
-    const changes = await saveFactionData(modData.modRoot, newId, file, idChanged ? oldId : null, idChanged);
+    await saveFactionWithFileHistory(modData.modRoot, newId, file, idChanged ? previousId : null, idChanged);
 
     if (idChanged) {
-      delete modData.factionFiles[oldId];
-      delete modData.factionMeta[oldId];
+      delete modData.factionFiles[previousId];
+      delete modData.factionMeta[previousId];
     }
 
     modData.factionFiles[newId] = deepClone(file);
@@ -145,7 +140,6 @@ async function save() {
       color: rgbaToCss(file.color),
     };
 
-    recordFileSave(modData.modRoot, changes, `保存 ${newId}.faction`);
     message.success(`${newId}.faction 已保存`);
   } catch (error) {
     message.error(formatError(error));

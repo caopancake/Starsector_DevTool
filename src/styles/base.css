@@ -23,6 +23,7 @@
   --color-primary-pressed: #1e40af;
   --color-primary-soft: #e8f0ff;
   --color-primary-border: #bfdbfe;
+  --color-on-primary: #ffffff;
   --color-warning: #b7791f;
   --color-warning-bg: #fff7df;
   --color-warning-border: #f4d58d;
@@ -31,6 +32,10 @@
   --color-success-bg: #dcfce7;
   --color-danger-bg: #fee2e2;
   --color-danger-text: #991b1b;
+  --color-danger-border-soft: rgba(220, 38, 38, 0.28);
+  --color-danger-highlight-soft: rgba(220, 38, 38, 0.12);
+  --color-danger-highlight: rgba(220, 38, 38, 0.16);
+  --color-danger-highlight-border: rgba(220, 38, 38, 0.35);
   --color-canvas-bg: #1a1d2e;
   --scrollbar-track: transparent;
   --scrollbar-thumb: #c9c9c5;
@@ -64,6 +69,7 @@
   --color-primary-pressed: #3b82f6;
   --color-primary-soft: #17263d;
   --color-primary-border: #24466d;
+  --color-on-primary: #ffffff;
   --color-warning: #fbbf24;
   --color-warning-bg: #3b2d13;
   --color-warning-border: #6b4d16;
@@ -72,6 +78,10 @@
   --color-success-bg: #14532d;
   --color-danger-bg: #450a0a;
   --color-danger-text: #fca5a5;
+  --color-danger-border-soft: rgba(248, 113, 113, 0.28);
+  --color-danger-highlight-soft: rgba(248, 113, 113, 0.12);
+  --color-danger-highlight: rgba(248, 113, 113, 0.16);
+  --color-danger-highlight-border: rgba(248, 113, 113, 0.35);
   --color-canvas-bg: #0b1020;
   --scrollbar-thumb: #3d4552;
   --scrollbar-thumb-hover: #596273;

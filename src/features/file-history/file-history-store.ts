@@ -47,8 +47,6 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
 
   const canUndoFileSave = computed(() => Boolean(peekFileUndo()));
   const canRedoFileSave = computed(() => Boolean(peekFileRedo()));
-  const undoFileLabel = computed(() => peekFileUndo()?.label ?? '');
-  const redoFileLabel = computed(() => peekFileRedo()?.label ?? '');
   const activeUndoStack = computed(() => getActiveState()?.undoStack ?? []);
   const activeRedoStack = computed(() => getActiveState()?.redoStack ?? []);
   const activeHistoryCount = computed(() => activeUndoStack.value.length + activeRedoStack.value.length);
@@ -146,8 +144,6 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     activeHistoryCount,
     activeRedoStack,
     activeUndoStack,
-    redoFileLabel,
-    undoFileLabel,
     activateFor,
     clearForMod,
     commitFileRedo,

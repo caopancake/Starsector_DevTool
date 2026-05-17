@@ -64,25 +64,19 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { createDiscreteApi } from 'naive-ui';
 import { useProjectStore } from '../../project/project-store';
-import { recordFileSave } from '../../file-history/file-save-orchestrator';
 import { useSettingsStore } from '../../../app/settings-store';
-import { createFactionFile, deleteFactionFile } from '../config-service';
+import { createFactionWithFileHistory, deleteFactionWithFileHistory } from '../config-save-orchestrator';
 import { loadImageDataUrl } from '../../../shared/api/assets-api';
 import { formatError } from '../../../shared/lib/errors';
 import type { JsonValue } from '../../../shared/types';
-import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
+import { createAppFeedback } from '../../../app/app-feedback';
 
 const emit = defineEmits<{ select: [factionId: string] }>();
 
 const project = useProjectStore();
 const settings = useSettingsStore();
-const themeOverrides = computed(() => buildThemeOverrides(settings));
-
-const { message } = createDiscreteApi(['message'], {
-  configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
-});
+const { message } = createAppFeedback(['message']);
 
 const selectedFaction = ref<string | null>(null);
 const showCreateDialog = ref(false);
@@ -181,13 +175,12 @@ async function doCreate() {
     return;
   }
   try {
-    const { data, changes } = await createFactionFile(modData.modRoot, trimmedId);
+    const { data } = await createFactionWithFileHistory(modData.modRoot, trimmedId);
     modData.factionFiles[trimmedId] = data;
     modData.factionMeta[trimmedId] = {
       name: String(data.displayName ?? trimmedId),
       color: rgbaToCss(data.color),
     };
-    recordFileSave(modData.modRoot, changes, `创建势力 ${trimmedId}`);
     message.success(`势力 "${trimmedId}" 已创建`);
     showCreateDialog.value = false;
     await refreshFactionCrests();
@@ -215,7 +208,7 @@ async function doDelete(id: string, deleteFile: boolean) {
   if (!modData) return;
 
   try {
-    const changes = await deleteFactionFile(modData.modRoot, id, deleteFile);
+    await deleteFactionWithFileHistory(modData.modRoot, id, deleteFile);
     delete modData.factionFiles[id];
     delete modData.factionMeta[id];
     delete factionCrests.value[id];
@@ -223,7 +216,6 @@ async function doDelete(id: string, deleteFile: boolean) {
       selectedFaction.value = null;
       emit('select', '');
     }
-    recordFileSave(modData.modRoot, changes, `删除势力 ${id}`);
     message.success(`势力 "${id}" 已删除`);
   } catch (error) {
     message.error(formatError(error));

@@ -51,14 +51,13 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { emit, listen } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { createDiscreteApi } from 'naive-ui';
 import { loadEditableFile, saveTextFileWithHistory } from '../shared/api/files-api';
 import { formatError } from '../shared/lib/errors';
 import { normalizeFsPath } from '../shared/lib/paths';
 import { useSettingsStore } from './settings-store';
-import { buildThemeOverrides, discreteConfigProviderProps } from './theme-overrides';
 import WindowShell from './WindowShell.vue';
 import { WINDOW_EVENTS, type FileEditorFocusLineEvent, type FileEditorTextAppliedEvent } from '../features/windowing/window-events';
+import { createAppFeedback } from './app-feedback';
 
 const params = new window.URLSearchParams(window.location.search);
 const settings = useSettingsStore();
@@ -78,11 +77,7 @@ const lineGutterRef = ref<HTMLElement>();
 const undoStack = ref<string[]>([]);
 const redoStack = ref<string[]>([]);
 
-const themeOverrides = computed(() => buildThemeOverrides(settings));
-
-const { message } = createDiscreteApi(['message'], {
-  configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
-});
+const { message } = createAppFeedback(['message']);
 
 const dirty = computed(() => text.value !== originalText.value);
 const lineCount = computed(() => Math.max(1, text.value.split(/\r\n|\r|\n/).length));

@@ -80,9 +80,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import { createDiscreteApi } from 'naive-ui';
 import { useProjectStore } from '../../project/project-store';
-import { recordFileSave } from '../../file-history/file-save-orchestrator';
 import { useSettingsStore } from '../../../app/settings-store';
 import { loadImageDataUrl } from '../../../shared/api/assets-api';
 import { formatError } from '../../../shared/lib/errors';
@@ -90,16 +88,13 @@ import type { CsvTable } from '../../../shared/api/tables-api';
 import type { JsonValue, RowData } from '../../../shared/types';
 import SchemaFormRenderer from '../../schema/components/SchemaFormRenderer.vue';
 import { aggregateSchemaSources, getSchema, splitSchemaSources } from '../../schema/schema-service';
-import { loadMissionData, loadMissionListData, deleteMissionData, saveMissionData, scanMissionListFiles } from '../config-service';
-import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
+import { loadMissionData, loadMissionListData, scanMissionListFiles } from '../config-service';
+import { deleteMissionWithFileHistory, saveMissionWithFileHistory } from '../config-save-orchestrator';
+import { createAppFeedback } from '../../../app/app-feedback';
 
 const project = useProjectStore();
 const settings = useSettingsStore();
-const themeOverrides = computed(() => buildThemeOverrides(settings));
-
-const { message } = createDiscreteApi(['message'], {
-  configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
-});
+const { message } = createAppFeedback(['message']);
 
 const DEFAULT_MISSION_LIST_PATH = 'data/missions/mission_list.csv';
 
@@ -227,7 +222,7 @@ async function save() {
     message.warning('mission 不能为空');
     return;
   }
-  const oldId = missionId(selectedMission.value);
+  const previousMissionId = missionId(selectedMission.value);
   selectedMission.value.mission = id;
   for (const [key, value] of Object.entries(list)) {
     selectedMission.value[key] = value as JsonValue;
@@ -235,7 +230,7 @@ async function save() {
   }
   saving.value = true;
   try {
-    const changes = await saveMissionData(
+    await saveMissionWithFileHistory(
       modRoot.value,
       id,
       descriptorSource,
@@ -243,14 +238,13 @@ async function save() {
       missionListPath.value,
       tableData.value.header,
       tableData.value.rows,
-      oldId && oldId !== id ? oldId : null,
-      oldId !== id,
+      previousMissionId && previousMissionId !== id ? previousMissionId : null,
+      previousMissionId !== id,
     );
     descriptor.value = descriptorSource;
     missionText.value = textSource;
-    recordFileSave(modRoot.value, changes, `保存战役 ${id}`);
     await loadMissionIcons();
-    if (oldId !== id) {
+    if (previousMissionId !== id) {
       await selectMission(selectedMissionIndex.value);
     }
     message.success(`${id} 已保存`);
@@ -292,7 +286,7 @@ async function doCreateMission() {
   tableData.value.rows.push(row);
 
   try {
-    const changes = await saveMissionData(
+    await saveMissionWithFileHistory(
       modRoot.value,
       id,
       { title: id },
@@ -301,7 +295,6 @@ async function doCreateMission() {
       tableData.value.header,
       tableData.value.rows,
     );
-    recordFileSave(modRoot.value, changes, `创建战役 ${id}`);
     syncMissionCount();
     message.success(`战役 "${id}" 已创建`);
     showCreateDialog.value = false;
@@ -328,20 +321,19 @@ async function confirmDeleteSelectedMission() {
   return true;
 }
 
-async function deleteMissionRow(mission: { id: string; index: number }, deleteDirectory: boolean) {
+async function deleteMissionRow(mission: { id: string; index: number }, deleteMissionDirectory: boolean) {
   if (!modRoot.value || !missionListPath.value || !tableData.value) return;
   const removed = tableData.value.rows.splice(mission.index, 1);
   const previousSelected = selectedMissionIndex.value;
   try {
-    const changes = await deleteMissionData(
+    await deleteMissionWithFileHistory(
       modRoot.value,
       mission.id,
       missionListPath.value,
       tableData.value.header,
       tableData.value.rows,
-      deleteDirectory,
+      deleteMissionDirectory,
     );
-    recordFileSave(modRoot.value, changes, `删除战役列表项 ${mission.id}`);
     syncMissionCount();
     const nextMission = missions.value[Math.min(mission.index, missions.value.length - 1)] ?? null;
     delete missionIcons.value[mission.id];

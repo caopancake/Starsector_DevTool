@@ -30,12 +30,7 @@
     </header>
     <section class="content-grid">
       <DataTable />
-      <DetailPane
-        @open-file-editor="$emit('open-file-editor', $event)"
-        @open-ship="$emit('open-ship', $event)"
-        @open-weapon="$emit('open-weapon', $event)"
-        @open-weapon-preview="$emit('open-weapon-preview', $event)"
-      />
+      <DetailPane @detail-action="$emit('detail-action', $event)" />
     </section>
   </main>
 </template>
@@ -47,17 +42,14 @@ import DetailPane from '../DetailPane.vue';
 import { useTablesStore } from '../../features/tables/tables-store';
 import { useProjectStore } from '../../features/project/project-store';
 import { MODULE_LABELS } from '../../shared/lib/starsector';
-import type { FileEditorRequest } from '../../features/workspace/file-editor-window';
+import type { TableDetailAction } from '../../features/tables/table-detail-actions';
 
 defineEmits<{
   'add-row': [];
   'delete-row': [];
   revert: [];
   save: [];
-  'open-file-editor': [request: FileEditorRequest];
-  'open-ship': [id: string];
-  'open-weapon': [id: string];
-  'open-weapon-preview': [id: string];
+  'detail-action': [request: TableDetailAction];
 }>();
 
 const tables = useTablesStore();

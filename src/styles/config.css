@@ -1,0 +1,376 @@
+/* Config workspaces, factions, and missions */
+
+/* --- Config Workspaces --- */
+.config-factions-layout,
+.mission-view {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.config-entity-list {
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+  min-width: 200px;
+  overflow: hidden;
+  background: var(--color-panel-muted);
+  border-right: 1px solid var(--color-border);
+}
+
+.faction-list {
+  width: 240px;
+}
+
+.config-entity-list-header {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.config-entity-list-header h3,
+.mission-editor-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.config-entity-list-items {
+  flex: 1;
+  padding: var(--space-2) 0;
+  margin: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.config-entity-list-empty {
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.config-entity-list-item {
+  min-width: 0;
+  padding: 6px var(--space-4);
+  color: var(--color-text-soft);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.config-entity-list-item {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 28px;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.config-entity-list-item:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.config-entity-list-item.active {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
+.config-entity-thumb {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.config-entity-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.config-entity-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.config-entity-delete {
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.config-entity-list-item:hover .config-entity-delete {
+  opacity: 1;
+}
+
+.faction-list-preview .color-swatch {
+  width: 14px;
+  height: 14px;
+  border: 0;
+}
+
+.config-entity-list-footer {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.color-swatch {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.mission-editor,
+.faction-editor-page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-panel-muted);
+}
+
+.faction-editor-page {
+  padding: var(--space-3) var(--space-4);
+  overflow-y: auto;
+}
+
+.mission-editor-header,
+.faction-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mission-editor-header {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-panel);
+}
+
+.mission-editor-body {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-4);
+  overflow-y: auto;
+}
+
+.mission-icon-preview {
+  width: 88px;
+  height: 88px;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.mission-icon-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.faction-editor-header {
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.faction-editor-header h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.config-placeholder {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-faint);
+}
+
+.mod-overview-page {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 28px 36px;
+  overflow-y: auto;
+  background: var(--color-panel-muted);
+}
+
+.mod-overview-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.mod-overview-header h1 {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text);
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.mod-overview-header p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.mod-overview-status {
+  padding: 3px var(--space-2);
+  color: var(--color-muted);
+  font-size: 11px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.mod-overview-status.ready {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+}
+
+.mod-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: var(--space-3);
+}
+
+.mod-overview-card {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-4);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-subtle);
+}
+
+.mod-overview-card.wide {
+  grid-column: 1 / -1;
+}
+
+.mod-overview-card span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.mod-overview-card strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 22px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mod-overview-card p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.mod-overview-breakdown {
+  display: grid;
+  width: min(520px, 100%);
+  overflow: hidden;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-subtle);
+}
+
+.mod-overview-breakdown-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  color: var(--color-text-soft);
+  font-size: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mod-overview-breakdown-row:last-child {
+  border-bottom: 0;
+}
+
+.mod-overview-breakdown-row strong {
+  color: var(--color-muted);
+  font-weight: 650;
+}
+
+.faction-previews {
+  display: grid;
+  grid-template-columns: minmax(220px, 410px) minmax(160px, 256px);
+  gap: var(--space-3);
+  align-items: stretch;
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.faction-preview-item {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  min-width: 0;
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.faction-preview-item span {
+  color: var(--color-text-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.faction-full-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  object-position: left top;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  image-rendering: pixelated;
+}
+
+.faction-preview-logo .faction-full-preview {
+  width: min(100%, 410px);
+  aspect-ratio: 410 / 256;
+}
+
+.faction-preview-crest .faction-full-preview {
+  width: min(100%, 256px);
+  aspect-ratio: 1;
+}

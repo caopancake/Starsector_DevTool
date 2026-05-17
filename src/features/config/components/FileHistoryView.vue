@@ -10,7 +10,7 @@
 
     <div class="file-history-summary">
       <div>
-        <span>可回退</span>
+        <span>可撤销</span>
         <strong>{{ undoStack.length }}</strong>
       </div>
       <div>
@@ -29,7 +29,7 @@
           <h2>可撤销</h2>
           <n-button size="small" :disabled="!canUndo" @click="undoOne">撤销</n-button>
         </header>
-        <p v-if="undoStack.length === 0" class="file-history-empty">没有可回退的文件保存历史。</p>
+        <p v-if="undoStack.length === 0" class="file-history-empty">没有可撤销的文件保存历史。</p>
         <div v-else class="file-history-entry-list">
           <article v-for="(item, index) in undoDisplayItems" :key="item.id" class="file-history-entry">
             <div class="file-history-entry-main">
@@ -83,25 +83,18 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { createDiscreteApi } from 'naive-ui';
-import { useSettingsStore } from '../../../app/settings-store';
-import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
+import { createAppFeedback } from '../../../app/app-feedback';
 import type { FileChangeRecord } from '../../../shared/api/files-api';
-import { applyFileSaveHistoryEntry } from '../../file-history/file-history-service';
+import { replayNextFileHistoryEntry } from '../../file-history/file-history-replay-service';
 import { useFileHistoryStore } from '../../file-history/file-history-store';
-import type { FileHistoryItem, FileSaveHistoryEntry } from '../../file-history/file-history-types';
+import type { FileHistoryItem } from '../../file-history/file-history-types';
 import { useProjectStore } from '../../project/project-store';
 import { useTablesStore } from '../../tables/tables-store';
 
 const project = useProjectStore();
 const tables = useTablesStore();
 const fileHistory = useFileHistoryStore();
-const settings = useSettingsStore();
-const themeOverrides = computed(() => buildThemeOverrides(settings));
-
-const { dialog, message } = createDiscreteApi(['dialog', 'message'], {
-  configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
-});
+const { dialog, message } = createAppFeedback(['dialog', 'message']);
 
 const activeMod = computed(() => project.activeModData);
 const modTitle = computed(() => activeMod.value?.modInfo?.name ?? activeMod.value?.modRoot ?? '未选择 Mod');
@@ -130,38 +123,11 @@ function confirmClear() {
 }
 
 function undoOne() {
-  const entry = fileHistory.peekFileUndo();
-  if (!entry) return;
-  confirmApply(entry, 'undo');
+  replayNextFileHistoryEntry('undo', project, tables, message, dialog);
 }
 
 function redoOne() {
-  const entry = fileHistory.peekFileRedo();
-  if (!entry) return;
-  confirmApply(entry, 'redo');
-}
-
-function confirmApply(entry: FileSaveHistoryEntry, direction: 'undo' | 'redo') {
-  const action = direction === 'undo' ? '撤销' : '重做';
-  dialog.warning({
-    title: `${action}文件历史`,
-    content: `${action}会直接写回磁盘。确认处理“${entry.label}”？`,
-    positiveText: action,
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      try {
-        await applyFileSaveHistoryEntry(entry, direction, project, tables);
-        if (direction === 'undo') {
-          fileHistory.commitFileUndo(entry.id);
-        } else {
-          fileHistory.commitFileRedo(entry.id);
-        }
-        message.success(`已${action}`);
-      } catch (error) {
-        message.error(`${action}文件历史失败：${error instanceof Error ? error.message : String(error)}`);
-      }
-    },
-  });
+  replayNextFileHistoryEntry('redo', project, tables, message, dialog);
 }
 
 function formatItemKind(item: FileHistoryItem): string {

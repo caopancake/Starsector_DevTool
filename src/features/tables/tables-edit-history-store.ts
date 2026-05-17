@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { computed, reactive } from 'vue';
+import { reactive } from 'vue';
 import { useSettingsStore } from '../../app/settings-store';
 import type { ModTableState, TableKey } from '../../shared/types';
 import { applyCsvEditRedo, applyCsvEditUndo } from './tables-edit-history-service';
@@ -25,9 +25,6 @@ function stateKey(modRoot: string, table: TableKey): string {
 
 export const useTablesEditHistoryStore = defineStore('tablesEditHistory', () => {
   const stateMap = reactive<Map<string, CsvEditHistoryState>>(new Map());
-
-  const hasAnyUndo = computed(() => [...stateMap.values()].some((state) => state.undoStack.length > 0));
-  const hasAnyRedo = computed(() => [...stateMap.values()].some((state) => state.redoStack.length > 0));
 
   function getOrCreateState(modRoot: string, table: TableKey): CsvEditHistoryState {
     const key = stateKey(modRoot, table);
@@ -95,8 +92,6 @@ export const useTablesEditHistoryStore = defineStore('tablesEditHistory', () => 
   }
 
   return {
-    hasAnyRedo,
-    hasAnyUndo,
     canRedoCsvEdit,
     canUndoCsvEdit,
     clearCsvEditHistory,

@@ -31,12 +31,12 @@ export async function saveFactionData(
   modRoot: string,
   id: string,
   data: RowData,
-  oldId?: string | null,
-  deleteOldFile = false,
+  previousId?: string | null,
+  deletePreviousFile = false,
 ): Promise<FileChangeRecord[]> {
   if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'save-faction' });
   try {
-    return await saveFactionWithHistory(modRoot, id, stripInternalFields(data), oldId, deleteOldFile);
+    return await saveFactionWithHistory(modRoot, id, stripInternalFields(data), previousId, deletePreviousFile);
   } catch (error) {
     throw withCause(`保存 ${id}.faction 失败`, error, 'save-faction');
   }
@@ -96,8 +96,8 @@ export async function saveMissionData(
   missionListRelPath: string,
   header: string[],
   rows: RowData[],
-  oldMission?: string | null,
-  deleteOldDirectory = false,
+  previousMissionId?: string | null,
+  deletePreviousDirectory = false,
 ): Promise<FileChangeRecord[]> {
   if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'save-mission' });
   try {
@@ -109,8 +109,8 @@ export async function saveMissionData(
       missionListRelPath,
       header,
       rows,
-      oldMission,
-      deleteOldDirectory,
+      previousMissionId,
+      deletePreviousDirectory,
     );
   } catch (error) {
     throw withCause(`保存战役 ${mission} 失败`, error, 'save-mission');
@@ -123,11 +123,11 @@ export async function deleteMissionData(
   missionListRelPath: string,
   header: string[],
   rows: RowData[],
-  deleteDirectory = false,
+  deleteMissionDirectory = false,
 ): Promise<FileChangeRecord[]> {
   if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'delete-mission' });
   try {
-    return await deleteMissionWithHistory(modRoot, mission, missionListRelPath, header, rows, deleteDirectory);
+    return await deleteMissionWithHistory(modRoot, mission, missionListRelPath, header, rows, deleteMissionDirectory);
   } catch (error) {
     throw withCause(`删除战役 ${mission} 失败`, error, 'delete-mission');
   }

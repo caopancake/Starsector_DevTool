@@ -19,8 +19,30 @@ use std::{
     path::{Path, PathBuf},
 };
 
+struct SpecBundle {
+    ship_files: BTreeMap<String, Value>,
+    variants: BTreeMap<String, Vec<Value>>,
+    wpn_files: BTreeMap<String, Value>,
+    proj_files: BTreeMap<String, Value>,
+    system_files: BTreeMap<String, Value>,
+}
+
+struct SpriteBundle {
+    ship_sprites: BTreeMap<String, String>,
+    available_sprites: Vec<String>,
+    weapon_sprites: Vec<String>,
+    weapon_sprites_data: BTreeMap<String, BTreeMap<String, String>>,
+    hullmod_sprites: BTreeMap<String, String>,
+    ship_system_sprites: BTreeMap<String, String>,
+    industry_sprites: BTreeMap<String, String>,
+}
+
 pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
     load_all_data_with_root(mod_root, None)
+}
+
+pub fn load_csv_table(mod_root: &Path, table: &str) -> AppResult<crate::models::CsvTable> {
+    tables::load_csv_table(mod_root, table)
 }
 
 pub fn load_all_data_with_root(
@@ -40,34 +62,31 @@ pub fn load_all_data_with_root(
     let mission_count = count_mission_list_entries(mod_root);
 
     let mut loaded_tables = tables::load_csv_tables(mod_root, &tag_map)?;
-    let ship_files = load_json_dir_by_id(&mod_root.join("data/hulls"), "ship", "hullId")?;
-    let variants = load_variants_by_hull(mod_root)?;
-    let ship_sprites = sprites::load_ship_sprite_data(mod_root, core_dir.as_deref(), &ship_files)?;
-    let wpn_files = load_json_dir_by_id(&mod_root.join("data/weapons"), "wpn", "id")?;
-    let system_files = load_json_dir_by_id(&mod_root.join("data/shipsystems"), "system", "id")?;
-    let weapon_sprites_data =
-        sprites::load_weapon_sprite_data(mod_root, core_dir.as_deref(), &wpn_files);
+    let spec_bundle = load_spec_bundle(mod_root, core_dir.as_deref())?;
     let hullmods = loaded_tables
         .rows
         .get("hullmods")
         .cloned()
         .unwrap_or_default();
-    let hullmod_sprites =
-        sprites::load_hullmod_sprite_data(mod_root, core_dir.as_deref(), &hullmods);
     let industries = loaded_tables
         .rows
         .get("industries")
         .cloned()
         .unwrap_or_default();
-    let industry_sprites =
-        sprites::load_industry_sprite_data(mod_root, core_dir.as_deref(), &industries);
     let ship_systems = loaded_tables
         .rows
         .get("shipSystems")
         .cloned()
         .unwrap_or_default();
-    let ship_system_sprites =
-        sprites::load_ship_system_sprite_data(mod_root, core_dir.as_deref(), &ship_systems);
+    let sprite_bundle = load_sprite_bundle(
+        mod_root,
+        core_dir.as_deref(),
+        &spec_bundle.ship_files,
+        &spec_bundle.wpn_files,
+        &hullmods,
+        &industries,
+        &ship_systems,
+    )?;
 
     Ok(AppData {
         mod_root: mod_root.to_string_lossy().to_string(),
@@ -85,21 +104,57 @@ pub fn load_all_data_with_root(
         hullmods: loaded_tables.rows.remove("hullmods").unwrap_or_default(),
         ship_systems: loaded_tables.rows.remove("shipSystems").unwrap_or_default(),
         industries: loaded_tables.rows.remove("industries").unwrap_or_default(),
+        ship_files: spec_bundle.ship_files,
+        variants: spec_bundle.variants,
+        ship_sprites: sprite_bundle.ship_sprites,
+        available_sprites: sprite_bundle.available_sprites,
+        wpn_files: spec_bundle.wpn_files,
+        proj_files: spec_bundle.proj_files,
+        system_files: spec_bundle.system_files,
+        weapon_sprites: sprite_bundle.weapon_sprites,
+        weapon_sprites_data: sprite_bundle.weapon_sprites_data,
+        hullmod_sprites: sprite_bundle.hullmod_sprites,
+        ship_system_sprites: sprite_bundle.ship_system_sprites,
+        industry_sprites: sprite_bundle.industry_sprites,
+    })
+}
+
+fn load_spec_bundle(mod_root: &Path, core_dir: Option<&Path>) -> AppResult<SpecBundle> {
+    let ship_files = load_json_dir_by_id(&mod_root.join("data/hulls"), "ship", "hullId")?;
+    let wpn_files = load_json_dir_by_id(&mod_root.join("data/weapons"), "wpn", "id")?;
+    Ok(SpecBundle {
         ship_files,
-        variants,
-        ship_sprites,
-        available_sprites: list_sprites(mod_root, &["graphics/ships"]),
+        variants: load_variants_by_hull(mod_root)?,
         wpn_files,
-        proj_files: projectiles::load_projectile_files(mod_root, core_dir.as_deref())?,
-        system_files,
+        proj_files: projectiles::load_projectile_files(mod_root, core_dir)?,
+        system_files: load_json_dir_by_id(&mod_root.join("data/shipsystems"), "system", "id")?,
+    })
+}
+
+fn load_sprite_bundle(
+    mod_root: &Path,
+    core_dir: Option<&Path>,
+    ship_files: &BTreeMap<String, Value>,
+    wpn_files: &BTreeMap<String, Value>,
+    hullmods: &[Map<String, Value>],
+    industries: &[Map<String, Value>],
+    ship_systems: &[Map<String, Value>],
+) -> AppResult<SpriteBundle> {
+    Ok(SpriteBundle {
+        ship_sprites: sprites::load_ship_sprite_data(mod_root, core_dir, ship_files)?,
+        available_sprites: list_sprites(mod_root, &["graphics/ships"]),
         weapon_sprites: list_sprites(
             mod_root,
             &["graphics/weapons", "graphics/missiles", "graphics/fx"],
         ),
-        weapon_sprites_data,
-        hullmod_sprites,
-        ship_system_sprites,
-        industry_sprites,
+        weapon_sprites_data: sprites::load_weapon_sprite_data(mod_root, core_dir, wpn_files),
+        hullmod_sprites: sprites::load_hullmod_sprite_data(mod_root, core_dir, hullmods),
+        ship_system_sprites: sprites::load_ship_system_sprite_data(
+            mod_root,
+            core_dir,
+            ship_systems,
+        ),
+        industry_sprites: sprites::load_industry_sprite_data(mod_root, core_dir, industries),
     })
 }
 

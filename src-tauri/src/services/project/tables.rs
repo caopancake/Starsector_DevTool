@@ -1,5 +1,9 @@
 use super::factions;
-use crate::{errors::AppResult, models::CSV_TABLES, parsers::read_csv_data};
+use crate::{
+    errors::AppResult,
+    models::{csv_path_for, CsvTable, CSV_TABLES},
+    parsers::read_csv_data,
+};
 use serde_json::{Map, Value};
 use std::{
     collections::{BTreeMap, HashMap},
@@ -39,6 +43,14 @@ pub(super) fn load_csv_tables(
         csv_paths,
         rows: rows_by_key,
     })
+}
+
+pub fn load_csv_table(mod_root: &Path, table: &str) -> AppResult<CsvTable> {
+    let rel_path = csv_path_for(table)
+        .ok_or_else(|| crate::errors::AppError::message(format!("未知 CSV 表: {table}")))?;
+    let mut csv = read_csv_data(&mod_root.join(rel_path))?;
+    csv.path = rel_path.to_string();
+    Ok(csv)
 }
 
 fn str_field(row: &Map<String, Value>, key: &str) -> String {
