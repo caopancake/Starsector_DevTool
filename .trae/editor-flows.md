@@ -1,6 +1,6 @@
 # Editor Flows
 
-本文档记录舰船、武器、弹体、联队、舰船插件、工业等模块的当前调用链和文件落点。它描述现状，不替代 `module-map.md` 的模块边界说明。术语口径以 `.trae/terminology.md` 为准。
+本文档记录舰船、武器、弹体、联队、舰船插件、战术系统、工业等模块的当前调用链和文件落点。它描述现状，不替代 `module-map.md` 的模块边界说明。术语口径以 `.trae/terminology.md` 为准。
 
 ## 共享入口链路
 
@@ -63,7 +63,7 @@
   - `project.data` 是 computed，指向当前活动 Mod 的 AppData。
 - Tauri command：`detect_directory`、`scan_game_overview`、`load_mod_data`、`load_mod_data_with_root`
 - 保存边界：打开项目只加载数据，不写入任何 Mod 文件。
-- 文件编辑器：解析/读取失败可打开独立文件编辑器窗口，窗口显示文件路径和错误消息，红色高亮目标行；同一文件通过 `openManagedWindow()` 按规范化绝对路径复用已有窗口，不重复打开。保存只通过 `save_editable_file` 原样写回该文件，不触发重新加载。窗口内支持 `Esc` 关闭、`Ctrl+S` 保存、`Ctrl+Z` 撤销、`Ctrl+Shift+Z` 重做。当前只由错误修复入口调用，但窗口请求结构已预留通用标题、上下文消息和目标行。
+- 文件编辑器：解析/读取失败或右侧详情面板的“文件编辑器”操作可打开独立文件编辑器窗口，窗口显示文件路径、可选上下文消息和可选红色目标行；同一文件通过 `openManagedWindow()` 按规范化绝对路径复用已有窗口，不重复打开。保存通过 `save_text_file_with_history` 写回该文件并返回单文件 changeset，不触发重新加载。若目标文件属于已加载 Mod，保存事件会进入该 Mod 的文件级保存历史；窗口内 `Ctrl+Z` / `Ctrl+Shift+Z` 仍只操作本窗口文本历史。
 
 ## Mod 切换链路
 
@@ -94,12 +94,12 @@
 
 - 前端状态：`src/features/tables/tables.store.ts`
 - 前端服务：`src/features/tables/table.service.ts`
-- API adapter：`saveCsv`、`addCsvRow`、`deleteCsvRow`
-- Tauri commands：`save_csv`、`add_csv_row`、`delete_csv_row`
+- API adapter：`saveCsvWithHistory`
+- Tauri command：`save_csv_with_history`
 - Rust service：`src-tauri/src/services/tables.rs`
 - CSV parser：`src-tauri/src/parsers/csv.rs`
 
-顶部“保存 CSV”只保存当前 CSV 表格相关数据，不保存 `.ship`、`.wpn` 或 `.proj` spec 文件。CSV 写回必须保留表头、注释行和空字段语义。
+顶部“保存 CSV”只保存当前 CSV 表格相关数据，不保存 `.ship`、`.wpn` 或 `.proj` spec 文件。CSV 写回必须保留表头和空字段语义；`#` 开头行、真正空行和全逗号行会作为表格里的可见空行处理。
 
 ## 舰船链路
 
@@ -115,24 +115,21 @@
 ### 保存规格
 
 - 组件：`ShipEditor.vue`
-- 前端服务：`saveShipSpec()`
-- API adapter：`saveShip()`
-- Tauri command：`save_ship`
-- Rust service：`services::save_ship`
+- 前端服务：`saveShipSpecWithHistory()`
+- API adapter：`saveJsonWithHistory()`
+- Tauri command：`save_json_with_history`
+- Rust service：`services::save_json_with_history`
 - 文件落点：`data/hulls/*.ship`
-- 保存后：编辑器窗口更新本窗口数据，并发送 `WINDOW_EVENTS.editorSpecSaved`；主窗口若已加载该 Mod，则更新 `project.modsData[modRoot].shipFiles[id]` 和 history。
+- 保存后：编辑器窗口更新本窗口数据，并发送带 changeset 的 `WINDOW_EVENTS.editorSpecSaved`；主窗口若已加载该 Mod，则更新 `project.modsData[modRoot].shipFiles[id]` 并推入文件级保存历史。
+- 文件级撤销/重做：通过 `apply_file_change_set` 写回 `.ship` 文件、更新主窗口缓存，并通过 `WINDOW_EVENTS.editorSpecApplied` 刷新已打开的对应舰船编辑器窗口。
 - 边界：编辑器“保存 .ship”只保存 spec，不同步写 `ship_data.csv`。
 
 ### 新建/删除记录
 
-- 新建：`tables.addNewRow()` 在 `ships` tab 下生成 CSV 行和 `defaultShip(id)`。
-- API adapter：`addShipRow()`
-- Tauri command：`add_ship_row`
-- Rust service：`add_ship_row()`
-- 语义：CSV 行和 `.ship` 创建作为同一条后端业务链路；`.ship` 校验或保存失败时回滚新写入的 CSV 行。
-- 删除：`deleteShipRow()`
-- 语义：先删除 CSV 行，再尝试删除 `.ship`；`.ship` 缺失时不报错、不恢复 CSV；真实删除错误时恢复 CSV 并报错。
-- 边界：当前不存在独立删除 `.ship` 的产品入口；删除舰船记录必须走 `delete_ship_row` 链路。
+- 新建：`tables.addNewRow()` 只在内存表格中生成 CSV 行，并推入可逆的 `row-create` history event。
+- 删除：`tables.deleteSelected()` 只在内存表格中移除 CSV 行，并推入可逆的 `row-delete` history event。
+- 保存：顶部“保存 CSV”通过 `save_csv_with_history` 写回 CSV 并生成文件级保存历史；不会隐式创建或删除 `.ship`。
+- 边界：CSV 行的新建/删除先作为编辑中状态存在，真正写盘只发生在保存 CSV 时。
 
 ## 武器链路
 
@@ -150,24 +147,21 @@
 ### 保存规格
 
 - 组件：`WeaponEditor.vue`
-- 前端服务：`saveWeaponSpec()`
-- API adapter：`saveWeapon()`
-- Tauri command：`save_wpn`
-- Rust service：`services::save_weapon`
+- 前端服务：`saveWeaponSpecWithHistory()`
+- API adapter：`saveJsonWithHistory()`
+- Tauri command：`save_json_with_history`
+- Rust service：`services::save_json_with_history`
 - 文件落点：`data/weapons/*.wpn`
-- 保存后：编辑器窗口更新本窗口数据，并发送 `WINDOW_EVENTS.editorSpecSaved`；主窗口若已加载该 Mod，则更新 `project.modsData[modRoot].wpnFiles[id]` 和 history。
+- 保存后：编辑器窗口更新本窗口数据，并发送带 changeset 的 `WINDOW_EVENTS.editorSpecSaved`；主窗口若已加载该 Mod，则更新 `project.modsData[modRoot].wpnFiles[id]` 并推入文件级保存历史。
+- 文件级撤销/重做：通过 `apply_file_change_set` 写回 `.wpn` 文件、更新主窗口缓存，并通过 `WINDOW_EVENTS.editorSpecApplied` 刷新已打开的对应武器编辑器窗口。
 - 边界：编辑器“保存 .wpn”只保存 spec，不同步写 `weapon_data.csv`。
 
 ### 新建/删除记录
 
-- 新建：`tables.addNewRow()` 在 `weapons` tab 下生成 CSV 行和 `defaultWeapon(id, row)`。
-- API adapter：`addWeaponRow()`
-- Tauri command：`add_weapon_row`
-- Rust service：`add_weapon_row()`
-- 语义：CSV 行和 `.wpn` 创建作为同一条后端业务链路；`.wpn` 校验或保存失败时回滚新写入的 CSV 行。
-- 删除：`deleteWeaponRow()`
-- 语义：先删除 CSV 行，再尝试删除 `.wpn`；`.wpn` 缺失时不报错、不恢复 CSV；真实删除错误时恢复 CSV 并报错。
-- 边界：当前不存在独立删除 `.wpn` 的产品入口；删除武器记录必须走 `delete_weapon_row` 链路。
+- 新建：`tables.addNewRow()` 只在内存表格中生成 CSV 行，并推入可逆的 `row-create` history event。
+- 删除：`tables.deleteSelected()` 只在内存表格中移除 CSV 行，并推入可逆的 `row-delete` history event。
+- 保存：顶部“保存 CSV”通过 `save_csv_with_history` 写回 CSV 并生成文件级保存历史；不会隐式创建或删除 `.wpn`。
+- 边界：CSV 行的新建/删除先作为编辑中状态存在，真正写盘只发生在保存 CSV 时。
 
 ## 弹体链路
 
@@ -181,12 +175,13 @@
 ### 保存规格
 
 - 组件：`ProjectileEditor.vue`
-- 前端服务：`saveProjectileSpec()`
-- API adapter：`saveProjectile()`
-- Tauri command：`save_proj`
-- Rust service：`services::save_projectile`
+- 前端服务：`saveProjectileSpecWithHistory()`
+- API adapter：`saveJsonWithHistory()`
+- Tauri command：`save_json_with_history`
+- Rust service：`services::save_json_with_history`
 - 文件落点：`data/weapons/proj/*.proj`
-- 保存后：编辑器窗口更新本窗口数据，并发送 `WINDOW_EVENTS.editorSpecSaved`；主窗口若已加载该 Mod，则更新 `project.modsData[modRoot].projFiles[id]` 和 history。
+- 保存后：编辑器窗口更新本窗口数据，并发送带 changeset 的 `WINDOW_EVENTS.editorSpecSaved`；主窗口若已加载该 Mod，则更新 `project.modsData[modRoot].projFiles[id]` 并推入文件级保存历史。
+- 文件级撤销/重做：通过 `apply_file_change_set` 写回 `.proj` 文件、更新主窗口缓存，并通过 `WINDOW_EVENTS.editorSpecApplied` 刷新已打开的对应弹体编辑器窗口。
 - 边界：编辑器“保存 .proj”只保存 spec，不存在对应 CSV 保存链路。
 
 弹体当前没有主表格记录的新建/删除链路；它跟随武器 spec 的 `projectileSpecId` 关系使用。
@@ -215,8 +210,8 @@
 
 - 主数据：`data/hulls/wing_data.csv`
 - 前端状态：`tables.store.ts` 的 `wings` 表。
-- 保存：顶部保存通过 `save_csv` 写回 CSV。
-- 新建/删除：当前只操作 CSV 行，通过 `add_csv_row` / `delete_csv_row`。
+- 保存：顶部保存通过 `save_csv_with_history` 写回 CSV。
+- 新建/删除：当前只操作内存 CSV 行，保存 CSV 时才写盘。
 - 专用编辑器：暂无。
 - 资源预览：暂无稳定资源来源，右侧详情只显示占位说明。
 - 关联风险：`variant` 指向 `.variant` 文件，但当前没有联动创建、删除或编辑 `.variant` 的链路。
@@ -225,17 +220,29 @@
 
 - 主数据：`data/hullmods/hull_mods.csv`
 - 前端状态：`tables.store.ts` 的 `hullmods` 表。
-- 保存：顶部保存通过 `save_csv` 写回 CSV。
-- 新建/删除：当前只操作 CSV 行，通过 `add_csv_row` / `delete_csv_row`。
+- 保存：顶部保存通过 `save_csv_with_history` 写回 CSV。
+- 新建/删除：当前只操作内存 CSV 行，保存 CSV 时才写盘。
 - 专用编辑器：暂无。
 - 资源预览：右侧详情面板可根据 `project.data.hullmodSprites` 显示贴图。
+
+## 战术系统链路
+
+- 主数据：`data/shipsystems/ship_systems.csv`
+- 关联 spec：`data/shipsystems/*.system`
+- 前端状态：`tables.store.ts` 的 `shipSystems` 表，`project.store.ts` 的 `systemFiles`。
+- 保存 CSV：顶部保存通过 `save_csv_with_history` 写回 `ship_systems.csv`。
+- 编辑 `.system`：右侧详情操作区的“文件编辑器”按钮打开 `data/shipsystems/{id}.system`，由通用文件编辑器读取和保存。
+- 新建/删除：当前只操作内存 CSV 行，保存 CSV 时才写盘；不自动创建或删除 `.system` 文件。
+- 资源预览：右侧详情面板根据 CSV 的 `icon` 字段和 Mod → core fallback 链显示图标。
+- 保存边界：CSV 与 `.system` 是两条独立保存链路，互不代写。
+- 子目录：`proj/`、`wpn/`、`scripts/` 暂不纳入本阶段。
 
 ## 工业链路
 
 - 主数据：`data/campaign/industries.csv`
 - 前端状态：`tables.store.ts` 的 `industries` 表。
-- 保存：顶部保存通过 `save_csv` 写回 CSV。
-- 新建/删除：当前只操作 CSV 行，通过 `add_csv_row` / `delete_csv_row`。
+- 保存：顶部保存通过 `save_csv_with_history` 写回 CSV。
+- 新建/删除：当前只操作内存 CSV 行，保存 CSV 时才写盘。
 - 专用编辑器：暂无。
 - 资源预览：右侧详情面板可根据 `image` 字段显示工业贴图；字段为空或资源缺失时显示对应占位或缺失路径。
 
@@ -252,6 +259,8 @@
   - 弹体：`graphics/missiles/`
 
 上传只负责写入贴图文件并返回相对路径；对应 spec 字段仍由编辑器保存链路写回。
+
+贴图文件是二进制资产，当前不纳入文件级文本 changeset。覆盖已有贴图时只推入文件级屏障；后续若要支持贴图 undo/redo，需要单独设计二进制 changeset 或资产快照。
 
 ## 图片加载与预览链路
 
@@ -287,54 +296,9 @@
 - 画布内自动吸附负责快速选择最近可编辑目标；右侧检查器点击负责明确选择，下一次画布移动可以重新接管选择。
 - 画布坐标和贴图锚点是编辑器内部显示语义，不改变 `.ship`、`.wpn`、`.proj` 的保存边界。
 
-## 全局历史链路
-
-### 事件模型
-
-- `CsvCellEditEvent`：CSV 单元格修改（tab, rowKey, col, previousValue, newValue）。
-- `EditorSaveEvent`：编辑器保存整体 spec（editorKind, id, previousSpec, newSpec 深拷贝）。
-- `SpriteFieldWriteEvent`：贴图路径字段修改（editorKind, id, field, prev/new value）。
-
-### 栈结构
-
-- 每个 Mod 拥有独立的 `undoStack` 和 `redoStack`。
-- 栈中可包含：`HistoryEntry`（可逆事件）、`HistoryBarrier`（不可逆屏障）、`HistoryCheckpoint`（保存检查点）。
-
-### 触发点
-
-| 操作           | 推入类型                                        | 触发位置                                       |
-| -------------- | ----------------------------------------------- | ---------------------------------------------- |
-| CSV 单元格编辑 | `pushEvent(CsvCellEditEvent)`                   | `tables.store.ts` → `finishCellEdit()`         |
-| 编辑器保存     | `pushEvent(EditorSaveEvent)` + `pushCheckpoint` | `App.vue` 监听 `WINDOW_EVENTS.editorSpecSaved` |
-| CSV 保存       | `pushCheckpoint('csv-save')`                    | `tables.store.ts` → `saveChanges()`            |
-| 新建行         | `pushBarrier('row-create')`                     | `tables.store.ts` → `addNewRow()`              |
-| 删除行         | `pushBarrier('row-delete')`                     | `tables.store.ts` → `deleteSelected()`         |
-| 贴图覆盖       | `pushBarrier('sprite-overwrite')`               | `useSpriteUpload.ts`                           |
-
-### 主界面 Ctrl+Z/Y
-
-- 由 `useGlobalShortcuts()` composable 在 `App.vue` 中注册。
-- 编辑器弹窗打开时让步（编辑器内 Ctrl+Z 使用局部 `useHistory`）。
-- 输入控件聚焦时忽略。
-- Undo 遇到 barrier 时停止并提示用户。
-
-### 作用域规则
-
-| 场景           | 行为                                               |
-| -------------- | -------------------------------------------------- |
-| 编辑器窗口聚焦 | Ctrl+Z 使用编辑器窗口内局部历史；全局栈不受影响    |
-| 主窗口聚焦     | Ctrl+Z 操作全局栈；编辑器保存事件作为一个原子条目  |
-| 切换 Mod       | 各 Mod 历史栈独立；切换后 Ctrl+Z 操作目标 Mod 的栈 |
-| 跨 Tab 切换    | 历史栈不受 Tab 切换影响；undo 修改数据模型而非视图 |
-
-### 限制与裁剪
-
-- 历史上限由 `settings.store.ts` 的 `historyLimit` 控制（默认 128，可在设置页配置）。
-- `pushEvent` 和 `pushCheckpoint` 后均检查并裁剪超限条目（从最旧开始移除）。
-
 ## 当前缺口
 
-- 联队、舰船插件、工业当前只有 CSV 表格编辑，没有专用编辑器。
+- 联队、舰船插件、战术系统和工业当前只有基础表格/文本编辑，没有专用结构化编辑器。
 - 联队的 `.variant` 关系未进入创建/删除一致性链路。
 - 弹体没有独立主表格，新建/删除入口尚未系统化。
 - CSV 与 `.ship/.wpn` 字段暂不自动联动；后续实现前必须先定义字段映射、冲突优先级、保存时机和失败处理。

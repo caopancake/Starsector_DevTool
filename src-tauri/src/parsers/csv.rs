@@ -4,7 +4,7 @@ use crate::{
     models::CsvTable,
 };
 use serde_json::{Map, Value};
-use std::{fs, path::Path};
+use std::path::Path;
 
 pub fn read_csv_data(path: &Path) -> AppResult<CsvTable> {
     if !path.exists() {
@@ -15,10 +15,10 @@ pub fn read_csv_data(path: &Path) -> AppResult<CsvTable> {
         });
     }
     let text = read_utf8_no_bom(path)?;
+    let normalized = normalize_visible_empty_rows(&text);
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(false)
-        .comment(Some(b'#'))
-        .from_reader(text.as_bytes());
+        .from_reader(normalized.as_bytes());
     let records: Vec<csv::StringRecord> =
         rdr.records().collect::<Result<_, _>>().map_err(|error| {
             AppError::context(format!("解析 CSV 失败 ({})", path.display()), error.into())
@@ -33,9 +33,6 @@ pub fn read_csv_data(path: &Path) -> AppResult<CsvTable> {
     let header: Vec<String> = records[0].iter().map(ToString::to_string).collect();
     let mut rows = Vec::new();
     for record in records.iter().skip(1) {
-        if record.get(0).is_some_and(|v| v.starts_with('#')) {
-            continue;
-        }
         let mut row = Map::new();
         for (idx, h) in header.iter().enumerate() {
             row.insert(
@@ -52,34 +49,10 @@ pub fn read_csv_data(path: &Path) -> AppResult<CsvTable> {
     })
 }
 
-pub fn save_csv_file(path: &Path, header: &[String], rows: &[Map<String, Value>]) -> AppResult<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let mut comments = Vec::new();
-    if path.exists() {
-        let text = read_utf8_no_bom(path)?;
-        let mut rdr = csv::ReaderBuilder::new()
-            .has_headers(false)
-            .flexible(true)
-            .from_reader(text.as_bytes());
-        for record in rdr.records().skip(1) {
-            let record = record.map_err(|error| {
-                AppError::context(
-                    format!("解析 CSV 注释行失败 ({})", path.display()),
-                    error.into(),
-                )
-            })?;
-            if record.get(0).is_some_and(|v| v.starts_with('#')) {
-                comments.push(record);
-            }
-        }
-    }
-    let mut wtr = csv::Writer::from_path(path)?;
+pub fn render_csv_text(header: &[String], rows: &[Map<String, Value>]) -> AppResult<String> {
+    let mut bytes = Vec::new();
+    let mut wtr = csv::Writer::from_writer(&mut bytes);
     wtr.write_record(header)?;
-    for comment in comments {
-        wtr.write_record(&comment)?;
-    }
     for row in rows {
         let values: Vec<String> = header
             .iter()
@@ -88,60 +61,8 @@ pub fn save_csv_file(path: &Path, header: &[String], rows: &[Map<String, Value>]
         wtr.write_record(values)?;
     }
     wtr.flush()?;
-    Ok(())
-}
-
-pub fn append_csv_row(path: &Path, header: &[String], row: &Map<String, Value>) -> AppResult<()> {
-    let table = read_csv_data(path)?;
-    let next_header = if table.header.is_empty() {
-        header.to_vec()
-    } else {
-        table.header
-    };
-    let mut rows = table.rows;
-    rows.push(row.clone());
-    save_csv_file(path, &next_header, &rows)
-}
-
-pub fn delete_csv_id(path: &Path, id: &str) -> AppResult<()> {
-    let text = read_utf8_no_bom(path)?;
-    let mut rdr = csv::ReaderBuilder::new()
-        .has_headers(false)
-        .flexible(true)
-        .from_reader(text.as_bytes());
-    let records: Vec<csv::StringRecord> =
-        rdr.records().collect::<Result<_, _>>().map_err(|error| {
-            AppError::context(format!("解析 CSV 失败 ({})", path.display()), error.into())
-        })?;
-    if records.is_empty() {
-        return Ok(());
-    }
-    let header = records[0].clone();
-    let Some(id_idx) = header.iter().position(|h| h == "id") else {
-        return Err(crate::errors::AppError::message("no id column"));
-    };
-
-    // Separate comments from data rows (same layout as save_csv_file)
-    let mut comments = Vec::new();
-    let mut data_rows = Vec::new();
-    for record in records.iter().skip(1) {
-        if record.get(0).is_some_and(|v| v.starts_with('#')) {
-            comments.push(record);
-        } else if record.get(id_idx) != Some(id) {
-            data_rows.push(record);
-        }
-    }
-
-    let mut wtr = csv::Writer::from_path(path)?;
-    wtr.write_record(&header)?;
-    for comment in &comments {
-        wtr.write_record(*comment)?;
-    }
-    for record in &data_rows {
-        wtr.write_record(*record)?;
-    }
-    wtr.flush()?;
-    Ok(())
+    drop(wtr);
+    String::from_utf8(bytes).map_err(|error| AppError::message(format!("CSV 编码失败: {error}")))
 }
 
 pub fn value_to_cell(value: &Value) -> String {
@@ -154,28 +75,69 @@ pub fn value_to_cell(value: &Value) -> String {
     }
 }
 
+fn normalize_visible_empty_rows(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some((header_index, header)) = lines
+        .iter()
+        .enumerate()
+        .find(|(_, line)| !is_visible_empty_line(line))
+    else {
+        return text.to_string();
+    };
+    let header_width = record_width(header).unwrap_or(0);
+    if header_width == 0 {
+        return text.to_string();
+    }
+    let empty_record = ",".repeat(header_width.saturating_sub(1));
+    let mut normalized = Vec::with_capacity(lines.len());
+    for (index, line) in lines.iter().enumerate() {
+        if index > header_index && is_visible_empty_line(line) {
+            normalized.push(empty_record.clone());
+        } else {
+            normalized.push((*line).to_string());
+        }
+    }
+    normalized.join("\r\n")
+}
+
+fn is_visible_empty_line(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed.is_empty() || trimmed.starts_with('#') || trimmed.chars().all(|ch| ch == ',')
+}
+
+fn record_width(line: &str) -> Option<usize> {
+    let mut rdr = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .flexible(true)
+        .from_reader(line.as_bytes());
+    rdr.records()
+        .next()
+        .and_then(Result::ok)
+        .map(|record| record.len())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::filesystem::write_utf8_no_bom;
     use std::{
+        fs,
         path::PathBuf,
         time::{SystemTime, UNIX_EPOCH},
     };
 
     #[test]
-    fn save_preserves_comments() {
-        let path = temp_path("csv_save_preserves_comments.csv");
-        write_utf8_no_bom(&path, "id,name\r\n#note,keep\r\na,A\r\n").unwrap();
+    fn save_preserves_visible_empty_rows_from_rows() {
         let header = vec!["id".to_string(), "name".to_string()];
+        let mut empty = Map::new();
+        empty.insert("id".to_string(), Value::String(String::new()));
+        empty.insert("name".to_string(), Value::String(String::new()));
         let mut row = Map::new();
         row.insert("id".to_string(), Value::String("b".to_string()));
         row.insert("name".to_string(), Value::String("B".to_string()));
-        save_csv_file(&path, &header, &[row]).unwrap();
-        let out = read_utf8_no_bom(&path).unwrap();
-        assert!(out.contains("#note,keep"));
+        let out = render_csv_text(&header, &[empty, row]).unwrap();
+        assert!(out.lines().any(|line| line == ","));
         assert!(out.contains("b,B"));
-        let _ = fs::remove_file(path);
     }
 
     #[test]
@@ -205,96 +167,34 @@ mod tests {
     }
 
     #[test]
-    fn read_skips_single_field_comment_rows() {
-        let path = temp_path("csv_single_field_comment.csv");
-        write_utf8_no_bom(&path, "id,name\r\na,A\r\n#section\r\nb,B\r\n").unwrap();
+    fn read_keeps_visible_empty_rows() {
+        let path = temp_path("csv_keeps_visible_empty_rows.csv");
+        write_utf8_no_bom(
+            &path,
+            "id,name,notes\r\na,A,alpha\r\n#section\r\n\r\n,,\r\nb,B,beta\r\n",
+        )
+        .unwrap();
 
         let table = read_csv_data(&path).unwrap();
 
         let _ = fs::remove_file(&path);
-        assert_eq!(table.rows.len(), 2);
+        assert_eq!(table.rows.len(), 5);
         assert_eq!(table.rows[0]["id"], "a");
-        assert_eq!(table.rows[1]["id"], "b");
+        assert_eq!(table.rows[1]["id"], "");
+        assert_eq!(table.rows[2]["id"], "");
+        assert_eq!(table.rows[3]["id"], "");
+        assert_eq!(table.rows[4]["id"], "b");
     }
 
     #[test]
-    fn delete_preserves_comments_after_header() {
-        let path = temp_path("csv_delete_preserves_comments.csv");
-        write_utf8_no_bom(&path, "id,name\r\n#note,keep\r\na,A\r\nb,B\r\n").unwrap();
-        delete_csv_id(&path, "a").unwrap();
-        let out = read_utf8_no_bom(&path).unwrap();
-        assert!(out.contains("#note,keep"));
-        assert!(!out.contains("a,A"));
-        assert!(out.contains("b,B"));
-        let comment_pos = out.find("#note").unwrap();
-        let data_pos = out.find("b,B").unwrap();
-        assert!(comment_pos < data_pos, "comments must precede data rows");
-        let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn delete_nonexistent_id_preserves_all() {
-        let path = temp_path("csv_delete_nonexistent.csv");
-        write_utf8_no_bom(&path, "id,name\r\n#note,keep\r\na,A\r\n").unwrap();
-        delete_csv_id(&path, "zzz").unwrap();
-        let out = read_utf8_no_bom(&path).unwrap();
-        assert!(out.contains("#note,keep"));
-        assert!(out.contains("a,A"));
-        let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn save_then_delete_produces_consistent_layout() {
-        let path = temp_path("csv_roundtrip_consistency.csv");
-        write_utf8_no_bom(&path, "id,name\r\na,A\r\n#note,keep\r\nb,B\r\n").unwrap();
-        let header = vec!["id".to_string(), "name".to_string()];
-        let mut row_a = Map::new();
-        row_a.insert("id".to_string(), Value::String("a".to_string()));
-        row_a.insert("name".to_string(), Value::String("A".to_string()));
-        let mut row_b = Map::new();
-        row_b.insert("id".to_string(), Value::String("b".to_string()));
-        row_b.insert("name".to_string(), Value::String("B".to_string()));
-        save_csv_file(&path, &header, &[row_a, row_b]).unwrap();
-        let after_save = read_utf8_no_bom(&path).unwrap();
-        delete_csv_id(&path, "a").unwrap();
-        let after_delete = read_utf8_no_bom(&path).unwrap();
-        assert!(after_save.contains("#note,keep"));
-        assert!(after_delete.contains("#note,keep"));
-        assert!(!after_delete.contains("a,A"));
-        assert!(after_delete.contains("b,B"));
-        let lines: Vec<&str> = after_delete.lines().collect();
-        assert_eq!(lines[0], "id,name");
-        assert!(lines[1].starts_with('#'));
-        assert_eq!(lines[2], "b,B");
-        let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn append_row_to_empty_table() {
-        let path = temp_path("csv_append_empty.csv");
-        write_utf8_no_bom(&path, "id,name\r\n").unwrap();
-        let mut row = Map::new();
-        row.insert("id".to_string(), Value::String("x".to_string()));
-        row.insert("name".to_string(), Value::String("X".to_string()));
-        let header = vec!["id".to_string(), "name".to_string()];
-        append_csv_row(&path, &header, &row).unwrap();
-        let out = read_utf8_no_bom(&path).unwrap();
-        assert!(out.contains("x,X"));
-        let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn append_row_creates_table_with_header() {
-        let path = temp_path("csv_append_missing.csv");
+    fn render_csv_text_writes_header_and_rows() {
         let header = vec!["id".to_string(), "name".to_string()];
         let mut row = Map::new();
         row.insert("id".to_string(), Value::String("x".to_string()));
         row.insert("name".to_string(), Value::String("X".to_string()));
-        append_csv_row(&path, &header, &row).unwrap();
-        let out = read_utf8_no_bom(&path).unwrap();
+        let out = render_csv_text(&header, &[row]).unwrap();
         assert!(out.lines().next().is_some_and(|line| line == "id,name"));
         assert!(out.contains("x,X"));
-        let _ = fs::remove_file(path);
     }
 
     fn temp_path(name: &str) -> PathBuf {

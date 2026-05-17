@@ -1,7 +1,7 @@
 import { fileToBase64 } from '../../../shared/lib/starsector';
 import type { UploadResult } from '../../../shared/api/tauri';
 import { uploadEditorSprite } from '../editor.service';
-import { useHistoryStore } from '../../history/history.store';
+import { useFileHistoryStore } from '../../file-history/file.history.store';
 
 type SpriteSubfolder = 'ships' | 'weapons' | 'missiles' | 'fx';
 type DialogLike = {
@@ -41,8 +41,8 @@ export function useSpriteUpload() {
         result = await uploadEditorSprite(options.modRoot, file.name, data, options.subfolder, true);
         options.onUploaded(result, dataUrl);
         // Sprite binary was overwritten on disk — push irreversible barrier
-        const history = useHistoryStore();
-        history.pushBarrier('sprite-overwrite', `覆盖贴图: ${file.name}`);
+        const fileHistory = useFileHistoryStore();
+        fileHistory.pushFileHistoryBarrier(options.modRoot, 'sprite-overwrite', `覆盖贴图: ${file.name}`);
       },
     });
   }

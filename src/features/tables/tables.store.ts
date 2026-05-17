@@ -1,28 +1,101 @@
 import { defineStore } from 'pinia';
 import { computed, reactive, ref } from 'vue';
+import type { AssociatedFileChange } from '../../shared/api/tauri';
 import type { AppData, ModTableState, RowData, TableKey } from '../../shared/types';
 import { cell, deepClone, defaultShip, defaultWeapon, getColumns, MODULE_LABELS, rowId } from '../../shared/lib/starsector';
-import {
-  createShipRecord,
-  createTableRow,
-  createWeaponRecord,
-  removeShipRecord,
-  removeTableRow,
-  removeWeaponRecord,
-  saveTableRows,
-} from './table.service';
+import { saveTableRows } from './table.service';
 import { getNextActiveKeyAfterRemoval } from '../../shared/lib/store-utils';
-import { useHistoryStore } from '../history/history.store';
+import { useFileHistoryStore } from '../file-history/file.history.store';
+import { useTablesEditHistoryStore } from './tables.edit-history.store';
 
-export const TABLE_KEYS: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'industries'];
+export const TABLE_KEYS: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'shipSystems', 'industries'];
 const ROW_KEY_FIELD = '_rowKey';
 
+export interface AssociatedFileCandidate extends AssociatedFileChange {
+  key: string;
+  table: TableKey;
+  action: 'create' | 'delete';
+  id: string;
+  label: string;
+}
+
 function emptyDirtyState(): Record<TableKey, Record<string, Record<string, string>>> {
-  return { ships: {}, weapons: {}, wings: {}, hullmods: {}, industries: {} };
+  return { ships: {}, weapons: {}, wings: {}, hullmods: {}, shipSystems: {}, industries: {} };
 }
 
 function emptyTablesRecord(): Record<TableKey, RowData[]> {
-  return { ships: [], weapons: [], wings: [], hullmods: [], industries: [] };
+  return { ships: [], weapons: [], wings: [], hullmods: [], shipSystems: [], industries: [] };
+}
+
+function associatedRelPath(table: TableKey, id: string): string | null {
+  if (!id) return null;
+  if (table === 'ships') return `data/hulls/${id}.ship`;
+  if (table === 'weapons') return `data/weapons/${id}.wpn`;
+  if (table === 'shipSystems') return `data/shipsystems/${id}.system`;
+  return null;
+}
+
+function associatedCreateText(table: TableKey, id: string, row: RowData): string {
+  if (table === 'ships') return JSON.stringify(defaultShip(id), null, 2);
+  if (table === 'weapons') return JSON.stringify(defaultWeapon(id, row), null, 2);
+  return JSON.stringify({ id }, null, 2);
+}
+
+function hasAssociatedFile(appData: AppData, table: TableKey, id: string): boolean {
+  if (table === 'ships') return Boolean(appData.shipFiles[id]);
+  if (table === 'weapons') return Boolean(appData.wpnFiles[id]);
+  if (table === 'shipSystems') return Boolean(appData.systemFiles[id]);
+  return false;
+}
+
+function isAssociatedFileForTable(table: TableKey, relPath: string): boolean {
+  return associatedRelPath(table, fileStem(relPath)) === normalizeRelPath(relPath);
+}
+
+function applyAssociatedFileCache(appData: AppData, files: AssociatedFileChange[]) {
+  for (const file of files) {
+    const relPath = normalizeRelPath(file.relPath);
+    const id = fileStem(relPath);
+    if (!id) continue;
+    if (relPath.startsWith('data/hulls/') && relPath.endsWith('.ship')) {
+      if (file.afterText === null) delete appData.shipFiles[id];
+      else if (file.afterText !== undefined) appData.shipFiles[id] = parseAssociatedJson(file.afterText);
+    } else if (relPath.startsWith('data/weapons/') && relPath.endsWith('.wpn')) {
+      if (file.afterText === null) delete appData.wpnFiles[id];
+      else if (file.afterText !== undefined) appData.wpnFiles[id] = parseAssociatedJson(file.afterText);
+    } else if (relPath.startsWith('data/shipsystems/') && relPath.endsWith('.system')) {
+      if (file.afterText === null) delete appData.systemFiles[id];
+      else if (file.afterText !== undefined) appData.systemFiles[id] = parseAssociatedJson(file.afterText);
+    }
+  }
+}
+
+function assignAppDataTable(appData: AppData, table: TableKey, rows: RowData[]) {
+  const next = deepClone(rows);
+  if (table === 'ships') appData.ships = next;
+  else if (table === 'weapons') appData.weapons = next;
+  else if (table === 'wings') appData.wings = next;
+  else if (table === 'hullmods') appData.hullmods = next;
+  else if (table === 'shipSystems') appData.shipSystems = next;
+  else if (table === 'industries') appData.industries = next;
+}
+
+function parseAssociatedJson(text: string): RowData {
+  try {
+    const value = JSON.parse(text);
+    return value && typeof value === 'object' && !Array.isArray(value) ? (value as RowData) : {};
+  } catch {
+    return {};
+  }
+}
+
+function fileStem(relPath: string): string {
+  const name = normalizeRelPath(relPath).split('/').pop() ?? '';
+  return name.replace(/\.[^.]+$/, '');
+}
+
+function normalizeRelPath(path: string): string {
+  return path.replace(/\\/g, '/');
 }
 
 function createModTableState(): ModTableState {
@@ -225,8 +298,13 @@ export const useTablesStore = defineStore('tables', () => {
 
     // Push to global history if value actually changed
     if (value !== previousValue) {
-      const history = useHistoryStore();
-      history.pushEvent({ type: 'csv-cell-edit', tab, rowKey, col, previousValue, newValue: value }, `编辑 ${tab} [${col}]`);
+      const csvEditHistory = useTablesEditHistoryStore();
+      csvEditHistory.pushCsvEditEvent(
+        activeRoot.value,
+        tab,
+        { type: 'csv-cell-edit', tab, rowKey, col, previousValue, newValue: value },
+        `编辑 ${tab} [${col}]`,
+      );
     }
   }
 
@@ -234,7 +312,7 @@ export const useTablesStore = defineStore('tables', () => {
     editing.value = null;
   }
 
-  async function saveChanges(appData: AppData | null): Promise<'saved' | 'noop'> {
+  async function saveChanges(appData: AppData | null, associatedFiles: AssociatedFileChange[] = []): Promise<'saved' | 'noop'> {
     const capturedModRoot = activeRoot.value;
     const state = stateMap.get(capturedModRoot);
     if (!appData || !state || saving.value) return 'noop';
@@ -243,14 +321,28 @@ export const useTablesStore = defineStore('tables', () => {
     try {
       finishCellEdit();
       if (!hasDirtyChanges.value) return 'noop';
+      const savedChanges = [];
+      const savedLabels = [];
       for (const key of TABLE_KEYS) {
         if (Object.keys(state.dirty[key]).length === 0) continue;
-        await saveTableRows(capturedModRoot, key, appData.csvHeaders[key], state.tables[key]);
+        const tableAssociatedFiles = associatedFiles.filter((file) => isAssociatedFileForTable(key, file.relPath));
+        const changes = await saveTableRows(capturedModRoot, key, appData.csvHeaders[key], state.tables[key], tableAssociatedFiles);
+        assignAppDataTable(appData, key, state.tables[key]);
+        applyAssociatedFileCache(appData, tableAssociatedFiles);
         state.originalTables[key] = deepClone(state.tables[key]);
         state.dirty[key] = {};
+        if (changes.length > 0) {
+          savedChanges.push(...changes);
+          savedLabels.push(`${key} CSV`);
+          const csvEditHistory = useTablesEditHistoryStore();
+          csvEditHistory.clearCsvEditHistory(capturedModRoot, key);
+        }
       }
-      const history = useHistoryStore();
-      history.pushCheckpoint('csv-save', 'CSV 已保存');
+      if (savedChanges.length > 0) {
+        const fileHistory = useFileHistoryStore();
+        const label = savedLabels.join('、');
+        fileHistory.pushFileSaveEntry(capturedModRoot, savedChanges, `保存 ${label}`);
+      }
       return 'saved';
     } finally {
       saving.value = false;
@@ -279,28 +371,21 @@ export const useTablesStore = defineStore('tables', () => {
     if ('name' in row) row.name = id;
     row._faction = 'other';
 
-    if (tab === 'ships') {
-      const ship = defaultShip(id);
-      await createShipRecord(appData.modRoot, header, row, ship);
-      appData.shipFiles[id] = ship;
-    } else if (tab === 'weapons') {
-      const weapon = defaultWeapon(id, row);
-      await createWeaponRecord(appData.modRoot, header, row, weapon);
-      appData.wpnFiles[id] = weapon;
-    } else {
-      await createTableRow(appData.modRoot, tab, header, row);
-    }
-
     state.tables[tab].push(row);
     assignRowKey(state, tab, row);
-    state.originalTables[tab].push(deepClone(row));
     selectedRowKey.value = rowSelectionKey(row);
+    markFullRowDirty(state, tab, row);
 
-    const history = useHistoryStore();
-    history.pushBarrier('row-create', `新建 ${tab} 行: ${id}`);
+    const csvEditHistory = useTablesEditHistoryStore();
+    csvEditHistory.pushCsvEditEvent(
+      activeRoot.value,
+      tab,
+      { type: 'row-create', tab, rowKey: rowSelectionKey(row), rowIndex: state.tables[tab].length - 1, row: deepClone(row) },
+      `新建 ${tab} 行: ${id}`,
+    );
   }
 
-  async function deleteSelected(appData: AppData) {
+  async function deleteSelected() {
     const state = getActiveState();
     if (!state) return;
     const tab = state.currentTab;
@@ -313,25 +398,26 @@ export const useTablesStore = defineStore('tables', () => {
       return;
     }
 
-    if (tab === 'ships') {
-      await removeShipRecord(appData.modRoot, id);
-      delete appData.shipFiles[id];
-      delete appData.shipSprites[id];
-    } else if (tab === 'weapons') {
-      await removeWeaponRecord(appData.modRoot, id);
-      delete appData.wpnFiles[id];
-    } else {
-      await removeTableRow(appData.modRoot, tab, id);
-    }
-
-    state.tables[tab] = state.tables[tab].filter((r) => rowId(r) !== id);
-    state.originalTables[tab] = state.originalTables[tab].filter((r) => rowId(r) !== id);
     const rowKey = state.selectedRowKey;
-    if (rowKey) delete state.dirty[tab][rowKey];
+    const rowIndex = state.tables[tab].findIndex((candidate, index) => tableRowKeyForTab(tab, candidate, index) === rowKey);
+    state.tables[tab] = state.tables[tab].filter((r) => r !== row);
+    if (rowKey) {
+      const originalExists = state.originalTables[tab].some((candidate, index) => tableRowKeyForTab(tab, candidate, index) === rowKey);
+      if (originalExists) {
+        state.dirty[tab][rowKey] = { _deleted: 'true' };
+      } else {
+        delete state.dirty[tab][rowKey];
+      }
+    }
     state.selectedRowKey = '';
 
-    const history = useHistoryStore();
-    history.pushBarrier('row-delete', `删除 ${tab} 行: ${id}`);
+    const csvEditHistory = useTablesEditHistoryStore();
+    csvEditHistory.pushCsvEditEvent(
+      activeRoot.value,
+      tab,
+      { type: 'row-delete', tab, rowKey, rowIndex, row: deepClone(row) },
+      `删除 ${tab} 行: ${id}`,
+    );
   }
 
   function assignRowKeys(state: ModTableState, tab: TableKey, list: RowData[]) {
@@ -353,8 +439,69 @@ export const useTablesStore = defineStore('tables', () => {
     return id ? `${tab}:id:${id}` : `${tab}:row:${index}`;
   }
 
+  function markFullRowDirty(state: ModTableState, tab: TableKey, row: RowData) {
+    const rowKey = tableRowKeyForTab(tab, row, state.tables[tab].indexOf(row));
+    state.dirty[tab][rowKey] = {};
+    for (const [key, value] of Object.entries(row)) {
+      if (!key.startsWith('_')) state.dirty[tab][rowKey][key] = cell(value);
+    }
+  }
+
   function getActiveModTableState(): ModTableState | undefined {
     return getActiveState();
+  }
+
+  function getAssociatedFileCandidates(appData: AppData | null): AssociatedFileCandidate[] {
+    const state = getActiveState();
+    if (!state || !appData) return [];
+    const result: AssociatedFileCandidate[] = [];
+    for (const table of ['ships', 'weapons', 'shipSystems'] as TableKey[]) {
+      for (const [rowKey, dirtyRow] of Object.entries(state.dirty[table])) {
+        if (dirtyRow._deleted === 'true') {
+          const originalIndex = state.originalTables[table].findIndex((row, index) => tableRowKeyForTab(table, row, index) === rowKey);
+          const original = originalIndex >= 0 ? state.originalTables[table][originalIndex] : null;
+          const id = original ? rowId(original) : '';
+          const relPath = associatedRelPath(table, id);
+          if (!id || !relPath || !hasAssociatedFile(appData, table, id)) continue;
+          result.push({
+            key: `${table}:delete:${id}`,
+            table,
+            action: 'delete',
+            id,
+            relPath,
+            afterText: null,
+            label: `删除 ${relPath}`,
+          });
+          continue;
+        }
+
+        const originalExists = state.originalTables[table].some((row, index) => tableRowKeyForTab(table, row, index) === rowKey);
+        if (originalExists) continue;
+        const row = state.tables[table].find((candidate, index) => tableRowKeyForTab(table, candidate, index) === rowKey);
+        const id = row ? rowId(row) : '';
+        const relPath = associatedRelPath(table, id);
+        if (!row || !id || !relPath || hasAssociatedFile(appData, table, id)) continue;
+        result.push({
+          key: `${table}:create:${id}`,
+          table,
+          action: 'create',
+          id,
+          relPath,
+          afterText: associatedCreateText(table, id, row),
+          label: `创建 ${relPath}`,
+        });
+      }
+    }
+    return result;
+  }
+
+  function replaceTableForMod(modRoot: string, tab: TableKey, rows: RowData[]) {
+    const state = stateMap.get(modRoot);
+    if (!state) return;
+    state.tables[tab] = deepClone(rows);
+    assignRowKeys(state, tab, state.tables[tab]);
+    state.originalTables[tab] = deepClone(state.tables[tab]);
+    state.dirty[tab] = {};
   }
 
   return {
@@ -379,11 +526,13 @@ export const useTablesStore = defineStore('tables', () => {
     cancelCellEdit,
     deleteSelected,
     finishCellEdit,
+    getAssociatedFileCandidates,
     getActiveModTableState,
     hasModDirtyChanges,
     hydrate,
     hydrateWithoutActivate,
     removeModState,
+    replaceTableForMod,
     revertChanges,
     rowSelectionKey,
     rowsFor,

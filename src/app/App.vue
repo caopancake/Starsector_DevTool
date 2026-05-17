@@ -15,6 +15,7 @@
               @delete-row="confirmDelete"
               @revert="revertChanges"
               @save="saveChanges"
+              @open-file-editor="openRequestedFileEditor"
               @open-ship="openShip"
               @open-weapon="openWeapon"
               @open-weapon-preview="openWeaponPreview"
@@ -36,8 +37,8 @@
 
 <script setup lang="ts">
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { computed, h, onMounted, onUnmounted, watch } from 'vue';
-import { NButton, NSpace, NText, createDiscreteApi } from 'naive-ui';
+import { computed, h, ref, onMounted, onUnmounted, watch } from 'vue';
+import { NButton, NCheckbox, NSpace, NText, createDiscreteApi } from 'naive-ui';
 import TitleBar from './TitleBar.vue';
 import NavSidebar from './components/NavSidebar.vue';
 import OverviewPage from './components/OverviewPage.vue';
@@ -46,18 +47,19 @@ import TableWorkspace from './components/TableWorkspace.vue';
 import ConfigWorkspace from '../features/config/components/ConfigWorkspace.vue';
 import { useSettingsStore } from './settings.store';
 import { useEditorsStore } from '../features/editors/editors.store';
-import { useHistoryStore } from '../features/history/history.store';
-import { useGlobalShortcuts } from '../features/history/composables/useGlobalShortcuts';
+import { useFileHistoryStore } from '../features/file-history/file.history.store';
+import { useMainWindowShortcuts } from '../features/history/composables/useMainWindowShortcuts';
 import { useProjectStore } from '../features/project/project.store';
 import { useTablesStore } from '../features/tables/tables.store';
+import { useTablesEditHistoryStore } from '../features/tables/tables.edit-history.store';
 import { useWorkspaceStore } from '../features/workspace/workspace.store';
 import { useCoreSchema } from '../features/schema/composables/useCoreSchema';
 import { pickDirectory } from '../features/project/project.service';
 import { loadWorkspace, saveWorkspace } from '../shared/api/tauri';
-import { cell, deepClone, formatModVersion } from '../shared/lib/starsector';
+import { cell, formatModVersion } from '../shared/lib/starsector';
 import { extractFileReferenceFromError, formatError } from '../shared/lib/errors';
 import { loadModFromOverview, openDetectedDirectory, restoreWorkspaceMod } from '../features/workspace/open-directory.service';
-import { openFileEditorWindow } from '../features/workspace/file-editor-window';
+import { openFileEditorWindow, type FileEditorRequest } from '../features/workspace/file-editor-window';
 import { buildThemeOverrides, discreteConfigProviderProps } from './theme-overrides';
 import {
   openShipEditorWindow,
@@ -65,18 +67,21 @@ import {
   openWeaponPreviewWindow,
   type EditorSpecSavedEvent,
 } from '../features/editors/editor-window';
-import { WINDOW_EVENTS } from '../features/windowing/window-events';
-import type { RowData } from '../shared/types';
+import { WINDOW_EVENTS, type FileEditorSavedEvent } from '../features/windowing/window-events';
+import { parseJsonSpecFileChange, resolveLoadedModRootForPath } from '../features/file-history/file.history.sync';
+import type { AssociatedFileCandidate } from '../features/tables/tables.store';
 
 const project = useProjectStore();
 const tables = useTablesStore();
 const editors = useEditorsStore();
 const settings = useSettingsStore();
 const workspace = useWorkspaceStore();
-const historyStore = useHistoryStore();
+const fileHistory = useFileHistoryStore();
+const csvEditHistory = useTablesEditHistoryStore();
 const { loadCoreFields } = useCoreSchema();
+const selectedAssociatedFileKeys = ref<Set<string>>(new Set());
 
-useGlobalShortcuts();
+useMainWindowShortcuts();
 
 const themeOverrides = computed(() => buildThemeOverrides(settings));
 
@@ -92,7 +97,7 @@ watch(
     const appData = modRoot ? project.getModData(modRoot) : null;
     tables.activateFor(modRoot ?? '', appData);
     editors.activateFor(modRoot ?? '');
-    historyStore.activateFor(modRoot ?? '');
+    fileHistory.activateFor(modRoot ?? '');
   },
 );
 
@@ -112,10 +117,14 @@ watch(
 // Startup: restore persisted workspace
 // Startup: restore persisted workspace
 let unlistenEditorSaved: UnlistenFn | null = null;
+let unlistenFileEditorSaved: UnlistenFn | null = null;
 
 onMounted(async () => {
   unlistenEditorSaved = await listen<EditorSpecSavedEvent>(WINDOW_EVENTS.editorSpecSaved, (event) => {
     handleEditorSpecSaved(event.payload);
+  });
+  unlistenFileEditorSaved = await listen<FileEditorSavedEvent>(WINDOW_EVENTS.fileEditorSaved, (event) => {
+    handleFileEditorSaved(event.payload);
   });
   try {
     const persisted = await loadWorkspace();
@@ -154,6 +163,8 @@ onMounted(async () => {
 onUnmounted(() => {
   unlistenEditorSaved?.();
   unlistenEditorSaved = null;
+  unlistenFileEditorSaved?.();
+  unlistenFileEditorSaved = null;
 });
 
 async function openDirectory() {
@@ -208,18 +219,67 @@ function removeMod(modRoot: string, showMessage = true) {
   workspace.removeMod(modRoot);
   tables.removeModState(modRoot);
   editors.removeModState(modRoot);
-  historyStore.removeModState(modRoot);
+  fileHistory.removeModState(modRoot);
+  csvEditHistory.clearForMod(modRoot);
   project.removeModData(modRoot);
   if (showMessage) message.success('已从工作区移除');
 }
 
 async function saveChanges() {
   try {
+    if (!project.activeModData) return;
+    const candidates = tables.getAssociatedFileCandidates(project.activeModData);
+    if (candidates.length > 0) {
+      selectedAssociatedFileKeys.value = new Set(candidates.map((candidate) => candidate.key));
+      dialog.warning({
+        title: '保存 CSV',
+        content: () => renderAssociatedFileDialog(candidates),
+        positiveText: '保存',
+        negativeText: '取消',
+        onPositiveClick: async () => {
+          try {
+            const selected = candidates
+              .filter((candidate) => selectedAssociatedFileKeys.value.has(candidate.key))
+              .map(({ relPath, afterText }) => ({ relPath, afterText }));
+            const result = await tables.saveChanges(project.activeModData, selected);
+            message[result === 'saved' ? 'success' : 'info'](result === 'saved' ? '已保存 CSV 修改' : '没有需要保存的修改');
+          } catch (err) {
+            showError(formatError(err), err);
+          }
+        },
+      });
+      return;
+    }
     const result = await tables.saveChanges(project.activeModData);
     message[result === 'saved' ? 'success' : 'info'](result === 'saved' ? '已保存 CSV 修改' : '没有需要保存的修改');
   } catch (err) {
     showError(formatError(err), err);
   }
+}
+
+function renderAssociatedFileDialog(candidates: AssociatedFileCandidate[]) {
+  return h('div', { class: 'associated-save-dialog' }, [
+    h('p', '检测到 CSV 行变更可能需要同步关联 spec 文件。只有勾选的文件会随本次 CSV 保存一起写入，并作为单次 history 记录。'),
+    h(
+      'div',
+      { class: 'associated-save-list' },
+      candidates.map((candidate) =>
+        h(
+          NCheckbox,
+          {
+            checked: selectedAssociatedFileKeys.value.has(candidate.key),
+            'onUpdate:checked': (checked: boolean) => {
+              const next = new Set(selectedAssociatedFileKeys.value);
+              if (checked) next.add(candidate.key);
+              else next.delete(candidate.key);
+              selectedAssociatedFileKeys.value = next;
+            },
+          },
+          { default: () => `${candidate.action === 'create' ? '创建' : '删除'} ${candidate.relPath}` },
+        ),
+      ),
+    ),
+  ]);
 }
 
 function revertChanges() {
@@ -242,12 +302,12 @@ function confirmDelete() {
   const id = tables.selectedRowId;
   dialog.error({
     title: '确认删除',
-    content: `删除 ${id}？此操作会立即写入文件。`,
+    content: `删除 ${id}？此操作只会修改当前表格内存状态，点击“保存 CSV”后才会写入文件。`,
     positiveText: '删除',
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        await tables.deleteSelected(project.activeModData!);
+        await tables.deleteSelected();
         message.success('已删除');
       } catch (err) {
         showError(formatError(err), err);
@@ -278,6 +338,10 @@ function openWeaponPreview(id: string) {
   void openWeaponPreviewWindow(editorRequest(id));
 }
 
+function openRequestedFileEditor(request: FileEditorRequest) {
+  void openFileEditorWindow(request);
+}
+
 function editorRequest(id: string) {
   const data = project.activeModData!;
   return {
@@ -290,7 +354,6 @@ function editorRequest(id: string) {
 function handleEditorSpecSaved(payload: EditorSpecSavedEvent) {
   const modData = project.getModData(payload.modRoot);
   if (!modData) return;
-  const previousSpec = previousEditorSpec(payload.kind, payload.modRoot, payload.id);
   if (payload.kind === 'ship') {
     project.updateShipFile(payload.modRoot, payload.id, payload.spec);
   } else if (payload.kind === 'weapon') {
@@ -298,27 +361,38 @@ function handleEditorSpecSaved(payload: EditorSpecSavedEvent) {
   } else {
     project.updateProjectileFile(payload.modRoot, payload.id, payload.spec);
   }
-  historyStore.pushEventForMod(
-    payload.modRoot,
-    { type: 'editor-save', editorKind: payload.kind, id: payload.id, previousSpec, newSpec: deepClone(payload.spec) },
-    `保存 ${payload.id}.${editorExtension(payload.kind)}`,
-  );
-  historyStore.pushCheckpointForMod(payload.modRoot, 'editor-save', `${payload.id}.${editorExtension(payload.kind)} 已保存`);
+  if (payload.changes?.length) {
+    fileHistory.pushFileSaveEntry(payload.modRoot, payload.changes, `保存 ${payload.id}.${editorExtension(payload.kind)}`);
+  }
   message.success(`${payload.id}.${editorExtension(payload.kind)} 已保存`);
 }
 
-function previousEditorSpec(kind: EditorSpecSavedEvent['kind'], modRoot: string, id: string): RowData {
-  const modData = project.getModData(modRoot);
-  if (!modData) return {};
-  if (kind === 'ship') return modData.shipFiles[id] ? deepClone(modData.shipFiles[id]) : {};
-  if (kind === 'weapon') return modData.wpnFiles[id] ? deepClone(modData.wpnFiles[id]) : {};
-  return modData.projFiles[id] ? deepClone(modData.projFiles[id]) : {};
+function handleFileEditorSaved(payload: FileEditorSavedEvent) {
+  if (!payload.changes.length) return;
+  const modRoot = resolveLoadedModRootForPath(project.modsData, payload.path);
+  if (!modRoot) return;
+  fileHistory.pushFileSaveEntry(modRoot, payload.changes, `保存 ${fileName(payload.path)}`);
+  syncFileEditorSpecChanges(payload);
 }
 
 function editorExtension(kind: EditorSpecSavedEvent['kind']) {
   if (kind === 'ship') return 'ship';
   if (kind === 'weapon') return 'wpn';
   return 'proj';
+}
+
+function fileName(path: string): string {
+  return path.split(/[\\/]/).filter(Boolean).pop() || path;
+}
+
+function syncFileEditorSpecChanges(payload: FileEditorSavedEvent) {
+  for (const change of payload.changes) {
+    const specChange = parseJsonSpecFileChange(project.modsData, change.path, change.afterText ?? null);
+    if (!specChange) continue;
+    if (specChange.kind === 'ship') project.updateShipFile(specChange.modRoot, specChange.id, specChange.spec);
+    else if (specChange.kind === 'weapon') project.updateWeaponFile(specChange.modRoot, specChange.id, specChange.spec);
+    else project.updateProjectileFile(specChange.modRoot, specChange.id, specChange.spec);
+  }
 }
 
 function showError(text: string, error: unknown = text) {

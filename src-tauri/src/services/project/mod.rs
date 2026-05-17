@@ -44,6 +44,7 @@ pub fn load_all_data_with_root(
     let variants = load_variants_by_hull(mod_root)?;
     let ship_sprites = sprites::load_ship_sprite_data(mod_root, core_dir.as_deref(), &ship_files)?;
     let wpn_files = load_json_dir_by_id(&mod_root.join("data/weapons"), "wpn", "id")?;
+    let system_files = load_json_dir_by_id(&mod_root.join("data/shipsystems"), "system", "id")?;
     let weapon_sprites_data =
         sprites::load_weapon_sprite_data(mod_root, core_dir.as_deref(), &wpn_files);
     let hullmods = loaded_tables
@@ -60,6 +61,13 @@ pub fn load_all_data_with_root(
         .unwrap_or_default();
     let industry_sprites =
         sprites::load_industry_sprite_data(mod_root, core_dir.as_deref(), &industries);
+    let ship_systems = loaded_tables
+        .rows
+        .get("shipSystems")
+        .cloned()
+        .unwrap_or_default();
+    let ship_system_sprites =
+        sprites::load_ship_system_sprite_data(mod_root, core_dir.as_deref(), &ship_systems);
 
     Ok(AppData {
         mod_root: mod_root.to_string_lossy().to_string(),
@@ -75,6 +83,7 @@ pub fn load_all_data_with_root(
         weapons: loaded_tables.rows.remove("weapons").unwrap_or_default(),
         wings: loaded_tables.rows.remove("wings").unwrap_or_default(),
         hullmods: loaded_tables.rows.remove("hullmods").unwrap_or_default(),
+        ship_systems: loaded_tables.rows.remove("shipSystems").unwrap_or_default(),
         industries: loaded_tables.rows.remove("industries").unwrap_or_default(),
         ship_files,
         variants,
@@ -82,12 +91,14 @@ pub fn load_all_data_with_root(
         available_sprites: list_sprites(mod_root, &["graphics/ships"]),
         wpn_files,
         proj_files: projectiles::load_projectile_files(mod_root, core_dir.as_deref())?,
+        system_files,
         weapon_sprites: list_sprites(
             mod_root,
             &["graphics/weapons", "graphics/missiles", "graphics/fx"],
         ),
         weapon_sprites_data,
         hullmod_sprites,
+        ship_system_sprites,
         industry_sprites,
     })
 }

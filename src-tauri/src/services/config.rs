@@ -1,8 +1,15 @@
 use crate::{
     errors::{AppError, AppResult},
-    filesystem::{read_json_file, read_utf8_no_bom, strip_internal_fields, write_utf8_no_bom},
-    models::{CsvTable, MissionData},
-    parsers::{read_csv_data, save_csv_file},
+    filesystem::{read_json_file, read_utf8_no_bom, strip_internal_fields},
+    models::{
+        ApplyFileChangeSetPayload, AssociatedFileChangePayload, CsvTable, FileChangeRecord,
+        MissionData, SaveModFilesWithHistoryPayload,
+    },
+    parsers::{read_csv_data, render_csv_text},
+    services::file_changes::{
+        apply_file_change_set, build_directory_delete_change, build_text_change,
+        save_mod_files_with_history,
+    },
 };
 use base64::{engine::general_purpose, Engine as _};
 use serde_json::{json, Map, Value};
@@ -11,77 +18,100 @@ use walkdir::WalkDir;
 
 type FactionIndexTable = (Vec<String>, Vec<Map<String, Value>>);
 
-pub fn save_mod_info(mod_root: &str, data: &Value) -> AppResult<()> {
-    let path = Path::new(mod_root).join("mod_info.json");
+pub fn save_faction_with_history(
+    mod_root: &str,
+    old_id: Option<&str>,
+    id: &str,
+    data: &Value,
+    delete_old_file: bool,
+) -> AppResult<Vec<FileChangeRecord>> {
+    let id = validate_config_id(id, "无效势力 ID")?;
+    let old_id = old_id
+        .filter(|value| !value.trim().is_empty())
+        .map(|value| validate_config_id(value, "无效势力 ID"))
+        .transpose()?;
     let clean = strip_internal_fields(data);
-    let json_string = serde_json::to_string_pretty(&clean)?;
-    write_utf8_no_bom(&path, &json_string)?;
-    Ok(())
+    let faction_text = serde_json::to_string_pretty(&clean)?;
+    let mut files = vec![AssociatedFileChangePayload {
+        rel_path: format!("data/world/factions/{id}.faction"),
+        after_text: Some(faction_text),
+    }];
+    files.push(faction_index_change(mod_root, |header, rows| {
+        if let Some(old) = old_id {
+            remove_faction_index_row(header, rows, old);
+        }
+        upsert_faction_index_row(header, rows, id);
+    })?);
+    if delete_old_file && old_id.is_some_and(|old| old != id) {
+        files.push(AssociatedFileChangePayload {
+            rel_path: format!("data/world/factions/{}.faction", old_id.unwrap()),
+            after_text: None,
+        });
+    }
+    save_mod_files_with_history(SaveModFilesWithHistoryPayload {
+        mod_root: mod_root.to_string(),
+        files,
+    })
 }
 
-pub fn save_faction(mod_root: &str, id: &str, data: &Value) -> AppResult<()> {
+pub fn create_faction_with_history(
+    mod_root: &str,
+    id: &str,
+) -> AppResult<(Value, Vec<FileChangeRecord>)> {
     let id = validate_config_id(id, "无效势力 ID")?;
-    let dir = Path::new(mod_root).join("data/world/factions");
-    fs::create_dir_all(&dir)?;
-    let path = dir.join(format!("{id}.faction"));
-    let clean = strip_internal_fields(data);
-    let json_string = serde_json::to_string_pretty(&clean)?;
-    write_utf8_no_bom(&path, &json_string)?;
-    upsert_faction_index(mod_root, id)?;
-    Ok(())
-}
-
-pub fn create_faction(mod_root: &str, id: &str) -> AppResult<Value> {
-    let id = validate_config_id(id, "无效势力 ID")?;
-    let dir = Path::new(mod_root).join("data/world/factions");
-    fs::create_dir_all(&dir)?;
-    let path = dir.join(format!("{id}.faction"));
+    let path = Path::new(mod_root)
+        .join("data/world/factions")
+        .join(format!("{id}.faction"));
     if path.exists() {
         return Err(AppError::message(format!("势力文件已存在: {id}.faction")));
     }
-    let default = serde_json::json!({
-        "id": id,
-        "displayName": id,
-        "displayNameLong": id,
-        "color": [128, 128, 128, 255],
-        "baseColor": [128, 128, 128, 255],
-        "darkColor": [64, 64, 64, 255],
-        "shipNamePrefix": "",
-        "knownShips": {"tags": []},
-        "knownWeapons": {"tags": []},
-        "knownFighters": {"tags": []}
-    });
-    let json_string = serde_json::to_string_pretty(&default)?;
-    write_utf8_no_bom(&path, &json_string)?;
-    upsert_faction_index(mod_root, id)?;
-    Ok(default)
+    let default = default_faction_value(id);
+    let changes = save_faction_with_history(mod_root, None, id, &default, false)?;
+    Ok((default, changes))
 }
 
-pub fn delete_faction(mod_root: &str, id: &str, delete_file: bool) -> AppResult<()> {
+pub fn delete_faction_with_history(
+    mod_root: &str,
+    id: &str,
+    delete_file: bool,
+) -> AppResult<Vec<FileChangeRecord>> {
     let id = validate_config_id(id, "无效势力 ID")?;
+    let mut files = vec![faction_index_change(mod_root, |header, rows| {
+        remove_faction_index_row(header, rows, id);
+    })?];
     if delete_file {
-        let path = Path::new(mod_root)
-            .join("data/world/factions")
-            .join(format!("{id}.faction"));
-        if path.exists() {
-            fs::remove_file(&path)?;
-        }
+        files.push(AssociatedFileChangePayload {
+            rel_path: format!("data/world/factions/{id}.faction"),
+            after_text: None,
+        });
     }
-    remove_faction_index(mod_root, id)?;
-    Ok(())
+    save_mod_files_with_history(SaveModFilesWithHistoryPayload {
+        mod_root: mod_root.to_string(),
+        files,
+    })
 }
 
-fn upsert_faction_index(mod_root: &str, id: &str) -> AppResult<()> {
+fn faction_index_change(
+    mod_root: &str,
+    mutate: impl FnOnce(&[String], &mut Vec<Map<String, Value>>),
+) -> AppResult<AssociatedFileChangePayload> {
     let path = faction_index_path(mod_root);
     let (header, mut rows) = read_faction_index_table(&path)?;
-    let id_col = faction_id_col(&header);
-    let file_col = faction_file_col(&header);
-    if rows.iter().any(|row| faction_row_matches(row, &id_col, id)) {
-        return save_csv_file(&path, &header, &rows);
-    }
+    mutate(&header, &mut rows);
+    Ok(AssociatedFileChangePayload {
+        rel_path: "data/world/factions/factions.csv".to_string(),
+        after_text: Some(render_csv_text(&header, &rows)?),
+    })
+}
 
+fn upsert_faction_index_row(header: &[String], rows: &mut Vec<Map<String, Value>>, id: &str) {
+    let id_col = faction_id_col(header);
+    let file_col = faction_file_col(header);
+    if rows.iter().any(|row| faction_row_matches(row, &id_col, id)) {
+        return;
+    }
     let mut row = Map::new();
-    for col in &header {
+    for col in header {
         row.insert(col.clone(), Value::String(String::new()));
     }
     let rel_path = format!("data/world/factions/{id}.faction");
@@ -94,15 +124,11 @@ fn upsert_faction_index(mod_root: &str, id: &str) -> AppResult<()> {
         row.insert(id_col, Value::String(id.to_string()));
     }
     rows.push(row);
-    save_csv_file(&path, &header, &rows)
 }
 
-fn remove_faction_index(mod_root: &str, id: &str) -> AppResult<()> {
-    let path = faction_index_path(mod_root);
-    let (header, mut rows) = read_faction_index_table(&path)?;
-    let id_col = faction_id_col(&header);
+fn remove_faction_index_row(header: &[String], rows: &mut Vec<Map<String, Value>>, id: &str) {
+    let id_col = faction_id_col(header);
     rows.retain(|row| !faction_row_matches(row, &id_col, id));
-    save_csv_file(&path, &header, &rows)
 }
 
 fn faction_index_path(mod_root: &str) -> std::path::PathBuf {
@@ -174,19 +200,6 @@ pub fn load_mission_list_csv(mod_root: &str, rel_path: &str) -> AppResult<CsvTab
     read_csv_data(&path)
 }
 
-pub fn save_mission_list_csv(
-    mod_root: &str,
-    rel_path: &str,
-    header: &[String],
-    rows: &[Map<String, Value>],
-) -> AppResult<()> {
-    let path = mission_list_path(mod_root, rel_path)?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    save_csv_file(&path, header, rows)
-}
-
 pub fn load_mission(mod_root: &str, mission: &str) -> AppResult<MissionData> {
     let dir = mission_dir(mod_root, mission)?;
     let descriptor_path = dir.join("descriptor.json");
@@ -212,27 +225,78 @@ pub fn load_mission(mod_root: &str, mission: &str) -> AppResult<MissionData> {
     })
 }
 
-pub fn save_mission(
-    mod_root: &str,
-    mission: &str,
-    descriptor: &Value,
-    text: &str,
-) -> AppResult<()> {
-    let dir = mission_dir(mod_root, mission)?;
-    fs::create_dir_all(&dir)?;
-    let clean = strip_internal_fields(descriptor);
-    let json_string = serde_json::to_string_pretty(&clean)?;
-    write_utf8_no_bom(&dir.join("descriptor.json"), &json_string)?;
-    write_utf8_no_bom(&dir.join("mission_text.txt"), text)?;
-    Ok(())
+pub struct MissionHistorySaveInput<'a> {
+    pub mod_root: &'a str,
+    pub mission: &'a str,
+    pub old_mission: Option<&'a str>,
+    pub descriptor: &'a Value,
+    pub text: &'a str,
+    pub mission_list_rel_path: &'a str,
+    pub header: &'a [String],
+    pub rows: &'a [Map<String, Value>],
+    pub delete_old_directory: bool,
 }
 
-pub fn delete_mission_dir(mod_root: &str, mission: &str) -> AppResult<()> {
-    let dir = mission_dir(mod_root, mission)?;
-    if dir.exists() {
-        fs::remove_dir_all(dir)?;
+pub fn save_mission_with_history(
+    input: MissionHistorySaveInput<'_>,
+) -> AppResult<Vec<FileChangeRecord>> {
+    let mission = validate_config_id(input.mission, "无效战役 ID")?;
+    let old_mission = input
+        .old_mission
+        .filter(|value| !value.trim().is_empty())
+        .map(|value| validate_config_id(value, "无效战役 ID"))
+        .transpose()?;
+    let list_path = mission_list_path(input.mod_root, input.mission_list_rel_path)?;
+    let clean = strip_internal_fields(input.descriptor);
+    let mod_root = Path::new(input.mod_root);
+    let mut changes = vec![
+        build_text_change(&list_path, Some(render_csv_text(input.header, input.rows)?))?,
+        build_text_change(
+            &mod_root.join(format!("data/missions/{mission}/descriptor.json")),
+            Some(serde_json::to_string_pretty(&clean)?),
+        )?,
+        build_text_change(
+            &mod_root.join(format!("data/missions/{mission}/mission_text.txt")),
+            Some(input.text.to_string()),
+        )?,
+    ];
+    if input.delete_old_directory && old_mission.is_some_and(|old| old != mission) {
+        let old = old_mission.unwrap();
+        changes.push(build_directory_delete_change(
+            &mod_root.join("data/missions").join(old),
+        )?);
     }
-    Ok(())
+    apply_file_change_set(ApplyFileChangeSetPayload {
+        direction: "redo".to_string(),
+        changes: changes.clone(),
+    })?;
+    Ok(changes)
+}
+
+pub fn delete_mission_with_history(
+    mod_root: &str,
+    mission: &str,
+    mission_list_rel_path: &str,
+    header: &[String],
+    rows: &[Map<String, Value>],
+    delete_directory: bool,
+) -> AppResult<Vec<FileChangeRecord>> {
+    let mission = validate_config_id(mission, "无效战役 ID")?;
+    let list_path = mission_list_path(mod_root, mission_list_rel_path)?;
+    let mut changes = vec![build_text_change(
+        &list_path,
+        Some(render_csv_text(header, rows)?),
+    )?];
+    if delete_directory {
+        changes.push(build_directory_delete_change(
+            &Path::new(mod_root).join("data/missions").join(mission),
+        )?);
+    }
+    apply_file_change_set(ApplyFileChangeSetPayload {
+        direction: "redo".to_string(),
+        changes: changes.clone(),
+    })?;
+    Ok(changes)
 }
 
 fn mission_dir(mod_root: &str, mission: &str) -> AppResult<std::path::PathBuf> {
@@ -252,6 +316,21 @@ fn validate_config_id<'a>(id: &'a str, message: &str) -> AppResult<&'a str> {
         return Err(AppError::message(message));
     }
     Ok(clean)
+}
+
+fn default_faction_value(id: &str) -> Value {
+    serde_json::json!({
+        "id": id,
+        "displayName": id,
+        "displayNameLong": id,
+        "color": [128, 128, 128, 255],
+        "baseColor": [128, 128, 128, 255],
+        "darkColor": [64, 64, 64, 255],
+        "shipNamePrefix": "",
+        "knownShips": {"tags": []},
+        "knownWeapons": {"tags": []},
+        "knownFighters": {"tags": []}
+    })
 }
 
 fn mission_list_path(mod_root: &str, rel_path: &str) -> AppResult<std::path::PathBuf> {
@@ -471,37 +550,11 @@ mod tests {
     };
 
     #[test]
-    fn delete_mission_dir_removes_only_valid_mission_directory() {
-        let root = temp_dir("delete_mission_dir");
-        let mission = root.join("data/missions/demo");
-        fs::create_dir_all(&mission).unwrap();
-        write_utf8_no_bom(&mission.join("descriptor.json"), "{}").unwrap();
-
-        delete_mission_dir(&root.to_string_lossy(), "demo").unwrap();
-
-        assert!(!mission.exists());
-        assert!(root.join("data/missions").exists());
-        let _ = fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn delete_mission_dir_rejects_path_traversal() {
-        let root = temp_dir("delete_mission_dir_rejects");
-        fs::create_dir_all(root.join("data/missions/demo")).unwrap();
-
-        let result = delete_mission_dir(&root.to_string_lossy(), "../demo");
-
-        assert!(result.is_err());
-        assert!(root.join("data/missions/demo").exists());
-        let _ = fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn faction_id_rejects_path_traversal() {
+    fn create_faction_with_history_rejects_path_traversal() {
         let root = temp_dir("faction_id_rejects");
         fs::create_dir_all(root.join("data/world/factions")).unwrap();
 
-        let result = create_faction(&root.to_string_lossy(), "../demo");
+        let result = create_faction_with_history(&root.to_string_lossy(), "../demo");
 
         assert!(result.is_err());
         let _ = fs::remove_dir_all(root);
@@ -518,6 +571,41 @@ mod tests {
     }
 
     #[test]
+    fn delete_mission_with_history_can_delete_directory() {
+        let root = temp_dir("delete_mission_with_history_dir");
+        fs::create_dir_all(root.join("data/missions/demo")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/missions/mission_list.csv"),
+            "mission\r\ndemo\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("data/missions/demo/descriptor.json"),
+            "{\"title\":\"Demo\"}",
+        )
+        .unwrap();
+        write_utf8_no_bom(&root.join("data/missions/demo/mission_text.txt"), "text").unwrap();
+
+        let changes = delete_mission_with_history(
+            &root.to_string_lossy(),
+            "demo",
+            "data/missions/mission_list.csv",
+            &["mission".to_string()],
+            &[],
+            true,
+        )
+        .unwrap();
+
+        assert!(!root.join("data/missions/demo").exists());
+        assert_eq!(changes.len(), 2);
+        assert!(matches!(
+            changes[1].kind,
+            crate::models::FileChangeKind::Directory
+        ));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn delete_faction_can_remove_index_without_deleting_file() {
         let root = temp_dir("delete_faction_index_only");
         let dir = root.join("data/world/factions");
@@ -529,11 +617,12 @@ mod tests {
         .unwrap();
         write_utf8_no_bom(&dir.join("demo.faction"), "{}").unwrap();
 
-        delete_faction(&root.to_string_lossy(), "demo", false).unwrap();
+        let changes = delete_faction_with_history(&root.to_string_lossy(), "demo", false).unwrap();
 
         assert!(dir.join("demo.faction").exists());
         let table = read_csv_data(&dir.join("factions.csv")).unwrap();
         assert!(table.rows.is_empty());
+        assert_eq!(changes.len(), 1);
         let _ = fs::remove_dir_all(root);
     }
 
@@ -549,11 +638,12 @@ mod tests {
         .unwrap();
         write_utf8_no_bom(&dir.join("demo.faction"), "{}").unwrap();
 
-        delete_faction(&root.to_string_lossy(), "demo", true).unwrap();
+        let changes = delete_faction_with_history(&root.to_string_lossy(), "demo", true).unwrap();
 
         assert!(!dir.join("demo.faction").exists());
         let table = read_csv_data(&dir.join("factions.csv")).unwrap();
         assert!(table.rows.is_empty());
+        assert_eq!(changes.len(), 2);
         let _ = fs::remove_dir_all(root);
     }
 

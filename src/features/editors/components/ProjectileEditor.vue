@@ -105,14 +105,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useDialog, useMessage } from 'naive-ui';
 import ColorPicker from '../../../shared/components/ColorPicker.vue';
 import EditorFooter from './common/EditorFooter.vue';
 import EditorHeader from './common/EditorHeader.vue';
 import ObjectEditor from './common/ObjectEditor.vue';
-import { saveProjectileSpec } from '../editor.service';
+import { saveProjectileSpecWithHistory } from '../editor.service';
 import type { RowData } from '../../../shared/types';
+import type { FileChangeRecord } from '../../../shared/api/tauri';
 import { arr, str } from '../../../shared/lib/starsector';
 import { formatError } from '../../../shared/lib/errors';
 import { normalizeProjectileSpec } from '../lib/normalize';
@@ -121,7 +122,7 @@ import { useSpriteUpload } from '../composables/useSpriteUpload';
 import { editorCollapseTheme, toOptions as opts } from '../lib/editor-constants';
 
 const props = defineProps<{ modRoot: string; projectileId: string; projectile?: RowData }>();
-const emit = defineEmits<{ close: []; saved: [id: string, projectile: RowData] }>();
+const emit = defineEmits<{ close: []; saved: [id: string, projectile: RowData, changes: FileChangeRecord[]] }>();
 const message = useMessage();
 const dialog = useDialog();
 const localProjectile = ref<RowData>(normalizeProjectileSpec(props.projectile || { id: props.projectileId, specClass: 'projectile' }));
@@ -187,10 +188,18 @@ async function uploadSpriteFile(field: string, event: Event) {
 }
 async function save() {
   try {
-    await saveProjectileSpec(props.modRoot, props.projectileId, localProjectile.value);
-    emit('saved', props.projectileId, localProjectile.value);
+    const changes = await saveProjectileSpecWithHistory(props.modRoot, props.projectileId, localProjectile.value);
+    emit('saved', props.projectileId, localProjectile.value, changes);
   } catch (error) {
     message.error(formatError(error));
   }
 }
+watch(
+  () => props.projectile,
+  (projectile) => {
+    localProjectile.value = normalizeProjectileSpec(projectile || { id: props.projectileId, specClass: 'projectile' });
+    genericJson.value = JSON.stringify(localProjectile.value, null, 2);
+  },
+  { deep: true },
+);
 </script>

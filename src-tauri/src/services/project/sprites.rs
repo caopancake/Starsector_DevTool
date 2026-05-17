@@ -66,6 +66,14 @@ pub(super) fn load_industry_sprite_data(
     load_table_sprite_data(mod_root, core_dir, industries, "image")
 }
 
+pub(super) fn load_ship_system_sprite_data(
+    mod_root: &Path,
+    core_dir: Option<&Path>,
+    ship_systems: &[Map<String, Value>],
+) -> BTreeMap<String, String> {
+    load_table_sprite_data(mod_root, core_dir, ship_systems, "icon")
+}
+
 fn load_table_sprite_data(
     mod_root: &Path,
     core_dir: Option<&Path>,

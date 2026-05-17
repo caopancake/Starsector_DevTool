@@ -7,7 +7,7 @@
 - `commands/`：薄入口，只负责参数接收、调用 service、把错误转换给前端。
 - `services/`：业务流程和保存语义，例如加载项目、保存表格、保存 spec、删除资源。
 - `parsers/`：CSV、宽松 JSON 等格式解析与写回辅助，不依赖 Tauri。
-- `models/`：payload、AppData、workspace、核心 spec 类型和跨层数据结构。
+- `models/`：payload、AppData、workspace 和跨层数据结构。
 - `filesystem/`：路径规范化、文本 IO、JSON 文件、资源扫描、贴图写入。
 - `errors.rs`：统一错误类型和结果别名，避免到处拼字符串错误。
 
@@ -31,7 +31,7 @@
 
 - Starsector JSON 读取使用宽松解析，兼容注释、尾逗号、未加引号 key 等常见写法。
 - 写回 JSON 使用结构化 pretty JSON；不承诺保留注释、尾逗号和手写格式。
-- CSV 保存必须保留表头、注释行和空字段语义。
+- CSV 保存必须保留表头和空字段语义；读取时 `#` 开头行、真正空行和全逗号行都作为可见空行进入表格。
 - spec 模型采用“核心字段强类型 + extra 保留未知字段”，兼容 Starsector 长尾字段。
 - multi-source schema 的聚合/拆分不能改变原文件边界：列表行、JSON 文件、文本文件分别写回对应位置。
 - 删除操作要区分“从索引删除”和“删除实体文件/目录”，默认选择风险较低的行为。

@@ -82,6 +82,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import { useProjectStore } from '../../project/project.store';
+import { useFileHistoryStore } from '../../file-history/file.history.store';
 import { useSettingsStore } from '../../../app/settings.store';
 import { loadImageDataUrl } from '../../../shared/api/tauri';
 import { formatError } from '../../../shared/lib/errors';
@@ -90,16 +91,16 @@ import type { JsonValue, RowData } from '../../../shared/types';
 import SchemaFormRenderer from '../../schema/components/SchemaFormRenderer.vue';
 import { aggregateSchemaSources, getSchema, splitSchemaSources } from '../../schema/schema.service';
 import {
-  deleteMissionDirectory as deleteMissionDirectoryData,
   loadMissionData,
   loadMissionListData,
-  saveMissionData,
-  saveMissionListData,
+  deleteMissionDataWithHistory,
+  saveMissionDataWithHistory,
   scanMissionListFiles,
 } from '../config.service';
 import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
 
 const project = useProjectStore();
+const fileHistory = useFileHistoryStore();
 const settings = useSettingsStore();
 const themeOverrides = computed(() => buildThemeOverrides(settings));
 
@@ -233,6 +234,7 @@ async function save() {
     message.warning('mission 不能为空');
     return;
   }
+  const oldId = missionId(selectedMission.value);
   selectedMission.value.mission = id;
   for (const [key, value] of Object.entries(list)) {
     selectedMission.value[key] = value as JsonValue;
@@ -240,11 +242,24 @@ async function save() {
   }
   saving.value = true;
   try {
-    await saveMissionListData(modRoot.value, missionListPath.value, tableData.value.header, tableData.value.rows);
-    await saveMissionData(modRoot.value, id, descriptorSource, textSource);
+    const changes = await saveMissionDataWithHistory(
+      modRoot.value,
+      id,
+      descriptorSource,
+      textSource,
+      missionListPath.value,
+      tableData.value.header,
+      tableData.value.rows,
+      oldId && oldId !== id ? oldId : null,
+      oldId !== id,
+    );
     descriptor.value = descriptorSource;
     missionText.value = textSource;
+    fileHistory.pushFileSaveEntry(modRoot.value, changes, `保存战役 ${id}`);
     await loadMissionIcons();
+    if (oldId !== id) {
+      await selectMission(selectedMissionIndex.value);
+    }
     message.success(`${id} 已保存`);
   } catch (error) {
     message.error(formatError(error));
@@ -284,8 +299,16 @@ async function doCreateMission() {
   tableData.value.rows.push(row);
 
   try {
-    await saveMissionListData(modRoot.value, missionListPath.value, tableData.value.header, tableData.value.rows);
-    await saveMissionData(modRoot.value, id, { title: id }, '');
+    const changes = await saveMissionDataWithHistory(
+      modRoot.value,
+      id,
+      { title: id },
+      '',
+      missionListPath.value,
+      tableData.value.header,
+      tableData.value.rows,
+    );
+    fileHistory.pushFileSaveEntry(modRoot.value, changes, `创建战役 ${id}`);
     syncMissionCount();
     message.success(`战役 "${id}" 已创建`);
     showCreateDialog.value = false;
@@ -317,8 +340,15 @@ async function deleteMissionRow(mission: { id: string; index: number }, deleteDi
   const removed = tableData.value.rows.splice(mission.index, 1);
   const previousSelected = selectedMissionIndex.value;
   try {
-    await saveMissionListData(modRoot.value, missionListPath.value, tableData.value.header, tableData.value.rows);
-    if (deleteDirectory) await deleteMissionDirectoryData(modRoot.value, mission.id);
+    const changes = await deleteMissionDataWithHistory(
+      modRoot.value,
+      mission.id,
+      missionListPath.value,
+      tableData.value.header,
+      tableData.value.rows,
+      deleteDirectory,
+    );
+    fileHistory.pushFileSaveEntry(modRoot.value, changes, `删除战役列表项 ${mission.id}`);
     syncMissionCount();
     const nextMission = missions.value[Math.min(mission.index, missions.value.length - 1)] ?? null;
     delete missionIcons.value[mission.id];

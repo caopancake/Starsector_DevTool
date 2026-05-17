@@ -1,10 +1,10 @@
 use crate::{
     errors::{AppError, AppResult},
-    filesystem::{read_utf8_no_bom, write_utf8_no_bom},
+    filesystem::read_utf8_no_bom,
     parsers::parse_starsector_json,
 };
 use serde_json::{Map, Value};
-use std::{collections::BTreeMap, fs, path::Path};
+use std::{collections::BTreeMap, path::Path};
 use walkdir::WalkDir;
 
 pub fn read_json_file(path: &Path) -> AppResult<Value> {
@@ -47,61 +47,6 @@ pub fn load_json_dir(dir: &Path, ext: &str) -> AppResult<Vec<Value>> {
     Ok(values)
 }
 
-pub fn save_json_by_id(
-    mod_root: &Path,
-    rel_dir: &str,
-    ext: &str,
-    id_key: &str,
-    id: &str,
-    data: &Value,
-) -> AppResult<String> {
-    let dir = mod_root.join(rel_dir);
-    fs::create_dir_all(&dir)?;
-    let mut target = None;
-    if dir.exists() {
-        for entry in WalkDir::new(&dir).into_iter().flatten() {
-            if entry.path().extension().and_then(|s| s.to_str()) != Some(ext) {
-                continue;
-            }
-            if let Ok(value) = read_json_file(entry.path()) {
-                if value.get(id_key).and_then(Value::as_str) == Some(id) {
-                    target = Some(entry.path().to_path_buf());
-                    break;
-                }
-            }
-        }
-    }
-    let target = target.unwrap_or_else(|| dir.join(format!("{id}.{ext}")));
-    let clean = strip_internal_fields(data);
-    write_utf8_no_bom(&target, &serde_json::to_string_pretty(&clean)?)?;
-    Ok(relative_path(mod_root, &target))
-}
-
-pub fn delete_json_by_id(
-    mod_root: &Path,
-    rel_dir: &str,
-    ext: &str,
-    id_key: &str,
-    id: &str,
-) -> AppResult<bool> {
-    let dir = mod_root.join(rel_dir);
-    if !dir.exists() {
-        return Ok(false);
-    }
-    for entry in WalkDir::new(dir).into_iter().flatten() {
-        if entry.path().extension().and_then(|s| s.to_str()) != Some(ext) {
-            continue;
-        }
-        if let Ok(value) = read_json_file(entry.path()) {
-            if value.get(id_key).and_then(Value::as_str) == Some(id) {
-                fs::remove_file(entry.path())?;
-                return Ok(true);
-            }
-        }
-    }
-    Ok(false)
-}
-
 pub fn strip_internal_fields(value: &Value) -> Value {
     match value {
         Value::Object(obj) => {
@@ -116,13 +61,6 @@ pub fn strip_internal_fields(value: &Value) -> Value {
         Value::Array(items) => Value::Array(items.iter().map(strip_internal_fields).collect()),
         other => other.clone(),
     }
-}
-
-fn relative_path(root: &Path, path: &Path) -> String {
-    path.strip_prefix(root)
-        .unwrap_or(path)
-        .to_string_lossy()
-        .replace('\\', "/")
 }
 
 #[cfg(test)]

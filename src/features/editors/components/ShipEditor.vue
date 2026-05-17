@@ -213,10 +213,11 @@ import { useDialog, useMessage } from 'naive-ui';
 import EditorFooter from './common/EditorFooter.vue';
 import EditorHeader from './common/EditorHeader.vue';
 import EditorInspector from './common/EditorInspector.vue';
-import { saveShipSpec } from '../editor.service';
+import { saveShipSpecWithHistory } from '../editor.service';
 import type { RowData } from '../../../shared/types';
 import { arr, deepClone, num, str } from '../../../shared/lib/starsector';
 import { formatError } from '../../../shared/lib/errors';
+import type { FileChangeRecord } from '../../../shared/api/tauri';
 import { normalizeShipSpec } from '../lib/normalize';
 import { useHistory } from '../composables/useHistory';
 import { useCanvasDrawing } from '../composables/useCanvasDrawing';
@@ -227,7 +228,7 @@ import { editorCollapseTheme, snapToStep, toOptions as opts } from '../lib/edito
 import { drawBoundsVisual, drawEngineVisual, drawRadiusField, drawWeaponSlotVisual } from '../lib/canvas-visuals';
 
 const props = defineProps<{ modRoot: string; hullId: string; ship: RowData; spriteData?: string }>();
-const emit = defineEmits<{ close: []; saved: [id: string, ship: RowData] }>();
+const emit = defineEmits<{ close: []; saved: [id: string, ship: RowData, changes: FileChangeRecord[]] }>();
 const message = useMessage();
 const dialog = useDialog();
 const editorWindowRef = ref<HTMLElement>();
@@ -1386,12 +1387,24 @@ async function uploadShipSprite(event: Event) {
 }
 async function save() {
   try {
-    await saveShipSpec(props.modRoot, props.hullId, localShip.value);
-    emit('saved', props.hullId, localShip.value);
+    const changes = await saveShipSpecWithHistory(props.modRoot, props.hullId, localShip.value);
+    emit('saved', props.hullId, localShip.value, changes);
   } catch (error) {
     message.error(formatError(error));
   }
 }
+watch(
+  () => props.ship,
+  (ship) => {
+    localShip.value = normalizeShipSpec(ship);
+    builtInWeaponsText.value = JSON.stringify(localShip.value.builtInWeapons || {}, null, 2);
+    selected.value = -1;
+    activeTarget.value = null;
+    inspectorLock.value = null;
+    clearHoverPreview();
+  },
+  { deep: true },
+);
 watch(localShip, draw, { deep: true });
 onMounted(() => {
   window.addEventListener('resize', resizeCanvas);

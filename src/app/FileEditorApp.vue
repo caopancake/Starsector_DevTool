@@ -49,15 +49,15 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
-import { listen } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { createDiscreteApi } from 'naive-ui';
-import { loadEditableFile, saveEditableFile } from '../shared/api/tauri';
+import { loadEditableFile, saveTextFileWithHistory } from '../shared/api/tauri';
 import { formatError } from '../shared/lib/errors';
 import { useSettingsStore } from './settings.store';
 import { buildThemeOverrides, discreteConfigProviderProps } from './theme-overrides';
 import WindowShell from './WindowShell.vue';
-import { WINDOW_EVENTS, type FileEditorFocusLineEvent } from '../features/windowing/window-events';
+import { WINDOW_EVENTS, type FileEditorFocusLineEvent, type FileEditorTextAppliedEvent } from '../features/windowing/window-events';
 
 const params = new window.URLSearchParams(window.location.search);
 const settings = useSettingsStore();
@@ -128,8 +128,13 @@ async function saveFile() {
   if (saving.value || loading.value) return;
   saving.value = true;
   try {
-    await saveEditableFile(filePath, text.value);
-    originalText.value = text.value;
+    const newText = text.value;
+    const changes = await saveTextFileWithHistory(filePath, text.value);
+    originalText.value = newText;
+    await emit(WINDOW_EVENTS.fileEditorSaved, {
+      path: filePath,
+      changes,
+    });
     message.success('文件已保存');
   } catch (error) {
     message.error(`保存文件失败：${formatError(error)}`);
@@ -215,9 +220,18 @@ onMounted(() => {
     await nextTick();
     scrollToTargetLine();
   });
+  void listen<FileEditorTextAppliedEvent>(WINDOW_EVENTS.fileEditorTextApplied, (event) => {
+    if (normalizePath(event.payload.path) !== normalizePath(filePath)) return;
+    setTextSnapshot(event.payload.text);
+    originalText.value = event.payload.text;
+  });
 });
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleEditorKeydown);
 });
+
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
 </script>

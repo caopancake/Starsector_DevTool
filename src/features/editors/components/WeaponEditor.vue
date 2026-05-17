@@ -232,7 +232,8 @@ import EditorFooter from './common/EditorFooter.vue';
 import EditorHeader from './common/EditorHeader.vue';
 import EditorInspector from './common/EditorInspector.vue';
 import ObjectEditor from './common/ObjectEditor.vue';
-import { saveWeaponSpec } from '../editor.service';
+import { saveWeaponSpecWithHistory } from '../editor.service';
+import type { FileChangeRecord } from '../../../shared/api/tauri';
 import type { RowData } from '../../../shared/types';
 import { arr, str } from '../../../shared/lib/starsector';
 import { formatError } from '../../../shared/lib/errors';
@@ -276,7 +277,12 @@ const props = defineProps<{
   spriteData?: Record<string, string>;
   projectiles: Record<string, RowData>;
 }>();
-const emit = defineEmits<{ close: []; saved: [id: string, weapon: RowData]; editProjectile: [id: string]; preview: [id: string] }>();
+const emit = defineEmits<{
+  close: [];
+  saved: [id: string, weapon: RowData, changes: FileChangeRecord[]];
+  editProjectile: [id: string];
+  preview: [id: string];
+}>();
 const message = useMessage();
 const dialog = useDialog();
 const editorWindowRef = ref<HTMLElement>();
@@ -831,12 +837,24 @@ async function uploadSpriteField(field: SpriteField, event: Event) {
 }
 async function save() {
   try {
-    await saveWeaponSpec(props.modRoot, props.weaponId, localWeapon.value);
-    emit('saved', props.weaponId, localWeapon.value);
+    const changes = await saveWeaponSpecWithHistory(props.modRoot, props.weaponId, localWeapon.value);
+    emit('saved', props.weaponId, localWeapon.value, changes);
   } catch (error) {
     message.error(formatError(error));
   }
 }
+watch(
+  () => props.weapon,
+  (weapon) => {
+    localWeapon.value = normalizeWeaponSpec(weapon);
+    selected.value = -1;
+    hovered.value = -1;
+    activeBarrel.value = -1;
+    inspectorLock.value = -1;
+    hoverPreview.value = null;
+  },
+  { deep: true },
+);
 watch(localWeapon, draw, { deep: true });
 onMounted(() => {
   window.addEventListener('resize', resizeCanvas);

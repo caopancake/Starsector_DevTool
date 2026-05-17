@@ -21,6 +21,7 @@
       <section class="panel-card detail-card">
         <div class="panel-section-title">操作</div>
         <div class="detail-actions">
+          <n-button v-if="fileEditorRequest" block tertiary @click="$emit('open-file-editor', fileEditorRequest)">文件编辑器</n-button>
           <n-button v-if="tables.currentTab === 'ships'" block @click="$emit('open-ship', rowId(tables.selectedRow))">舰船编辑器</n-button>
           <n-button v-if="tables.currentTab === 'weapons'" block @click="$emit('open-weapon', rowId(tables.selectedRow))"
             >武器编辑器</n-button
@@ -53,9 +54,15 @@ import { computed } from 'vue';
 import { useTablesStore } from '../features/tables/tables.store';
 import { useProjectStore } from '../features/project/project.store';
 import { cell, MODULE_LABELS, rowId, str } from '../shared/lib/starsector';
+import type { FileEditorRequest } from '../features/workspace/file-editor-window';
 import type { RowData, TableKey } from '../shared/types';
 
-defineEmits<{ 'open-ship': [id: string]; 'open-weapon': [id: string]; 'open-weapon-preview': [id: string] }>();
+defineEmits<{
+  'open-ship': [id: string];
+  'open-weapon': [id: string];
+  'open-weapon-preview': [id: string];
+  'open-file-editor': [request: FileEditorRequest];
+}>();
 
 const tables = useTablesStore();
 const project = useProjectStore();
@@ -67,6 +74,24 @@ const displayName = computed(() => {
 
 const hasActions = computed(() => tables.currentTab === 'ships' || tables.currentTab === 'weapons');
 const summaryColumns = computed(() => tables.visibleColumns.slice(0, 8));
+const fileEditorRequest = computed<FileEditorRequest | null>(() => {
+  const row = tables.selectedRow;
+  const data = project.activeModData;
+  if (!row || !data) return null;
+  const id = rowId(row);
+  if (!id) return null;
+
+  if (tables.currentTab === 'ships') {
+    return specFileRequest(data.modRoot, ['data', 'hulls', `${id}.ship`], `${id}.ship`);
+  }
+  if (tables.currentTab === 'weapons') {
+    return specFileRequest(data.modRoot, ['data', 'weapons', `${id}.wpn`], `${id}.wpn`);
+  }
+  if (tables.currentTab === 'shipSystems') {
+    return specFileRequest(data.modRoot, ['data', 'shipsystems', `${id}.system`], `${id}.system`);
+  }
+  return null;
+});
 
 interface PreviewState {
   alt: string;
@@ -92,6 +117,9 @@ const previewState = computed<PreviewState>(() => {
   }
   if (tables.currentTab === 'industries') {
     return previewFromMap(data.industrySprites[id], str(row.image), id, tables.currentTab);
+  }
+  if (tables.currentTab === 'shipSystems') {
+    return previewFromMap(data.shipSystemSprites[id], str(row.icon), id, tables.currentTab);
   }
   return noPreview(tables.currentTab);
 });
@@ -134,6 +162,20 @@ function expectedWeaponSprite(weapon: RowData | undefined): string {
     str(weapon?.hardpointGlowSprite)
   );
 }
+
+function specFileRequest(modRoot: string, parts: string[], title: string): FileEditorRequest {
+  return {
+    path: joinModPath(modRoot, ...parts),
+    title: '文件编辑器',
+    contextLabel: title,
+    message: title,
+  };
+}
+
+function joinModPath(modRoot: string, ...parts: string[]): string {
+  return [modRoot.replace(/[\\/]+$/, ''), ...parts].join('\\');
+}
+
 function weaponPreviewSprite(sprites: Record<string, string> | undefined): string | undefined {
   if (!sprites) return undefined;
   return (

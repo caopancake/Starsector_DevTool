@@ -95,7 +95,7 @@ const tables = useTablesStore();
 const project = useProjectStore();
 const workspace = useWorkspaceStore();
 const showMenu = ref(false);
-const primaryTableKeys: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods'];
+const primaryTableKeys: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'shipSystems'];
 
 const hasDirtyChanges = computed(() => tables.hasModDirtyChanges(props.mod.modRoot));
 const factionCount = computed(() => {

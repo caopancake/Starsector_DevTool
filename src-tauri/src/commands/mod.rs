@@ -1,11 +1,11 @@
 use crate::{
     filesystem,
     models::{
-        AddCsvRowPayload, AddShipRowPayload, AddWeaponRowPayload, AppData, CsvTable, DeletePayload,
-        EditableFileData, FactionPayload, GameOverviewData, MissionData, MissionListCsvPayload,
-        MissionPayload, OpenDirectoryResult, PersistedWorkspace, SaveCsvPayload,
-        SaveEditableFilePayload, SaveJsonPayload, SaveModInfoPayload, UploadSpritePayload,
-        UploadSpriteResult,
+        AppData, ApplyFileChangeSetPayload, CsvTable, EditableFileData, FactionHistoryResult,
+        FactionPayload, FileChangeRecord, GameOverviewData, MissionData, MissionListCsvPayload,
+        MissionPayload, OpenDirectoryResult, PersistedWorkspace, SaveCsvWithHistoryPayload,
+        SaveJsonWithHistoryPayload, SaveModFilesWithHistoryPayload, SaveTextFileWithHistoryPayload,
+        UploadSpritePayload, UploadSpriteResult,
     },
     services,
 };
@@ -45,65 +45,15 @@ pub fn scan_game_overview(starsector_root: String) -> GameOverviewData {
 }
 
 #[tauri::command]
-pub fn save_csv(payload: SaveCsvPayload) -> Result<String, String> {
-    services::save_csv(payload).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn add_csv_row(payload: AddCsvRowPayload) -> Result<(), String> {
-    services::add_csv_row(payload).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn delete_csv_row(payload: DeletePayload) -> Result<(), String> {
-    let table = payload.table.ok_or_else(|| "missing table".to_string())?;
-    services::delete_csv_row(&payload.mod_root, &table, &payload.id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn add_ship_row(payload: AddShipRowPayload) -> Result<(), String> {
-    services::add_ship_row(payload).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn delete_ship_row(payload: DeletePayload) -> Result<(), String> {
-    services::delete_ship_row(&payload.mod_root, &payload.id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn add_weapon_row(payload: AddWeaponRowPayload) -> Result<(), String> {
-    services::add_weapon_row(payload).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn delete_weapon_row(payload: DeletePayload) -> Result<(), String> {
-    services::delete_weapon_row(&payload.mod_root, &payload.id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn save_ship(payload: SaveJsonPayload) -> Result<String, String> {
-    services::save_ship(&payload.mod_root, &payload.id, &payload.data).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn save_wpn(payload: SaveJsonPayload) -> Result<String, String> {
-    services::save_weapon(&payload.mod_root, &payload.id, &payload.data).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn save_proj(payload: SaveJsonPayload) -> Result<String, String> {
-    services::save_projectile(&payload.mod_root, &payload.id, &payload.data)
-        .map_err(|e| e.to_string())
+pub fn save_csv_with_history(
+    payload: SaveCsvWithHistoryPayload,
+) -> Result<Vec<FileChangeRecord>, String> {
+    services::save_csv_with_history(payload).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn upload_sprite(payload: UploadSpritePayload) -> Result<UploadSpriteResult, String> {
     filesystem::upload_sprite(payload).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn save_mod_info(payload: SaveModInfoPayload) -> Result<(), String> {
-    services::save_mod_info(&payload.mod_root, &payload.data).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -128,19 +78,35 @@ pub fn save_workspace(
 }
 
 #[tauri::command]
-pub fn save_faction(payload: FactionPayload) -> Result<(), String> {
+pub fn save_faction_with_history(payload: FactionPayload) -> Result<Vec<FileChangeRecord>, String> {
     let data = payload.data.ok_or_else(|| "missing data".to_string())?;
-    services::save_faction(&payload.mod_root, &payload.id, &data).map_err(|e| e.to_string())
+    services::save_faction_with_history(
+        &payload.mod_root,
+        payload.old_id.as_deref(),
+        &payload.id,
+        &data,
+        payload.delete_file.unwrap_or(false),
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn create_faction(payload: FactionPayload) -> Result<Value, String> {
-    services::create_faction(&payload.mod_root, &payload.id).map_err(|e| e.to_string())
+pub fn create_faction_with_history(
+    payload: FactionPayload,
+) -> Result<FactionHistoryResult, String> {
+    let (data, changes) = services::create_faction_with_history(&payload.mod_root, &payload.id)
+        .map_err(|e| e.to_string())?;
+    Ok(FactionHistoryResult {
+        data: Some(data),
+        changes,
+    })
 }
 
 #[tauri::command]
-pub fn delete_faction(payload: FactionPayload) -> Result<(), String> {
-    services::delete_faction(
+pub fn delete_faction_with_history(
+    payload: FactionPayload,
+) -> Result<Vec<FileChangeRecord>, String> {
+    services::delete_faction_with_history(
         &payload.mod_root,
         &payload.id,
         payload.delete_file.unwrap_or(false),
@@ -159,31 +125,53 @@ pub fn load_mission_list_csv(payload: MissionListCsvPayload) -> Result<CsvTable,
 }
 
 #[tauri::command]
-pub fn save_mission_list_csv(payload: MissionListCsvPayload) -> Result<(), String> {
-    let header = payload.header.ok_or_else(|| "missing header".to_string())?;
-    let rows = payload.rows.ok_or_else(|| "missing rows".to_string())?;
-    services::save_mission_list_csv(&payload.mod_root, &payload.rel_path, &header, &rows)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 pub fn load_mission(payload: MissionPayload) -> Result<MissionData, String> {
     services::load_mission(&payload.mod_root, &payload.mission).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn save_mission(payload: MissionPayload) -> Result<(), String> {
+pub fn save_mission_with_history(payload: MissionPayload) -> Result<Vec<FileChangeRecord>, String> {
     let descriptor = payload
         .descriptor
         .ok_or_else(|| "missing descriptor".to_string())?;
     let text = payload.text.ok_or_else(|| "missing text".to_string())?;
-    services::save_mission(&payload.mod_root, &payload.mission, &descriptor, &text)
-        .map_err(|e| e.to_string())
+    let mission_list_rel_path = payload
+        .mission_list_rel_path
+        .ok_or_else(|| "missing mission list path".to_string())?;
+    let header = payload.header.ok_or_else(|| "missing header".to_string())?;
+    let rows = payload.rows.ok_or_else(|| "missing rows".to_string())?;
+    services::save_mission_with_history(services::config::MissionHistorySaveInput {
+        mod_root: &payload.mod_root,
+        mission: &payload.mission,
+        old_mission: payload.old_mission.as_deref(),
+        descriptor: &descriptor,
+        text: &text,
+        mission_list_rel_path: &mission_list_rel_path,
+        header: &header,
+        rows: &rows,
+        delete_old_directory: payload.delete_old_directory.unwrap_or(false),
+    })
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn delete_mission_dir(payload: MissionPayload) -> Result<(), String> {
-    services::delete_mission_dir(&payload.mod_root, &payload.mission).map_err(|e| e.to_string())
+pub fn delete_mission_with_history(
+    payload: MissionPayload,
+) -> Result<Vec<FileChangeRecord>, String> {
+    let mission_list_rel_path = payload
+        .mission_list_rel_path
+        .ok_or_else(|| "missing mission list path".to_string())?;
+    let header = payload.header.ok_or_else(|| "missing header".to_string())?;
+    let rows = payload.rows.ok_or_else(|| "missing rows".to_string())?;
+    services::delete_mission_with_history(
+        &payload.mod_root,
+        &payload.mission,
+        &mission_list_rel_path,
+        &header,
+        &rows,
+        payload.delete_old_directory.unwrap_or(false),
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -218,7 +206,27 @@ pub fn load_editable_file(path: String) -> Result<EditableFileData, String> {
 }
 
 #[tauri::command]
-pub fn save_editable_file(payload: SaveEditableFilePayload) -> Result<(), String> {
-    filesystem::write_utf8_no_bom(Path::new(&payload.path), &payload.text)
-        .map_err(|e| e.to_string())
+pub fn save_text_file_with_history(
+    payload: SaveTextFileWithHistoryPayload,
+) -> Result<Vec<FileChangeRecord>, String> {
+    services::save_text_file_with_history(payload).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_json_with_history(
+    payload: SaveJsonWithHistoryPayload,
+) -> Result<Vec<FileChangeRecord>, String> {
+    services::save_json_with_history(payload).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_mod_files_with_history(
+    payload: SaveModFilesWithHistoryPayload,
+) -> Result<Vec<FileChangeRecord>, String> {
+    services::save_mod_files_with_history(payload).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn apply_file_change_set(payload: ApplyFileChangeSetPayload) -> Result<(), String> {
+    services::apply_file_change_set(payload).map_err(|e| e.to_string())
 }

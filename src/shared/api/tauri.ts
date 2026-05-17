@@ -16,44 +16,19 @@ export function scanGameOverview(starsectorRoot: string): Promise<GameOverviewDa
   return invoke('scan_game_overview', { starsectorRoot });
 }
 
-export function saveCsv(modRoot: string, table: TableKey, header: string[], rows: RowData[]): Promise<string> {
-  return invoke('save_csv', { payload: { modRoot, table, header, rows } });
+export interface AssociatedFileChange {
+  relPath: string;
+  afterText?: string | null;
 }
 
-export function addCsvRow(modRoot: string, table: TableKey, header: string[], row: RowData): Promise<void> {
-  return invoke('add_csv_row', { payload: { modRoot, table, header, row } });
-}
-
-export function deleteCsvRow(modRoot: string, table: TableKey, id: string): Promise<void> {
-  return invoke('delete_csv_row', { payload: { modRoot, table, id } });
-}
-
-export function addShipRow(modRoot: string, header: string[], row: RowData, ship: RowData): Promise<void> {
-  return invoke('add_ship_row', { payload: { modRoot, header, row, ship } });
-}
-
-export function deleteShipRow(modRoot: string, id: string): Promise<void> {
-  return invoke('delete_ship_row', { payload: { modRoot, id } });
-}
-
-export function addWeaponRow(modRoot: string, header: string[], row: RowData, weapon: RowData): Promise<void> {
-  return invoke('add_weapon_row', { payload: { modRoot, header, row, weapon } });
-}
-
-export function deleteWeaponRow(modRoot: string, id: string): Promise<void> {
-  return invoke('delete_weapon_row', { payload: { modRoot, id } });
-}
-
-export function saveShip(modRoot: string, id: string, data: RowData): Promise<string> {
-  return invoke('save_ship', { payload: { modRoot, id, data } });
-}
-
-export function saveWeapon(modRoot: string, id: string, data: RowData): Promise<string> {
-  return invoke('save_wpn', { payload: { modRoot, id, data } });
-}
-
-export function saveProjectile(modRoot: string, id: string, data: RowData): Promise<string> {
-  return invoke('save_proj', { payload: { modRoot, id, data } });
+export function saveCsvWithHistory(
+  modRoot: string,
+  table: TableKey,
+  header: string[],
+  rows: RowData[],
+  associatedFiles: AssociatedFileChange[] = [],
+): Promise<FileChangeRecord[]> {
+  return invoke('save_csv_with_history', { payload: { modRoot, table, header, rows, associatedFiles } });
 }
 
 export interface UploadResult {
@@ -82,22 +57,6 @@ export function saveWorkspace(state: PersistedWorkspace): Promise<void> {
   return invoke('save_workspace', { state });
 }
 
-export function saveModInfo(modRoot: string, data: RowData): Promise<void> {
-  return invoke('save_mod_info', { payload: { modRoot, data } });
-}
-
-export function saveFaction(modRoot: string, id: string, data: RowData): Promise<void> {
-  return invoke('save_faction', { payload: { modRoot, id, data } });
-}
-
-export function createFaction(modRoot: string, id: string): Promise<RowData> {
-  return invoke('create_faction', { payload: { modRoot, id } });
-}
-
-export function deleteFaction(modRoot: string, id: string, deleteFile = false): Promise<void> {
-  return invoke('delete_faction', { payload: { modRoot, id, deleteFile } });
-}
-
 export interface CsvTable {
   header: string[];
   rows: RowData[];
@@ -112,10 +71,6 @@ export function loadMissionListCsv(modRoot: string, relPath: string): Promise<Cs
   return invoke('load_mission_list_csv', { payload: { modRoot, relPath } });
 }
 
-export function saveMissionListCsv(modRoot: string, relPath: string, header: string[], rows: RowData[]): Promise<void> {
-  return invoke('save_mission_list_csv', { payload: { modRoot, relPath, header, rows } });
-}
-
 export interface MissionData {
   descriptor: RowData;
   text: string;
@@ -126,12 +81,73 @@ export function loadMission(modRoot: string, mission: string): Promise<MissionDa
   return invoke('load_mission', { payload: { modRoot, mission } });
 }
 
-export function saveMission(modRoot: string, mission: string, descriptor: RowData, text: string): Promise<void> {
-  return invoke('save_mission', { payload: { modRoot, mission, descriptor, text } });
+export interface FactionHistoryResult {
+  data?: RowData | null;
+  changes: FileChangeRecord[];
 }
 
-export function deleteMissionDir(modRoot: string, mission: string): Promise<void> {
-  return invoke('delete_mission_dir', { payload: { modRoot, mission } });
+export function createFactionWithHistory(modRoot: string, id: string): Promise<FactionHistoryResult> {
+  return invoke('create_faction_with_history', { payload: { modRoot, id } });
+}
+
+export function saveFactionWithHistory(
+  modRoot: string,
+  id: string,
+  data: RowData,
+  oldId?: string | null,
+  deleteOldFile = false,
+): Promise<FileChangeRecord[]> {
+  return invoke('save_faction_with_history', { payload: { modRoot, id, oldId: oldId ?? null, data, deleteFile: deleteOldFile } });
+}
+
+export function deleteFactionWithHistory(modRoot: string, id: string, deleteFile = false): Promise<FileChangeRecord[]> {
+  return invoke('delete_faction_with_history', { payload: { modRoot, id, deleteFile } });
+}
+
+export function saveMissionWithHistory(
+  modRoot: string,
+  mission: string,
+  descriptor: RowData,
+  text: string,
+  missionListRelPath: string,
+  header: string[],
+  rows: RowData[],
+  oldMission?: string | null,
+  deleteOldDirectory = false,
+): Promise<FileChangeRecord[]> {
+  return invoke('save_mission_with_history', {
+    payload: {
+      modRoot,
+      mission,
+      oldMission: oldMission ?? null,
+      descriptor,
+      text,
+      missionListRelPath,
+      header,
+      rows,
+      deleteOldDirectory,
+    },
+  });
+}
+
+export function deleteMissionWithHistory(
+  modRoot: string,
+  mission: string,
+  missionListRelPath: string,
+  header: string[],
+  rows: RowData[],
+  deleteDirectory = false,
+): Promise<FileChangeRecord[]> {
+  return invoke('delete_mission_with_history', {
+    payload: {
+      modRoot,
+      mission,
+      missionListRelPath,
+      header,
+      rows,
+      deleteOldDirectory: deleteDirectory,
+    },
+  });
 }
 
 export function loadImageDataUrl(modRoot: string, relPath: string, starsectorRoot?: string): Promise<string | null> {
@@ -161,6 +177,42 @@ export function loadEditableFile(path: string): Promise<EditableFileData> {
   return invoke('load_editable_file', { path });
 }
 
-export function saveEditableFile(path: string, text: string): Promise<void> {
-  return invoke('save_editable_file', { payload: { path, text } });
+export interface FileChangeRecord {
+  kind: 'file' | 'directory';
+  path: string;
+  beforeExists: boolean;
+  beforeText?: string | null;
+  beforeFiles: FileSnapshot[];
+  afterExists: boolean;
+  afterText?: string | null;
+  afterFiles: FileSnapshot[];
+}
+
+export interface FileSnapshot {
+  relPath: string;
+  text?: string | null;
+  dataBase64?: string | null;
+}
+
+export function saveTextFileWithHistory(path: string, text: string): Promise<FileChangeRecord[]> {
+  return invoke('save_text_file_with_history', { payload: { path, text } });
+}
+
+export function saveJsonWithHistory(
+  modRoot: string,
+  relDir: string,
+  ext: string,
+  idKey: string,
+  id: string,
+  data: RowData,
+): Promise<FileChangeRecord[]> {
+  return invoke('save_json_with_history', { payload: { modRoot, relDir, ext, idKey, id, data } });
+}
+
+export function saveModFilesWithHistory(modRoot: string, files: AssociatedFileChange[]): Promise<FileChangeRecord[]> {
+  return invoke('save_mod_files_with_history', { payload: { modRoot, files } });
+}
+
+export function applyFileChangeSet(direction: 'undo' | 'redo', changes: FileChangeRecord[]): Promise<void> {
+  return invoke('apply_file_change_set', { payload: { direction, changes } });
 }

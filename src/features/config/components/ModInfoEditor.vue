@@ -17,7 +17,7 @@ import { computed, ref, watch } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import { useProjectStore } from '../../project/project.store';
 import { useConfigStore } from '../config.store';
-import { useHistoryStore } from '../../history/history.store';
+import { useFileHistoryStore } from '../../file-history/file.history.store';
 import { useSettingsStore } from '../../../app/settings.store';
 import { saveModInfoData } from '../config.service';
 import { deepClone } from '../../../shared/lib/starsector';
@@ -30,7 +30,7 @@ import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/t
 
 const project = useProjectStore();
 const configStore = useConfigStore();
-const historyStore = useHistoryStore();
+const fileHistory = useFileHistoryStore();
 const settings = useSettingsStore();
 const themeOverrides = computed(() => buildThemeOverrides(settings));
 
@@ -59,17 +59,12 @@ async function save() {
   if (!currentSchema) return;
   saving.value = true;
   try {
-    const previousSpec = deepClone(modData.modInfo);
     const split = splitSchemaSources(local.value, currentSchema);
     const file = split.file && typeof split.file === 'object' && !Array.isArray(split.file) ? (split.file as RowData) : {};
-    await saveModInfoData(modData.modRoot, file);
+    const changes = await saveModInfoData(modData.modRoot, file);
     modData.modInfo = deepClone(file);
     configStore.updateSnapshot(file);
-    historyStore.pushEvent(
-      { type: 'config-save', configKind: 'mod-info', id: '__mod_info__', previousData: previousSpec, newData: deepClone(file) },
-      '保存 mod_info.json',
-    );
-    historyStore.pushCheckpoint('config-save', 'mod_info.json 已保存');
+    fileHistory.pushFileSaveEntry(modData.modRoot, changes, '保存 mod_info.json');
     message.success('mod_info.json 已保存');
   } catch (error) {
     message.error(formatError(error));

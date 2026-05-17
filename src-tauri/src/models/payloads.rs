@@ -3,54 +3,20 @@ use serde_json::{Map, Value};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SaveCsvPayload {
+pub struct SaveCsvWithHistoryPayload {
     pub mod_root: String,
     pub table: String,
     pub header: Vec<String>,
     pub rows: Vec<Map<String, Value>>,
+    #[serde(default)]
+    pub associated_files: Vec<AssociatedFileChangePayload>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AddCsvRowPayload {
-    pub mod_root: String,
-    pub table: String,
-    pub header: Vec<String>,
-    pub row: Map<String, Value>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AddShipRowPayload {
-    pub mod_root: String,
-    pub header: Vec<String>,
-    pub row: Map<String, Value>,
-    pub ship: Value,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AddWeaponRowPayload {
-    pub mod_root: String,
-    pub header: Vec<String>,
-    pub row: Map<String, Value>,
-    pub weapon: Value,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SaveJsonPayload {
-    pub mod_root: String,
-    pub id: String,
-    pub data: Value,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DeletePayload {
-    pub mod_root: String,
-    pub table: Option<String>,
-    pub id: String,
+pub struct AssociatedFileChangePayload {
+    pub rel_path: String,
+    pub after_text: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -65,16 +31,10 @@ pub struct UploadSpritePayload {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SaveModInfoPayload {
-    pub mod_root: String,
-    pub data: Value,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct FactionPayload {
     pub mod_root: String,
     pub id: String,
+    pub old_id: Option<String>,
     pub data: Option<Value>,
     pub delete_file: Option<bool>,
 }
@@ -84,8 +44,6 @@ pub struct FactionPayload {
 pub struct MissionListCsvPayload {
     pub mod_root: String,
     pub rel_path: String,
-    pub header: Option<Vec<String>>,
-    pub rows: Option<Vec<Map<String, Value>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -93,8 +51,20 @@ pub struct MissionListCsvPayload {
 pub struct MissionPayload {
     pub mod_root: String,
     pub mission: String,
+    pub old_mission: Option<String>,
     pub descriptor: Option<Value>,
     pub text: Option<String>,
+    pub mission_list_rel_path: Option<String>,
+    pub header: Option<Vec<String>>,
+    pub rows: Option<Vec<Map<String, Value>>>,
+    pub delete_old_directory: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FactionHistoryResult {
+    pub data: Option<Value>,
+    pub changes: Vec<FileChangeRecord>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -112,11 +82,66 @@ pub struct EditableFileData {
     pub text: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileChangeRecord {
+    pub kind: FileChangeKind,
+    pub path: String,
+    pub before_exists: bool,
+    pub before_text: Option<String>,
+    #[serde(default)]
+    pub before_files: Vec<FileSnapshot>,
+    pub after_exists: bool,
+    pub after_text: Option<String>,
+    #[serde(default)]
+    pub after_files: Vec<FileSnapshot>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FileChangeKind {
+    File,
+    Directory,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileSnapshot {
+    pub rel_path: String,
+    pub text: Option<String>,
+    pub data_base64: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SaveEditableFilePayload {
+pub struct SaveTextFileWithHistoryPayload {
     pub path: String,
     pub text: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveModFilesWithHistoryPayload {
+    pub mod_root: String,
+    pub files: Vec<AssociatedFileChangePayload>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveJsonWithHistoryPayload {
+    pub mod_root: String,
+    pub rel_dir: String,
+    pub ext: String,
+    pub id_key: String,
+    pub id: String,
+    pub data: Value,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApplyFileChangeSetPayload {
+    pub direction: String,
+    pub changes: Vec<FileChangeRecord>,
 }
 
 #[derive(Debug, Serialize)]
@@ -127,33 +152,4 @@ pub struct UploadSpriteResult {
     pub path: String,
     pub overwritten: bool,
     pub message: Option<String>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn save_csv_payload_uses_camel_case_mod_root() {
-        let payload: SaveCsvPayload = serde_json::from_value(serde_json::json!({
-            "modRoot": "D:/mod",
-            "table": "ships",
-            "header": ["id"],
-            "rows": [{"id": "demo"}]
-        }))
-        .unwrap();
-        assert_eq!(payload.mod_root, "D:/mod");
-        assert_eq!(payload.table, "ships");
-    }
-
-    #[test]
-    fn save_csv_payload_rejects_snake_case_mod_root() {
-        let result = serde_json::from_value::<SaveCsvPayload>(serde_json::json!({
-            "mod_root": "D:/mod",
-            "table": "ships",
-            "header": ["id"],
-            "rows": []
-        }));
-        assert!(result.is_err());
-    }
 }

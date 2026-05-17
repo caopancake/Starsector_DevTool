@@ -1,32 +1,33 @@
-import { saveProjectile, saveShip, saveWeapon, uploadSprite } from '../../shared/api/tauri';
+import { saveJsonWithHistory, uploadSprite } from '../../shared/api/tauri';
 import { AppError, withCause } from '../../shared/lib/errors';
 import type { RowData } from '../../shared/types';
+import type { FileChangeRecord } from '../../shared/api/tauri';
 
-export async function saveShipSpec(modRoot: string, id: string, data: RowData): Promise<string> {
+export async function saveShipSpecWithHistory(modRoot: string, id: string, data: RowData): Promise<FileChangeRecord[]> {
   ensureSpecContext(modRoot, id, '.ship');
   data.hullId = data.hullId || id;
   try {
-    return await saveShip(modRoot, id, data);
+    return await saveJsonWithHistory(modRoot, 'data/hulls', 'ship', 'hullId', id, data);
   } catch (error) {
     throw withCause(`保存 ${id}.ship 失败`, error, 'save-ship-spec');
   }
 }
 
-export async function saveWeaponSpec(modRoot: string, id: string, data: RowData): Promise<string> {
+export async function saveWeaponSpecWithHistory(modRoot: string, id: string, data: RowData): Promise<FileChangeRecord[]> {
   ensureSpecContext(modRoot, id, '.wpn');
   data.id = data.id || id;
   try {
-    return await saveWeapon(modRoot, id, data);
+    return await saveJsonWithHistory(modRoot, 'data/weapons', 'wpn', 'id', id, data);
   } catch (error) {
     throw withCause(`保存 ${id}.wpn 失败`, error, 'save-weapon-spec');
   }
 }
 
-export async function saveProjectileSpec(modRoot: string, id: string, data: RowData): Promise<string> {
+export async function saveProjectileSpecWithHistory(modRoot: string, id: string, data: RowData): Promise<FileChangeRecord[]> {
   ensureSpecContext(modRoot, id, '.proj');
   data.id = data.id || id;
   try {
-    return await saveProjectile(modRoot, id, data);
+    return await saveJsonWithHistory(modRoot, 'data/weapons/proj', 'proj', 'id', id, data);
   } catch (error) {
     throw withCause(`保存 ${id}.proj 失败`, error, 'save-projectile-spec');
   }

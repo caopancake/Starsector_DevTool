@@ -55,9 +55,9 @@
 </template>
 
 <script setup lang="ts">
-import { emit } from '@tauri-apps/api/event';
+import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import ShipEditor from '../features/editors/components/ShipEditor.vue';
 import WeaponEditor from '../features/editors/components/WeaponEditor.vue';
 import ProjectileEditor from '../features/editors/components/ProjectileEditor.vue';
@@ -85,6 +85,7 @@ const appData = ref<AppData | null>(null);
 const loading = ref(true);
 const errorText = ref('');
 const settings = useSettingsStore();
+let unlistenEditorSpecApplied: UnlistenFn | null = null;
 
 const weaponForEditor = computed<RowData>(() => {
   const data = appData.value;
@@ -129,19 +130,31 @@ async function emitSaved(payload: EditorSpecSavedEvent) {
   await emit(WINDOW_EVENTS.editorSpecSaved, payload);
 }
 
-function onShipSaved(savedId: string, ship: RowData) {
+function handleEditorSpecApplied(payload: EditorSpecSavedEvent) {
+  if (payload.modRoot !== modRoot || payload.id !== id || payload.kind !== kind.value || !appData.value) return;
+  const spec = deepClone(payload.spec);
+  if (payload.kind === 'ship') {
+    appData.value.shipFiles[payload.id] = spec;
+  } else if (payload.kind === 'weapon') {
+    appData.value.wpnFiles[payload.id] = spec;
+  } else {
+    appData.value.projFiles[payload.id] = spec;
+  }
+}
+
+function onShipSaved(savedId: string, ship: RowData, changes: EditorSpecSavedEvent['changes']) {
   if (appData.value) appData.value.shipFiles[savedId] = deepClone(ship);
-  void emitSaved({ kind: 'ship', modRoot, id: savedId, spec: deepClone(ship) });
+  void emitSaved({ kind: 'ship', modRoot, id: savedId, spec: deepClone(ship), changes });
 }
 
-function onWeaponSaved(savedId: string, weapon: RowData) {
+function onWeaponSaved(savedId: string, weapon: RowData, changes: EditorSpecSavedEvent['changes']) {
   if (appData.value) appData.value.wpnFiles[savedId] = deepClone(weapon);
-  void emitSaved({ kind: 'weapon', modRoot, id: savedId, spec: deepClone(weapon) });
+  void emitSaved({ kind: 'weapon', modRoot, id: savedId, spec: deepClone(weapon), changes });
 }
 
-function onProjectileSaved(savedId: string, projectile: RowData) {
+function onProjectileSaved(savedId: string, projectile: RowData, changes: EditorSpecSavedEvent['changes']) {
   if (appData.value) appData.value.projFiles[savedId] = deepClone(projectile);
-  void emitSaved({ kind: 'projectile', modRoot, id: savedId, spec: deepClone(projectile) });
+  void emitSaved({ kind: 'projectile', modRoot, id: savedId, spec: deepClone(projectile), changes });
 }
 
 function openProjectile(projectileId: string) {
@@ -162,5 +175,15 @@ function openPreview(weaponId: string) {
   });
 }
 
-onMounted(() => void loadEditorData());
+onMounted(async () => {
+  unlistenEditorSpecApplied = await listen<EditorSpecSavedEvent>(WINDOW_EVENTS.editorSpecApplied, (event) => {
+    handleEditorSpecApplied(event.payload);
+  });
+  void loadEditorData();
+});
+
+onUnmounted(() => {
+  unlistenEditorSpecApplied?.();
+  unlistenEditorSpecApplied = null;
+});
 </script>

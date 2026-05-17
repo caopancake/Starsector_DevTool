@@ -2,8 +2,9 @@ import type { AppData, ModEntry, PersistedMod } from '../../shared/types';
 import { detectDirectory } from '../../shared/api/tauri';
 import { cell, formatModVersion } from '../../shared/lib/starsector';
 import { useEditorsStore } from '../editors/editors.store';
-import { useHistoryStore } from '../history/history.store';
+import { useFileHistoryStore } from '../file-history/file.history.store';
 import { useProjectStore } from '../project/project.store';
+import { useTablesEditHistoryStore } from '../tables/tables.edit-history.store';
 import { useTablesStore } from '../tables/tables.store';
 import { useWorkspaceStore } from './workspace.store';
 
@@ -93,11 +94,11 @@ async function loadProjectData(modRoot: string, starsectorRoot: string | null): 
 function hydrateLoadedMod(modRoot: string, loaded: AppData, activate: boolean) {
   const tables = useTablesStore();
   const editors = useEditorsStore();
-  const historyStore = useHistoryStore();
+  const fileHistory = useFileHistoryStore();
   if (activate) {
     tables.hydrate(modRoot, loaded);
     editors.activateFor(modRoot);
-    historyStore.activateFor(modRoot);
+    fileHistory.activateFor(modRoot);
   } else {
     tables.hydrateWithoutActivate(modRoot, loaded);
   }
@@ -116,12 +117,14 @@ function rollbackFailedModLoad(modRoot: string) {
   const workspace = useWorkspaceStore();
   const tables = useTablesStore();
   const editors = useEditorsStore();
-  const historyStore = useHistoryStore();
+  const fileHistory = useFileHistoryStore();
+  const csvEditHistory = useTablesEditHistoryStore();
   const project = useProjectStore();
   workspace.removeMod(modRoot);
   tables.removeModState(modRoot);
   editors.removeModState(modRoot);
-  historyStore.removeModState(modRoot);
+  fileHistory.removeModState(modRoot);
+  csvEditHistory.clearForMod(modRoot);
   project.removeModData(modRoot);
   workspace.navigateTo('overview');
 }

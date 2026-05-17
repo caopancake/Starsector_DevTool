@@ -164,6 +164,40 @@
   color: var(--color-muted);
 }
 
+.associated-save-dialog {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.associated-save-dialog p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.associated-save-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.file-history-confirm {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.file-history-confirm p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.file-history-confirm-list {
+  display: grid;
+  max-height: 180px;
+  padding-left: 18px;
+  margin: 0;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
 .content-grid {
   position: relative;
   display: grid;

@@ -26,9 +26,9 @@
 import { computed, ref, watch } from 'vue';
 import { createDiscreteApi } from 'naive-ui';
 import { useProjectStore } from '../../project/project.store';
-import { useHistoryStore } from '../../history/history.store';
+import { useFileHistoryStore } from '../../file-history/file.history.store';
 import { useSettingsStore } from '../../../app/settings.store';
-import { saveFactionData, deleteFactionFile } from '../config.service';
+import { saveFactionData } from '../config.service';
 import { loadImageDataUrl } from '../../../shared/api/tauri';
 import { deepClone } from '../../../shared/lib/starsector';
 import { formatError } from '../../../shared/lib/errors';
@@ -41,7 +41,7 @@ import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/t
 const props = defineProps<{ factionId: string }>();
 
 const project = useProjectStore();
-const historyStore = useHistoryStore();
+const fileHistory = useFileHistoryStore();
 const settings = useSettingsStore();
 const themeOverrides = computed(() => buildThemeOverrides(settings));
 
@@ -133,15 +133,9 @@ async function save() {
     const oldId = props.factionId;
     const idChanged = newId !== oldId;
 
-    const previousSpec = deepClone(modData.factionFiles[oldId] ?? {});
-
-    // Save with new ID (backend writes to {newId}.faction)
-    await saveFactionData(modData.modRoot, newId, file);
+    const changes = await saveFactionData(modData.modRoot, newId, file, idChanged ? oldId : null, idChanged);
 
     if (idChanged) {
-      // Delete old faction file
-      await deleteFactionFile(modData.modRoot, oldId);
-      // Update factionFiles map: remove old, add new
       delete modData.factionFiles[oldId];
       delete modData.factionMeta[oldId];
     }
@@ -152,13 +146,7 @@ async function save() {
       color: rgbaToCss(file.color),
     };
 
-    if (!idChanged) {
-      historyStore.pushEvent(
-        { type: 'config-save', configKind: 'faction', id: newId, previousData: previousSpec, newData: deepClone(file) },
-        `保存 ${newId}.faction`,
-      );
-      historyStore.pushCheckpoint('config-save', `${newId}.faction 已保存`);
-    }
+    fileHistory.pushFileSaveEntry(modData.modRoot, changes, `保存 ${newId}.faction`);
     message.success(`${newId}.faction 已保存`);
   } catch (error) {
     message.error(formatError(error));

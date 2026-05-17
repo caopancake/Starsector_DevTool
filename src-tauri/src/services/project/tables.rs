@@ -67,6 +67,12 @@ mod tests {
             "id,name,tags\r\nship,Ship,demo_bp\r\n",
         )
         .unwrap();
+        fs::create_dir_all(root.join("data/shipsystems")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/shipsystems/ship_systems.csv"),
+            "name,id,icon\r\nBurn Drive,burndrive,graphics/icons/hullsys/burn_drive.png\r\n",
+        )
+        .unwrap();
         let mut tag_map = HashMap::new();
         tag_map.insert("demo_bp".to_string(), "demo".to_string());
 
@@ -76,6 +82,7 @@ mod tests {
         assert_eq!(loaded.csv_headers["ships"], ["id", "name", "tags"]);
         assert_eq!(loaded.rows["ships"][0]["_faction"], "demo");
         assert!(loaded.rows.contains_key("weapons"));
+        assert_eq!(loaded.rows["shipSystems"][0]["id"], "burndrive");
     }
 
     fn temp_dir(name: &str) -> PathBuf {
