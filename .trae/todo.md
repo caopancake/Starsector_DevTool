@@ -1,70 +1,60 @@
 # Todo
 
-后续工作按 phase 推进。每个 phase 完成后应更新本文档。本文只保留未来 backlog，不保留已完成历史记录。
+- [ ] 后续工作按 phase 推进；每个 phase 完成后更新本文档。
+- [ ] 本文只保留 backlog 和当前完成状态，不保留展开的历史记录。
 
 ## Phase 1: 舰船编辑器 / 武器编辑器窗口化
 
-目标：把当前会阻塞主窗口的舰船编辑器和武器编辑器改为独立窗口，行为参考文件编辑器。
-
-- [ ] 抽象可复用的编辑器窗口打开能力，支持按业务 key 复用已有窗口。
-- [ ] 舰船编辑器改为独立窗口打开，允许不同舰船同时打开。
-- [ ] 武器编辑器改为独立窗口打开，允许不同武器同时打开。
-- [ ] 同一个舰船或同一个武器不允许重复打开多个窗口；再次打开时聚焦已有窗口。
-- [ ] 保持现有保存边界：`.ship` / `.wpn` 只写回对应 spec，不隐式保存 CSV。
-- [ ] 保持 per-Mod 状态隔离，编辑器窗口引用必须包含 `modRoot` 和目标 id。
-- [ ] 验收：主窗口在舰船/武器编辑器打开时仍可切换、查看和操作其它内容。
+- [x] 抽象可复用的编辑器窗口打开能力，支持按业务 key 复用已有窗口。
+- [x] 舰船编辑器改为独立窗口打开，允许不同舰船同时打开。
+- [x] 武器编辑器改为独立窗口打开，允许不同武器同时打开。
+- [x] 同一个舰船或同一个武器不允许重复打开多个窗口；再次打开时聚焦已有窗口。
+- [x] 保持现有保存边界：`.ship` / `.wpn` 只写回对应 spec，不隐式保存 CSV。
+- [x] 保持 per-Mod 状态隔离，编辑器窗口引用必须包含 `modRoot` 和目标 id。
+- [x] 验收：主窗口在舰船/武器编辑器打开时仍可切换、查看和操作其它内容。
 
 ## Phase 2: 技能编辑器（Skills）
 
-覆盖 `data/characters/skills/*.skill`，高 Mod 影响度。
-
-- [ ] 后端：扫描 + 加载 + 保存 `.skill` 文件。
-- [ ] 前端：Schema 定义 `skill.schema.json`，从 `starsector-core` 分析字段结构。
-- [ ] 前端：技能列表 + SchemaFormRenderer 驱动的编辑表单。
-- [ ] 前端：技能等级效果分组编辑（Level 1/2/3 + Elite 效果）。
-- [ ] 前端：所属天赋选择器（aptitude 关联）。
+- [ ] 读取 `data/characters/skills/skill_data.csv` 文件。
+- [ ] 根据 `skill_data.csv` 中的定义，读取对应的 `data/characters/skills/*.skill`，先按当前 CSV 列式文件的基础接入方式提供列表、选择、文本/字段基础编辑和保存。
+- [ ] 后端：扫描、加载、保存 `.skill` 文件。
+- [ ] 前端：技能列表，支持选择、查看、基础字段编辑和保存。
+- [ ] 前端：右侧上下文预览和字段速览，行为对齐现有列式文件。
 - [ ] 集成左侧树配置分组。
-- [ ] 验收：列表 → 选择 → 编辑效果 → 保存。
+- [ ] 验收：列表 → 选择 → 基础编辑 → 保存。
 
-## Phase 3: 船皮编辑器（Skins）
+## Phase 3: 舰船皮肤编辑器（Skins）
 
-覆盖 `data/hulls/skins/*.skin`，高 Mod 影响度。
-
-- [ ] 后端：扫描 + 加载 + 保存 `.skin` 文件。
-- [ ] 前端：Schema 定义 `skin.schema.json`。
-- [ ] 前端：船皮列表（含基础船体名称关联）+ 编辑表单。
-- [ ] 前端：基础船体选择器（从 ships 数据中选取 hullId）。
-- [ ] 前端：武器槽类型覆盖编辑器（slotType 修改）。
-- [ ] 前端：内置舰船插件列表编辑（builtInMods）。
-- [ ] 前端：贴图覆盖路径配置（spriteName 覆盖 + 预览）。
-- [ ] 验收：列表 → 选择 → 编辑船皮配置 → 保存。
+- [ ] 覆盖 `data/hulls/skins/*.skin`，先按当前 CSV 列式文件的基础接入方式提供列表、选择、文本/字段基础编辑和保存。
+- [ ] 后端：扫描、加载、保存 `.skin` 文件。
+- [ ] 前端：舰船皮肤列表，支持选择、查看、基础字段编辑和保存。
+- [ ] 前端：右侧上下文预览和字段速览，行为对齐现有列式文件。
+- [ ] 集成左侧树配置分组。
+- [ ] 验收：列表 → 选择 → 基础编辑 → 保存。
 
 ## Phase 4: 舰船装配编辑器（Variants）
 
-覆盖 `data/variants/**/*.variant`，当前仅只读。
-
+- [ ] 覆盖 `data/variants/**/*.variant`，先按当前 CSV 列式文件的基础接入方式提供列表、选择、文本/字段基础编辑和保存。
 - [ ] 后端：加载 + 保存 `.variant` 文件。
-- [ ] 前端：Schema 定义 `variant.schema.json`。
-- [ ] 前端：装配列表（按船体分组）+ 编辑表单。
-- [ ] 前端：武器装配编辑器（从 weapons CSV 选取武器 → 分配到武器槽）。
-- [ ] 前端：舰船插件选择器（从 hullmods CSV 选取）。
-- [ ] 前端：联队选择器（从 wings CSV 选取）。
-- [ ] 前端：新建/删除装配。
-- [ ] 验收：列表 → 选择 → 编辑装配 → 保存。
+- [ ] 前端：装配列表，支持选择、查看、基础字段编辑和保存。
+- [ ] 前端：右侧上下文预览和字段速览，行为对齐现有列式文件。
+- [ ] 集成左侧树配置分组。
+- [ ] 验收：列表 → 选择 → 基础编辑 → 保存。
 
 ## Phase 5: 战术系统 CSV 接入（Ship System）
 
-覆盖 `data/shipsystems/*.system`，和 `data/shipsystems/ship_systems.csv`，当前仅只读。
-
-- [ ] 后端：加载 + 保存 `.csv` 文件。
-- [ ] 后端：加载 + 保存 `.system` 文件。
-- [ ] 如同舰船编辑器/武器编辑器一样的 CSV 界面，右侧有上下文预览列，包括图标、操作（当前模块没有专用编辑器）、字段速览。
-- [ ] 在“舰船插件”的下方
+- [ ] 读取 `data/shipsystems/ship_systems.csv` 文件。
+- [ ] 根据 `ship_systems.csv` 中的定义，读取对应的 `data/shipsystems/*.system`，先按当前 CSV 列式文件的基础接入方式提供列表、选择、文本/字段基础编辑和保存。
+- [ ] 后端：加载、保存 `ship_systems.csv`。
+- [ ] 后端：扫描、加载、保存 `.system` 文件。
+- [ ] 前端：战术系统列表，支持选择、查看、基础字段编辑和保存。
+- [ ] 前端：右侧上下文预览和字段速览，行为对齐现有列式文件。
+- [ ] 集成左侧树，在“舰船插件”的下方。
+- [ ] 验收：列表 → 选择 → 基础编辑 → 保存。
 
 ## Phase 6: 生涯 CSV 补全
 
-覆盖剩余生涯相关 CSV 文件。
-
+- [ ] 覆盖剩余生涯相关 CSV 文件。
 - [ ] 添加 `abilities.csv` 编辑支持（舰队能力定义）。
 - [ ] 添加 `commodities.csv` 编辑支持（贸易商品）。
 - [ ] 添加 `submarkets.csv` 编辑支持（市场类型）。
@@ -75,13 +65,15 @@
 
 ## Phase 7: Schema Registry 收尾
 
-目标：补齐 CSV 列 schema，并评估现有编辑器检查器是否适合局部 schema 化。
+- [ ] 补齐 CSV 列 schema，并评估现有编辑器检查器是否适合局部 schema 化。
 
 ### Phase 7.1: CSV 列 Schema
 
 - [ ] 编写 CSV 列定义 Schema：`csv/ship_data.columns.json`、`csv/weapon_data.columns.json` 等。
 - [ ] 定义 CSV 列 Schema 格式：key、type、source、options、显示标签和可编辑性。
 - [ ] 主表格根据列 Schema 渲染富控件，例如下拉选择器、path-image 缩略图、颜色块和数字输入。
+- [ ] 为已基础接入的 `.skill`、`.skin`、`.variant`、`.system` 和 `ship_systems.csv` 补 Schema 适配。
+- [ ] 评估并补充技能等级效果、基础船体选择、武器槽覆盖、装配武器/插件/联队选择等富编辑控件。
 - [ ] 保持 CSV 保存链路不变，只改变编辑展示和输入约束。
 
 ### Phase 7.2: 现有编辑器 Schema 化评估
@@ -152,9 +144,8 @@
 
 ## Phase 12: 可视化逻辑编辑器（蓝图系统）
 
-目标：将 Starsector 高度模板化的 Java 模块（Ship System、Bar Event、Mission、rules.csv 对话）抽象为可视化节点图，使 Mod 作者无需编写 Java 即可完成常见场景的逻辑配置。
-
-集成社区核心库支持：MagicLib、GraphicsLib、LazyLib、LunaLib、BoxUtil。
+- [ ] 将 Starsector 高度模板化的 Java 模块（Ship System、Bar Event、Mission、rules.csv 对话）抽象为可视化节点图。
+- [ ] 集成社区核心库支持：MagicLib、GraphicsLib、LazyLib、LunaLib、BoxUtil。
 
 ### Phase 12.1: 模板向导（Template Wizard）
 
@@ -209,9 +200,8 @@
 
 ## Phase 13: 社区库数据文件集成（MagicLib / GraphicsLib / LazyLib）
 
-将社区核心库的数据文件格式纳入工具编辑范围。与蓝图系统互补，本阶段聚焦纯数据配置文件的编辑支持。
-
-前置条件：Mod 的 `mod_info.json` 声明对应库为依赖时，才暴露相关编辑入口。
+- [ ] 将社区核心库的数据文件格式纳入工具编辑范围，本阶段聚焦纯数据配置文件的编辑支持。
+- [ ] 仅当 Mod 的 `mod_info.json` 声明对应库为依赖时，暴露相关编辑入口。
 
 ### Phase 13.1: 直接嵌入
 

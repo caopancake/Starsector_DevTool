@@ -3,7 +3,6 @@ import { createDiscreteApi } from 'naive-ui';
 import { useHistoryStore } from '../history.store';
 import { useTablesStore } from '../../tables/tables.store';
 import { useProjectStore } from '../../project/project.store';
-import { useEditorsStore } from '../../editors/editors.store';
 import { useSettingsStore } from '../../../app/settings.store';
 import { applyRedo, applyUndo } from '../history.service';
 import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
@@ -17,7 +16,6 @@ export function useGlobalShortcuts() {
   const history = useHistoryStore();
   const tables = useTablesStore();
   const project = useProjectStore();
-  const editorsStore = useEditorsStore();
   const settings = useSettingsStore();
   const themeOverrides = computed(() => buildThemeOverrides(settings));
 
@@ -25,17 +23,10 @@ export function useGlobalShortcuts() {
     configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
   });
 
-  function isEditorOpen(): boolean {
-    return !!(editorsStore.shipEditorId || editorsStore.weaponEditorId || editorsStore.projectileEditorId);
-  }
-
   function handleKeyDown(event: KeyboardEvent) {
     // Don't intercept if inside input/textarea
     const target = event.target as HTMLElement | null;
     if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
-
-    // Don't intercept if editor modal is open (editor handles its own Ctrl+Z/Y)
-    if (isEditorOpen()) return;
 
     if (event.ctrlKey && event.key === 'z' && !event.shiftKey) {
       event.preventDefault();

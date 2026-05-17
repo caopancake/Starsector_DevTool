@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Default permissions for the Starsector DevTool main window.",
-  "windows": ["main", "file-editor-*"],
+  "windows": ["main", "file-editor-*", "editor-*"],
   "permissions": [
     "core:default",
     "core:event:allow-emit",

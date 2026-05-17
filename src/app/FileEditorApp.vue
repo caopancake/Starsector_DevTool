@@ -1,52 +1,50 @@
 <template>
-  <n-config-provider :theme="settings.naiveTheme" :theme-overrides="themeOverrides">
-    <n-message-provider>
-      <main class="file-editor-page" :data-theme="settings.theme">
-        <header class="file-editor-header">
-          <div class="file-editor-heading">
-            <div class="file-editor-title">{{ title }}</div>
-            <div class="file-editor-path" :title="filePath">{{ filePath }}</div>
-          </div>
-          <div class="file-editor-actions">
-            <n-button :disabled="!dirty || saving" @click="cancelChanges">取消</n-button>
-            <n-button type="primary" :loading="saving" :disabled="!dirty" @click="saveFile">保存</n-button>
-          </div>
-        </header>
+  <WindowShell>
+    <main class="file-editor-page" :data-theme="settings.theme">
+      <header class="file-editor-header">
+        <div class="file-editor-heading">
+          <div class="file-editor-title">{{ title }}</div>
+          <div class="file-editor-path" :title="filePath">{{ filePath }}</div>
+        </div>
+        <div class="file-editor-actions">
+          <n-button :disabled="!dirty || saving" @click="cancelChanges">取消</n-button>
+          <n-button type="primary" :loading="saving" :disabled="!dirty" @click="saveFile">保存</n-button>
+        </div>
+      </header>
 
-        <section v-if="contextMessage" class="file-editor-message">
-          <span>{{ contextLabel }}</span>
-          <p>{{ contextMessage }}</p>
-        </section>
+      <section v-if="contextMessage" class="file-editor-message">
+        <span>{{ contextLabel }}</span>
+        <p>{{ contextMessage }}</p>
+      </section>
 
-        <section class="file-editor-body" :aria-busy="loading">
-          <div ref="lineGutterRef" class="file-editor-gutter" aria-hidden="true">
-            <div
-              v-for="lineNumber in lineCount"
-              :key="lineNumber"
-              :class="['file-editor-line-number', { active: lineNumber === targetLine }]"
-            >
-              {{ lineNumber }}
-            </div>
-          </div>
-          <textarea
-            ref="textareaRef"
-            :value="text"
-            class="file-editor-textarea"
-            spellcheck="false"
-            :disabled="loading || saving"
-            @input="handleTextInput"
-            @scroll="syncScroll"
-          />
+      <section class="file-editor-body" :aria-busy="loading">
+        <div ref="lineGutterRef" class="file-editor-gutter" aria-hidden="true">
           <div
-            v-if="targetLine"
-            ref="highlightRef"
-            class="file-editor-line-highlight"
-            :style="{ top: `${(targetLine - 1) * lineHeight - scrollTop}px` }"
-          />
-        </section>
-      </main>
-    </n-message-provider>
-  </n-config-provider>
+            v-for="lineNumber in lineCount"
+            :key="lineNumber"
+            :class="['file-editor-line-number', { active: lineNumber === targetLine }]"
+          >
+            {{ lineNumber }}
+          </div>
+        </div>
+        <textarea
+          ref="textareaRef"
+          :value="text"
+          class="file-editor-textarea"
+          spellcheck="false"
+          :disabled="loading || saving"
+          @input="handleTextInput"
+          @scroll="syncScroll"
+        />
+        <div
+          v-if="targetLine"
+          ref="highlightRef"
+          class="file-editor-line-highlight"
+          :style="{ top: `${(targetLine - 1) * lineHeight - scrollTop}px` }"
+        />
+      </section>
+    </main>
+  </WindowShell>
 </template>
 
 <script setup lang="ts">
@@ -58,6 +56,8 @@ import { loadEditableFile, saveEditableFile } from '../shared/api/tauri';
 import { formatError } from '../shared/lib/errors';
 import { useSettingsStore } from './settings.store';
 import { buildThemeOverrides, discreteConfigProviderProps } from './theme-overrides';
+import WindowShell from './WindowShell.vue';
+import { WINDOW_EVENTS, type FileEditorFocusLineEvent } from '../features/windowing/window-events';
 
 const params = new window.URLSearchParams(window.location.search);
 const settings = useSettingsStore();
@@ -208,7 +208,7 @@ function handleEditorKeydown(event: KeyboardEvent) {
 onMounted(() => {
   window.addEventListener('keydown', handleEditorKeydown);
   void loadFile();
-  void listen<{ line?: number | null; message?: string | null; contextLabel?: string | null }>('file-editor-focus-line', async (event) => {
+  void listen<FileEditorFocusLineEvent>(WINDOW_EVENTS.fileEditorFocusLine, async (event) => {
     if (event.payload.message) contextMessage.value = event.payload.message;
     if (event.payload.contextLabel) contextLabel.value = event.payload.contextLabel;
     if (event.payload.line) targetLine.value = event.payload.line;

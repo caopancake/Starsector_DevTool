@@ -451,9 +451,9 @@
 - 代码位置：`WeaponFirePreview.vue`
 - 说明：发射预览是当前武器及其关联弹体或光束的只读预览能力，用来直观看到发射节奏、速度、范围和部分视觉效果。它只读取当前内存中的武器和弹体数据，不写任何文件，因此它属于展示和验证能力，而不是编辑保存链路的一部分。
 
-`预览武器 ID（Preview Weapon ID）`
-- 字段：`previewWeaponId`
-- 说明：`previewWeaponId` 用于记录当前正在预览的武器 ID，是发射预览弹窗挂载时最关键的定位状态。当前它保存在 `editors.store.ts` 中。
+`预览窗口目标（Preview Window Target）`
+- 字段：`kind=weapon-preview`、`modRoot`、`id`
+- 说明：发射预览作为独立编辑器窗口打开，窗口目标由窗口 URL 参数和 `editor-window.ts` 的业务 key 定位。同一 `modRoot + weapon-preview + id` 只打开一个窗口，再次打开时聚焦已有窗口。
 
 `预览（Preview）`
 - 字段/事件：`preview`

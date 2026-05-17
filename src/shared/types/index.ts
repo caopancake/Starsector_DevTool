@@ -67,7 +67,7 @@ export interface OpenDirectoryResult {
 }
 
 export type TableKey = 'ships' | 'weapons' | 'wings' | 'hullmods' | 'industries';
-export type EditorKind = 'ship' | 'weapon' | 'projectile' | 'preview';
+export type EditorKind = 'ship' | 'weapon' | 'projectile';
 
 export interface SelectOption {
   label: string;
@@ -76,13 +76,4 @@ export interface SelectOption {
 
 export type RenderFn = () => VNodeChild;
 
-export type {
-  ConfigView,
-  EditorRef,
-  ModEditorState,
-  ModEntry,
-  ModTableState,
-  PersistedMod,
-  PersistedWorkspace,
-  WorkspaceView,
-} from './workspace';
+export type { ConfigView, ModEntry, ModTableState, PersistedMod, PersistedWorkspace, WorkspaceView } from './workspace';

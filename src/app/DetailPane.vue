@@ -22,10 +22,10 @@
         <div class="panel-section-title">操作</div>
         <div class="detail-actions">
           <n-button v-if="tables.currentTab === 'ships'" block @click="$emit('open-ship', rowId(tables.selectedRow))">舰船编辑器</n-button>
-          <n-button v-if="tables.currentTab === 'weapons'" block @click="editors.openWeapon(rowId(tables.selectedRow))"
+          <n-button v-if="tables.currentTab === 'weapons'" block @click="$emit('open-weapon', rowId(tables.selectedRow))"
             >武器编辑器</n-button
           >
-          <n-button v-if="tables.currentTab === 'weapons'" block tertiary @click="editors.openPreview(rowId(tables.selectedRow))"
+          <n-button v-if="tables.currentTab === 'weapons'" block tertiary @click="$emit('open-weapon-preview', rowId(tables.selectedRow))"
             >发射预览</n-button
           >
         </div>
@@ -51,15 +51,13 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useTablesStore } from '../features/tables/tables.store';
-import { useEditorsStore } from '../features/editors/editors.store';
 import { useProjectStore } from '../features/project/project.store';
 import { cell, MODULE_LABELS, rowId, str } from '../shared/lib/starsector';
 import type { RowData, TableKey } from '../shared/types';
 
-defineEmits<{ 'open-ship': [id: string] }>();
+defineEmits<{ 'open-ship': [id: string]; 'open-weapon': [id: string]; 'open-weapon-preview': [id: string] }>();
 
 const tables = useTablesStore();
-const editors = useEditorsStore();
 const project = useProjectStore();
 
 const displayName = computed(() => {

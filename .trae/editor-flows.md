@@ -6,8 +6,10 @@
 
 1. 用户在主表格选择一行。
 2. `src/app/DetailPane.vue` 根据 `tables.currentTab` 展示右侧操作入口。
-3. 需要弹窗编辑的模块通过 `src/features/editors/editors.store.ts` 记录当前编辑 id。
-4. `src/app/EditorsHost.vue` 根据 store 中的 id 挂载对应编辑器组件。
+3. 需要专用编辑的模块通过 `src/features/editors/editor-window.ts` 打开独立窗口。
+4. 业务窗口服务调用 `src/features/windowing/managed-window.ts`，窗口 key 使用业务类型和目标 id；同一目标再次打开时聚焦已有窗口，不重复创建。
+5. 独立窗口统一使用 `src/app/WindowShell.vue` 接入主题、message 和 dialog provider。
+6. `src/app/EditorWindowApp.vue` 在独立窗口内加载目标 Mod 数据并挂载对应编辑器组件。
 
 ## 启动恢复链路
 
@@ -24,10 +26,10 @@
 - Tauri command：`save_workspace` → Rust 写 workspace.json。
 - 单例化：`tauri-plugin-single-instance` 在 Rust 端注册，第二个实例启动时聚焦第一个窗口。
 
-5. 编辑器组件通过 `src/features/editors/editor.service.ts` 调用保存或上传能力。
-6. `src/shared/api/tauri.ts` 统一封装 Tauri command。
-7. Rust `src-tauri/src/commands/` 接收 payload，转交 `src-tauri/src/services/`。
-8. Rust service 组合 parser、filesystem 和 models 执行读写。
+7. 编辑器组件通过 `src/features/editors/editor.service.ts` 调用保存或上传能力。
+8. `src/shared/api/tauri.ts` 统一封装 Tauri command。
+9. Rust `src-tauri/src/commands/` 接收 payload，转交 `src-tauri/src/services/`。
+10. Rust service 组合 parser、filesystem 和 models 执行读写。
 
 ## 项目打开链路（多 Mod 工作区）
 
@@ -61,7 +63,7 @@
   - `project.data` 是 computed，指向当前活动 Mod 的 AppData。
 - Tauri command：`detect_directory`、`scan_game_overview`、`load_mod_data`、`load_mod_data_with_root`
 - 保存边界：打开项目只加载数据，不写入任何 Mod 文件。
-- 文件编辑器：解析/读取失败可打开独立文件编辑器窗口，窗口显示文件路径和错误消息，红色高亮目标行；同一文件按规范化绝对路径复用已有窗口，不重复打开。保存只通过 `save_editable_file` 原样写回该文件，不触发重新加载。窗口内支持 `Esc` 关闭、`Ctrl+S` 保存、`Ctrl+Z` 撤销、`Ctrl+Shift+Z` 重做。当前只由错误修复入口调用，但窗口请求结构已预留通用标题、上下文消息和目标行。
+- 文件编辑器：解析/读取失败可打开独立文件编辑器窗口，窗口显示文件路径和错误消息，红色高亮目标行；同一文件通过 `openManagedWindow()` 按规范化绝对路径复用已有窗口，不重复打开。保存只通过 `save_editable_file` 原样写回该文件，不触发重新加载。窗口内支持 `Esc` 关闭、`Ctrl+S` 保存、`Ctrl+Z` 撤销、`Ctrl+Shift+Z` 重做。当前只由错误修复入口调用，但窗口请求结构已预留通用标题、上下文消息和目标行。
 
 ## Mod 切换链路
 
@@ -104,9 +106,9 @@
 ### 打开
 
 - 入口：右侧详情面板的“舰船编辑器”按钮。
-- 前端状态：`editors.openShip(id)` 设置 `shipEditorId`。
-- 宿主：`EditorsHost.vue` 挂载 `ShipEditor.vue`。
-- 数据来源：`project.data.shipFiles[id]`、`project.data.shipSprites[id]`。
+- 窗口服务：`openShipEditorWindow({ modRoot, id, starsectorRoot })`。
+- 宿主：`EditorWindowApp.vue` 在 `?window=editor&kind=ship` 窗口中挂载 `ShipEditor.vue`。
+- 数据来源：窗口内加载的 `AppData.shipFiles[id]`、`AppData.shipSprites[id]`。
 - 画布渲染：舰船贴图按 Starsector 原始朝上资源转换为船头朝右显示；武器槽、碰撞边界、中心、护盾和引擎使用编辑器共享绘制 helper。
 - 交互边界：组件仍负责舰船专属坐标换算、自动吸附选择、强选择、拖拽和数据修改。
 
@@ -118,7 +120,7 @@
 - Tauri command：`save_ship`
 - Rust service：`services::save_ship`
 - 文件落点：`data/hulls/*.ship`
-- 保存后：`editors.onShipSaved()` 更新 `project.data.shipFiles[id]`。
+- 保存后：编辑器窗口更新本窗口数据，并发送 `WINDOW_EVENTS.editorSpecSaved`；主窗口若已加载该 Mod，则更新 `project.modsData[modRoot].shipFiles[id]` 和 history。
 - 边界：编辑器“保存 .ship”只保存 spec，不同步写 `ship_data.csv`。
 
 ### 新建/删除记录
@@ -137,11 +139,11 @@
 ### 打开
 
 - 入口：右侧详情面板的“武器编辑器”按钮。
-- 前端状态：`editors.openWeapon(id)` 设置 `weaponEditorId`。
-- 宿主：`EditorsHost.vue` 挂载 `WeaponEditor.vue`。
-- 数据来源：优先 `project.data.wpnFiles[id]`；缺失时由 `defaultWeapon(id, csvRow)` 生成临时默认 spec。
-- 贴图来源：`project.data.weaponSpritesData[id]` 按 `turret*` / `hardpoint*` sprite 字段提供 data URL，编辑器按当前视图绘制对应贴图层。
-- 关联入口：武器编辑器可打开弹体编辑器，也可打开发射预览。
+- 窗口服务：`openWeaponEditorWindow({ modRoot, id, starsectorRoot })`。
+- 宿主：`EditorWindowApp.vue` 在 `?window=editor&kind=weapon` 窗口中挂载 `WeaponEditor.vue`。
+- 数据来源：优先窗口内 `AppData.wpnFiles[id]`；缺失时由 `defaultWeapon(id, csvRow)` 生成临时默认 spec。
+- 贴图来源：窗口内 `AppData.weaponSpritesData[id]` 按 `turret*` / `hardpoint*` sprite 字段提供 data URL，编辑器按当前视图绘制对应贴图层。
+- 关联入口：武器编辑器可打开独立弹体编辑器窗口，也可打开独立发射预览窗口。
 - 画布渲染：炮塔视图和固定视图分别使用对应贴图与发射点数据，炮口和角度指示使用编辑器共享绘制 helper。
 - 交互边界：组件仍负责发射点自动吸附、强选择、拖拽、新增、删除和 angle offset 修改。
 
@@ -153,7 +155,7 @@
 - Tauri command：`save_wpn`
 - Rust service：`services::save_weapon`
 - 文件落点：`data/weapons/*.wpn`
-- 保存后：`editors.onWeaponSaved()` 更新 `project.data.wpnFiles[id]`。
+- 保存后：编辑器窗口更新本窗口数据，并发送 `WINDOW_EVENTS.editorSpecSaved`；主窗口若已加载该 Mod，则更新 `project.modsData[modRoot].wpnFiles[id]` 和 history。
 - 边界：编辑器“保存 .wpn”只保存 spec，不同步写 `weapon_data.csv`。
 
 ### 新建/删除记录
@@ -172,9 +174,9 @@
 ### 打开
 
 - 入口：武器编辑器触发 `edit-projectile`，或后续专用弹体入口。
-- 前端状态：`editors.openProjectile(id)` 设置 `projectileEditorId`。
-- 宿主：`EditorsHost.vue` 挂载 `ProjectileEditor.vue`。
-- 数据来源：`project.data.projFiles[id]`。
+- 窗口服务：`openProjectileEditorWindow({ modRoot, id, starsectorRoot })`。
+- 宿主：`EditorWindowApp.vue` 在 `?window=editor&kind=projectile` 窗口中挂载 `ProjectileEditor.vue`。
+- 数据来源：窗口内 `AppData.projFiles[id]`。
 
 ### 保存规格
 
@@ -184,7 +186,7 @@
 - Tauri command：`save_proj`
 - Rust service：`services::save_projectile`
 - 文件落点：`data/weapons/proj/*.proj`
-- 保存后：`editors.onProjectileSaved()` 更新 `project.data.projFiles[id]`。
+- 保存后：编辑器窗口更新本窗口数据，并发送 `WINDOW_EVENTS.editorSpecSaved`；主窗口若已加载该 Mod，则更新 `project.modsData[modRoot].projFiles[id]` 和 history。
 - 边界：编辑器“保存 .proj”只保存 spec，不存在对应 CSV 保存链路。
 
 弹体当前没有主表格记录的新建/删除链路；它跟随武器 spec 的 `projectileSpecId` 关系使用。
@@ -192,9 +194,9 @@
 ## 发射预览链路
 
 - 入口：右侧详情面板或武器编辑器的预览操作。
-- 前端状态：`editors.openPreview(id)` 设置 `previewWeaponId`。
-- 宿主：`EditorsHost.vue` 挂载 `WeaponFirePreview.vue`。
-- 数据来源：`tables.tables.weapons`、`project.data.wpnFiles`、`project.data.projFiles`。
+- 窗口服务：`openWeaponPreviewWindow({ modRoot, id, starsectorRoot })`。
+- 宿主：`EditorWindowApp.vue` 在 `?window=editor&kind=weapon-preview` 窗口中挂载 `WeaponFirePreview.vue`。
+- 数据来源：窗口内 `AppData.weapons`、`AppData.wpnFiles`、`AppData.projFiles`。
 - 文件写入：无。预览只读当前内存数据。
 - 模块归属：preview 当前是 `editors` feature 的只读子能力，不单独拆 feature。
 
@@ -203,9 +205,10 @@
 - 右侧详情面板：上下文摘要和操作入口，不承载复杂编辑。
 - 右侧详情预览：根据当前 tab 和当前记录即时派生缩略图状态；舰船、武器、舰船插件使用已加载贴图映射，联队和工业当前只显示模块占位。
 - 缺失贴图：当当前记录或 spec 能推导出相对路径但对应数据未加载时，右侧详情显示“贴图缺失”和该路径；无法推导路径时显示“无预览”。
-- Modal 弹窗：舰船、武器、弹体等复杂编辑和发射预览。
+- 独立编辑器窗口：舰船、武器、弹体等复杂编辑和发射预览。
 - 抽屉：当前不引入；未来若出现轻量编辑场景，应先定义和 modal 的分工。
-- `EditorsHost.vue`：集中挂载编辑器/预览弹窗，并处理 spec 保存成功后的提示。
+- `EditorWindowApp.vue`：集中挂载编辑器/预览窗口内容；主窗口监听 `WINDOW_EVENTS.editorSpecSaved` 并处理 spec 保存成功后的提示和 history。
+- `features/windowing/`：集中管理窗口单例打开、聚焦事件、窗口尺寸和跨窗口事件名/payload 类型。
 - 失败提示：具体编辑器本地 catch 并展示，保持错误上下文贴近操作来源。
 
 ## 联队链路
@@ -299,14 +302,14 @@
 
 ### 触发点
 
-| 操作           | 推入类型                                        | 触发位置                                                              |
-| -------------- | ----------------------------------------------- | --------------------------------------------------------------------- |
-| CSV 单元格编辑 | `pushEvent(CsvCellEditEvent)`                   | `tables.store.ts` → `finishCellEdit()`                                |
-| 编辑器保存     | `pushEvent(EditorSaveEvent)` + `pushCheckpoint` | `EditorsHost.vue` → `onShipSaved`/`onWeaponSaved`/`onProjectileSaved` |
-| CSV 保存       | `pushCheckpoint('csv-save')`                    | `tables.store.ts` → `saveChanges()`                                   |
-| 新建行         | `pushBarrier('row-create')`                     | `tables.store.ts` → `addNewRow()`                                     |
-| 删除行         | `pushBarrier('row-delete')`                     | `tables.store.ts` → `deleteSelected()`                                |
-| 贴图覆盖       | `pushBarrier('sprite-overwrite')`               | `useSpriteUpload.ts`                                                  |
+| 操作           | 推入类型                                        | 触发位置                                       |
+| -------------- | ----------------------------------------------- | ---------------------------------------------- |
+| CSV 单元格编辑 | `pushEvent(CsvCellEditEvent)`                   | `tables.store.ts` → `finishCellEdit()`         |
+| 编辑器保存     | `pushEvent(EditorSaveEvent)` + `pushCheckpoint` | `App.vue` 监听 `WINDOW_EVENTS.editorSpecSaved` |
+| CSV 保存       | `pushCheckpoint('csv-save')`                    | `tables.store.ts` → `saveChanges()`            |
+| 新建行         | `pushBarrier('row-create')`                     | `tables.store.ts` → `addNewRow()`              |
+| 删除行         | `pushBarrier('row-delete')`                     | `tables.store.ts` → `deleteSelected()`         |
+| 贴图覆盖       | `pushBarrier('sprite-overwrite')`               | `useSpriteUpload.ts`                           |
 
 ### 主界面 Ctrl+Z/Y
 
@@ -317,12 +320,12 @@
 
 ### 作用域规则
 
-| 场景        | 行为                                               |
-| ----------- | -------------------------------------------------- |
-| 编辑器打开  | Ctrl+Z 使用编辑器内局部历史；全局栈不受影响        |
-| 编辑器关闭  | Ctrl+Z 操作全局栈；编辑器保存事件作为一个原子条目  |
-| 切换 Mod    | 各 Mod 历史栈独立；切换后 Ctrl+Z 操作目标 Mod 的栈 |
-| 跨 Tab 切换 | 历史栈不受 Tab 切换影响；undo 修改数据模型而非视图 |
+| 场景           | 行为                                               |
+| -------------- | -------------------------------------------------- |
+| 编辑器窗口聚焦 | Ctrl+Z 使用编辑器窗口内局部历史；全局栈不受影响    |
+| 主窗口聚焦     | Ctrl+Z 操作全局栈；编辑器保存事件作为一个原子条目  |
+| 切换 Mod       | 各 Mod 历史栈独立；切换后 Ctrl+Z 操作目标 Mod 的栈 |
+| 跨 Tab 切换    | 历史栈不受 Tab 切换影响；undo 修改数据模型而非视图 |
 
 ### 限制与裁剪
 

@@ -39,6 +39,15 @@ export const useHistoryStore = defineStore('history', () => {
     return stateMap.get(activeRoot.value);
   }
 
+  function getOrCreateState(modRoot: string): ModHistoryState {
+    let state = stateMap.get(modRoot);
+    if (!state) {
+      state = createModHistoryState();
+      stateMap.set(modRoot, state);
+    }
+    return state;
+  }
+
   // --- Computed ---
 
   const canUndo = computed(() => {
@@ -90,6 +99,14 @@ export const useHistoryStore = defineStore('history', () => {
   function pushEvent(event: HistoryEvent, label: string) {
     const state = getActiveState();
     if (!state) return;
+    pushEventToState(state, event, label);
+  }
+
+  function pushEventForMod(modRoot: string, event: HistoryEvent, label: string) {
+    pushEventToState(getOrCreateState(modRoot), event, label);
+  }
+
+  function pushEventToState(state: ModHistoryState, event: HistoryEvent, label: string) {
     const settings = useSettingsStore();
     const entry: HistoryEntry = { id: nextId(), timestamp: Date.now(), event, label };
     state.undoStack.push(entry);
@@ -108,6 +125,14 @@ export const useHistoryStore = defineStore('history', () => {
   function pushCheckpoint(source: HistoryCheckpoint['source'], label: string) {
     const state = getActiveState();
     if (!state) return;
+    pushCheckpointToState(state, source, label);
+  }
+
+  function pushCheckpointForMod(modRoot: string, source: HistoryCheckpoint['source'], label: string) {
+    pushCheckpointToState(getOrCreateState(modRoot), source, label);
+  }
+
+  function pushCheckpointToState(state: ModHistoryState, source: HistoryCheckpoint['source'], label: string) {
     const settings = useSettingsStore();
     const checkpoint: HistoryCheckpoint = { id: nextId(), timestamp: Date.now(), kind: 'checkpoint', source, label };
     state.undoStack.push(checkpoint);
@@ -184,7 +209,9 @@ export const useHistoryStore = defineStore('history', () => {
     clearForMod,
     pushBarrier,
     pushCheckpoint,
+    pushCheckpointForMod,
     pushEvent,
+    pushEventForMod,
     redo,
     removeModState,
     undo,

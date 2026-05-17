@@ -22,20 +22,6 @@ export interface ModTableState {
   nextRowKey: number; // Per-mod row key counter to prevent collisions
 }
 
-/** Editor reference with modRoot tracking — prevents loading from wrong mod */
-export interface EditorRef {
-  modRoot: string;
-  id: string;
-}
-
-/** Per-Mod editor state */
-export interface ModEditorState {
-  shipEditorId: EditorRef | null;
-  weaponEditorId: EditorRef | null;
-  projectileEditorId: EditorRef | null;
-  previewWeaponId: string; // Keep as string - preview is display-only, no mod context needed
-}
-
 /** Which main-content view is shown */
 export type WorkspaceView = 'overview' | 'table' | 'settings' | 'config';
 

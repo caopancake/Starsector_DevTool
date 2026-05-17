@@ -6,12 +6,20 @@
 
 ## Frontend
 
+### Multi Window
+
+- 主窗口：`App.vue`，负责工作区、目录打开、Mod 概览、表格、配置和主界面级快捷键。
+- 文件编辑器窗口：`FileEditorApp.vue`，由 `file-editor-window.ts` 打开，窗口 label 为 `file-editor-*`，按文件绝对路径单例复用。
+- 编辑器窗口：`EditorWindowApp.vue`，由 `editor-window.ts` 打开，窗口 label 为 `editor-*`，按 `kind + modRoot + id` 单例复用。
+- 当前编辑器窗口 kind：`ship`、`weapon`、`projectile`、`weapon-preview`。
+- 多窗口基础层：`features/windowing/managed-window.ts` 统一创建/聚焦窗口，`features/windowing/window-events.ts` 统一跨窗口事件名和 payload 类型。
+- 独立窗口通用壳：`WindowShell.vue`，集中接入主题、message provider 和 dialog provider。
+
 ### App Shell
 
-- `src/main.ts`：应用挂载入口；普通窗口挂载 `App.vue`，`?window=file-editor` 时挂载通用文件编辑器窗口。
+- `src/main.ts`：应用挂载入口；普通窗口挂载 `App.vue`，`?window=file-editor` 时挂载通用文件编辑器窗口，`?window=editor` 时挂载独立编辑器窗口。
 - `src/app/App.vue`：应用壳，负责 workspace 视图路由、导入/移除 Mod 编排、启动恢复和全局 provider 下的主布局。
 - `src/app/TitleBar.vue`：自定义窗口标题栏，集中处理主题切换和窗口控制，显示当前 Mod 名。
-- `src/app/EditorsHost.vue`：编辑器弹窗宿主，统一挂载舰船、武器、弹体编辑器和发射预览。
 - `src/app/providers/`：Naive UI 等全局 provider 初始化。
 - `src/app/components/NavSidebar.vue`：左侧导航面板，包含总览/设置入口和已完整读取 Mod 树。
 - `src/app/components/ModTreeItem.vue`：单个 Mod 树节点，展开显示已实现的数据和配置模块。
@@ -19,17 +27,20 @@
 - `src/app/components/GameOverviewPanel.vue`：游戏目录轻量概览面板，显示所有可识别 Mod、扫描 warning 和按需完整读取入口。
 - `src/app/components/LoadedModsPanel.vue`：传统已完整读取 Mod 卡片面板。
 - `src/app/components/SettingsPage.vue`：设置页，管理主题、主题色、Starsector 路径和撤销上限等工具设置。
+- `src/app/WindowShell.vue`：独立窗口通用壳层，集中提供 Naive UI provider、dialog/message provider 和主题 token。
 - `src/app/FileEditorApp.vue`：通用文件编辑器窗口，显示文件路径、可选上下文消息和可选红色目标行高亮；保存只原样写回文本文件，不触发重新加载。
+- `src/app/EditorWindowApp.vue`：舰船、武器、弹体和发射预览独立窗口根组件，按 URL 参数加载目标 Mod 数据并挂载具体编辑器。
 - `src/app/components/TableWorkspace.vue`：数据表格工作区容器，组合顶栏、主表格和右侧详情面板。
 - `src/app/DataTable.vue`：主 CSV 表格视图，负责行选择和单元格编辑。
 - `src/app/DetailPane.vue`：右侧记录详情面板，展示当前记录预览、摘要和上下文操作。
 
 ### Feature Modules
 
-- `src/features/workspace/`：工作区编排状态，管理游戏目录上下文、轻量 Mod 索引、已完整读取 Mod 列表、活动 Mod、当前视图和展开状态；`file-editor-window.ts` 负责打开可复用的独立文件编辑器窗口。
+- `src/features/workspace/`：工作区编排状态，管理游戏目录上下文、轻量 Mod 索引、已完整读取 Mod 列表、活动 Mod、当前视图和展开状态；`file-editor-window.ts` 作为文件编辑器窗口的业务适配层。
+- `src/features/windowing/`：多窗口基础层，提供 `openManagedWindow()`、统一业务 key 单例复用、窗口尺寸配置和跨窗口事件名/payload 类型。
 - `src/features/project/`：项目加载与 per-Mod AppData 缓存，使用 `Map<modRoot, AppData>` 隔离多个 Mod。
 - `src/features/tables/`：CSV 表格状态与操作，包含 per-Mod table state、dirty tracking、搜索、筛选、保存、新建和删除。
-- `src/features/editors/`：舰船、武器、弹体编辑器和发射预览，按 Mod 绑定 `EditorRef`，避免弹窗串 Mod。
+- `src/features/editors/`：舰船、武器、弹体编辑器和发射预览；`editor-window.ts` 负责按 `kind + modRoot + id` 打开或复用独立编辑器窗口。
 - `src/features/history/`：全局修改链路和 undo/redo 历史系统，按 Mod 隔离历史栈。
 - `src/features/config/`：配置模块，包括 Mod 概览、Mod 信息、势力和战役编辑。
 - `src/features/schema/`：Schema Registry，提供 schema 加载、source 解析、multi-source 聚合/拆分和通用表单渲染。
@@ -38,7 +49,7 @@
 
 - `src/shared/api/`：Tauri API 薄 adapter，只封装 command payload 和返回类型，不承载业务流程。
 - `src/shared/components/ColorPicker.vue`：跨 Schema 表单、设置页和编辑器复用的颜色输入组件，内部归一为 RGBA，按调用方声明输出数组、HEX 或 CSS 字符串。
-- `src/shared/types/`：前端共享类型，包括 `AppData`、workspace 状态、表格和编辑器引用类型。
+- `src/shared/types/`：前端共享类型，包括 `AppData`、workspace 状态和表格状态类型。
 - `src/shared/lib/`：Starsector 通用工具、默认数据、格式转换和 store 辅助函数。
 - `schemas/`：随工具分发的 schema 文件，当前包含 `mod-info`、`faction`、`mission` 等已接入配置。
 - `src/styles/`：按语义拆分的 CSS 模块和主题 token。具体规则见 `.trae/css-guidelines.md`。
@@ -65,13 +76,14 @@
 3. 保存、新建、删除通过 `features/tables/table.service.ts` 调用 shared API。
 4. 后端保存 CSV 或配套 spec 文件后，前端更新 per-Mod 数据缓存和 history。
 
-### Editor Modal
+### Editor Window
 
 1. `DetailPane` 或表格动作请求打开编辑器。
-2. `editors.store` 记录带 `modRoot` 的 `EditorRef`。
-3. `EditorsHost` 根据 `EditorRef` 挂载对应编辑器。
-4. 编辑器从目标 Mod 的 `AppData` 读取 spec 和资源数据。
+2. `editor-window.ts` 将业务请求转给 `openManagedWindow()`，使用 `kind + modRoot + id` 生成窗口 key；同一目标已打开时聚焦已有窗口。
+3. `EditorWindowApp.vue` 根据 URL 参数加载目标 Mod 的 `AppData`，并挂载舰船、武器、弹体编辑器或发射预览。
+4. 编辑器从窗口内加载的 `AppData` 读取 spec、CSV 行和资源数据。
 5. 保存时通过对应 service/API 写回 `.ship/.wpn/.proj`，不隐式保存 CSV。
+6. 保存成功后窗口通过 `WINDOW_EVENTS.editorSpecSaved` 事件通知主窗口；主窗口更新已加载 Mod 的缓存和 history。
 
 ### Config Editing
 
@@ -92,7 +104,7 @@
 
 1. 文件读取或解析失败时，前端通过 `extractFileReferenceFromError()` 从错误消息中提取绝对文件路径和可选行号。
 2. 可定位到文件时，顶部错误提示显示“打开错误文件”按钮。
-3. 点击按钮后，`file-editor-window.ts` 按规范化绝对路径复用或打开独立 `file-editor-*` 窗口，加载 `FileEditorApp.vue`；同一文件不允许重复打开多个窗口。
+3. 点击按钮后，`file-editor-window.ts` 通过 `openManagedWindow()` 按规范化绝对路径复用或打开独立 `file-editor-*` 窗口，加载 `FileEditorApp.vue`；同一文件不允许重复打开多个窗口。
 4. 文件编辑器调用 `load_editable_file` 读取 UTF-8 无 BOM 文本，顶部显示文件路径、可选上下文消息，并可红色高亮目标行。
 5. 用户保存时调用 `save_editable_file` 原样写回当前文本；该链路不触发 Mod 或游戏目录重新加载。
 6. 文件编辑器窗口内支持快捷键：`Esc` 关闭、`Ctrl+S` 保存、`Ctrl+Z` 撤销、`Ctrl+Shift+Z` 重做；撤销历史只属于该窗口。
@@ -105,7 +117,8 @@
 - `workspace.store` 不持有 AppData；`project.store` 不负责视图路由。
 - 游戏目录轻量扫描不创建 `AppData`，未完整读取的 Mod 不进入 tables/editors/history。
 - 表格本体只负责展示、选择和单元格编辑；上下文操作集中到顶栏、详情面板或后续右键菜单。
-- `EditorsHost` 是弹窗挂载边界；编辑器引用必须带 `modRoot`。
+- 编辑器窗口按 `kind + modRoot + id` 隔离；同一目标不重复打开，不同目标可并行打开。
+- 新增独立窗口时应优先接入 `features/windowing` 和 `WindowShell.vue`，不要复制窗口 key、URL 拼接、主题 provider 或事件名定义。
 - 画布 hit detection、自动吸附和 drag mutation 留在具体编辑器组件内；共享的是 viewport、绘制 helper 和历史等稳定能力。
 - SchemaFormRenderer 只渲染单个聚合对象；保存边界由业务组件拆分处理。
 

@@ -16,6 +16,8 @@
               @revert="revertChanges"
               @save="saveChanges"
               @open-ship="openShip"
+              @open-weapon="openWeapon"
+              @open-weapon-preview="openWeaponPreview"
             />
             <ConfigWorkspace v-else-if="workspace.currentView === 'config' && project.activeModData" />
             <main v-else class="workspace">
@@ -27,17 +29,15 @@
             </main>
           </div>
         </div>
-
-        <EditorsHost />
       </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, watch } from 'vue';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { computed, h, onMounted, onUnmounted, watch } from 'vue';
 import { NButton, NSpace, NText, createDiscreteApi } from 'naive-ui';
-import EditorsHost from './EditorsHost.vue';
 import TitleBar from './TitleBar.vue';
 import NavSidebar from './components/NavSidebar.vue';
 import OverviewPage from './components/OverviewPage.vue';
@@ -54,11 +54,19 @@ import { useWorkspaceStore } from '../features/workspace/workspace.store';
 import { useCoreSchema } from '../features/schema/composables/useCoreSchema';
 import { pickDirectory } from '../features/project/project.service';
 import { loadWorkspace, saveWorkspace } from '../shared/api/tauri';
-import { cell, formatModVersion } from '../shared/lib/starsector';
+import { cell, deepClone, formatModVersion } from '../shared/lib/starsector';
 import { extractFileReferenceFromError, formatError } from '../shared/lib/errors';
 import { loadModFromOverview, openDetectedDirectory, restoreWorkspaceMod } from '../features/workspace/open-directory.service';
 import { openFileEditorWindow } from '../features/workspace/file-editor-window';
 import { buildThemeOverrides, discreteConfigProviderProps } from './theme-overrides';
+import {
+  openShipEditorWindow,
+  openWeaponEditorWindow,
+  openWeaponPreviewWindow,
+  type EditorSpecSavedEvent,
+} from '../features/editors/editor-window';
+import { WINDOW_EVENTS } from '../features/windowing/window-events';
+import type { RowData } from '../shared/types';
 
 const project = useProjectStore();
 const tables = useTablesStore();
@@ -103,7 +111,12 @@ watch(
 
 // Startup: restore persisted workspace
 // Startup: restore persisted workspace
+let unlistenEditorSaved: UnlistenFn | null = null;
+
 onMounted(async () => {
+  unlistenEditorSaved = await listen<EditorSpecSavedEvent>(WINDOW_EVENTS.editorSpecSaved, (event) => {
+    handleEditorSpecSaved(event.payload);
+  });
   try {
     const persisted = await loadWorkspace();
     if (persisted.mods.length === 0 && !persisted.starsectorRoot) return;
@@ -136,6 +149,11 @@ onMounted(async () => {
   } catch {
     restoring = false;
   }
+});
+
+onUnmounted(() => {
+  unlistenEditorSaved?.();
+  unlistenEditorSaved = null;
 });
 
 async function openDirectory() {
@@ -243,7 +261,64 @@ function openShip(id: string) {
     message.error(`找不到 ${id}.ship`);
     return;
   }
-  editors.openShip(id);
+  void openShipEditorWindow(editorRequest(id));
+}
+
+function openWeapon(id: string) {
+  if (!project.activeModData) return;
+  if (!project.activeModData.wpnFiles[id] && !project.activeModData.weapons.some((weapon) => cell(weapon.id) === id)) {
+    message.error(`找不到 ${id}.wpn`);
+    return;
+  }
+  void openWeaponEditorWindow(editorRequest(id));
+}
+
+function openWeaponPreview(id: string) {
+  if (!project.activeModData) return;
+  void openWeaponPreviewWindow(editorRequest(id));
+}
+
+function editorRequest(id: string) {
+  const data = project.activeModData!;
+  return {
+    modRoot: data.modRoot,
+    id,
+    starsectorRoot: data.starsectorRoot ?? workspace.gameOverview?.starsectorRoot ?? settings.starsectorRoot,
+  };
+}
+
+function handleEditorSpecSaved(payload: EditorSpecSavedEvent) {
+  const modData = project.getModData(payload.modRoot);
+  if (!modData) return;
+  const previousSpec = previousEditorSpec(payload.kind, payload.modRoot, payload.id);
+  if (payload.kind === 'ship') {
+    project.updateShipFile(payload.modRoot, payload.id, payload.spec);
+  } else if (payload.kind === 'weapon') {
+    project.updateWeaponFile(payload.modRoot, payload.id, payload.spec);
+  } else {
+    project.updateProjectileFile(payload.modRoot, payload.id, payload.spec);
+  }
+  historyStore.pushEventForMod(
+    payload.modRoot,
+    { type: 'editor-save', editorKind: payload.kind, id: payload.id, previousSpec, newSpec: deepClone(payload.spec) },
+    `保存 ${payload.id}.${editorExtension(payload.kind)}`,
+  );
+  historyStore.pushCheckpointForMod(payload.modRoot, 'editor-save', `${payload.id}.${editorExtension(payload.kind)} 已保存`);
+  message.success(`${payload.id}.${editorExtension(payload.kind)} 已保存`);
+}
+
+function previousEditorSpec(kind: EditorSpecSavedEvent['kind'], modRoot: string, id: string): RowData {
+  const modData = project.getModData(modRoot);
+  if (!modData) return {};
+  if (kind === 'ship') return modData.shipFiles[id] ? deepClone(modData.shipFiles[id]) : {};
+  if (kind === 'weapon') return modData.wpnFiles[id] ? deepClone(modData.wpnFiles[id]) : {};
+  return modData.projFiles[id] ? deepClone(modData.projFiles[id]) : {};
+}
+
+function editorExtension(kind: EditorSpecSavedEvent['kind']) {
+  if (kind === 'ship') return 'ship';
+  if (kind === 'weapon') return 'wpn';
+  return 'proj';
 }
 
 function showError(text: string, error: unknown = text) {

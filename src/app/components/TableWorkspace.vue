@@ -30,7 +30,11 @@
     </header>
     <section class="content-grid">
       <DataTable />
-      <DetailPane @open-ship="$emit('open-ship', $event)" />
+      <DetailPane
+        @open-ship="$emit('open-ship', $event)"
+        @open-weapon="$emit('open-weapon', $event)"
+        @open-weapon-preview="$emit('open-weapon-preview', $event)"
+      />
     </section>
   </main>
 </template>
@@ -43,7 +47,15 @@ import { useTablesStore } from '../../features/tables/tables.store';
 import { useProjectStore } from '../../features/project/project.store';
 import { MODULE_LABELS } from '../../shared/lib/starsector';
 
-defineEmits<{ 'add-row': []; 'delete-row': []; revert: []; save: []; 'open-ship': [id: string] }>();
+defineEmits<{
+  'add-row': [];
+  'delete-row': [];
+  revert: [];
+  save: [];
+  'open-ship': [id: string];
+  'open-weapon': [id: string];
+  'open-weapon-preview': [id: string];
+}>();
 
 const tables = useTablesStore();
 const project = useProjectStore();
