@@ -11,7 +11,7 @@
       <article class="mod-overview-card">
         <span>数据表</span>
         <strong>{{ tableTotal }}</strong>
-        <p>舰船、武器、联队、船插和工业记录</p>
+        <p>舰船、武器、联队、舰船插件和工业记录</p>
       </article>
       <article class="mod-overview-card">
         <span>配置</span>
@@ -57,7 +57,7 @@ const breakdown = computed(() => [
   { label: '舰船', count: data.value?.ships.length ?? 0 },
   { label: '武器', count: data.value?.weapons.length ?? 0 },
   { label: '联队', count: data.value?.wings.length ?? 0 },
-  { label: '船插', count: data.value?.hullmods.length ?? 0 },
+  { label: '舰船插件', count: data.value?.hullmods.length ?? 0 },
   { label: '工业', count: data.value?.industries.length ?? 0 },
   { label: '势力', count: data.value ? Object.keys(data.value.factionFiles).length : 0 },
   { label: '战役', count: data.value?.missionCount ?? 0 },

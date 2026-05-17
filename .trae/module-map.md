@@ -2,7 +2,7 @@
 
 本文档只记录当前已实现的模块、架构边界和调用链设计。未实现的目标、候选设计和参考内容见 `.trae/reference.md`。
 
-具体舰船、武器、弹体、联队、船插、工业的编辑调用链见 `.trae/editor-flows.md`。术语统一口径见 `.trae/terminology.md`。
+具体舰船、武器、弹体、联队、舰船插件、工业的编辑调用链见 `.trae/editor-flows.md`。术语统一口径见 `.trae/terminology.md`。
 
 ## Frontend
 

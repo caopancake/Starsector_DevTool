@@ -74,7 +74,7 @@ export const MODULE_LABELS: Record<TableKey, string> = {
   ships: '舰船',
   weapons: '武器',
   wings: '联队',
-  hullmods: '船插',
+  hullmods: '舰船插件',
   industries: '工业',
 };
 
