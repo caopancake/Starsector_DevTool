@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::{GameModSummary, GameScanWarning};
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistedWorkspace {
@@ -9,6 +11,11 @@ pub struct PersistedWorkspace {
     pub current_view: Option<String>,
     #[serde(default)]
     pub expanded_mods: Vec<String>,
+    pub starsector_root: Option<String>,
+    #[serde(default)]
+    pub game_mods: Vec<GameModSummary>,
+    #[serde(default)]
+    pub game_warnings: Vec<GameScanWarning>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

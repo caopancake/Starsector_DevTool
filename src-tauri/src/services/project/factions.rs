@@ -1,4 +1,6 @@
-use crate::{filesystem::read_json_file, models::FactionMeta, parsers::read_csv_data};
+use crate::{
+    errors::AppResult, filesystem::read_json_file, models::FactionMeta, parsers::read_csv_data,
+};
 use serde_json::{Map, Value};
 use std::{
     collections::{BTreeMap, HashMap},
@@ -12,10 +14,10 @@ struct FactionIndexEntry {
 
 pub(super) fn discover_factions(
     mod_root: &Path,
-) -> (BTreeMap<String, FactionMeta>, HashMap<String, String>) {
+) -> AppResult<(BTreeMap<String, FactionMeta>, HashMap<String, String>)> {
     let mut factions = BTreeMap::new();
     let mut tag_map = HashMap::new();
-    for entry in read_faction_index(mod_root) {
+    for entry in read_faction_index(mod_root)? {
         if let Ok(Value::Object(obj)) = read_json_file(&entry.path) {
             let fid = obj
                 .get("id")
@@ -56,7 +58,7 @@ pub(super) fn discover_factions(
             }
         }
     }
-    (factions, tag_map)
+    Ok((factions, tag_map))
 }
 
 pub(super) fn detect_faction(id: &str, tags: &str, tag_map: &HashMap<String, String>) -> String {
@@ -78,9 +80,9 @@ pub(super) fn detect_faction(id: &str, tags: &str, tag_map: &HashMap<String, Str
     "other".to_string()
 }
 
-pub(super) fn load_faction_files(mod_root: &Path) -> BTreeMap<String, Value> {
+pub(super) fn load_faction_files(mod_root: &Path) -> AppResult<BTreeMap<String, Value>> {
     let mut defs = BTreeMap::new();
-    for entry in read_faction_index(mod_root) {
+    for entry in read_faction_index(mod_root)? {
         if let Ok(value) = read_json_file(&entry.path) {
             if let Some(id) = value
                 .get("id")
@@ -92,33 +94,28 @@ pub(super) fn load_faction_files(mod_root: &Path) -> BTreeMap<String, Value> {
             }
         }
     }
-    defs
+    Ok(defs)
 }
 
-fn read_faction_index(mod_root: &Path) -> Vec<FactionIndexEntry> {
+fn read_faction_index(mod_root: &Path) -> AppResult<Vec<FactionIndexEntry>> {
     let dir = mod_root.join("data/world/factions");
-    let table =
-        read_csv_data(&dir.join("factions.csv")).unwrap_or_else(|_| crate::models::CsvTable {
-            header: vec![],
-            rows: vec![],
-            path: String::new(),
-        });
+    let table = read_csv_data(&dir.join("factions.csv"))?;
     if table.header.is_empty() {
-        return vec![];
+        return Ok(vec![]);
     }
     let id_col = pick_col(&table.header, &["id", "faction", "factionId"])
         .or_else(|| table.header.first().cloned());
     let Some(id_col) = id_col else {
-        return vec![];
+        return Ok(vec![]);
     };
     let file_col = pick_col(&table.header, &["file", "path", "filename", "factionFile"])
         .or_else(|| table.header.iter().find(|col| *col != &id_col).cloned());
 
-    table
+    Ok(table
         .rows
         .iter()
         .filter_map(|row| faction_index_entry(mod_root, &dir, row, &id_col, file_col.as_deref()))
-        .collect()
+        .collect())
 }
 
 fn pick_col(header: &[String], candidates: &[&str]) -> Option<String> {
@@ -271,14 +268,28 @@ mod tests {
         )
         .unwrap();
 
-        let files = load_faction_files(&root);
-        let (meta, _) = discover_factions(&root);
+        let files = load_faction_files(&root).unwrap();
+        let (meta, _) = discover_factions(&root).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert!(files.contains_key("plsp"));
         assert!(files.contains_key("celestite"));
         assert!(!files.contains_key("mercenary"));
         assert_eq!(meta["plsp"].name, "Polaris");
+    }
+
+    #[test]
+    fn reports_faction_index_csv_path() {
+        let root = temp_dir("faction_bad_csv");
+        let dir = root.join("data/world/factions");
+        fs::create_dir_all(&dir).unwrap();
+        write_utf8_no_bom(&dir.join("factions.csv"), "id,file\r\nbad\r\n").unwrap();
+
+        let error = load_faction_files(&root).unwrap_err().to_string();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(error.contains("解析 CSV 失败"));
+        assert!(error.contains("factions.csv"));
     }
 
     fn temp_dir(name: &str) -> PathBuf {

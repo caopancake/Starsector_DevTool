@@ -5,9 +5,6 @@
         <h1>{{ modName }}</h1>
         <p>{{ modVersion || '未声明版本' }}</p>
       </div>
-      <span class="mod-overview-status" :class="{ ready: data?.coreAvailable }">
-        {{ data?.coreAvailable ? 'Core 资源可用' : '仅 Mod 资源' }}
-      </span>
     </header>
 
     <div class="mod-overview-grid">
@@ -25,6 +22,11 @@
         <span>目录</span>
         <strong>{{ data?.modRoot || '未加载' }}</strong>
         <p>当前工作区会原位读写该 Mod 目录下的数据文件</p>
+      </article>
+      <article class="mod-overview-card wide">
+        <span>原版资源</span>
+        <strong>{{ data?.coreAvailable ? '可用' : '不可用' }}</strong>
+        <p>{{ coreResourceText }}</p>
       </article>
     </div>
 
@@ -47,6 +49,10 @@ const data = computed(() => project.activeModData);
 
 const modName = computed(() => cell(data.value?.modInfo?.name) || 'Mod 概览');
 const modVersion = computed(() => formatModVersion(data.value?.modInfo?.version));
+const coreResourceText = computed(() => {
+  if (!data.value?.coreAvailable) return '未找到可用于贴图、Schema 和引用 fallback 的 starsector-core';
+  return data.value.starsectorRoot ? `${data.value.starsectorRoot}\\starsector-core` : '已找到 starsector-core';
+});
 const breakdown = computed(() => [
   { label: '舰船', count: data.value?.ships.length ?? 0 },
   { label: '武器', count: data.value?.weapons.length ?? 0 },

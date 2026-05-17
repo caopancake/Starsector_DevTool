@@ -1,5 +1,5 @@
 use crate::{
-    errors::AppResult,
+    errors::{AppError, AppResult},
     filesystem::{read_utf8_no_bom, write_utf8_no_bom},
     parsers::parse_starsector_json,
 };
@@ -9,29 +9,42 @@ use walkdir::WalkDir;
 
 pub fn read_json_file(path: &Path) -> AppResult<Value> {
     let text = read_utf8_no_bom(path)?;
-    parse_starsector_json(&text)
+    parse_starsector_json(&text).map_err(|error| {
+        AppError::context(format!("解析 JSON 文件失败 ({})", path.display()), error)
+    })
 }
 
-pub fn load_json_dir_by_id(dir: &Path, ext: &str, id_key: &str) -> BTreeMap<String, Value> {
+pub fn load_json_dir_by_id(
+    dir: &Path,
+    ext: &str,
+    id_key: &str,
+) -> AppResult<BTreeMap<String, Value>> {
     let mut result = BTreeMap::new();
-    for value in load_json_dir(dir, ext) {
+    for value in load_json_dir(dir, ext)? {
         if let Some(id) = value.get(id_key).and_then(Value::as_str) {
             result.insert(id.to_string(), value);
         }
     }
-    result
+    Ok(result)
 }
 
-pub fn load_json_dir(dir: &Path, ext: &str) -> Vec<Value> {
+pub fn load_json_dir(dir: &Path, ext: &str) -> AppResult<Vec<Value>> {
     if !dir.exists() {
-        return vec![];
+        return Ok(vec![]);
     }
-    WalkDir::new(dir)
-        .into_iter()
-        .flatten()
-        .filter(|entry| entry.path().extension().and_then(|s| s.to_str()) == Some(ext))
-        .filter_map(|entry| read_json_file(entry.path()).ok())
-        .collect()
+    let mut values = Vec::new();
+    for entry in WalkDir::new(dir).into_iter() {
+        let entry = entry.map_err(|error| {
+            AppError::context(
+                format!("遍历 JSON 目录失败 ({})", dir.display()),
+                AppError::message(error.to_string()),
+            )
+        })?;
+        if entry.path().extension().and_then(|s| s.to_str()) == Some(ext) {
+            values.push(read_json_file(entry.path())?);
+        }
+    }
+    Ok(values)
 }
 
 pub fn save_json_by_id(

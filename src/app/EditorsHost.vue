@@ -56,15 +56,17 @@ import { useTablesStore } from '../features/tables/tables.store';
 import type { RowData } from '../shared/types';
 import { deepClone } from '../shared/lib/starsector';
 import { useSettingsStore } from './settings.store';
+import { buildThemeOverrides, discreteConfigProviderProps } from './theme-overrides';
 
 const editors = useEditorsStore();
 const project = useProjectStore();
 const tables = useTablesStore();
 const settings = useSettingsStore();
 const history = useHistoryStore();
+const themeOverrides = computed(() => buildThemeOverrides(settings));
 
 const { message } = createDiscreteApi(['message'], {
-  configProviderProps: computed(() => ({ theme: settings.naiveTheme })),
+  configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
 });
 
 /**

@@ -296,7 +296,7 @@ const modeFooterNotes: Record<typeof mode.value, string> = {
   launchBay: '左键 移动甲板位置 | Shift+左键 新建甲板 | T 打开甲板',
   engine: '左键 旋转角度 | Shift+左键 复制引擎 | Ctrl+左键 移动位置 | Alt+左键 调整宽高 | T 打开引擎',
 };
-const footerNote = computed(() => `右键 拖动画布 | 滚轮 缩放 | Ctrl+Z 撤销 | Ctrl+Y 重做\n${modeFooterNotes[mode.value]}`);
+const footerNote = computed(() => `右键 拖动画布 | 滚轮 缩放 | Ctrl+Z 撤销 | Ctrl+Shift+Z 重做\n${modeFooterNotes[mode.value]}`);
 
 const weaponSlots = computed<RowData[]>(() =>
   Array.isArray(localShip.value.weaponSlots) ? (localShip.value.weaponSlots as RowData[]) : [],

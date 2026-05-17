@@ -71,14 +71,16 @@ import { createFactionFile, deleteFactionFile } from '../config.service';
 import { loadImageDataUrl } from '../../../shared/api/tauri';
 import { formatError } from '../../../shared/lib/errors';
 import type { JsonValue } from '../../../shared/types';
+import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
 
 const emit = defineEmits<{ select: [factionId: string] }>();
 
 const project = useProjectStore();
 const settings = useSettingsStore();
+const themeOverrides = computed(() => buildThemeOverrides(settings));
 
 const { message } = createDiscreteApi(['message'], {
-  configProviderProps: computed(() => ({ theme: settings.naiveTheme })),
+  configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
 });
 
 const selectedFaction = ref<string | null>(null);

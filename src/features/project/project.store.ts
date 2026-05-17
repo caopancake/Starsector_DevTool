@@ -38,10 +38,10 @@ export const useProjectStore = defineStore('project', () => {
     return openProject(modRoot);
   }
 
-  async function openProject(modRoot: string): Promise<AppData> {
+  async function openProject(modRoot: string, starsectorRoot?: string | null): Promise<AppData> {
     loading.value = true;
     try {
-      const loaded = await loadProject(modRoot);
+      const loaded = await loadProject(modRoot, starsectorRoot);
       modsData.value.set(modRoot, loaded);
       activeModRoot.value = modRoot;
       return loaded;

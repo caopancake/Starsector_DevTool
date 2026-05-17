@@ -2,8 +2,9 @@ use crate::{
     filesystem,
     models::{
         AddCsvRowPayload, AddShipRowPayload, AddWeaponRowPayload, AppData, CsvTable, DeletePayload,
-        FactionPayload, MissionData, MissionListCsvPayload, MissionPayload, PersistedWorkspace,
-        SaveCsvPayload, SaveJsonPayload, SaveModInfoPayload, UploadSpritePayload,
+        EditableFileData, FactionPayload, GameOverviewData, MissionData, MissionListCsvPayload,
+        MissionPayload, OpenDirectoryResult, PersistedWorkspace, SaveCsvPayload,
+        SaveEditableFilePayload, SaveJsonPayload, SaveModInfoPayload, UploadSpritePayload,
         UploadSpriteResult,
     },
     services,
@@ -16,6 +17,31 @@ use tauri::Manager;
 #[tauri::command]
 pub fn load_mod_data(mod_root: String) -> Result<AppData, String> {
     services::load_all_data(Path::new(&mod_root)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn load_mod_data_with_root(
+    mod_root: String,
+    starsector_root: Option<String>,
+) -> Result<AppData, String> {
+    services::load_all_data_with_root(
+        Path::new(&mod_root),
+        starsector_root.as_deref().map(Path::new),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn detect_directory(
+    path: String,
+    fallback_starsector_root: Option<String>,
+) -> OpenDirectoryResult {
+    services::detect_directory(Path::new(&path), fallback_starsector_root.as_deref())
+}
+
+#[tauri::command]
+pub fn scan_game_overview(starsector_root: String) -> GameOverviewData {
+    services::scan_game_overview(Path::new(&starsector_root))
 }
 
 #[tauri::command]
@@ -178,4 +204,21 @@ pub fn scan_core_fields(starsector_root: String) -> BTreeMap<String, Vec<Value>>
 #[tauri::command]
 pub fn scan_core_graphics(starsector_root: String) -> Vec<String> {
     services::scan_core_graphics(&starsector_root)
+}
+
+#[tauri::command]
+pub fn load_editable_file(path: String) -> Result<EditableFileData, String> {
+    let target = Path::new(&path);
+    filesystem::read_utf8_no_bom(target)
+        .map(|text| EditableFileData {
+            path: target.display().to_string(),
+            text,
+        })
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_editable_file(payload: SaveEditableFilePayload) -> Result<(), String> {
+    filesystem::write_utf8_no_bom(Path::new(&payload.path), &payload.text)
+        .map_err(|e| e.to_string())
 }

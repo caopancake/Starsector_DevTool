@@ -35,6 +35,37 @@ export interface AppData {
   industrySprites: Record<string, string>;
 }
 
+export interface GameScanWarning {
+  path: string;
+  message: string;
+}
+
+export interface GameModSummary {
+  modRoot: string;
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  hasModInfo: boolean;
+}
+
+export interface GameOverviewData {
+  starsectorRoot: string;
+  coreAvailable: boolean;
+  modsDir: string;
+  mods: GameModSummary[];
+  warnings: GameScanWarning[];
+}
+
+export interface OpenDirectoryResult {
+  kind: 'game-root' | 'mod-in-game' | 'external-mod' | 'unknown' | string;
+  selectedPath: string;
+  starsectorRoot?: string | null;
+  modRoot?: string | null;
+  overview?: GameOverviewData | null;
+  warnings: GameScanWarning[];
+}
+
 export type TableKey = 'ships' | 'weapons' | 'wings' | 'hullmods' | 'industries';
 export type EditorKind = 'ship' | 'weapon' | 'projectile' | 'preview';
 

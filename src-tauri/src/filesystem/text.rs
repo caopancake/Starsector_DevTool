@@ -4,7 +4,12 @@ use std::{fs, path::Path};
 const UTF8_BOM: &[u8] = &[0xef, 0xbb, 0xbf];
 
 pub fn read_utf8_no_bom(path: &Path) -> AppResult<String> {
-    let bytes = fs::read(path)?;
+    let bytes = fs::read(path).map_err(|error| {
+        AppError::context(
+            format!("读取文本文件失败 ({})", path.display()),
+            error.into(),
+        )
+    })?;
     if bytes.starts_with(UTF8_BOM) {
         return Err(AppError::message(format!(
             "{} has UTF-8 BOM",
@@ -17,7 +22,12 @@ pub fn read_utf8_no_bom(path: &Path) -> AppResult<String> {
 }
 
 pub fn write_utf8_no_bom(path: &Path, text: &str) -> AppResult<()> {
-    fs::write(path, text.as_bytes())?;
+    fs::write(path, text.as_bytes()).map_err(|error| {
+        AppError::context(
+            format!("写入文本文件失败 ({})", path.display()),
+            error.into(),
+        )
+    })?;
     Ok(())
 }
 

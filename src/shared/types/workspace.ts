@@ -1,4 +1,4 @@
-import type { RowData, TableKey } from './index';
+import type { GameModSummary, GameScanWarning, RowData, TableKey } from './index';
 
 /** Metadata for one imported Mod in the workspace */
 export interface ModEntry {
@@ -55,4 +55,7 @@ export interface PersistedWorkspace {
   activeModRoot: string | null;
   currentView: string | null;
   expandedMods: string[];
+  starsectorRoot?: string | null;
+  gameMods?: GameModSummary[];
+  gameWarnings?: GameScanWarning[];
 }

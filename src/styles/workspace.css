@@ -276,6 +276,99 @@
   gap: var(--space-4);
 }
 
+.game-overview {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.game-overview-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-4);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-subtle);
+}
+
+.game-overview-summary div {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.game-overview-summary strong,
+.game-overview-summary span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-overview-summary strong {
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.game-overview-summary span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.game-warning-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.game-warning-item {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-md);
+}
+
+.game-warning-item strong {
+  color: var(--color-warning);
+  font-size: 12px;
+}
+
+.game-warning-item span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-overview-empty {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding: var(--space-5);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-subtle);
+}
+
+.game-overview-empty h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.game-overview-empty p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
 .overview-mod-card {
   display: grid;
   gap: var(--space-2);
@@ -347,6 +440,22 @@
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mod-card-description {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-text-soft);
+  font-size: 12px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.mod-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-1);
 }
 
 .mod-card-dirty {

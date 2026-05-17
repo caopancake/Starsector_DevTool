@@ -1,4 +1,7 @@
-use crate::{errors::AppResult, models::PersistedWorkspace};
+use crate::{
+    errors::{AppError, AppResult},
+    models::PersistedWorkspace,
+};
 use std::{fs, path::Path};
 
 const WORKSPACE_FILE: &str = "workspace.json";
@@ -15,10 +18,20 @@ pub fn load_workspace(app_data_dir: &Path) -> PersistedWorkspace {
 }
 
 pub fn save_workspace(app_data_dir: &Path, state: &PersistedWorkspace) -> AppResult<()> {
-    fs::create_dir_all(app_data_dir)?;
+    fs::create_dir_all(app_data_dir).map_err(|error| {
+        AppError::context(
+            format!("创建工作区状态目录失败 ({})", app_data_dir.display()),
+            error.into(),
+        )
+    })?;
     let path = app_data_dir.join(WORKSPACE_FILE);
     let json = serde_json::to_string_pretty(state)?;
-    fs::write(&path, json.as_bytes())?;
+    fs::write(&path, json.as_bytes()).map_err(|error| {
+        AppError::context(
+            format!("写入工作区状态失败 ({})", path.display()),
+            error.into(),
+        )
+    })?;
     Ok(())
 }
 
@@ -49,6 +62,9 @@ mod tests {
             active_mod_root: Some("D:/mods/test".to_string()),
             current_view: Some("table".to_string()),
             expanded_mods: vec!["D:/mods/test".to_string()],
+            starsector_root: Some("D:/Starsector".to_string()),
+            game_mods: vec![],
+            game_warnings: vec![],
         };
         save_workspace(&dir, &state).unwrap();
         let loaded = load_workspace(&dir);

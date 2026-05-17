@@ -18,6 +18,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::load_mod_data,
+            commands::load_mod_data_with_root,
+            commands::detect_directory,
+            commands::scan_game_overview,
             commands::save_csv,
             commands::add_csv_row,
             commands::delete_csv_row,
@@ -44,6 +47,8 @@ pub fn run() {
             commands::load_image_data_url,
             commands::scan_core_fields,
             commands::scan_core_graphics,
+            commands::load_editable_file,
+            commands::save_editable_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

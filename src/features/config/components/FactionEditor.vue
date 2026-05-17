@@ -36,12 +36,14 @@ import type { JsonValue, RowData } from '../../../shared/types';
 import SchemaFormRenderer from '../../schema/components/SchemaFormRenderer.vue';
 import { useCoreSchema } from '../../schema/composables/useCoreSchema';
 import { aggregateSchemaSources, splitSchemaSources } from '../../schema/schema.service';
+import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
 
 const props = defineProps<{ factionId: string }>();
 
 const project = useProjectStore();
 const historyStore = useHistoryStore();
 const settings = useSettingsStore();
+const themeOverrides = computed(() => buildThemeOverrides(settings));
 
 const { getMergedSchema, loadCoreFields } = useCoreSchema();
 loadCoreFields();
@@ -49,7 +51,7 @@ loadCoreFields();
 const schema = computed(() => getMergedSchema('faction'));
 
 const { message } = createDiscreteApi(['message'], {
-  configProviderProps: computed(() => ({ theme: settings.naiveTheme })),
+  configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
 });
 
 const saving = ref(false);

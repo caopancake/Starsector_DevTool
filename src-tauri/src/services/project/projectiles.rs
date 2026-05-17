@@ -1,22 +1,22 @@
-use crate::filesystem::load_json_dir;
+use crate::{errors::AppResult, filesystem::load_json_dir};
 use serde_json::Value;
 use std::{collections::BTreeMap, path::Path};
 
 pub(super) fn load_projectile_files(
     mod_root: &Path,
     core_dir: Option<&Path>,
-) -> BTreeMap<String, Value> {
+) -> AppResult<BTreeMap<String, Value>> {
     let mut result = BTreeMap::new();
     insert_projectiles(
         &mut result,
         &mod_root.join("data/weapons/proj"),
         "mod",
         true,
-    );
+    )?;
     if let Some(core) = core_dir {
-        insert_projectiles(&mut result, &core.join("data/weapons/proj"), "core", false);
+        insert_projectiles(&mut result, &core.join("data/weapons/proj"), "core", false)?;
     }
-    result
+    Ok(result)
 }
 
 fn insert_projectiles(
@@ -24,8 +24,8 @@ fn insert_projectiles(
     dir: &Path,
     source: &str,
     overwrite: bool,
-) {
-    for mut value in load_json_dir(dir, "proj") {
+) -> AppResult<()> {
+    for mut value in load_json_dir(dir, "proj")? {
         if let Some(id) = value
             .get("id")
             .and_then(Value::as_str)
@@ -40,6 +40,7 @@ fn insert_projectiles(
             result.insert(id, value);
         }
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -63,7 +64,7 @@ mod tests {
         write_utf8_no_bom(&core_proj.join("same.proj"), r#"{"id":"same","damage":1}"#).unwrap();
         write_utf8_no_bom(&core_proj.join("core_only.proj"), r#"{"id":"core_only"}"#).unwrap();
 
-        let loaded = load_projectile_files(&root.join("mod"), Some(&root.join("core")));
+        let loaded = load_projectile_files(&root.join("mod"), Some(&root.join("core"))).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(loaded["same"]["damage"], 2);

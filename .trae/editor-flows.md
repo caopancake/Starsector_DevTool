@@ -15,10 +15,10 @@
 - 流程：
   1. `loadWorkspace()` → Tauri command `load_workspace` → Rust 读取 `%APPDATA%/com.starsector.devtool/workspace.json`。
   2. 若文件不存在或损坏，返回空默认值，视为首次启动。
-  3. `workspace.restoreFrom(persisted)` 恢复 Mod 列表（status: loading）、视图、展开状态。
+  3. `workspace.restoreFrom(persisted)` 恢复游戏目录概览、已完整读取 Mod 列表（status: loading）、视图、展开状态。
   4. 逐个 Mod 调用 `project.openProject(modRoot)` 加载数据。
   5. 加载成功：`workspace.updateModStatus('ready')`，`tables.hydrate(modRoot, loaded)`。
-  6. 加载失败：`workspace.updateModStatus('error', message)`，允许用户移除。
+  6. 加载失败：从 workspace、tables、editors、history、project 缓存中移除该 Mod，不在左侧栏保留空节点；若错误能定位文件，顶部错误提示提供“打开错误文件”。
   7. 恢复 activeModRoot：仅当该 Mod 状态为 ready 时激活。
 - 持久化触发：workspace store 状态变化时，通过 `watch(workspace.toPersistedState())` 防抖 500ms 后写入。
 - Tauri command：`save_workspace` → Rust 写 workspace.json。
@@ -31,24 +31,37 @@
 
 ## 项目打开链路（多 Mod 工作区）
 
-- 入口：左侧 NavSidebar 的”打开 Mod 目录”按钮，或 OverviewPage 的按钮。
-- 编排：`App.vue` 的 `importMod()` 函数。
+- 入口：OverviewPage 的“打开目录”按钮。
+- 编排：`App.vue` 只负责选择目录和提示；具体打开流程由 `src/features/workspace/open-directory.service.ts` 执行。
 - 流程：
-  1. `pickModRoot()` 选择目录。
+  1. `pickDirectory()` 选择目录。
+  2. `detect_directory()` 返回 `game-root`、`mod-in-game`、`external-mod` 或 `unknown`。
+  3. `game-root`：写入 `workspace.gameOverview`，只展示轻量 Mod 概览，不读取 CSV/spec/贴图。
+  4. `mod-in-game`：写入游戏目录概览，并完整读取所选 Mod，读取完成后回到总览页。
+  5. `external-mod`：只完整读取该 Mod；设置页游戏目录只作为原版资源 fallback。
+  6. 游戏概览页点击“完整读取”时，使用该游戏目录作为显式 `starsectorRoot` 读取目标 Mod。
+  7. 完整读取前 `workspace.registerMod(entry)` 注册为 loading 状态。
+  8. `workspace.setActiveMod(modRoot)` 设置为活动 Mod。
+  9. `project.openProject(modRoot, starsectorRoot)` 加载数据，写入 `modsData` Map。
+  10. `workspace.updateModInfo()` 更新显示名和版本。
+  11. `workspace.updateModStatus(modRoot, 'ready')` 标记就绪。
+  12. `tables.hydrate(modRoot, loaded)` 创建该 Mod 的表格状态。
+  13. `editors.activateFor(modRoot)` 激活编辑器状态。
+- 游戏目录概览链路：
+  1. `scan_game_overview()` 只读取 `mods/*/mod_info.json`。
+  2. 概览页显示 Mod 名称、版本、路径、warning 和“完整读取”按钮。
+  3. 未完整读取的 Mod 不进入 `project.modsData`、`tables.stateMap`、`editors` 或 `history`。
+- 旧单 Mod 链路兼容：
+  1. `pickModRoot()` 仍作为 `pickDirectory()` 的兼容别名。
   2. 检查是否已导入（`workspace.isModImported(modRoot)`），若是则仅激活。
-  3. `workspace.registerMod(entry)` 注册为 loading 状态。
-  4. `workspace.setActiveMod(modRoot)` 设置为活动 Mod。
-  5. `project.openProject(modRoot)` 加载数据，写入 `modsData` Map。
-  6. `workspace.updateModInfo()` 更新显示名和版本。
-  7. `workspace.updateModStatus(modRoot, 'ready')` 标记就绪。
-  8. `tables.hydrate(modRoot, loaded)` 创建该 Mod 的表格状态。
-  9. `editors.activateFor(modRoot)` 激活编辑器状态。
 - 前端状态：
-  - `workspace.store.ts` 管理 Mod 列表和活动 Mod。
+  - `workspace.store.ts` 管理游戏目录上下文、已完整读取 Mod 列表和活动 Mod。
+  - `workspace.gameOverview` / `workspace.gameWorkspace` 管理游戏目录轻量扫描结果和已完整读取 Mod 状态。
   - `project.store.ts` 的 `modsData: Map<modRoot, AppData>` 缓存所有已加载数据。
   - `project.data` 是 computed，指向当前活动 Mod 的 AppData。
-- Tauri command：`load_mod_data`（不变）
+- Tauri command：`detect_directory`、`scan_game_overview`、`load_mod_data`、`load_mod_data_with_root`
 - 保存边界：打开项目只加载数据，不写入任何 Mod 文件。
+- 文件编辑器：解析/读取失败可打开独立文件编辑器窗口，窗口显示文件路径和错误消息，红色高亮目标行；同一文件按规范化绝对路径复用已有窗口，不重复打开。保存只通过 `save_editable_file` 原样写回该文件，不触发重新加载。窗口内支持 `Esc` 关闭、`Ctrl+S` 保存、`Ctrl+Z` 撤销、`Ctrl+Shift+Z` 重做。当前只由错误修复入口调用，但窗口请求结构已预留通用标题、上下文消息和目标行。
 
 ## Mod 切换链路
 

@@ -1,4 +1,8 @@
-use crate::{errors::AppResult, filesystem::read_utf8_no_bom, models::CsvTable};
+use crate::{
+    errors::{AppError, AppResult},
+    filesystem::read_utf8_no_bom,
+    models::CsvTable,
+};
 use serde_json::{Map, Value};
 use std::{fs, path::Path};
 
@@ -13,8 +17,12 @@ pub fn read_csv_data(path: &Path) -> AppResult<CsvTable> {
     let text = read_utf8_no_bom(path)?;
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(false)
+        .comment(Some(b'#'))
         .from_reader(text.as_bytes());
-    let records: Vec<csv::StringRecord> = rdr.records().collect::<Result<_, _>>()?;
+    let records: Vec<csv::StringRecord> =
+        rdr.records().collect::<Result<_, _>>().map_err(|error| {
+            AppError::context(format!("解析 CSV 失败 ({})", path.display()), error.into())
+        })?;
     if records.is_empty() {
         return Ok(CsvTable {
             header: vec![],
@@ -53,9 +61,15 @@ pub fn save_csv_file(path: &Path, header: &[String], rows: &[Map<String, Value>]
         let text = read_utf8_no_bom(path)?;
         let mut rdr = csv::ReaderBuilder::new()
             .has_headers(false)
+            .flexible(true)
             .from_reader(text.as_bytes());
         for record in rdr.records().skip(1) {
-            let record = record?;
+            let record = record.map_err(|error| {
+                AppError::context(
+                    format!("解析 CSV 注释行失败 ({})", path.display()),
+                    error.into(),
+                )
+            })?;
             if record.get(0).is_some_and(|v| v.starts_with('#')) {
                 comments.push(record);
             }
@@ -93,8 +107,12 @@ pub fn delete_csv_id(path: &Path, id: &str) -> AppResult<()> {
     let text = read_utf8_no_bom(path)?;
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(false)
+        .flexible(true)
         .from_reader(text.as_bytes());
-    let records: Vec<csv::StringRecord> = rdr.records().collect::<Result<_, _>>()?;
+    let records: Vec<csv::StringRecord> =
+        rdr.records().collect::<Result<_, _>>().map_err(|error| {
+            AppError::context(format!("解析 CSV 失败 ({})", path.display()), error.into())
+        })?;
     if records.is_empty() {
         return Ok(());
     }
@@ -171,6 +189,32 @@ mod tests {
         let result = read_csv_data(&path);
         let _ = fs::remove_file(path);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn read_reports_path_for_mismatched_record_width() {
+        let path = temp_path("csv_bad_width.csv");
+        write_utf8_no_bom(&path, "id,name\r\na,A\r\nbroken\r\n").unwrap();
+
+        let error = read_csv_data(&path).unwrap_err().to_string();
+
+        let _ = fs::remove_file(&path);
+        assert!(error.contains("解析 CSV 失败"));
+        assert!(error.contains("csv_bad_width.csv"));
+        assert!(error.contains("found record with 1 fields"));
+    }
+
+    #[test]
+    fn read_skips_single_field_comment_rows() {
+        let path = temp_path("csv_single_field_comment.csv");
+        write_utf8_no_bom(&path, "id,name\r\na,A\r\n#section\r\nb,B\r\n").unwrap();
+
+        let table = read_csv_data(&path).unwrap();
+
+        let _ = fs::remove_file(&path);
+        assert_eq!(table.rows.len(), 2);
+        assert_eq!(table.rows[0]["id"], "a");
+        assert_eq!(table.rows[1]["id"], "b");
     }
 
     #[test]

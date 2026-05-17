@@ -1,8 +1,19 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { AppData, PersistedWorkspace, RowData, TableKey } from '../types';
+import type { AppData, GameOverviewData, OpenDirectoryResult, PersistedWorkspace, RowData, TableKey } from '../types';
 
-export function loadModData(modRoot: string): Promise<AppData> {
+export function loadModData(modRoot: string, starsectorRoot?: string | null): Promise<AppData> {
+  if (starsectorRoot) {
+    return invoke('load_mod_data_with_root', { modRoot, starsectorRoot });
+  }
   return invoke('load_mod_data', { modRoot });
+}
+
+export function detectDirectory(path: string, fallbackStarsectorRoot?: string | null): Promise<OpenDirectoryResult> {
+  return invoke('detect_directory', { path, fallbackStarsectorRoot: fallbackStarsectorRoot ?? null });
+}
+
+export function scanGameOverview(starsectorRoot: string): Promise<GameOverviewData> {
+  return invoke('scan_game_overview', { starsectorRoot });
 }
 
 export function saveCsv(modRoot: string, table: TableKey, header: string[], rows: RowData[]): Promise<string> {
@@ -139,4 +150,17 @@ export function scanCoreFields(starsectorRoot: string): Promise<Record<string, D
 
 export function scanCoreGraphics(starsectorRoot: string): Promise<string[]> {
   return invoke('scan_core_graphics', { starsectorRoot });
+}
+
+export interface EditableFileData {
+  path: string;
+  text: string;
+}
+
+export function loadEditableFile(path: string): Promise<EditableFileData> {
+  return invoke('load_editable_file', { path });
+}
+
+export function saveEditableFile(path: string, text: string): Promise<void> {
+  return invoke('save_editable_file', { payload: { path, text } });
 }

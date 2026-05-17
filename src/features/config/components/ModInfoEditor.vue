@@ -26,14 +26,16 @@ import type { RowData } from '../../../shared/types';
 import SchemaFormRenderer from '../../schema/components/SchemaFormRenderer.vue';
 import { useCoreSchema } from '../../schema/composables/useCoreSchema';
 import { aggregateSchemaSources, splitSchemaSources } from '../../schema/schema.service';
+import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
 
 const project = useProjectStore();
 const configStore = useConfigStore();
 const historyStore = useHistoryStore();
 const settings = useSettingsStore();
+const themeOverrides = computed(() => buildThemeOverrides(settings));
 
 const { message } = createDiscreteApi(['message'], {
-  configProviderProps: computed(() => ({ theme: settings.naiveTheme })),
+  configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
 });
 
 const { getMergedSchema, loadCoreFields } = useCoreSchema();

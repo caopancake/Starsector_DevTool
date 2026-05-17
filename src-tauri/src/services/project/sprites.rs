@@ -1,4 +1,4 @@
-use crate::errors::AppResult;
+use crate::errors::{AppError, AppResult};
 use base64::{engine::general_purpose, Engine as _};
 use serde_json::{Map, Value};
 use std::{collections::BTreeMap, fs, path::Path};
@@ -94,7 +94,12 @@ fn load_sprite_data_url(
     // Try mod directory first
     let mod_path = mod_root.join(&rel);
     if mod_path.exists() {
-        let bytes = fs::read(mod_path)?;
+        let bytes = fs::read(&mod_path).map_err(|error| {
+            AppError::context(
+                format!("读取贴图文件失败 ({})", mod_path.display()),
+                error.into(),
+            )
+        })?;
         return Ok(Some(format!(
             "data:image/png;base64,{}",
             general_purpose::STANDARD.encode(bytes)
@@ -104,7 +109,12 @@ fn load_sprite_data_url(
     if let Some(core) = core_dir {
         let core_path = core.join(&rel);
         if core_path.exists() {
-            let bytes = fs::read(core_path)?;
+            let bytes = fs::read(&core_path).map_err(|error| {
+                AppError::context(
+                    format!("读取原版贴图文件失败 ({})", core_path.display()),
+                    error.into(),
+                )
+            })?;
             return Ok(Some(format!(
                 "data:image/png;base64,{}",
                 general_purpose::STANDARD.encode(bytes)

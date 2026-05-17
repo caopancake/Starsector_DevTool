@@ -6,6 +6,7 @@ import { useProjectStore } from '../../project/project.store';
 import { useEditorsStore } from '../../editors/editors.store';
 import { useSettingsStore } from '../../../app/settings.store';
 import { applyRedo, applyUndo } from '../history.service';
+import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
 
 /**
  * Registers global Ctrl+Z/Y handlers for the main interface.
@@ -18,9 +19,10 @@ export function useGlobalShortcuts() {
   const project = useProjectStore();
   const editorsStore = useEditorsStore();
   const settings = useSettingsStore();
+  const themeOverrides = computed(() => buildThemeOverrides(settings));
 
   const { message } = createDiscreteApi(['message'], {
-    configProviderProps: computed(() => ({ theme: settings.naiveTheme })),
+    configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
   });
 
   function isEditorOpen(): boolean {

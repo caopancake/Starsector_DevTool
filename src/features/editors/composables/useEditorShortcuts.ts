@@ -19,12 +19,14 @@ function shouldIgnoreShortcut(event: KeyboardEvent, scope?: HTMLElement) {
 export function useEditorShortcuts(handlers: ShortcutHandlers) {
   function onKey(event: KeyboardEvent) {
     if (shouldIgnoreShortcut(event, handlers.scope?.value)) return;
-    if (event.ctrlKey && event.key === 'z') {
+    const isUndoKey = event.ctrlKey && event.key.toLowerCase() === 'z' && !event.shiftKey;
+    const isRedoKey = event.ctrlKey && event.key.toLowerCase() === 'z' && event.shiftKey;
+    if (isUndoKey) {
       event.preventDefault();
       handlers.undo();
       return;
     }
-    if (event.ctrlKey && event.key === 'y') {
+    if (isRedoKey) {
       event.preventDefault();
       handlers.redo();
       return;

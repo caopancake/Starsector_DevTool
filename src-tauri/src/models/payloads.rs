@@ -107,6 +107,20 @@ pub struct MissionData {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct EditableFileData {
+    pub path: String,
+    pub text: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveEditableFilePayload {
+    pub path: String,
+    pub text: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UploadSpriteResult {
     pub ok: bool,
     pub exists: bool,

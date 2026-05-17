@@ -7,6 +7,7 @@ static COMMENT_RE: OnceLock<Regex> = OnceLock::new();
 static TRAILING_COMMA_RE: OnceLock<Regex> = OnceLock::new();
 static UNQUOTED_KEY_RE: OnceLock<Regex> = OnceLock::new();
 static UNQUOTED_VALUE_RE: OnceLock<Regex> = OnceLock::new();
+static LEADING_DOT_NUMBER_RE: OnceLock<Regex> = OnceLock::new();
 static FLOAT_SUFFIX_RE: OnceLock<Regex> = OnceLock::new();
 
 pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
@@ -21,18 +22,58 @@ pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
     let value_re = UNQUOTED_VALUE_RE.get_or_init(|| {
         Regex::new(r#"(?m)([:,\[]\s*)([A-Z][A-Z0-9_]*)\b"#).expect("valid unquoted value regex")
     });
+    // Matches Starsector-style leading-dot decimals after JSON separators: .5, -.5, .0f.
+    let leading_dot_number_re = LEADING_DOT_NUMBER_RE.get_or_init(|| {
+        Regex::new(r"(^|[:,\[]\s*)(-?)\.(\d+)").expect("valid leading-dot number regex")
+    });
     // Matches Java-style float suffix: 1f, 0.5f, 1.0f → strip the trailing 'f'
     let float_suffix_re = FLOAT_SUFFIX_RE
         .get_or_init(|| Regex::new(r"(\d+\.?\d*)f\b").expect("valid float suffix regex"));
     let mut cleaned = comment_re.replace_all(text, "").to_string();
+    cleaned = normalize_entry_semicolons(&cleaned);
     cleaned = trailing_re.replace_all(&cleaned, "$1").to_string();
     cleaned = key_re.replace_all(&cleaned, "$1\"$2\":").to_string();
     // Quote unquoted ALL_CAPS identifier values (enum-like values in Starsector)
     cleaned = value_re.replace_all(&cleaned, "$1\"$2\"").to_string();
+    // Normalize leading-dot decimals (.5 → 0.5, -.5 → -0.5) before strict JSON parsing.
+    cleaned = leading_dot_number_re
+        .replace_all(&cleaned, "$1${2}0.$3")
+        .to_string();
     // Strip Java float suffixes (1f → 1, 0.5f → 0.5)
     cleaned = float_suffix_re.replace_all(&cleaned, "$1").to_string();
     let end = first_json_object_end(&cleaned).unwrap_or(cleaned.len());
     Ok(serde_json::from_str(&cleaned[..end])?)
+}
+
+fn normalize_entry_semicolons(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    let mut in_str = false;
+    let mut escape = false;
+
+    for ch in text.chars() {
+        if in_str {
+            result.push(ch);
+            if escape {
+                escape = false;
+            } else if ch == '\\' {
+                escape = true;
+            } else if ch == '"' {
+                in_str = false;
+            }
+            continue;
+        }
+
+        match ch {
+            '"' => {
+                in_str = true;
+                result.push(ch);
+            }
+            ';' => result.push(','),
+            _ => result.push(ch),
+        }
+    }
+
+    result
 }
 
 fn first_json_object_end(text: &str) -> Option<usize> {
@@ -154,6 +195,65 @@ mod tests {
         assert_eq!(parsed["ratio"], 0.5);
         assert_eq!(parsed["normal"], 2.0);
         assert_eq!(parsed["integer"], 3);
+    }
+
+    #[test]
+    fn normalizes_leading_dot_decimals() {
+        let text = r#"{
+            "id": "test",
+            "contrailMaxSpeedMult": .0f,
+            "contrailSpawnDistMult": .5,
+            "negative": -.25f,
+            "values": [.125, -.75f, 1f]
+        }"#;
+        let parsed = parse_starsector_json(text).unwrap();
+        assert_eq!(parsed["contrailMaxSpeedMult"], 0.0);
+        assert_eq!(parsed["contrailSpawnDistMult"], 0.5);
+        assert_eq!(parsed["negative"], -0.25);
+        assert_eq!(parsed["values"][0], 0.125);
+        assert_eq!(parsed["values"][1], -0.75);
+        assert_eq!(parsed["values"][2], 1);
+    }
+
+    #[test]
+    fn accepts_semicolon_entry_separators() {
+        let text = r#"{
+            "id": "test";
+            "description": "semicolon; inside string";
+            "fadeOutEngineWhenFiring": false;
+            "values": [1; 2; 3;];
+        }"#;
+        let parsed = parse_starsector_json(text).unwrap();
+        assert_eq!(parsed["id"], "test");
+        assert_eq!(parsed["description"], "semicolon; inside string");
+        assert_eq!(parsed["fadeOutEngineWhenFiring"], false);
+        assert_eq!(parsed["values"][0], 1);
+        assert_eq!(parsed["values"][1], 2);
+        assert_eq!(parsed["values"][2], 3);
+    }
+
+    #[test]
+    fn rejects_overly_loose_json_forms() {
+        let invalid_cases = [
+            (
+                "missing comma between fields",
+                r#"{"id": "test" "name": "No comma"}"#,
+            ),
+            ("single quoted string", r#"{"id": 'test'}"#),
+            ("lowercase bare value", r#"{"id": test}"#),
+            ("mixed case bare value", r#"{"size": Large}"#),
+            ("number-prefixed bare key", r#"{1id: "test"}"#),
+            ("double decimal point", r#"{"ratio": 0..5}"#),
+            ("field without value", r#"{"enabled": ;}"#),
+            ("unterminated string", r#"{"id": "test}"#),
+        ];
+
+        for (label, text) in invalid_cases {
+            assert!(
+                parse_starsector_json(text).is_err(),
+                "{label} should not be accepted"
+            );
+        }
     }
 
     #[test]

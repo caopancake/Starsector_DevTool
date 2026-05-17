@@ -97,12 +97,14 @@ import {
   saveMissionListData,
   scanMissionListFiles,
 } from '../config.service';
+import { buildThemeOverrides, discreteConfigProviderProps } from '../../../app/theme-overrides';
 
 const project = useProjectStore();
 const settings = useSettingsStore();
+const themeOverrides = computed(() => buildThemeOverrides(settings));
 
 const { message } = createDiscreteApi(['message'], {
-  configProviderProps: computed(() => ({ theme: settings.naiveTheme })),
+  configProviderProps: computed(() => discreteConfigProviderProps(settings, themeOverrides)),
 });
 
 const DEFAULT_MISSION_LIST_PATH = 'data/missions/mission_list.csv';

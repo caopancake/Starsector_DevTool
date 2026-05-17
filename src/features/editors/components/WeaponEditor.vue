@@ -319,7 +319,7 @@ const modeFooterNotes: Record<WeaponViewMode, string> = {
   turret: '左键 拖动发射点 | Shift+左键 添加发射点 | Ctrl+左键 设置角度 | 退格 删除发射点 | T 打开炮塔发射点',
   hardpoint: '左键 拖动发射点 | Shift+左键 添加发射点 | Ctrl+左键 设置角度 | 退格 删除发射点 | T 打开固定发射点',
 };
-const footerNote = computed(() => `右键 拖动画布 | 滚轮缩放 | Ctrl+Z 撤销 | Ctrl+Y 重做\n${modeFooterNotes[viewMode.value]}`);
+const footerNote = computed(() => `右键 拖动画布 | 滚轮缩放 | Ctrl+Z 撤销 | Ctrl+Shift+Z 重做\n${modeFooterNotes[viewMode.value]}`);
 
 const offsets = computed<number[]>(() => offsetsFor(viewMode.value));
 const angles = computed<number[]>(() => anglesFor(viewMode.value));

@@ -295,7 +295,12 @@ pub fn load_image_as_data_url(
 }
 
 fn read_image_to_data_url(path: &Path) -> AppResult<Option<String>> {
-    let bytes = fs::read(path)?;
+    let bytes = fs::read(path).map_err(|error| {
+        AppError::context(
+            format!("读取图片文件失败 ({})", path.display()),
+            error.into(),
+        )
+    })?;
     let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("png");
     let mime = match ext {
         "jpg" | "jpeg" => "image/jpeg",
