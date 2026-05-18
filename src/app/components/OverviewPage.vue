@@ -1,7 +1,10 @@
 <template>
   <div class="overview-page">
     <header class="overview-header">
-      <h1>工作区总览</h1>
+      <div class="overview-header-row">
+        <h1>工作区总览</h1>
+        <n-button v-if="workspace.hasWorkspaceContext" size="small" @click="$emit('import-mod')">导入 Mod</n-button>
+      </div>
       <p class="overview-subtitle">{{ subtitle }}</p>
     </header>
 

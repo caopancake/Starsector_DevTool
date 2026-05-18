@@ -9,6 +9,13 @@
   overflow-y: auto;
 }
 
+.overview-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .overview-header h1 {
   margin: 0 0 var(--space-1);
   font-size: 22px;
