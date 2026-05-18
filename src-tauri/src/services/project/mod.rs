@@ -25,6 +25,7 @@ struct SpecBundle {
     wpn_files: BTreeMap<String, Value>,
     proj_files: BTreeMap<String, Value>,
     system_files: BTreeMap<String, Value>,
+    skill_files: BTreeMap<String, Value>,
 }
 
 struct SpriteBundle {
@@ -35,6 +36,14 @@ struct SpriteBundle {
     hullmod_sprites: BTreeMap<String, String>,
     ship_system_sprites: BTreeMap<String, String>,
     industry_sprites: BTreeMap<String, String>,
+    skill_sprites: BTreeMap<String, String>,
+}
+
+struct SpriteTableRows<'a> {
+    hullmods: &'a [Map<String, Value>],
+    industries: &'a [Map<String, Value>],
+    ship_systems: &'a [Map<String, Value>],
+    skills: &'a [Map<String, Value>],
 }
 
 pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
@@ -78,14 +87,22 @@ pub fn load_all_data_with_root(
         .get("shipSystems")
         .cloned()
         .unwrap_or_default();
+    let skills = loaded_tables
+        .rows
+        .get("skills")
+        .cloned()
+        .unwrap_or_default();
     let sprite_bundle = load_sprite_bundle(
         mod_root,
         core_dir.as_deref(),
         &spec_bundle.ship_files,
         &spec_bundle.wpn_files,
-        &hullmods,
-        &industries,
-        &ship_systems,
+        SpriteTableRows {
+            hullmods: &hullmods,
+            industries: &industries,
+            ship_systems: &ship_systems,
+            skills: &skills,
+        },
     )?;
 
     Ok(AppData {
@@ -104,6 +121,7 @@ pub fn load_all_data_with_root(
         hullmods: loaded_tables.rows.remove("hullmods").unwrap_or_default(),
         ship_systems: loaded_tables.rows.remove("shipSystems").unwrap_or_default(),
         industries: loaded_tables.rows.remove("industries").unwrap_or_default(),
+        skills: loaded_tables.rows.remove("skills").unwrap_or_default(),
         ship_files: spec_bundle.ship_files,
         variants: spec_bundle.variants,
         ship_sprites: sprite_bundle.ship_sprites,
@@ -111,11 +129,13 @@ pub fn load_all_data_with_root(
         wpn_files: spec_bundle.wpn_files,
         proj_files: spec_bundle.proj_files,
         system_files: spec_bundle.system_files,
+        skill_files: spec_bundle.skill_files,
         weapon_sprites: sprite_bundle.weapon_sprites,
         weapon_sprites_data: sprite_bundle.weapon_sprites_data,
         hullmod_sprites: sprite_bundle.hullmod_sprites,
         ship_system_sprites: sprite_bundle.ship_system_sprites,
         industry_sprites: sprite_bundle.industry_sprites,
+        skill_sprites: sprite_bundle.skill_sprites,
     })
 }
 
@@ -128,6 +148,7 @@ fn load_spec_bundle(mod_root: &Path, core_dir: Option<&Path>) -> AppResult<SpecB
         wpn_files,
         proj_files: projectiles::load_projectile_files(mod_root, core_dir)?,
         system_files: load_json_dir_by_id(&mod_root.join("data/shipsystems"), "system", "id")?,
+        skill_files: load_json_dir_by_id(&mod_root.join("data/characters/skills"), "skill", "id")?,
     })
 }
 
@@ -136,9 +157,7 @@ fn load_sprite_bundle(
     core_dir: Option<&Path>,
     ship_files: &BTreeMap<String, Value>,
     wpn_files: &BTreeMap<String, Value>,
-    hullmods: &[Map<String, Value>],
-    industries: &[Map<String, Value>],
-    ship_systems: &[Map<String, Value>],
+    table_rows: SpriteTableRows<'_>,
 ) -> AppResult<SpriteBundle> {
     Ok(SpriteBundle {
         ship_sprites: sprites::load_ship_sprite_data(mod_root, core_dir, ship_files)?,
@@ -148,13 +167,18 @@ fn load_sprite_bundle(
             &["graphics/weapons", "graphics/missiles", "graphics/fx"],
         ),
         weapon_sprites_data: sprites::load_weapon_sprite_data(mod_root, core_dir, wpn_files),
-        hullmod_sprites: sprites::load_hullmod_sprite_data(mod_root, core_dir, hullmods),
+        hullmod_sprites: sprites::load_hullmod_sprite_data(mod_root, core_dir, table_rows.hullmods),
         ship_system_sprites: sprites::load_ship_system_sprite_data(
             mod_root,
             core_dir,
-            ship_systems,
+            table_rows.ship_systems,
         ),
-        industry_sprites: sprites::load_industry_sprite_data(mod_root, core_dir, industries),
+        industry_sprites: sprites::load_industry_sprite_data(
+            mod_root,
+            core_dir,
+            table_rows.industries,
+        ),
+        skill_sprites: sprites::load_skill_sprite_data(mod_root, core_dir, table_rows.skills),
     })
 }
 
@@ -435,6 +459,50 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
         assert_eq!(detected.kind, "game-root");
         assert!(detected.overview.is_some());
+    }
+
+    #[test]
+    fn load_all_data_reads_skill_csv_and_specs() {
+        let root = temp_dir("load_skills");
+        fs::create_dir_all(root.join("data/characters/skills")).unwrap();
+        fs::create_dir_all(root.join("graphics/icons/skills")).unwrap();
+        let png_bytes: [u8; 69] = [
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00,
+            0x00, 0x90, 0x77, 0x53, 0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54, 0x08,
+            0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0xE2, 0x21, 0xBC,
+            0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+        ];
+        fs::write(root.join("graphics/icons/skills/demo.png"), png_bytes).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/characters/skills/skill_data.csv"),
+            "id,name,icon,tags\r\ndemo_skill,Demo Skill,graphics/icons/skills/demo.png,aptitude_combat\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("data/characters/skills/demo_skill.skill"),
+            r#"{"id":"demo_skill","name":"Demo Skill"}"#,
+        )
+        .unwrap();
+
+        let data = load_all_data(&root).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(data.skills.len(), 1);
+        assert_eq!(data.skills[0]["id"], "demo_skill");
+        assert_eq!(data.skill_files["demo_skill"]["name"], "Demo Skill");
+        assert!(data.skill_sprites["demo_skill"].starts_with("data:image/png;base64,"));
+    }
+
+    #[test]
+    fn load_all_data_allows_missing_skill_sources() {
+        let root = temp_dir("missing_skills");
+
+        let data = load_all_data(&root).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(data.skills.is_empty());
+        assert!(data.skill_files.is_empty());
     }
 
     #[test]

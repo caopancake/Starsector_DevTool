@@ -7,7 +7,7 @@
 ## 边界
 
 - `src/features/tables/table-save-orchestrator.ts` 是前端表格保存编排入口。
-- `src/features/tables/associated-file-candidates.ts` 推导 ships、weapons、shipSystems 的关联文件创建和删除候选。
+- `src/features/tables/associated-file-candidates.ts` 推导 ships、weapons、shipSystems、skills 的关联文件创建和删除候选。
 - `src/features/tables/table-service.ts` 调用后端 CSV 保存 command。
 - `src/shared/api/tables-api.ts` 封装 `save_csv_with_history` 和 `load_csv_table`。
 - `src-tauri/src/services/tables.rs` 渲染 CSV、构建 CSV 文件 changeset 和关联文件 changeset。

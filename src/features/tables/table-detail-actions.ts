@@ -14,6 +14,7 @@ export function fileEditorActionForRow(modRoot: string, table: TableKey, row: Ro
   if (table === 'ships') return specFileAction(modRoot, ['data', 'hulls', `${id}.ship`], `${id}.ship`);
   if (table === 'weapons') return specFileAction(modRoot, ['data', 'weapons', `${id}.wpn`], `${id}.wpn`);
   if (table === 'shipSystems') return specFileAction(modRoot, ['data', 'shipsystems', `${id}.system`], `${id}.system`);
+  if (table === 'skills') return specFileAction(modRoot, ['data', 'characters', 'skills', `${id}.skill`], `${id}.skill`);
   return null;
 }
 

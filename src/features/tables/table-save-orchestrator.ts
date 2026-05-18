@@ -64,6 +64,7 @@ function assignAppDataTable(appData: AppData, table: TableKey, rows: RowData[]) 
   else if (table === 'hullmods') appData.hullmods = next;
   else if (table === 'shipSystems') appData.shipSystems = next;
   else if (table === 'industries') appData.industries = next;
+  else if (table === 'skills') appData.skills = next;
 }
 
 function applyAssociatedFileCache(appData: AppData, files: AssociatedFileChange[]) {
@@ -80,6 +81,9 @@ function applyAssociatedFileCache(appData: AppData, files: AssociatedFileChange[
     } else if (relPath.startsWith('data/shipsystems/') && relPath.endsWith('.system')) {
       if (file.afterText === null) delete appData.systemFiles[id];
       else if (file.afterText !== undefined) appData.systemFiles[id] = parseAssociatedJson(file.afterText);
+    } else if (relPath.startsWith('data/characters/skills/') && relPath.endsWith('.skill')) {
+      if (file.afterText === null) delete appData.skillFiles[id];
+      else if (file.afterText !== undefined) appData.skillFiles[id] = parseAssociatedJson(file.afterText);
     }
   }
 }

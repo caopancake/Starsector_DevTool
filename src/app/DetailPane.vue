@@ -21,17 +21,22 @@
       <section class="panel-card detail-card">
         <div class="panel-section-title">操作</div>
         <div class="detail-actions">
-          <n-button v-if="fileEditorAction" block tertiary @click="$emit('detail-action', fileEditorAction)">文件编辑器</n-button>
-          <n-button v-if="canOpenShipEditor" block @click="$emit('detail-action', { type: 'ship-editor', id: selectedSpecId })">
+          <n-button v-if="fileEditorAction" block secondary @click="$emit('detail-action', fileEditorAction)">文件编辑器</n-button>
+          <n-button v-if="canOpenShipEditor" block secondary @click="$emit('detail-action', { type: 'ship-editor', id: selectedSpecId })">
             舰船编辑器
           </n-button>
-          <n-button v-if="canOpenWeaponEditor" block @click="$emit('detail-action', { type: 'weapon-editor', id: selectedSpecId })">
+          <n-button
+            v-if="canOpenWeaponEditor"
+            block
+            secondary
+            @click="$emit('detail-action', { type: 'weapon-editor', id: selectedSpecId })"
+          >
             武器编辑器
           </n-button>
           <n-button
             v-if="canOpenWeaponEditor"
             block
-            tertiary
+            secondary
             @click="$emit('detail-action', { type: 'weapon-preview', id: selectedSpecId })"
           >
             发射预览
@@ -115,6 +120,9 @@ const previewState = computed<PreviewState>(() => {
   }
   if (tables.currentTab === 'shipSystems') {
     return previewFromMap(data.shipSystemSprites[id], str(row.icon), id, tables.currentTab);
+  }
+  if (tables.currentTab === 'skills') {
+    return previewFromMap(data.skillSprites[id], str(row.icon), id, tables.currentTab);
   }
   return noPreview(tables.currentTab);
 });

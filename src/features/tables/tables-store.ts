@@ -6,14 +6,14 @@ import { getNextActiveKeyAfterRemoval } from '../../shared/lib/store-utils';
 import { useTablesEditHistoryStore } from './tables-edit-history-store';
 import { assignTableRowKey, assignTableRowKeys, resolveTableRowKey } from './table-row-key';
 
-export const TABLE_KEYS: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'shipSystems', 'industries'];
+export const TABLE_KEYS: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'shipSystems', 'industries', 'skills'];
 
 function emptyDirtyState(): Record<TableKey, Record<string, Record<string, string>>> {
-  return { ships: {}, weapons: {}, wings: {}, hullmods: {}, shipSystems: {}, industries: {} };
+  return { ships: {}, weapons: {}, wings: {}, hullmods: {}, shipSystems: {}, industries: {}, skills: {} };
 }
 
 function emptyTablesRecord(): Record<TableKey, RowData[]> {
-  return { ships: [], weapons: [], wings: [], hullmods: [], shipSystems: [], industries: [] };
+  return { ships: [], weapons: [], wings: [], hullmods: [], shipSystems: [], industries: [], skills: [] };
 }
 
 function createModTableState(): ModTableState {

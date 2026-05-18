@@ -11,7 +11,7 @@
       <article class="mod-overview-card">
         <span>数据表</span>
         <strong>{{ tableTotal }}</strong>
-        <p>舰船、武器、联队、舰船插件和工业记录</p>
+        <p>舰船、武器、联队、舰船插件、工业和技能记录</p>
       </article>
       <article class="mod-overview-card">
         <span>配置</span>
@@ -60,9 +60,10 @@ const breakdown = computed(() => [
   { label: '舰船插件', count: data.value?.hullmods.length ?? 0 },
   { label: '战术系统', count: data.value?.shipSystems.length ?? 0 },
   { label: '工业', count: data.value?.industries.length ?? 0 },
+  { label: '技能', count: data.value?.skills.length ?? 0 },
   { label: '势力', count: data.value ? Object.keys(data.value.factionFiles).length : 0 },
   { label: '战役', count: data.value?.missionCount ?? 0 },
 ]);
-const tableTotal = computed(() => breakdown.value.slice(0, 6).reduce((sum, item) => sum + item.count, 0));
-const configTotal = computed(() => breakdown.value.slice(6).reduce((sum, item) => sum + item.count, 0));
+const tableTotal = computed(() => breakdown.value.slice(0, 7).reduce((sum, item) => sum + item.count, 0));
+const configTotal = computed(() => breakdown.value.slice(7).reduce((sum, item) => sum + item.count, 0));
 </script>

@@ -98,6 +98,7 @@ export const TABLE_COLUMNS: Record<TableKey, string[]> = {
     'icon',
   ],
   industries: ['name', 'id', 'build time', 'upkeep', 'tags', 'desc', 'order'],
+  skills: ['id', 'name', 'icon', 'description', 'aptitude', 'tier', 'tags'],
 };
 
 export const MODULE_LABELS: Record<TableKey, string> = {
@@ -107,6 +108,7 @@ export const MODULE_LABELS: Record<TableKey, string> = {
   hullmods: '舰船插件',
   shipSystems: '战术系统',
   industries: '工业',
+  skills: '技能',
 };
 
 export const WEAPON_COLORS: Record<string, string> = {
@@ -178,7 +180,7 @@ export function rowDisplayId(row: RowData): string {
 
 export function rowSpecId(row: RowData, tab?: TableKey): string {
   if (tab === 'ships') return str(row.id) || str(row.hullId);
-  if (tab === 'weapons' || tab === 'shipSystems') return str(row.id);
+  if (tab === 'weapons' || tab === 'shipSystems' || tab === 'skills') return str(row.id);
   return str(row.id) || str(row.hullId);
 }
 

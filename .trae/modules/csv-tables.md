@@ -2,7 +2,7 @@
 
 ## 定义
 
-CSV 表格系统负责展示和编辑 Starsector CSV 表，包括 ships、weapons、wings、hullmods、shipSystems 和 industries。它只管理草稿状态，不直接写盘。
+CSV 表格系统负责展示和编辑 Starsector CSV 表，包括 ships、weapons、wings、hullmods、shipSystems、industries 和 skills。它只管理草稿状态，不直接写盘。
 
 ## 边界
 

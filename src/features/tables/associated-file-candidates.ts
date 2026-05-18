@@ -11,13 +11,14 @@ export interface AssociatedFileCandidate extends AssociatedFileChange {
   label: string;
 }
 
-const TABLES_WITH_ASSOCIATED_FILES: TableKey[] = ['ships', 'weapons', 'shipSystems'];
+const TABLES_WITH_ASSOCIATED_FILES: TableKey[] = ['ships', 'weapons', 'shipSystems', 'skills'];
 
 export function associatedRelPath(table: TableKey, id: string): string | null {
   if (!id) return null;
   if (table === 'ships') return `data/hulls/${id}.ship`;
   if (table === 'weapons') return `data/weapons/${id}.wpn`;
   if (table === 'shipSystems') return `data/shipsystems/${id}.system`;
+  if (table === 'skills') return `data/characters/skills/${id}.skill`;
   return null;
 }
 
@@ -82,5 +83,6 @@ function hasAssociatedFile(appData: AppData, table: TableKey, id: string): boole
   if (table === 'ships') return Boolean(appData.shipFiles[id]);
   if (table === 'weapons') return Boolean(appData.wpnFiles[id]);
   if (table === 'shipSystems') return Boolean(appData.systemFiles[id]);
+  if (table === 'skills') return Boolean(appData.skillFiles[id]);
   return false;
 }

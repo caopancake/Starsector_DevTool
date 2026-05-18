@@ -24,6 +24,7 @@ export interface AppData {
   hullmods: RowData[];
   shipSystems: RowData[];
   industries: RowData[];
+  skills: RowData[];
   shipFiles: Record<string, RowData>;
   variants: Record<string, RowData[]>;
   shipSprites: Record<string, string>;
@@ -31,11 +32,13 @@ export interface AppData {
   wpnFiles: Record<string, RowData>;
   projFiles: Record<string, RowData>;
   systemFiles: Record<string, RowData>;
+  skillFiles: Record<string, RowData>;
   weaponSprites: string[];
   weaponSpritesData: Record<string, Record<string, string>>;
   hullmodSprites: Record<string, string>;
   shipSystemSprites: Record<string, string>;
   industrySprites: Record<string, string>;
+  skillSprites: Record<string, string>;
 }
 
 export interface GameScanWarning {
@@ -69,7 +72,7 @@ export interface OpenDirectoryResult {
   warnings: GameScanWarning[];
 }
 
-export type TableKey = 'ships' | 'weapons' | 'wings' | 'hullmods' | 'shipSystems' | 'industries';
+export type TableKey = 'ships' | 'weapons' | 'wings' | 'hullmods' | 'shipSystems' | 'industries' | 'skills';
 export type EditorKind = 'ship' | 'weapon' | 'projectile';
 
 export interface SelectOption {

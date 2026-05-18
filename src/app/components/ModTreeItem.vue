@@ -62,12 +62,14 @@
         <span class="mod-tree-module-count">{{ factionCount }}</span>
       </button>
       <button
+        v-for="key in secondaryTableKeys"
+        :key="key"
         class="mod-tree-module-btn"
-        :class="{ 'module-active': isActive && workspace.currentView === 'table' && tables.currentTab === 'industries' }"
-        @click="$emit('switch-tab', mod.modRoot, 'industries')"
+        :class="{ 'module-active': isActive && workspace.currentView === 'table' && tables.currentTab === key }"
+        @click="$emit('switch-tab', mod.modRoot, key)"
       >
-        <span>{{ MODULE_LABELS.industries }}</span>
-        <span class="mod-tree-module-count">{{ getRowCount('industries') }}</span>
+        <span>{{ MODULE_LABELS[key] }}</span>
+        <span class="mod-tree-module-count">{{ getRowCount(key) }}</span>
       </button>
       <button
         class="mod-tree-module-btn"
@@ -106,6 +108,7 @@ const project = useProjectStore();
 const workspace = useWorkspaceStore();
 const showMenu = ref(false);
 const primaryTableKeys: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'shipSystems'];
+const secondaryTableKeys: TableKey[] = ['industries', 'skills'];
 
 const hasDirtyChanges = computed(() => tables.hasModDirtyChanges(props.mod.modRoot));
 const factionCount = computed(() => {
