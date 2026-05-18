@@ -1,6 +1,6 @@
 use crate::{
     errors::{AppError, AppResult},
-    filesystem::read_json_file,
+    io::read_json_file,
     models::{UploadSpritePayload, UploadSpriteResult},
     services::file_changes::FileChangeSetBuilder,
 };

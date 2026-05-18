@@ -8,11 +8,11 @@ CSV 表格系统负责展示和编辑 Starsector CSV 表，包括 ships、weapon
 
 - `src/app/DataTable.vue` 渲染表格网格和单元格输入。
 - `src/app/DetailPane.vue` 根据当前表和当前行显示右侧详情，并只发出语义化详情动作。
-- `src/features/tables/tables-store.ts` 持有每个 Mod 的表格、原始表格、dirty、选择和编辑状态。
-- `src/features/tables/table-row-key.ts` 负责 CSV 行身份。
-- `src/features/tables/table-detail-actions.ts` 定义详情面板可发出的文件编辑器、spec 编辑器和预览动作。
-- `src/features/tables/table-service.ts` 调用 CSV 保存和局部加载 API。
-- `src/shared/types.ts` 定义 `TableKey`、`RowData` 和 `ModTableState`。
+- `src/stores/tables.store.ts` 持有每个 Mod 的表格、原始表格、dirty、选择和编辑状态。
+- `src/domain/tables/table-row-key.ts` 负责 CSV 行身份。
+- `src/domain/tables/table-detail-actions.ts` 定义详情面板可发出的文件编辑器、spec 编辑器和预览动作。
+- `src/services/table.service.ts` 调用 CSV 保存和局部加载 API。
+- `src/shared/types/` 定义 `TableKey`、`RowData` 和 `ModTableState`。
 - `src-tauri/src/models/project.rs` 中 `CSV_TABLES` 定义表名到 CSV 路径的映射。
 
 ## 规范

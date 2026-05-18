@@ -1,9 +1,9 @@
 use crate::{
     errors::{AppError, AppResult},
-    filesystem::{read_utf8_no_bom, write_utf8_no_bom},
+    io::{read_utf8_no_bom, write_utf8_no_bom},
     models::{
-        ApplyFileChangeSetPayload, EditableFileData, FileChangeKind, FileChangeRecord,
-        FileSnapshot, SaveModFilesWithHistoryPayload, SaveTextFileWithHistoryPayload,
+        ApplyFileChangeSetPayload, AssociatedFileChangePayload, EditableFileData, FileChangeKind,
+        FileChangeRecord, FileSnapshot,
     },
 };
 use base64::{engine::general_purpose, Engine as _};
@@ -13,11 +13,9 @@ use std::{
 };
 use walkdir::WalkDir;
 
-pub fn save_text_file_with_history(
-    payload: SaveTextFileWithHistoryPayload,
-) -> AppResult<Vec<FileChangeRecord>> {
-    let path = Path::new(&payload.path);
-    let change = build_text_change(path, Some(payload.text))?;
+pub fn save_text_file(path: &str, text: String) -> AppResult<Vec<FileChangeRecord>> {
+    let path = Path::new(path);
+    let change = build_text_change(path, Some(text))?;
     apply_changes(std::slice::from_ref(&change), ChangeDirection::Redo)?;
     Ok(vec![change])
 }
@@ -30,11 +28,12 @@ pub fn load_editable_file(path: String) -> AppResult<EditableFileData> {
     })
 }
 
-pub fn save_mod_files_with_history(
-    payload: SaveModFilesWithHistoryPayload,
+pub fn save_mod_files(
+    mod_root: &str,
+    files: Vec<AssociatedFileChangePayload>,
 ) -> AppResult<Vec<FileChangeRecord>> {
-    let mut builder = FileChangeSetBuilder::new(Path::new(&payload.mod_root));
-    for file in payload.files {
+    let mut builder = FileChangeSetBuilder::new(Path::new(mod_root));
+    for file in files {
         builder.file(&file.rel_path, file.after_text, file.after_data_base64)?;
     }
     builder.apply()
@@ -415,7 +414,7 @@ fn restore_snapshot_file(path: &Path, file: &FileSnapshot) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{filesystem::write_utf8_no_bom, models::AssociatedFileChangePayload};
+    use crate::{io::write_utf8_no_bom, models::AssociatedFileChangePayload};
     use std::{
         fs,
         path::PathBuf,
@@ -423,13 +422,13 @@ mod tests {
     };
 
     #[test]
-    fn save_mod_files_with_history_writes_multiple_files_in_one_changeset() {
+    fn save_mod_files_writes_multiple_files_in_one_changeset() {
         let root = temp_dir("save_mod_files_changeset");
         write_utf8_no_bom(&root.join("mod_info.json"), "{\"id\":\"old\"}").unwrap();
 
-        let changes = save_mod_files_with_history(SaveModFilesWithHistoryPayload {
-            mod_root: root.to_string_lossy().to_string(),
-            files: vec![
+        let changes = save_mod_files(
+            &root.to_string_lossy(),
+            vec![
                 AssociatedFileChangePayload {
                     rel_path: "mod_info.json".to_string(),
                     after_text: Some("{\"id\":\"new\"}".to_string()),
@@ -441,7 +440,7 @@ mod tests {
                     after_data_base64: None,
                 },
             ],
-        })
+        )
         .unwrap();
 
         let mod_info = read_utf8_no_bom(&root.join("mod_info.json")).unwrap();
@@ -455,17 +454,17 @@ mod tests {
     }
 
     #[test]
-    fn save_mod_files_with_history_rejects_path_traversal() {
+    fn save_mod_files_rejects_path_traversal() {
         let root = temp_dir("save_mod_files_rejects_path");
 
-        let result = save_mod_files_with_history(SaveModFilesWithHistoryPayload {
-            mod_root: root.to_string_lossy().to_string(),
-            files: vec![AssociatedFileChangePayload {
+        let result = save_mod_files(
+            &root.to_string_lossy(),
+            vec![AssociatedFileChangePayload {
                 rel_path: "../outside.txt".to_string(),
                 after_text: Some("bad".to_string()),
                 after_data_base64: None,
             }],
-        });
+        );
 
         let _ = fs::remove_dir_all(root);
         assert!(result.is_err());

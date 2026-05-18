@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { FileChangeRecord } from './files-api';
+import type { FileChangeRecord } from '@/shared/api/files-api';
 
 export interface UploadResult {
   ok: boolean;

@@ -1,0 +1,80 @@
+use crate::{
+    errors::{AppError, AppResult},
+    models::{SkinFile, VariantFile},
+};
+use serde_json::Value;
+use std::path::Path;
+
+pub fn validate_config_id<'a>(id: &'a str, message: &str) -> AppResult<&'a str> {
+    let clean = id.trim();
+    if clean.is_empty()
+        || clean.contains('/')
+        || clean.contains('\\')
+        || clean == "."
+        || clean == ".."
+        || clean.contains("..")
+    {
+        return Err(AppError::message(message));
+    }
+    Ok(clean)
+}
+
+pub fn build_variant_file(mod_root: &Path, rel_path: &str, data: &Value) -> AppResult<VariantFile> {
+    let variant_id = required_string(data, "variantId", "装配")?;
+    let hull_id = required_string(data, "hullId", "装配")?;
+    Ok(VariantFile {
+        variant_id,
+        hull_id,
+        path: mod_root.join(rel_path).to_string_lossy().to_string(),
+        rel_path: rel_path.to_string(),
+        weapon_group_count: array_len(data.get("weaponGroups")),
+        hull_mod_count: array_len(data.get("hullMods")),
+        perma_mod_count: array_len(data.get("permaMods")),
+        wing_count: array_len(data.get("wings")),
+        data: data.clone(),
+    })
+}
+
+pub fn build_skin_file(mod_root: &Path, rel_path: &str, data: &Value) -> AppResult<SkinFile> {
+    let skin_hull_id = required_string(data, "skinHullId", "舰船皮肤")?;
+    let base_hull_id = required_string(data, "baseHullId", "舰船皮肤")?;
+    Ok(SkinFile {
+        skin_hull_id,
+        base_hull_id,
+        path: mod_root.join(rel_path).to_string_lossy().to_string(),
+        rel_path: rel_path.to_string(),
+        built_in_mod_count: array_len(data.get("builtInMods")),
+        built_in_weapon_count: object_len(data.get("builtInWeapons")),
+        built_in_wing_count: array_len(data.get("builtInWings")),
+        weapon_slot_change_count: object_len(data.get("weaponSlotChanges")),
+        engine_slot_change_count: object_len(data.get("engineSlotChanges")),
+        data: data.clone(),
+    })
+}
+
+pub fn variant_rel_path(variant_id: &str) -> String {
+    format!("data/variants/{variant_id}.variant")
+}
+
+pub fn skin_rel_path(skin_hull_id: &str) -> String {
+    format!("data/hulls/skins/{skin_hull_id}.skin")
+}
+
+fn required_string(value: &Value, key: &str, display_name: &str) -> AppResult<String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .filter(|text| !text.trim().is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| AppError::message(format!("{display_name}缺少 {key}")))
+}
+
+fn array_len(value: Option<&Value>) -> usize {
+    value.and_then(Value::as_array).map_or(0, Vec::len)
+}
+
+fn object_len(value: Option<&Value>) -> usize {
+    value
+        .and_then(Value::as_object)
+        .map_or(0, |object| object.len())
+}

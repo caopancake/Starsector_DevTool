@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { RowData } from '../types';
-import type { FileChangeRecord } from './files-api';
+import type { RowData } from '@/shared/types';
+import type { FileChangeRecord } from '@/shared/api/files-api';
 
 export type IndexedConfigEntityKind = 'faction' | 'mission';
 
@@ -34,10 +34,16 @@ export function saveIndexedConfigEntityWithHistory(payload: IndexedConfigEntityP
   return invoke('save_indexed_config_entity_with_history', { payload });
 }
 
+export const saveIndexedConfigEntity = saveIndexedConfigEntityWithHistory;
+
 export function createIndexedConfigEntityWithHistory(payload: IndexedConfigEntityPayload): Promise<IndexedConfigEntityResult> {
   return invoke('create_indexed_config_entity_with_history', { payload });
 }
 
+export const createIndexedConfigEntity = createIndexedConfigEntityWithHistory;
+
 export function deleteIndexedConfigEntityWithHistory(payload: DeleteIndexedConfigEntityPayload): Promise<IndexedConfigEntityResult> {
   return invoke('delete_indexed_config_entity_with_history', { payload });
 }
+
+export const deleteIndexedConfigEntity = deleteIndexedConfigEntityWithHistory;

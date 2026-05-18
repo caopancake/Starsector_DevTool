@@ -7,7 +7,7 @@
 ## 边界
 
 - `src-tauri/src/parsers/alex_json.rs` 实现清洗、解析和负例测试。
-- `src-tauri/src/filesystem/json_files.rs` 调用宽松 parser 读取 JSON-like 文件。
+- `src-tauri/src/io/json_files.rs` 调用宽松 parser 读取 JSON-like 文件。
 - `src-tauri/src/services/project/mod.rs`、`projectiles.rs`、`config` 和 `editor_specs.rs` 依赖 JSON 文件读取。
 
 ## 规范

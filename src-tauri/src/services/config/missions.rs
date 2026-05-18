@@ -1,13 +1,12 @@
 use crate::{
+    domain::config::validate_config_id,
     errors::{AppError, AppResult},
-    filesystem::{read_json_file, read_utf8_no_bom},
+    io::{read_json_file, read_utf8_no_bom},
     models::{CsvTable, MissionData},
     parsers::read_csv_data,
 };
 use serde_json::{Map, Value};
 use std::path::Path;
-
-use super::validate_config_id;
 
 pub fn scan_mission_list_files(mod_root: &str) -> Vec<String> {
     let rel_path = "data/missions/mission_list.csv";
@@ -65,11 +64,9 @@ fn mission_list_path(mod_root: &str, rel_path: &str) -> AppResult<std::path::Pat
 mod tests {
     use super::*;
     use crate::{
-        filesystem::write_utf8_no_bom,
+        io::write_utf8_no_bom,
         models::{DeleteIndexedConfigEntityPayload, IndexedConfigEntityPayload},
-        services::config::{
-            delete_indexed_config_entity_with_history, save_indexed_config_entity_with_history,
-        },
+        services::config::{delete_indexed_config_entity, save_indexed_config_entity},
     };
     use std::{
         fs,
@@ -103,7 +100,7 @@ mod tests {
         .unwrap();
         write_utf8_no_bom(&root.join("data/missions/demo/mission_text.txt"), "text").unwrap();
 
-        let result = delete_indexed_config_entity_with_history(DeleteIndexedConfigEntityPayload {
+        let result = delete_indexed_config_entity(DeleteIndexedConfigEntityPayload {
             mod_root: root.to_string_lossy().to_string(),
             kind: "mission".to_string(),
             id: "demo".to_string(),
@@ -145,7 +142,7 @@ mod tests {
         let mut descriptor = Map::new();
         descriptor.insert("title".to_string(), Value::String("New".to_string()));
         descriptor.insert("icon".to_string(), Value::String("icon.png".to_string()));
-        let result = save_indexed_config_entity_with_history(IndexedConfigEntityPayload {
+        let result = save_indexed_config_entity(IndexedConfigEntityPayload {
             mod_root: root.to_string_lossy().to_string(),
             kind: "mission".to_string(),
             previous_id: Some("old".to_string()),

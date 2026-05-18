@@ -1,15 +1,13 @@
 use crate::{
+    domain::config::{build_skin_file, skin_rel_path, validate_config_id},
     errors::{AppError, AppResult},
-    filesystem::strip_internal_fields,
-    models::{DeleteSkinEntityPayload, SkinEntityPayload, SkinEntityResult, SkinFile},
+    io::strip_internal_fields,
+    models::{DeleteSkinEntityPayload, SkinEntityPayload, SkinEntityResult},
     services::file_changes::FileChangeSetBuilder,
 };
-use serde_json::Value;
 use std::path::Path;
 
-use super::validate_config_id;
-
-pub fn save_skin_entity_with_history(input: SkinEntityPayload) -> AppResult<SkinEntityResult> {
+pub fn save_skin_entity(input: SkinEntityPayload) -> AppResult<SkinEntityResult> {
     let next_id = validate_config_id(&input.next_id, "无效舰船皮肤 ID")?.to_string();
     let mod_root = Path::new(&input.mod_root);
     let previous_id = input
@@ -45,15 +43,15 @@ pub fn save_skin_entity_with_history(input: SkinEntityPayload) -> AppResult<Skin
     Ok(SkinEntityResult { changes, skin_file })
 }
 
-pub fn create_skin_entity_with_history(input: SkinEntityPayload) -> AppResult<SkinEntityResult> {
-    save_skin_entity_with_history(SkinEntityPayload {
+pub fn create_skin_entity(input: SkinEntityPayload) -> AppResult<SkinEntityResult> {
+    save_skin_entity(SkinEntityPayload {
         previous_id: None,
         previous_rel_path: None,
         ..input
     })
 }
 
-pub fn delete_skin_entity_with_history(
+pub fn delete_skin_entity(
     input: DeleteSkinEntityPayload,
 ) -> AppResult<Vec<crate::models::FileChangeRecord>> {
     validate_config_id(&input.skin_hull_id, "无效舰船皮肤 ID")?;
@@ -62,51 +60,11 @@ pub fn delete_skin_entity_with_history(
     builder.apply()
 }
 
-fn build_skin_file(mod_root: &Path, rel_path: &str, data: &Value) -> AppResult<SkinFile> {
-    let skin_hull_id = required_string(data, "skinHullId")?;
-    let base_hull_id = required_string(data, "baseHullId")?;
-    Ok(SkinFile {
-        skin_hull_id,
-        base_hull_id,
-        path: mod_root.join(rel_path).to_string_lossy().to_string(),
-        rel_path: rel_path.to_string(),
-        built_in_mod_count: array_len(data.get("builtInMods")),
-        built_in_weapon_count: object_len(data.get("builtInWeapons")),
-        built_in_wing_count: array_len(data.get("builtInWings")),
-        weapon_slot_change_count: object_len(data.get("weaponSlotChanges")),
-        engine_slot_change_count: object_len(data.get("engineSlotChanges")),
-        data: data.clone(),
-    })
-}
-
-fn skin_rel_path(skin_hull_id: &str) -> String {
-    format!("data/hulls/skins/{skin_hull_id}.skin")
-}
-
-fn required_string(value: &Value, key: &str) -> AppResult<String> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .filter(|text| !text.trim().is_empty())
-        .map(str::to_string)
-        .ok_or_else(|| AppError::message(format!("舰船皮肤缺少 {key}")))
-}
-
-fn array_len(value: Option<&Value>) -> usize {
-    value.and_then(Value::as_array).map_or(0, Vec::len)
-}
-
-fn object_len(value: Option<&Value>) -> usize {
-    value
-        .and_then(Value::as_object)
-        .map_or(0, |object| object.len())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        filesystem::{read_utf8_no_bom, write_utf8_no_bom},
+        io::{read_utf8_no_bom, write_utf8_no_bom},
         models::ApplyFileChangeSetPayload,
         services::file_changes::apply_file_change_set,
     };
@@ -126,7 +84,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = save_skin_entity_with_history(SkinEntityPayload {
+        let result = save_skin_entity(SkinEntityPayload {
             mod_root: root.to_string_lossy().to_string(),
             previous_id: Some("old".to_string()),
             previous_rel_path: Some("data/hulls/skins/old.skin".to_string()),
@@ -172,7 +130,7 @@ mod tests {
         )
         .unwrap();
 
-        let changes = delete_skin_entity_with_history(DeleteSkinEntityPayload {
+        let changes = delete_skin_entity(DeleteSkinEntityPayload {
             mod_root: root.to_string_lossy().to_string(),
             skin_hull_id: "demo".to_string(),
             rel_path: "data/hulls/skins/demo.skin".to_string(),

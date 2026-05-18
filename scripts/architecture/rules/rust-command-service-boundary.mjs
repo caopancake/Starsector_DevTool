@@ -1,6 +1,6 @@
 import { rustFile } from '../shared/files.mjs';
 
-const commandForbiddenPatterns = [/\bfilesystem::/, /\bparsers::/, /\bstd::fs\b/, /\bPath::new\b/, /\btauri::Manager\b/, /\bfs::/];
+const commandForbiddenPatterns = [/\bio::/, /\bparsers::/, /\bstd::fs\b/, /\bPath::new\b/, /\btauri::Manager\b/, /\bfs::/];
 
 export const rustCommandServiceBoundaryRule = {
   name: 'rust-command-service-boundary',

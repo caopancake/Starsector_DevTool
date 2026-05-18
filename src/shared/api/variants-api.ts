@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { RowData, VariantFile } from '../types';
-import type { FileChangeRecord } from './files-api';
+import type { RowData, VariantFile } from '@/shared/types';
+import type { FileChangeRecord } from '@/shared/api/files-api';
 
 export interface VariantEntityPayload {
   modRoot: string;
@@ -25,10 +25,16 @@ export function saveVariantEntityWithHistory(payload: VariantEntityPayload): Pro
   return invoke('save_variant_entity_with_history', { payload });
 }
 
+export const saveVariantEntity = saveVariantEntityWithHistory;
+
 export function createVariantEntityWithHistory(payload: VariantEntityPayload): Promise<VariantEntityResult> {
   return invoke('create_variant_entity_with_history', { payload });
 }
 
+export const createVariantEntity = createVariantEntityWithHistory;
+
 export function deleteVariantEntityWithHistory(payload: DeleteVariantEntityPayload): Promise<FileChangeRecord[]> {
   return invoke('delete_variant_entity_with_history', { payload });
 }
+
+export const deleteVariantEntity = deleteVariantEntityWithHistory;

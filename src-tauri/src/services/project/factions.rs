@@ -1,6 +1,4 @@
-use crate::{
-    errors::AppResult, filesystem::read_json_file, models::FactionMeta, parsers::read_csv_data,
-};
+use crate::{errors::AppResult, io::read_json_file, models::FactionMeta, parsers::read_csv_data};
 use serde_json::{Map, Value};
 use std::{
     collections::{BTreeMap, HashMap},
@@ -220,7 +218,7 @@ fn rgb_to_hex(values: &[Value]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::filesystem::write_utf8_no_bom;
+    use crate::io::write_utf8_no_bom;
     use serde_json::json;
     use std::{
         fs,

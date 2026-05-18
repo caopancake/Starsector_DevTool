@@ -6,8 +6,8 @@ Rust 文件 IO 系统负责 UTF-8 无 BOM 读写、文本文件 changeset、目�
 
 ## 边界
 
-- `src-tauri/src/filesystem/text.rs` 负责 UTF-8 无 BOM 文本读写。
-- `src-tauri/src/filesystem/json_files.rs` 负责 JSON-like 文件读取和内部字段剥离。
+- `src-tauri/src/io/text.rs` 负责 UTF-8 无 BOM 文本读写。
+- `src-tauri/src/io/json_files.rs` 负责 JSON-like 文件读取和内部字段剥离。
 - `src-tauri/src/services/file_changes.rs` 负责 FileChangeRecord 构建、应用、目录快照和回滚。
 - `src-tauri/src/models/payloads.rs` 定义 `FileChangeRecord`、`FileChangeKind` 和 `FileSnapshot`。
 - `src-tauri/src/commands/files.rs` 暴露文本保存、JSON 保存、多文件保存和 changeset 回放 command。

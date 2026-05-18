@@ -75,8 +75,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { open } from '@tauri-apps/plugin-dialog';
-import { ACCENT_PRESETS, DEFAULT_HISTORY_LIMIT, MAX_HISTORY_LIMIT, useSettingsStore } from '../settings-store';
-import ColorPicker from '../../shared/components/ColorPicker.vue';
+import { ACCENT_PRESETS, DEFAULT_HISTORY_LIMIT, MAX_HISTORY_LIMIT, useSettingsStore } from '@/stores/settings.store';
+import ColorPicker from '@/shared/ui/ColorPicker.vue';
 
 const settings = useSettingsStore();
 const customAccentDraft = ref(settings.customAccent);

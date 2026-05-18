@@ -6,12 +6,12 @@
 
 ## 边界
 
-- `src/features/editors/editor-window.ts` 打开 `kind=ship` 编辑器窗口。
+- `src/windows/editor.window.ts` 打开 `kind=ship` 编辑器窗口。
 - `src/app/EditorWindowApp.vue` 在 ship kind 下加载 AppData 并挂载 `ShipEditor`。
-- `src/features/editors/components/ShipEditor.vue` 承载舰船画布、检查器、局部历史和保存。
-- `src/features/editors/editor-service.ts` 调用 spec 保存 API。
-- `src/features/editors/composables/use-editor-shortcuts.ts` 承载编辑器通用快捷键辅助。
-- `src/shared/api/files-api.ts` 调用 `save_json_with_history`。
+- `src/app/components/editors/ShipEditor.vue` 承载舰船画布、检查器、局部历史和保存。
+- `src/services/editor.service.ts` 调用 spec 保存 API。
+- `src/app/composables/use-editor-shortcuts.ts` 承载编辑器通用快捷键辅助。
+- `src/shared/api/files-api.ts` 封装 `save_json_with_history`。
 - `src-tauri/src/services/editor_specs.rs` 定位并保存 `.ship` JSON-like spec。
 
 ## 规范

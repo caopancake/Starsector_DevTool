@@ -6,10 +6,10 @@
 
 ## 边界
 
-- `src/features/undo-redo/composables/use-main-window-shortcuts.ts` 监听主窗口键盘事件。
-- `src/features/undo-redo/main-undo-redo-service.ts` 决定 CSV 草稿 history 与文件级 history 的优先级。
-- `src/features/tables/tables-edit-history-store.ts` 提供 CSV 草稿 undo/redo。
-- `src/features/file-history/file-history-replay-service.ts` 提供文件级 undo/redo。
+- `src/app/composables/use-main-window-shortcuts.ts` 监听主窗口键盘事件。
+- `src/orchestrators/main-undo-redo.orchestrator.ts` 决定 CSV 草稿 history 与文件级 history 的优先级。
+- `src/stores/tables-edit-history.store.ts` 提供 CSV 草稿 undo/redo。
+- `src/orchestrators/file-history-replay.orchestrator.ts` 提供文件级 undo/redo。
 - `src/app/App.vue` 在主窗口挂载快捷键 composable。
 
 ## 规范

@@ -8,16 +8,16 @@
 
 ### Candidate Directory Layout
 
-- `src/features/blueprint/`：蓝图编辑器 feature 模块。
-- `src/features/blueprint/blueprint-store.ts`：蓝图状态管理（节点、连线、选择、历史）。
-- `src/features/blueprint/blueprint-service.ts`：序列化、反序列化和代码生成调用。
-- `src/features/blueprint/components/BlueprintCanvas.vue`：节点画布。
-- `src/features/blueprint/components/NodePalette.vue`：节点面板。
-- `src/features/blueprint/components/NodeInspector.vue`：节点属性检查器。
-- `src/features/blueprint/components/DialogueFlowEditor.vue`：对话流专用编辑器。
-- `src/features/blueprint/components/TemplateWizard.vue`：模板向导容器。
-- `src/features/blueprint/lib/`：节点类型、端口类型和代码生成模板。
-- `src/features/blueprint/lib/nodes/`：节点注册表。
+- `src/app/components/blueprint/`：蓝图编辑器 Vue 组件。
+- `src/stores/blueprint.store.ts`：蓝图状态管理（节点、连线、选择、历史）。
+- `src/services/blueprint.service.ts`：序列化、反序列化和代码生成调用。
+- `src/app/components/blueprint/BlueprintCanvas.vue`：节点画布。
+- `src/app/components/blueprint/NodePalette.vue`：节点面板。
+- `src/app/components/blueprint/NodeInspector.vue`：节点属性检查器。
+- `src/app/components/blueprint/DialogueFlowEditor.vue`：对话流专用编辑器。
+- `src/app/components/blueprint/TemplateWizard.vue`：模板向导容器。
+- `src/domain/blueprint/lib/`：节点类型、端口类型和代码生成模板。
+- `src/domain/blueprint/lib/nodes/`：节点注册表。
 - `src-tauri/src/services/codegen/`：Java 代码生成 service。
 - `src-tauri/src/services/codegen/templates/`：`.java` 模板文件。
 - `blueprints/`：随工具分发的节点库定义 JSON。
@@ -50,8 +50,8 @@
 | ---------------------------------------------- | ------------------------------ | --------------------------- |
 | `data/config/modSettings.json` (MagicLib)      | JsonFieldEditor                | 扩展扫描范围                |
 | `data/config/magicBounty_data.json` (MagicLib) | SchemaFormRenderer + 列表编辑  | 新建 schema + 列表视图      |
-| `data/lights/light_data.csv` (GraphicsLib)     | MissionView 或 CSV 表格        | 扩展 CSV 扫描范围           |
-| `data/lights/texture_data.csv` (GraphicsLib)   | MissionView 或 CSV 表格        | path-image 列适合富编辑     |
+| `data/lights/light_data.csv` (GraphicsLib)     | ConfigMissionView 或 CSV 表格  | 扩展 CSV 扫描范围           |
+| `data/lights/texture_data.csv` (GraphicsLib)   | ConfigMissionView 或 CSV 表格  | path-image 列适合富编辑     |
 | `ship_systems.csv` (原版)                      | 主表格模块                     | `CSV_TABLES` 可新增系统入口 |
 | `.system` JSON 文件 (原版)                     | SchemaFormRenderer + JSON 编辑 | 可新建 ship-system schema   |
 | LunaSettings JSON (LunaLib)                    | JsonFieldEditor                | 扩展扫描范围                |

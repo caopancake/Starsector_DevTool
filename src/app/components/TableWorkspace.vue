@@ -37,12 +37,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import DataTable from '../DataTable.vue';
-import DetailPane from '../DetailPane.vue';
-import { useTablesStore } from '../../features/tables/tables-store';
-import { useProjectStore } from '../../features/project/project-store';
-import { MODULE_LABELS } from '../../shared/lib/starsector';
-import type { TableDetailAction } from '../../features/tables/table-detail-actions';
+import DataTable from '@/app/DataTable.vue';
+import DetailPane from '@/app/DetailPane.vue';
+import { useTablesStore } from '@/stores/tables.store';
+import { useProjectStore } from '@/stores/project.store';
+import { MODULE_LABELS } from '@/shared/lib/starsector';
+import type { TableDetailAction } from '@/domain/tables/table-detail-actions';
 
 defineEmits<{
   'add-row': [];

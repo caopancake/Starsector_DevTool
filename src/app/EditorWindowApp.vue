@@ -59,23 +59,23 @@
 import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import ShipEditor from '../features/editors/components/ShipEditor.vue';
-import WeaponEditor from '../features/editors/components/WeaponEditor.vue';
-import ProjectileEditor from '../features/editors/components/ProjectileEditor.vue';
-import WeaponFirePreview from '../features/editors/components/WeaponFirePreview.vue';
+import ShipEditor from '@/app/components/editors/ShipEditor.vue';
+import WeaponEditor from '@/app/components/editors/WeaponEditor.vue';
+import ProjectileEditor from '@/app/components/editors/ProjectileEditor.vue';
+import WeaponFirePreview from '@/app/components/editors/WeaponFirePreview.vue';
 import {
   openProjectileEditorWindow,
   openWeaponPreviewWindow,
   type EditorSpecSavedEvent,
   type EditorWindowKind,
-} from '../features/editors/editor-window';
-import { useSettingsStore } from './settings-store';
-import { loadProject } from '../features/project/project-service';
-import type { AppData, RowData } from '../shared/types';
-import { deepClone, defaultWeapon, rowSpecId } from '../shared/lib/starsector';
-import { formatError } from '../shared/lib/errors';
-import WindowShell from './WindowShell.vue';
-import { WINDOW_EVENTS } from '../features/windowing/window-events';
+} from '@/windows/editor.window';
+import { useSettingsStore } from '@/stores/settings.store';
+import { loadProject } from '@/services/project.service';
+import type { AppData, RowData } from '@/shared/types';
+import { deepClone, defaultWeapon, rowSpecId } from '@/shared/lib/starsector';
+import { formatError } from '@/shared/lib/errors';
+import WindowShell from '@/app/WindowShell.vue';
+import { WINDOW_EVENTS } from '@/windows/window.events';
 
 const params = new window.URLSearchParams(window.location.search);
 const kind = ref<EditorWindowKind>(parseKind(params.get('kind')));

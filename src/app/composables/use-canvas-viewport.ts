@@ -1,0 +1,63 @@
+import { ref, type Ref } from 'vue';
+import type { Point } from '@/domain/editors/editor-types';
+export type { Point } from '@/domain/editors/editor-types';
+
+type CoordinateSpace = 'ship' | 'weapon';
+
+export function useCanvasViewport(canvasRef: Ref<HTMLCanvasElement | undefined>, initialScale: number, maxScale: number) {
+  const scale = ref(initialScale);
+  const pan = ref<Point>({ x: 0, y: 0 });
+
+  function center(): Point {
+    const canvas = canvasRef.value;
+    if (!canvas) return { x: pan.value.x, y: pan.value.y };
+    return { x: canvas.width / 2 + pan.value.x, y: canvas.height / 2 + pan.value.y };
+  }
+
+  function resize(width?: number, height?: number) {
+    const canvas = canvasRef.value;
+    if (!canvas) return false;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.floor(width ?? rect.width));
+    canvas.height = Math.max(1, Math.floor(height ?? rect.height));
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.imageSmoothingEnabled = false;
+    return true;
+  }
+
+  function panBy(dx: number, dy: number) {
+    pan.value.x += dx;
+    pan.value.y += dy;
+  }
+
+  function zoom(deltaY: number) {
+    scale.value = Math.max(0.1, Math.min(maxScale, scale.value * (deltaY < 0 ? 1.1 : 0.9)));
+  }
+
+  function toCanvas(space: CoordinateSpace, x: number, y: number): Point {
+    const canvasCenter = center();
+    if (space === 'ship') {
+      return { x: canvasCenter.x + x * scale.value, y: canvasCenter.y - y * scale.value };
+    }
+    return { x: canvasCenter.x + y * scale.value, y: canvasCenter.y - x * scale.value };
+  }
+
+  function fromCanvas(space: CoordinateSpace, x: number, y: number): Point {
+    const canvasCenter = center();
+    if (space === 'ship') {
+      return { x: (x - canvasCenter.x) / scale.value, y: -(y - canvasCenter.y) / scale.value };
+    }
+    return { x: -(y - canvasCenter.y) / scale.value, y: (x - canvasCenter.x) / scale.value };
+  }
+
+  return {
+    center,
+    fromCanvas,
+    pan,
+    panBy,
+    resize,
+    scale,
+    toCanvas,
+    zoom,
+  };
+}

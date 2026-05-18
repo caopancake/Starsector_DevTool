@@ -48,9 +48,9 @@
 
 <script setup lang="ts">
 import { nextTick, ref } from 'vue';
-import { useTablesStore } from '../features/tables/tables-store';
-import type { RowData } from '../shared/types';
-import { cell } from '../shared/lib/starsector';
+import { useTablesStore } from '@/stores/tables.store';
+import type { RowData } from '@/shared/types';
+import { cell } from '@/shared/lib/starsector';
 
 const tables = useTablesStore();
 const cellInputRef = ref<HTMLInputElement[]>();

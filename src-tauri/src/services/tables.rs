@@ -1,20 +1,25 @@
 use crate::{
     errors::{AppError, AppResult},
-    models::{csv_path_for, FileChangeRecord, SaveCsvWithHistoryPayload},
+    models::{csv_path_for, AssociatedFileChangePayload, FileChangeRecord},
     parsers::render_csv_text,
     services::file_changes::{apply_file_change_set, build_file_change, build_text_change},
 };
+use serde_json::{Map, Value};
 use std::path::Path;
 
-pub fn save_csv_with_history(
-    payload: SaveCsvWithHistoryPayload,
+pub fn save_csv(
+    mod_root: &str,
+    table: &str,
+    header: &[String],
+    rows: &[Map<String, Value>],
+    associated_files: Vec<AssociatedFileChangePayload>,
 ) -> AppResult<Vec<FileChangeRecord>> {
-    let rel = csv_path_for(&payload.table)
-        .ok_or_else(|| AppError::message(format!("unknown table: {}", payload.table)))?;
-    let target = Path::new(&payload.mod_root).join(rel);
-    let csv_text = render_csv_text(&payload.header, &payload.rows)?;
+    let rel =
+        csv_path_for(table).ok_or_else(|| AppError::message(format!("unknown table: {table}")))?;
+    let target = Path::new(mod_root).join(rel);
+    let csv_text = render_csv_text(header, rows)?;
     let mut changes = vec![build_text_change(&target, Some(csv_text))?];
-    for file in payload.associated_files {
+    for file in associated_files {
         let rel_path = Path::new(&file.rel_path);
         if rel_path.is_absolute()
             || rel_path
@@ -27,7 +32,7 @@ pub fn save_csv_with_history(
             )));
         }
         changes.push(build_file_change(
-            &Path::new(&payload.mod_root).join(rel_path),
+            &Path::new(mod_root).join(rel_path),
             file.after_text,
             file.after_data_base64,
         )?);
@@ -42,7 +47,7 @@ pub fn save_csv_with_history(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{filesystem::read_utf8_no_bom, filesystem::write_utf8_no_bom};
+    use crate::{io::read_utf8_no_bom, io::write_utf8_no_bom};
     use serde_json::{Map, Value};
     use std::{
         fs,
@@ -51,25 +56,25 @@ mod tests {
     };
 
     #[test]
-    fn save_csv_with_history_can_create_associated_file_in_one_changeset() {
-        let root = temp_dir("save_csv_with_history_create_assoc");
+    fn save_csv_can_create_associated_file_in_one_changeset() {
+        let root = temp_dir("save_csv_create_assoc");
         fs::create_dir_all(root.join("data/hulls")).unwrap();
         write_utf8_no_bom(&root.join("data/hulls/ship_data.csv"), "id,name\r\n").unwrap();
         let mut row = Map::new();
         row.insert("id".to_string(), Value::String("new_ship".to_string()));
         row.insert("name".to_string(), Value::String("New Ship".to_string()));
 
-        let changes = save_csv_with_history(SaveCsvWithHistoryPayload {
-            mod_root: root.to_string_lossy().to_string(),
-            table: "ships".to_string(),
-            header: vec!["id".to_string(), "name".to_string()],
-            rows: vec![row],
-            associated_files: vec![crate::models::AssociatedFileChangePayload {
+        let changes = save_csv(
+            &root.to_string_lossy(),
+            "ships",
+            &["id".to_string(), "name".to_string()],
+            &[row],
+            vec![crate::models::AssociatedFileChangePayload {
                 rel_path: "data/hulls/new_ship.ship".to_string(),
                 after_text: Some("{\n  \"hullId\": \"new_ship\"\n}".to_string()),
                 after_data_base64: None,
             }],
-        })
+        )
         .unwrap();
 
         let csv = read_utf8_no_bom(&root.join("data/hulls/ship_data.csv")).unwrap();
@@ -82,8 +87,8 @@ mod tests {
     }
 
     #[test]
-    fn save_csv_with_history_can_delete_associated_file_in_one_changeset() {
-        let root = temp_dir("save_csv_with_history_delete_assoc");
+    fn save_csv_can_delete_associated_file_in_one_changeset() {
+        let root = temp_dir("save_csv_delete_assoc");
         fs::create_dir_all(root.join("data/weapons")).unwrap();
         write_utf8_no_bom(
             &root.join("data/weapons/weapon_data.csv"),
@@ -96,17 +101,17 @@ mod tests {
         )
         .unwrap();
 
-        let changes = save_csv_with_history(SaveCsvWithHistoryPayload {
-            mod_root: root.to_string_lossy().to_string(),
-            table: "weapons".to_string(),
-            header: vec!["id".to_string(), "name".to_string()],
-            rows: vec![],
-            associated_files: vec![crate::models::AssociatedFileChangePayload {
+        let changes = save_csv(
+            &root.to_string_lossy(),
+            "weapons",
+            &["id".to_string(), "name".to_string()],
+            &[],
+            vec![crate::models::AssociatedFileChangePayload {
                 rel_path: "data/weapons/old_weapon.wpn".to_string(),
                 after_text: None,
                 after_data_base64: None,
             }],
-        })
+        )
         .unwrap();
 
         let csv = read_utf8_no_bom(&root.join("data/weapons/weapon_data.csv")).unwrap();

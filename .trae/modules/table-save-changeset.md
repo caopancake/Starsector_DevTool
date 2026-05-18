@@ -6,9 +6,9 @@
 
 ## 边界
 
-- `src/features/tables/table-save-orchestrator.ts` 是前端表格保存编排入口。
-- `src/features/tables/associated-file-candidates.ts` 推导 ships、weapons、shipSystems、skills 的关联文件创建和删除候选。
-- `src/features/tables/table-service.ts` 调用后端 CSV 保存 command。
+- `src/orchestrators/table-save.orchestrator.ts` 是前端表格保存编排入口。
+- `src/domain/tables/associated-file-candidates.ts` 推导 ships、weapons、shipSystems、skills 的关联文件创建和删除候选。
+- `src/services/table.service.ts` 调用后端 CSV 保存 command。
 - `src/shared/api/tables-api.ts` 封装 `save_csv_with_history` 和 `load_csv_table`。
 - `src-tauri/src/services/tables.rs` 渲染 CSV、构建 CSV 文件 changeset 和关联文件 changeset。
 - `src-tauri/src/commands/tables.rs` 暴露 CSV 保存和局部加载 command。
@@ -26,11 +26,11 @@
 ## 链路：保存 CSV
 
 1. 用户触发保存当前表。
-2. `table-save-orchestrator.ts` 结束当前单元格编辑。
+2. `table-save.orchestrator.ts` 结束当前单元格编辑。
 3. orchestrator 收集当前 dirty 表。
 4. 需要创建或删除关联 spec 文件时，前端弹出确认并要求用户勾选对应文件操作。
 5. orchestrator 传入用户确认的 associated files。
-6. `table-service.ts` 调用 `saveCsvWithHistory()`。
+6. `table.service.ts` 调用 `saveCsvWithHistory()`。
 7. Rust tables service 渲染 CSV 文本。
 8. Rust tables service 构建 CSV 文件 change。
 9. Rust tables service 构建关联文件 changes。

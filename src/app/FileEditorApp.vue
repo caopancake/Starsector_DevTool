@@ -51,13 +51,13 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { emit, listen } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { loadEditableFile, saveTextFileWithHistory } from '../shared/api/files-api';
-import { formatError } from '../shared/lib/errors';
-import { normalizeFsPath } from '../shared/lib/paths';
-import { useSettingsStore } from './settings-store';
-import WindowShell from './WindowShell.vue';
-import { WINDOW_EVENTS, type FileEditorFocusLineEvent, type FileEditorTextAppliedEvent } from '../features/windowing/window-events';
-import { createAppFeedback } from './app-feedback';
+import { loadEditableFile, saveTextFile } from '@/services/files.service';
+import { formatError } from '@/shared/lib/errors';
+import { normalizeFsPath } from '@/shared/lib/paths';
+import { useSettingsStore } from '@/stores/settings.store';
+import WindowShell from '@/app/WindowShell.vue';
+import { WINDOW_EVENTS, type FileEditorFocusLineEvent, type FileEditorTextAppliedEvent } from '@/windows/window.events';
+import { createAppFeedback } from '@/app/app-feedback';
 
 const params = new window.URLSearchParams(window.location.search);
 const settings = useSettingsStore();
@@ -125,7 +125,7 @@ async function saveFile() {
   saving.value = true;
   try {
     const newText = text.value;
-    const changes = await saveTextFileWithHistory(filePath, text.value);
+    const changes = await saveTextFile(filePath, text.value);
     originalText.value = newText;
     await emit(WINDOW_EVENTS.fileEditorSaved, {
       path: filePath,

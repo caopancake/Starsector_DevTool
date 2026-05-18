@@ -15,21 +15,30 @@ pub fn load_editable_file(path: String) -> Result<EditableFileData, String> {
 pub fn save_text_file_with_history(
     payload: SaveTextFileWithHistoryPayload,
 ) -> Result<Vec<FileChangeRecord>, String> {
-    services::file_changes::save_text_file_with_history(payload).map_err(|e| e.to_string())
+    services::file_changes::save_text_file(&payload.path, payload.text).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn save_json_with_history(
     payload: SaveJsonWithHistoryPayload,
 ) -> Result<Vec<FileChangeRecord>, String> {
-    services::editor_specs::save_json_with_history(payload).map_err(|e| e.to_string())
+    services::editor_specs::save_json_spec(
+        &payload.mod_root,
+        &payload.rel_dir,
+        &payload.ext,
+        &payload.id_key,
+        &payload.id,
+        payload.data,
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn save_mod_files_with_history(
     payload: SaveModFilesWithHistoryPayload,
 ) -> Result<Vec<FileChangeRecord>, String> {
-    services::file_changes::save_mod_files_with_history(payload).map_err(|e| e.to_string())
+    services::file_changes::save_mod_files(&payload.mod_root, payload.files)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

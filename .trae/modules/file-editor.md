@@ -6,8 +6,9 @@
 
 ## 边界
 
-- `src/features/workspace/file-editor-window.ts` 打开单例文件编辑器窗口。
+- `src/windows/file-editor.window.ts` 打开单例文件编辑器窗口。
 - `src/app/FileEditorApp.vue` 加载、编辑、保存文本，并处理窗口内快捷键。
+- `src/services/files.service.ts` 是文件编辑器读取和保存 shared API 的业务入口。
 - `src/shared/api/files-api.ts` 封装 `load_editable_file` 和 `save_text_file_with_history`。
 - `src-tauri/src/commands/files.rs` 暴露文本文件读取和保存 command。
 - `src-tauri/src/services/file_changes.rs` 读取可编辑文本文件、构建单文件 changeset 并写盘。
@@ -28,17 +29,17 @@
 2. 文件编辑器窗口 service 按规范化文件路径单例化。
 3. 目标窗口已存在时，窗口 service 聚焦已有窗口。
 4. 目标窗口不存在时，窗口 service 创建文件编辑器窗口。
-5. `FileEditorApp.vue` 调用 `loadEditableFile()`。
+5. `FileEditorApp.vue` 通过 `files.service.ts` 调用 `loadEditableFile()`。
 6. Rust files command 调用 file changes service 读取 UTF-8 无 BOM 文本。
 7. 请求带有错误行信息时，窗口高亮对应行并显示路径和错误消息。
 
 ## 链路：文件编辑器保存
 
 1. 用户在文件编辑器窗口点击保存或按 Ctrl+S。
-2. `FileEditorApp.vue` 调用 `saveTextFileWithHistory(path, text)`。
+2. `FileEditorApp.vue` 通过 `files.service.ts` 调用 `saveTextFile(path, text)`。
 3. Rust file changes service 构建单文件 change。
 4. Rust file changes service 以 redo 写盘。
 5. Rust 返回 `FileChangeRecord[]`。
 6. `FileEditorApp.vue` 更新本窗口 original text。
 7. `FileEditorApp.vue` 发送 `file-editor-saved`。
-8. 主窗口 `window-save-events.ts` 记录文件级 history。
+8. 主窗口 `window-save.orchestrator.ts` 记录文件级 history。

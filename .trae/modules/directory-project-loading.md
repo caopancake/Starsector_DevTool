@@ -6,8 +6,8 @@
 
 ## 边界
 
-- `src/features/workspace/open-directory-service.ts` 编排打开目录后的前端状态变化。
-- `src/features/project/project-service.ts` 调用完整项目加载。
+- `src/orchestrators/open-directory.orchestrator.ts` 编排打开目录后的前端状态变化。
+- `src/services/project.service.ts` 调用完整项目加载。
 - `src/shared/api/project-api.ts` 封装 `detect_directory`、`scan_game_overview`、`load_mod_data` 和 `load_mod_data_with_root`。
 - `src-tauri/src/commands/project.rs` 暴露项目相关 command。
 - `src-tauri/src/services/project/mod.rs` 实现目录识别、概览扫描和完整加载。
@@ -19,17 +19,17 @@
 - Mod 目录以 `mod_info.json` 或可推导的 Mod 根目录为判断依据。
 - 目录识别先判断用户选择路径是否为 Mod 目录；是 Mod 时再尝试用 `modRoot/../..` 推断游戏目录。
 - 游戏概览只扫描 `mods/*/mod_info.json` 和基本元信息，不加载 CSV、spec、schema 配置 entity 和贴图 data URL。
-- 完整读取 Mod 时可以使用显式 `starsectorRoot`、路径推断 root 或设置 fallback。
+- 完整读取 Mod 时可以使用显式 `starsectorRoot`、路径推断 root 或设置中的回退 root。
 - 完整读取 Mod 时返回 `coreReferences` 只读原版引用，供 schema source 和缩略图使用，不混入可编辑表格。
 - `coreReferences` 必须包含原版 skin 只读引用，使原版 `skinHullId` 能作为合法 hull 引用参与下拉和缩略图。
-- Rust 返回的 `coreAvailable` 只表达 core fallback 是否可用。
+- Rust 返回的 `coreAvailable` 只表达原版资源回退是否可用。
 - 打开未知目录必须返回错误，由前端显示错误提示。
 
 ## 链路：打开目录
 
 1. 用户在主窗口触发打开目录。
 2. 前端 dialog 返回目录路径。
-3. `openDetectedDirectory()` 调用 `detectDirectory(path, fallbackRoot)`。
+3. `openDetectedDirectory()` 调用 `detectDirectory(path, fallbackStarsectorRoot)`。
 4. Rust project service 判断目录类型。
 5. 返回 `game-root` 时前端写入 game overview。
 6. 返回 `mod-in-game` 时前端写入 game overview 并完整读取选中 Mod。

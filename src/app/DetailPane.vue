@@ -63,12 +63,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useTablesStore } from '../features/tables/tables-store';
-import { useProjectStore } from '../features/project/project-store';
-import { cell, MODULE_LABELS, rowDisplayId, rowSpecId, str } from '../shared/lib/starsector';
-import { resolveHullSprite } from '../shared/lib/hull-references';
-import { fileEditorActionForRow, type TableDetailAction } from '../features/tables/table-detail-actions';
-import type { RowData, TableKey } from '../shared/types';
+import { useTablesStore } from '@/stores/tables.store';
+import { useProjectStore } from '@/stores/project.store';
+import { cell, MODULE_LABELS, rowDisplayId, rowSpecId, str } from '@/shared/lib/starsector';
+import { resolveHullSprite } from '@/shared/lib/hull-references';
+import { fileEditorActionForRow, type TableDetailAction } from '@/domain/tables/table-detail-actions';
+import type { RowData, TableKey } from '@/shared/types';
 
 defineEmits<{
   'detail-action': [request: TableDetailAction];

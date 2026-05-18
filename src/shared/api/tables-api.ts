@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { RowData, TableKey } from '../types';
-import type { FileChangeRecord } from './files-api';
+import type { RowData, TableKey } from '@/shared/types';
+import type { FileChangeRecord } from '@/shared/api/files-api';
 
 export interface AssociatedFileChange {
   relPath: string;
@@ -17,6 +17,8 @@ export function saveCsvWithHistory(
 ): Promise<FileChangeRecord[]> {
   return invoke('save_csv_with_history', { payload: { modRoot, table, header, rows, associatedFiles } });
 }
+
+export const saveCsv = saveCsvWithHistory;
 
 export function loadCsvTable(modRoot: string, table: TableKey): Promise<CsvTable> {
   return invoke('load_csv_table', { payload: { modRoot, table } });

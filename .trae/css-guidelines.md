@@ -16,7 +16,7 @@
 ## 样式入口与模块归属
 
 - `src/styles/index.css` 是主样式入口，导入顺序固定为 `base`、`titlebar`、`app-shell`、`workspace`、`overview`、`settings`、`config`、`file-history`、`schema-forms`、`tables`、`detail-pane`、`editors`。
-- `src/main.ts` 在主样式入口之后额外导入 `src/styles/file-editor`，该文件只服务文件编辑器窗口。
+- `src/main.ts` 在主样式入口之后额外导入 `src/styles/file-editor.css`，该文件只服务文件编辑器窗口。
 - `base.css` 只放全局 reset、主题 token、Naive UI 基础覆盖、滚动条、共享面板、共享 ColorPicker、共享 switch。
 - `titlebar.css` 只放自定义标题栏、品牌区和窗口控制按钮。
 - `app-shell.css` 只放主框架、左侧导航基础、工作区顶栏、空状态、确认弹窗内容布局、主内容 grid。
@@ -223,7 +223,6 @@
 - `.file-history-change-list` gap 4px，padding 0，margin 0，list-style none。
 - `.file-history-change-list li` grid 列固定 `minmax(0, 1fr) auto`，gap 8px，字号 11px。
 - `.file-history-change-list code` 必须 ellipsis 且 nowrap，颜色 `--color-text-soft`。
-- `.file-history-barrier` margin 0，字号 11px，颜色 `--color-warning`。
 
 ## Tables
 

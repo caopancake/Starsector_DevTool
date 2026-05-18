@@ -6,11 +6,11 @@
 
 ## 边界
 
-- `src/app/settings-store.ts` 持有主题、历史限制、Starsector root 等设置。
+- `src/stores/settings.store.ts` 持有主题、历史限制、Starsector root 等设置。
 - `src/app/app-feedback.ts` 提供 message 和 dialog adapter。
 - `src/app/App.vue` 提供 Naive UI provider 和 theme overrides。
-- `src/app/SettingsView.vue` 渲染设置页面。
-- `src/features/config/components/FileHistoryView.vue` 和 undo-redo service 使用统一 dialog/message 入口。
+- `src/app/components/SettingsPage.vue` 渲染设置页面。
+- `src/app/components/config/ConfigFileHistoryView.vue` 和 main undo/redo orchestrator 使用统一 dialog/message 入口。
 
 ## 规范
 
@@ -22,9 +22,9 @@
 
 ## 链路：显示文件级 history 确认框
 
-1. 主窗口或 FileHistoryView 触发文件级撤销或重做。
+1. 主窗口或 ConfigFileHistoryView 触发文件级撤销或重做。
 2. 调用方把 message 和 dialog 传入 `replayNextFileHistoryEntry()`。
-3. replay service 读取目标 history entry。
-4. replay service 使用传入 dialog 创建确认框。
-5. 用户确认后 replay service 执行回放。
-6. replay service 使用传入 message 显示结果。
+3. file history replay orchestrator 读取目标 history entry。
+4. file history replay orchestrator 使用传入 dialog 创建确认框。
+5. 用户确认后 file history replay orchestrator 执行回放。
+6. file history replay orchestrator 使用传入 message 显示结果。

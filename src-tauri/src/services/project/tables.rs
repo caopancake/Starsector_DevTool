@@ -63,7 +63,7 @@ fn str_field(row: &Map<String, Value>, key: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::filesystem::write_utf8_no_bom;
+    use crate::io::write_utf8_no_bom;
     use std::{
         fs,
         path::PathBuf,

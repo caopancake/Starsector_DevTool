@@ -6,10 +6,10 @@
 
 ## 边界
 
-- `src/features/editors/editor-window.ts` 打开 `kind=weapon` 编辑器窗口。
+- `src/windows/editor.window.ts` 打开 `kind=weapon` 编辑器窗口。
 - `src/app/EditorWindowApp.vue` 在 weapon kind 下加载 AppData 并挂载 `WeaponEditor`。
-- `src/features/editors/components/WeaponEditor.vue` 承载武器画布、检查器、局部历史和保存。
-- `src/features/editors/editor-service.ts` 调用 spec 保存 API。
+- `src/app/components/editors/WeaponEditor.vue` 承载武器画布、检查器、局部历史和保存。
+- `src/services/editor.service.ts` 调用 spec 保存 API。
 - `src-tauri/src/services/editor_specs.rs` 定位并保存 `.wpn` JSON-like spec。
 
 ## 规范

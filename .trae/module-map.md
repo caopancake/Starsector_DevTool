@@ -35,7 +35,7 @@
 - [舰船皮肤编辑模块](modules/skin-editor.md)：说明 `.skin` 列表、schema 表单、新建、保存和删除链路。
 - [装配编辑模块](modules/variant-editor.md)：说明 `.variant` 列表、schema 表单、新建、保存和删除链路。
 - [Schema 系统](modules/schema.md)：说明配置 schema、字段渲染、多来源字段和表单边界。
-- [资源、贴图与 core fallback 系统](modules/assets-core-fallback.md)：说明图片资源读取、上传、core fallback 和像素采样规则。
+- [资源、贴图与原版资源回退系统](modules/assets-core-fallback.md)：说明图片资源读取、上传、原版资源回退和像素采样规则。
 - [alex_csv 读取与写入 parser](modules/csv-parser.md)：说明 Starsector CSV-like parser 的读取、空行保留和写回规则。
 - [alex_json 宽松 JSON parser](modules/json-parser.md)：说明 Starsector JSON-like 清洗、解析和错误边界。
 - [Rust 文件 IO、路径校验与目录 changeset](modules/rust-file-io-changeset.md)：说明 Rust 文本 IO、路径安全、目录 changeset 和失败回滚。

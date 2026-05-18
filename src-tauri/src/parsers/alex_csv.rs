@@ -1,6 +1,6 @@
 use crate::{
     errors::{AppError, AppResult},
-    filesystem::read_utf8_no_bom,
+    io::read_utf8_no_bom,
     models::CsvTable,
 };
 use serde_json::{Map, Value};
@@ -150,7 +150,7 @@ fn update_csv_quote_state(line: &str, mut in_quotes: bool) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::filesystem::write_utf8_no_bom;
+    use crate::io::write_utf8_no_bom;
     use std::{
         fs,
         path::PathBuf,

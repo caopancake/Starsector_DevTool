@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { RowData } from '../types';
-import type { CsvTable } from './tables-api';
+import type { RowData } from '@/shared/types';
+import type { CsvTable } from '@/shared/api/tables-api';
 
 export function scanMissionList(modRoot: string): Promise<string[]> {
   return invoke('scan_mission_list', { modRoot });

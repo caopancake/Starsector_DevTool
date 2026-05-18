@@ -1,4 +1,4 @@
-import type { GameModSummary, GameScanWarning, RowData, TableKey } from './index';
+import type { GameModSummary, GameScanWarning, RowData, TableKey } from '@/shared/types/index';
 
 /** Metadata for one imported Mod in the workspace */
 export interface ModEntry {

@@ -1,17 +1,13 @@
 use crate::{
+    domain::config::{build_variant_file, validate_config_id, variant_rel_path},
     errors::{AppError, AppResult},
-    filesystem::strip_internal_fields,
-    models::{DeleteVariantEntityPayload, VariantEntityPayload, VariantEntityResult, VariantFile},
+    io::strip_internal_fields,
+    models::{DeleteVariantEntityPayload, VariantEntityPayload, VariantEntityResult},
     services::file_changes::FileChangeSetBuilder,
 };
-use serde_json::Value;
 use std::path::Path;
 
-use super::validate_config_id;
-
-pub fn save_variant_entity_with_history(
-    input: VariantEntityPayload,
-) -> AppResult<VariantEntityResult> {
+pub fn save_variant_entity(input: VariantEntityPayload) -> AppResult<VariantEntityResult> {
     let next_id = validate_config_id(&input.next_id, "无效装配 ID")?.to_string();
     let mod_root = Path::new(&input.mod_root);
     let previous_id = input
@@ -50,17 +46,15 @@ pub fn save_variant_entity_with_history(
     })
 }
 
-pub fn create_variant_entity_with_history(
-    input: VariantEntityPayload,
-) -> AppResult<VariantEntityResult> {
-    save_variant_entity_with_history(VariantEntityPayload {
+pub fn create_variant_entity(input: VariantEntityPayload) -> AppResult<VariantEntityResult> {
+    save_variant_entity(VariantEntityPayload {
         previous_id: None,
         previous_rel_path: None,
         ..input
     })
 }
 
-pub fn delete_variant_entity_with_history(
+pub fn delete_variant_entity(
     input: DeleteVariantEntityPayload,
 ) -> AppResult<Vec<crate::models::FileChangeRecord>> {
     validate_config_id(&input.variant_id, "无效装配 ID")?;
@@ -69,44 +63,11 @@ pub fn delete_variant_entity_with_history(
     builder.apply()
 }
 
-fn build_variant_file(mod_root: &Path, rel_path: &str, data: &Value) -> AppResult<VariantFile> {
-    let variant_id = required_string(data, "variantId")?;
-    let hull_id = required_string(data, "hullId")?;
-    Ok(VariantFile {
-        variant_id,
-        hull_id,
-        path: mod_root.join(rel_path).to_string_lossy().to_string(),
-        rel_path: rel_path.to_string(),
-        weapon_group_count: array_len(data.get("weaponGroups")),
-        hull_mod_count: array_len(data.get("hullMods")),
-        perma_mod_count: array_len(data.get("permaMods")),
-        wing_count: array_len(data.get("wings")),
-        data: data.clone(),
-    })
-}
-
-fn variant_rel_path(variant_id: &str) -> String {
-    format!("data/variants/{variant_id}.variant")
-}
-
-fn required_string(value: &Value, key: &str) -> AppResult<String> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .filter(|text| !text.trim().is_empty())
-        .map(str::to_string)
-        .ok_or_else(|| AppError::message(format!("装配缺少 {key}")))
-}
-
-fn array_len(value: Option<&Value>) -> usize {
-    value.and_then(Value::as_array).map_or(0, Vec::len)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        filesystem::{read_utf8_no_bom, write_utf8_no_bom},
+        io::{read_utf8_no_bom, write_utf8_no_bom},
         models::ApplyFileChangeSetPayload,
         services::file_changes::apply_file_change_set,
     };
@@ -126,7 +87,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = save_variant_entity_with_history(VariantEntityPayload {
+        let result = save_variant_entity(VariantEntityPayload {
             mod_root: root.to_string_lossy().to_string(),
             previous_id: Some("old".to_string()),
             previous_rel_path: Some("data/variants/old.variant".to_string()),
@@ -168,7 +129,7 @@ mod tests {
         )
         .unwrap();
 
-        let changes = delete_variant_entity_with_history(DeleteVariantEntityPayload {
+        let changes = delete_variant_entity(DeleteVariantEntityPayload {
             mod_root: root.to_string_lossy().to_string(),
             variant_id: "demo".to_string(),
             rel_path: "data/variants/demo.variant".to_string(),

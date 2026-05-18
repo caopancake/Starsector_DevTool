@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { RowData } from '../types';
-import type { AssociatedFileChange } from './tables-api';
+import type { RowData } from '@/shared/types';
+import type { AssociatedFileChange } from '@/shared/api/tables-api';
 
 export interface EditableFileData {
   path: string;
@@ -34,6 +34,8 @@ export function saveTextFileWithHistory(path: string, text: string): Promise<Fil
   return invoke('save_text_file_with_history', { payload: { path, text } });
 }
 
+export const saveTextFile = saveTextFileWithHistory;
+
 export function saveJsonWithHistory(
   modRoot: string,
   relDir: string,
@@ -45,9 +47,13 @@ export function saveJsonWithHistory(
   return invoke('save_json_with_history', { payload: { modRoot, relDir, ext, idKey, id, data } });
 }
 
+export const saveJson = saveJsonWithHistory;
+
 export function saveModFilesWithHistory(modRoot: string, files: AssociatedFileChange[]): Promise<FileChangeRecord[]> {
   return invoke('save_mod_files_with_history', { payload: { modRoot, files } });
 }
+
+export const saveModFiles = saveModFilesWithHistory;
 
 export function applyFileChangeSet(direction: 'undo' | 'redo', changes: FileChangeRecord[]): Promise<void> {
   return invoke('apply_file_change_set', { payload: { direction, changes } });

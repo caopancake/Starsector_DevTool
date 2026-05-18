@@ -1,4 +1,4 @@
-import type { JsonValue, RowData, TableKey } from '../types';
+import type { JsonValue, RowData, TableKey } from '@/shared/types';
 
 export const TABLE_COLUMNS: Record<TableKey, string[]> = {
   ships: [

@@ -453,7 +453,7 @@
 
 `预览窗口目标（Preview Window Target）`
 - 字段：`kind=weapon-preview`、`modRoot`、`id`
-- 说明：发射预览作为独立编辑器窗口打开，窗口目标由窗口 URL 参数和 `editor-window.ts` 的业务 key 定位。同一 `modRoot + weapon-preview + id` 只打开一个窗口，再次打开时聚焦已有窗口。
+- 说明：发射预览作为独立编辑器窗口打开，窗口目标由窗口 URL 参数和 `editor.window.ts` 的业务 key 定位。同一 `modRoot + weapon-preview + id` 只打开一个窗口，再次打开时聚焦已有窗口。
 
 `预览（Preview）`
 - 字段/事件：`preview`

@@ -1,5 +1,5 @@
-import type { AppData, RowData, SkinFile } from '../types';
-import { cell } from './starsector';
+import type { AppData, RowData, SkinFile } from '@/shared/types';
+import { cell } from '@/shared/lib/starsector';
 
 export function resolveHullSprite(appData: AppData | null, hullId: string, origin: 'mod' | 'core' | 'both' = 'both'): string {
   const clean = hullId.trim();

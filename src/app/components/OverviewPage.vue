@@ -24,9 +24,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import GameOverviewPanel from './GameOverviewPanel.vue';
-import LoadedModsPanel from './LoadedModsPanel.vue';
-import { useWorkspaceStore } from '../../features/workspace/workspace-store';
+import GameOverviewPanel from '@/app/components/GameOverviewPanel.vue';
+import LoadedModsPanel from '@/app/components/LoadedModsPanel.vue';
+import { useWorkspaceStore } from '@/stores/workspace.store';
 
 defineEmits<{ 'import-mod': []; 'load-mod': [modRoot: string] }>();
 

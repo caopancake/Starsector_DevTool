@@ -1,11 +1,5 @@
+import { classifyFrontendPath } from '../shared/classify.mjs';
 import { importedProjectPaths } from '../shared/imports.mjs';
-
-const allowedSaveApiPathPatterns = [
-  /^src\/shared\/api\/.+-api\.ts$/,
-  /^src\/features\/[^/]+\/.*service\.ts$/,
-  /^src\/features\/[^/]+\/.*orchestrator\.ts$/,
-  /^src\/features\/[^/]+\/composables\/use-[^/]+\.ts$/,
-];
 
 export const saveApiBoundaryRule = {
   name: 'save-api-boundary',
@@ -18,10 +12,15 @@ export const saveApiBoundaryRule = {
           imported.resolved.startsWith('src/shared/api/') &&
           /(?:save|create|delete|upload|apply)/i.test(imported.specifier),
       );
-      if (importsSaveApi && !allowedSaveApiPathPatterns.some((pattern) => pattern.test(file.rel))) {
+      if (importsSaveApi && !canUseSaveApi(file.rel)) {
         failures.push(`${file.rel}: save-capable APIs belong in shared/api, feature services, or orchestrators`);
       }
     }
     return failures;
   },
 };
+
+function canUseSaveApi(rel) {
+  const owner = classifyFrontendPath(rel);
+  return rel.startsWith('src/shared/api/') || owner.layer === 'services' || owner.layer === 'orchestrators';
+}

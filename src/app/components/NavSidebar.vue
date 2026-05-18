@@ -39,11 +39,11 @@
 </template>
 
 <script setup lang="ts">
-import ModTreeItem from './ModTreeItem.vue';
-import { useWorkspaceStore } from '../../features/workspace/workspace-store';
-import { useTablesStore } from '../../features/tables/tables-store';
-import { useProjectStore } from '../../features/project/project-store';
-import type { ConfigView, TableKey } from '../../shared/types';
+import ModTreeItem from '@/app/components/ModTreeItem.vue';
+import { useWorkspaceStore } from '@/stores/workspace.store';
+import { useTablesStore } from '@/stores/tables.store';
+import { useProjectStore } from '@/stores/project.store';
+import type { ConfigView, TableKey } from '@/shared/types';
 
 defineEmits<{ 'remove-mod': [modRoot: string] }>();
 

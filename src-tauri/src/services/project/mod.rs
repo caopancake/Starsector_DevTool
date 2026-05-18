@@ -4,8 +4,9 @@ mod sprites;
 mod tables;
 
 use crate::{
+    domain::config::{build_skin_file, build_variant_file},
     errors::AppResult,
-    filesystem::{list_sprites, load_json_dir_by_id, read_json_file},
+    io::{list_sprites, load_json_dir_by_id, read_json_file},
     models::{
         AppData, CoreReferences, FactionMeta, GameModSummary, GameOverviewData, GameScanWarning,
         OpenDirectoryResult, SkinFile, VariantFile,
@@ -48,25 +49,25 @@ struct SpriteTableRows<'a> {
     skills: &'a [Map<String, Value>],
 }
 
-pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
-    load_all_data_with_root(mod_root, None)
+pub fn load_mod_data(mod_root: &Path) -> AppResult<AppData> {
+    load_mod_data_with_root(mod_root, None)
 }
 
-pub fn load_all_data_from_path(mod_root: String) -> AppResult<AppData> {
-    load_all_data(Path::new(&mod_root))
+pub fn load_mod_data_for_command(mod_root: String) -> AppResult<AppData> {
+    load_mod_data(Path::new(&mod_root))
 }
 
 pub fn load_csv_table(mod_root: &Path, table: &str) -> AppResult<crate::models::CsvTable> {
     tables::load_csv_table(mod_root, table)
 }
 
-pub fn load_csv_table_from_payload(
+pub fn load_csv_table_for_command(
     payload: crate::models::LoadCsvTablePayload,
 ) -> AppResult<crate::models::CsvTable> {
     load_csv_table(Path::new(&payload.mod_root), &payload.table)
 }
 
-pub fn load_all_data_with_root(
+pub fn load_mod_data_with_root(
     mod_root: &Path,
     starsector_root_override: Option<&Path>,
 ) -> AppResult<AppData> {
@@ -156,11 +157,11 @@ pub fn load_all_data_with_root(
     })
 }
 
-pub fn load_all_data_with_root_from_path(
+pub fn load_mod_data_with_root_for_command(
     mod_root: String,
     starsector_root: Option<String>,
 ) -> AppResult<AppData> {
-    load_all_data_with_root(
+    load_mod_data_with_root(
         Path::new(&mod_root),
         starsector_root.as_deref().map(Path::new),
     )
@@ -322,7 +323,7 @@ pub fn detect_directory(
     }
 }
 
-pub fn detect_directory_from_path(
+pub fn detect_directory_for_command(
     path: String,
     fallback_starsector_root: Option<String>,
 ) -> OpenDirectoryResult {
@@ -340,7 +341,7 @@ pub fn scan_game_overview(starsector_root: &Path) -> GameOverviewData {
                 .join("starsector-core")
                 .to_string_lossy()
                 .to_string(),
-            message: "缺少 starsector-core，原版 fallback 不可用".to_string(),
+            message: "缺少 starsector-core，原版资源回退不可用".to_string(),
         });
     }
 
@@ -390,7 +391,7 @@ pub fn scan_game_overview(starsector_root: &Path) -> GameOverviewData {
     }
 }
 
-pub fn scan_game_overview_from_path(starsector_root: String) -> GameOverviewData {
+pub fn scan_game_overview_for_command(starsector_root: String) -> GameOverviewData {
     scan_game_overview(Path::new(&starsector_root))
 }
 
@@ -524,35 +525,27 @@ fn load_variant_files(mod_root: &Path) -> AppResult<Vec<VariantFile>> {
         }
         let path = entry.path();
         let data = read_json_file(path)?;
-        let variant_id = required_string(&data, "variantId", path)?;
-        let hull_id = required_string(&data, "hullId", path)?;
-        if let Some(previous) = seen.insert(variant_id.clone(), path.to_string_lossy().to_string())
+        let rel_path = normalize_rel_path(mod_root, path);
+        let file = build_variant_file(mod_root, &rel_path, &data)
+            .map_err(|error| crate::errors::AppError::context(path.display().to_string(), error))?;
+        if let Some(previous) =
+            seen.insert(file.variant_id.clone(), path.to_string_lossy().to_string())
         {
-            if is_temporary_core_kite_interceptor_duplicate(mod_root, path, &previous, &variant_id)
-            {
+            if is_temporary_core_kite_interceptor_duplicate(
+                mod_root,
+                path,
+                &previous,
+                &file.variant_id,
+            ) {
                 continue;
             }
             return Err(crate::errors::AppError::message(format!(
-                "重复 variantId {variant_id}: {previous} 和 {}",
+                "重复 variantId {}: {previous} 和 {}",
+                file.variant_id,
                 path.display()
             )));
         }
-        let rel_path = path
-            .strip_prefix(mod_root)
-            .map_err(|error| crate::errors::AppError::message(error.to_string()))?
-            .to_string_lossy()
-            .replace('\\', "/");
-        files.push(VariantFile {
-            variant_id,
-            hull_id,
-            path: path.to_string_lossy().to_string(),
-            rel_path,
-            weapon_group_count: array_len(data.get("weaponGroups")),
-            hull_mod_count: array_len(data.get("hullMods")),
-            perma_mod_count: array_len(data.get("permaMods")),
-            wing_count: array_len(data.get("wings")),
-            data,
-        });
+        files.push(file);
     }
     files.sort_by(|a, b| {
         a.hull_id
@@ -581,33 +574,20 @@ fn load_skin_files(mod_root: &Path) -> AppResult<Vec<SkinFile>> {
         }
         let path = entry.path();
         let data = read_json_file(path)?;
-        let skin_hull_id = required_string(&data, "skinHullId", path)?;
-        let base_hull_id = required_string(&data, "baseHullId", path)?;
-        if let Some(previous) =
-            seen.insert(skin_hull_id.clone(), path.to_string_lossy().to_string())
-        {
+        let rel_path = normalize_rel_path(mod_root, path);
+        let file = build_skin_file(mod_root, &rel_path, &data)
+            .map_err(|error| crate::errors::AppError::context(path.display().to_string(), error))?;
+        if let Some(previous) = seen.insert(
+            file.skin_hull_id.clone(),
+            path.to_string_lossy().to_string(),
+        ) {
             return Err(crate::errors::AppError::message(format!(
-                "重复 skinHullId {skin_hull_id}: {previous} 和 {}",
+                "重复 skinHullId {}: {previous} 和 {}",
+                file.skin_hull_id,
                 path.display()
             )));
         }
-        let rel_path = path
-            .strip_prefix(mod_root)
-            .map_err(|error| crate::errors::AppError::message(error.to_string()))?
-            .to_string_lossy()
-            .replace('\\', "/");
-        files.push(SkinFile {
-            skin_hull_id,
-            base_hull_id,
-            path: path.to_string_lossy().to_string(),
-            rel_path,
-            built_in_mod_count: array_len(data.get("builtInMods")),
-            built_in_weapon_count: object_len(data.get("builtInWeapons")),
-            built_in_wing_count: array_len(data.get("builtInWings")),
-            weapon_slot_change_count: object_len(data.get("weaponSlotChanges")),
-            engine_slot_change_count: object_len(data.get("engineSlotChanges")),
-            data,
-        });
+        files.push(file);
     }
     files.sort_by(|a, b| {
         a.base_hull_id
@@ -654,7 +634,7 @@ fn temporary_core_duplicate_variant_pairs() -> [(&'static str, [&'static str; 2]
     //   - data/variants/ziggurat_Experimental.variant
     //   - data/variants/ziggurat_HF.variant
     //
-    // Core references are read-only fallback data, so these duplicates must not
+    // Core references are read-only vanilla data, so these duplicates must not
     // make Mod loading fail. Editable Mod variant loading remains strict; these
     // exceptions are intentionally path- and id-exact so they can be removed when
     // the upstream vanilla data is fixed.
@@ -701,29 +681,10 @@ fn group_variants_by_hull(variant_files: &[VariantFile]) -> BTreeMap<String, Vec
     variants
 }
 
-fn required_string(value: &Value, key: &str, path: &Path) -> AppResult<String> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .filter(|text| !text.trim().is_empty())
-        .map(str::to_string)
-        .ok_or_else(|| crate::errors::AppError::message(format!("{} 缺少 {key}", path.display())))
-}
-
-fn array_len(value: Option<&Value>) -> usize {
-    value.and_then(Value::as_array).map_or(0, Vec::len)
-}
-
-fn object_len(value: Option<&Value>) -> usize {
-    value
-        .and_then(Value::as_object)
-        .map_or(0, |object| object.len())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::filesystem::write_utf8_no_bom;
+    use crate::io::write_utf8_no_bom;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
@@ -767,7 +728,7 @@ mod tests {
     }
 
     #[test]
-    fn load_all_data_reads_skill_csv_and_specs() {
+    fn load_mod_data_reads_skill_csv_and_specs() {
         let root = temp_dir("load_skills");
         fs::create_dir_all(root.join("data/characters/skills")).unwrap();
         fs::create_dir_all(root.join("graphics/icons/skills")).unwrap();
@@ -790,7 +751,7 @@ mod tests {
         )
         .unwrap();
 
-        let data = load_all_data(&root).unwrap();
+        let data = load_mod_data(&root).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(data.skills.len(), 1);
@@ -800,10 +761,10 @@ mod tests {
     }
 
     #[test]
-    fn load_all_data_allows_missing_skill_sources() {
+    fn load_mod_data_allows_missing_skill_sources() {
         let root = temp_dir("missing_skills");
 
-        let data = load_all_data(&root).unwrap();
+        let data = load_mod_data(&root).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert!(data.skills.is_empty());
@@ -811,7 +772,7 @@ mod tests {
     }
 
     #[test]
-    fn load_all_data_reads_variant_files_with_paths_and_stats() {
+    fn load_mod_data_reads_variant_files_with_paths_and_stats() {
         let root = temp_dir("load_variants");
         fs::create_dir_all(root.join("data/variants/sub")).unwrap();
         write_utf8_no_bom(
@@ -827,7 +788,7 @@ mod tests {
         )
         .unwrap();
 
-        let data = load_all_data(&root).unwrap();
+        let data = load_mod_data(&root).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(data.variant_files.len(), 1);
@@ -843,7 +804,7 @@ mod tests {
     }
 
     #[test]
-    fn load_all_data_reads_skin_files_with_paths_and_stats() {
+    fn load_mod_data_reads_skin_files_with_paths_and_stats() {
         let root = temp_dir("load_skins");
         fs::create_dir_all(root.join("data/hulls/skins")).unwrap();
         write_utf8_no_bom(
@@ -860,7 +821,7 @@ mod tests {
         )
         .unwrap();
 
-        let data = load_all_data(&root).unwrap();
+        let data = load_mod_data(&root).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(data.skin_files.len(), 1);
@@ -876,7 +837,7 @@ mod tests {
     }
 
     #[test]
-    fn load_all_data_reads_core_reference_tables_and_sprites() {
+    fn load_mod_data_reads_core_reference_tables_and_sprites() {
         let root = temp_dir("core_references");
         let mod_root = root.join("mods/demo");
         let core_root = root.join("starsector-core");
@@ -954,7 +915,7 @@ mod tests {
         )
         .unwrap();
 
-        let data = load_all_data_with_root(&mod_root, Some(&root)).unwrap();
+        let data = load_mod_data_with_root(&mod_root, Some(&root)).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(data.weapons.len(), 1);
@@ -984,10 +945,10 @@ mod tests {
     }
 
     #[test]
-    fn load_all_data_without_core_has_empty_core_references() {
+    fn load_mod_data_without_core_has_empty_core_references() {
         let root = temp_dir("no_core_references");
 
-        let data = load_all_data(&root).unwrap();
+        let data = load_mod_data(&root).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert!(data.core_references.tables.is_empty());
@@ -995,7 +956,7 @@ mod tests {
     }
 
     #[test]
-    fn load_all_data_rejects_variant_missing_required_ids() {
+    fn load_mod_data_rejects_variant_missing_required_ids() {
         let root = temp_dir("variant_missing_ids");
         fs::create_dir_all(root.join("data/variants")).unwrap();
         write_utf8_no_bom(
@@ -1004,7 +965,7 @@ mod tests {
         )
         .unwrap();
 
-        let error = load_all_data(&root).unwrap_err().to_string();
+        let error = load_mod_data(&root).unwrap_err().to_string();
 
         let _ = fs::remove_dir_all(root);
         assert!(error.contains("bad.variant"));
@@ -1012,7 +973,7 @@ mod tests {
     }
 
     #[test]
-    fn load_all_data_rejects_duplicate_variant_id() {
+    fn load_mod_data_rejects_duplicate_variant_id() {
         let root = temp_dir("variant_duplicate_id");
         fs::create_dir_all(root.join("data/variants/a")).unwrap();
         fs::create_dir_all(root.join("data/variants/b")).unwrap();
@@ -1027,7 +988,7 @@ mod tests {
         )
         .unwrap();
 
-        let error = load_all_data(&root).unwrap_err().to_string();
+        let error = load_mod_data(&root).unwrap_err().to_string();
 
         let _ = fs::remove_dir_all(root);
         assert!(error.contains("重复 variantId dup"));
@@ -1036,7 +997,7 @@ mod tests {
     }
 
     #[test]
-    fn load_all_data_rejects_skin_missing_required_ids() {
+    fn load_mod_data_rejects_skin_missing_required_ids() {
         let root = temp_dir("skin_missing_ids");
         fs::create_dir_all(root.join("data/hulls/skins")).unwrap();
         write_utf8_no_bom(
@@ -1045,7 +1006,7 @@ mod tests {
         )
         .unwrap();
 
-        let error = load_all_data(&root).unwrap_err().to_string();
+        let error = load_mod_data(&root).unwrap_err().to_string();
 
         let _ = fs::remove_dir_all(root);
         assert!(error.contains("bad.skin"));
@@ -1053,7 +1014,7 @@ mod tests {
     }
 
     #[test]
-    fn load_all_data_rejects_duplicate_skin_hull_id() {
+    fn load_mod_data_rejects_duplicate_skin_hull_id() {
         let root = temp_dir("skin_duplicate_id");
         fs::create_dir_all(root.join("data/hulls/skins/a")).unwrap();
         fs::create_dir_all(root.join("data/hulls/skins/b")).unwrap();
@@ -1068,7 +1029,7 @@ mod tests {
         )
         .unwrap();
 
-        let error = load_all_data(&root).unwrap_err().to_string();
+        let error = load_mod_data(&root).unwrap_err().to_string();
 
         let _ = fs::remove_dir_all(root);
         assert!(error.contains("重复 skinHullId dup"));

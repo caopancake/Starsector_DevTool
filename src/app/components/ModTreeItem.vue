@@ -104,11 +104,11 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { ConfigView, ModEntry, TableKey } from '../../shared/types';
-import { MODULE_LABELS } from '../../shared/lib/starsector';
-import { useTablesStore } from '../../features/tables/tables-store';
-import { useProjectStore } from '../../features/project/project-store';
-import { useWorkspaceStore } from '../../features/workspace/workspace-store';
+import type { ConfigView, ModEntry, TableKey } from '@/shared/types';
+import { MODULE_LABELS } from '@/shared/lib/starsector';
+import { useTablesStore } from '@/stores/tables.store';
+import { useProjectStore } from '@/stores/project.store';
+import { useWorkspaceStore } from '@/stores/workspace.store';
 
 const props = defineProps<{ mod: ModEntry; isActive: boolean; isExpanded: boolean }>();
 const emit = defineEmits<{

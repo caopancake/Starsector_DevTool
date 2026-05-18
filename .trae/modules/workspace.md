@@ -6,10 +6,10 @@
 
 ## 边界
 
-- `src/features/workspace/workspace-store.ts` 是主窗口 workspace 状态源。
-- `src/features/workspace/workspace-shell-actions.ts` 是主窗口 workspace 级编排入口，承接打开目录、保存表格、移除 Mod、窗口事件和详情动作。
-- `src/features/workspace/workspace-persistence.ts` 负责 workspace 自动保存和启动恢复。
-- `src/features/workspace/open-directory-service.ts` 负责打开目录后的前端编排。
+- `src/stores/workspace.store.ts` 是主窗口 workspace 状态源。
+- `src/app/composables/use-workspace-shell-actions.ts` 是主窗口 workspace 级组合入口，承接打开目录、保存表格、移除 Mod、窗口事件和详情动作。
+- `src/orchestrators/workspace-persistence.orchestrator.ts` 负责 workspace 自动保存和启动恢复。
+- `src/orchestrators/open-directory.orchestrator.ts` 负责打开目录后的前端编排。
 - `src/shared/api/workspace-api.ts` 调用 Rust workspace command。
 - `src-tauri/src/commands/workspace.rs` 暴露 `load_workspace` 和 `save_workspace`。
 - `src-tauri/src/services/app_paths.rs` 解析 Tauri app data 目录。
@@ -19,7 +19,7 @@
 ## 规范
 
 - workspace 持久化保存的是打开状态，不保存完整 `AppData`。
-- `App.vue` 不直接横向编排多个 feature；主窗口用户动作通过 `workspace-shell-actions.ts` 调用对应业务模块。
+- `App.vue` 不直接横向编排多个 feature；主窗口用户动作通过 `use-workspace-shell-actions.ts` 调用对应业务模块。
 - 启动恢复必须重新调用当前项目加载流程，不能信任旧缓存。
 - 恢复完成后主窗口进入总览视图。
 - 移除 Mod 时必须同时移除 workspace、project cache、tables、编辑器引用、CSV 草稿历史和文件级 history。
@@ -29,8 +29,8 @@
 ## 链路：启动恢复
 
 1. `App.vue` 挂载 workspace shell actions。
-2. `workspace-shell-actions.ts` 初始化主窗口生命周期。
-3. `workspace-persistence.ts` 调用 `loadWorkspace()`。
+2. `use-workspace-shell-actions.ts` 初始化主窗口生命周期。
+3. `workspace-persistence.orchestrator.ts` 调用 `loadWorkspace()`。
 4. Rust workspace command 调用 workspace service。
 5. workspace service 通过 app paths service 取得工具私有目录。
 6. Rust workspace service 读取工具私有 workspace 文件。
@@ -45,7 +45,7 @@
 ## 链路：workspace 自动保存
 
 1. workspace store 状态变化。
-2. `workspace-persistence.ts` debounce 监听触发。
+2. `workspace-persistence.orchestrator.ts` debounce 监听触发。
 3. 前端生成 persisted state。
 4. 前端调用 `saveWorkspace()`。
 5. Rust workspace command 调用 workspace service。

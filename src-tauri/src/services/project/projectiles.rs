@@ -1,4 +1,4 @@
-use crate::{errors::AppResult, filesystem::load_json_dir};
+use crate::{errors::AppResult, io::load_json_dir};
 use serde_json::Value;
 use std::{collections::BTreeMap, path::Path};
 
@@ -46,7 +46,7 @@ fn insert_projectiles(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::filesystem::write_utf8_no_bom;
+    use crate::io::write_utf8_no_bom;
     use std::{
         fs,
         path::PathBuf,

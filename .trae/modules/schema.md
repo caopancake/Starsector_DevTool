@@ -6,13 +6,13 @@ Schema 系统为配置页面提供字段定义、分组、枚举来源、多来�
 
 ## 边界
 
-- `src/features/schema/schema-service.ts` 加载静态 schema，并提供字段、section、source 和 nested value 工具。
-- `src/features/schema/components/SchemaFormRenderer.vue` 渲染 schema section、额外字段和多来源字段。
-- `src/features/schema/components/SchemaFieldRenderer.vue` 渲染单个字段控件。
-- `src/features/schema/composables/use-schema-core-fields.ts` 接入 core 字段扫描结果。
-- `src/schemas/` 存放静态 schema 文件。
+- `src/domain/schema/schema-registry.ts` 加载静态 schema，并提供字段、section、source 和 nested value 工具。
+- `src/app/components/schema/SchemaFormRenderer.vue` 渲染 schema section、额外字段和多来源字段。
+- `src/app/components/schema/SchemaFieldRenderer.vue` 渲染单个字段控件。
+- `src/app/composables/use-core-schema.ts` 接入 core 字段扫描结果。
+- `schemas/` 存放静态 schema 文件。
 - `schemas/skin.schema.json` 定义舰船皮肤 schema 表单。
-- `src/shared/components/ColorPicker.vue` 是 schema 表单使用的共享颜色控件。
+- `src/shared/ui/ColorPicker.vue` 是 schema 表单使用的共享颜色控件。
 
 ## 规范
 
@@ -29,7 +29,7 @@ Schema 系统为配置页面提供字段定义、分组、枚举来源、多来�
 ## 链路：渲染 Schema 表单
 
 1. 配置组件加载对应 schema。
-2. `schema-service.ts` 返回 sections 和 fields。
+2. `schema-registry.ts` 返回 sections 和 fields。
 3. `SchemaFormRenderer.vue` 遍历 section。
 4. `SchemaFormRenderer.vue` 为每个字段创建 `SchemaFieldRenderer`。
 5. `SchemaFieldRenderer` 根据 field type 渲染控件。

@@ -1,6 +1,7 @@
 mod commands;
+mod domain;
 mod errors;
-mod filesystem;
+mod io;
 mod models;
 mod parsers;
 mod services;

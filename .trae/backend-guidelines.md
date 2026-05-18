@@ -4,11 +4,15 @@
 
 ## 模块分层
 
-- 后端入口的唯一宏观链路是 `Rust command -> service -> 后端实现`，任何情况都不允许绕过。
+- 后端入口的唯一宏观链路是 `Rust command -> service -> domain / io / parser / model`，任何情况都不允许绕过。
 - Rust command 层只能调用 service；除参数接收和错误转换外，不允许包含任何实现细节。
-- `npm.cmd run lint` 包含 Rust 架构静态检查；command 层必须保持纯 service 边界，command 注册必须完整，service 不得反向依赖 command，filesystem / parser 不得反向依赖 service 或 command。
-- 业务规则、路径安全、文件读写、解析和保存必须放在 service 或 parser 模块。
+- `npm.cmd run lint` 包含 Rust 架构静态检查；command 层必须保持纯 service 边界，command 注册必须完整，service 不得反向依赖 command，io / parser 不得反向依赖 service 或 command。
+- 业务规则和数据转换放在 service 或 domain；路径安全、文件读写放在 service 或 io；解析和渲染放在 parser。
 - command 模块按 project、workspace、tables、config、files、assets 等边界组织；command 名称保持前端兼容。
+- service 公开函数名表达业务能力，不使用 command wire 名里的 `_with_history`。
+- service 公开函数签名不得使用 command wire 名里的 `WithHistoryPayload` 类型。
+- command 入参适配函数统一使用 `*_for_command`；不得新增 `*_from_path` 或 `*_from_payload` 公开 service 函数。
+- domain 只放纯业务规则、校验、构造和数据转换，不依赖 command、service、io、parser 或 command payload。
 - Rust 是文件系统、路径校验、删除语义、写盘和 changeset 回放的权威实现。
 - 前端传来的路径只能作为待校验输入，后端必须重新校验路径归属和写入边界。
 
@@ -46,7 +50,7 @@
 
 ## 资源与贴图
 
-- 图片加载优先 Mod 文件，再使用推断或显式 `starsectorRoot` 下的 core fallback。
+- 图片加载优先 Mod 文件，再使用推断或显式 `starsectorRoot` 下的原版资源回退。
 - 像素资源预览必须保持邻近采样。
 - 二进制贴图上传和覆盖必须纳入文件级 changeset，不得作为不可逆操作处理。
 - 贴图上传和覆盖必须由后端校验扩展名、目标目录和写入路径。

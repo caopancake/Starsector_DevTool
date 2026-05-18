@@ -9,9 +9,9 @@ export const schemaRegistryBoundaryRule = {
       .map((file) => file.rel)
       .filter((rel) => rel.startsWith('schemas/') && rel.endsWith('.schema.json'))
       .map((rel) => rel.slice('schemas/'.length));
-    const service = files.find((file) => file.rel === 'src/features/schema/schema-service.ts');
+    const service = files.find((file) => file.rel === 'src/domain/schema/schema-registry.ts');
     if (!service) {
-      failures.push('src/features/schema/schema-service.ts: schema registry file is missing');
+      failures.push('src/domain/schema/schema-registry.ts: schema registry file is missing');
       return failures;
     }
     const imports = new Map([...service.text.matchAll(schemaImportPattern)].map((match) => [match[2], match[1]]));
@@ -20,14 +20,14 @@ export const schemaRegistryBoundaryRule = {
     for (const schemaFile of schemaFiles) {
       const importName = imports.get(schemaFile);
       if (!importName) {
-        failures.push(`schemas/${schemaFile}: schema file must be imported by schema-service registry`);
+        failures.push(`schemas/${schemaFile}: schema file must be imported by schema registry`);
       } else if (!registeredImportNames.has(importName)) {
         failures.push(`schemas/${schemaFile}: schema file import must be registered in SCHEMAS`);
       }
     }
     for (const schemaFile of imports.keys()) {
       if (!schemaFiles.includes(schemaFile)) {
-        failures.push(`src/features/schema/schema-service.ts: registered schema file schemas/${schemaFile} does not exist`);
+        failures.push(`src/domain/schema/schema-registry.ts: registered schema file schemas/${schemaFile} does not exist`);
       }
     }
     return failures;

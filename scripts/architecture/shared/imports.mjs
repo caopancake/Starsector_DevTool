@@ -15,6 +15,7 @@ export function importSpecifiers(text) {
 }
 
 export function resolvedProjectImport(fromRel, specifier) {
+  if (specifier.startsWith('@/')) return normalizeProjectPath(`src/${specifier.slice(2)}`);
   if (!specifier.startsWith('.')) return specifier;
   return normalizeProjectPath(join(dirname(fromRel), specifier));
 }

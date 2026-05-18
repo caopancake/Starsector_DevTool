@@ -6,17 +6,17 @@
 
 ## 边界
 
-- `src/features/editors/editor-window.ts` 打开 `kind=projectile` 编辑器窗口。
+- `src/windows/editor.window.ts` 打开 `kind=projectile` 编辑器窗口。
 - `src/app/EditorWindowApp.vue` 在 projectile kind 下加载 AppData 并挂载 `ProjectileEditor`。
-- `src/features/editors/components/ProjectileEditor.vue` 承载弹体编辑 UI。
-- `src/features/editors/editor-service.ts` 调用 spec 保存 API。
+- `src/app/components/editors/ProjectileEditor.vue` 承载弹体编辑 UI。
+- `src/services/editor.service.ts` 调用 spec 保存 API。
 - `src-tauri/src/services/project/projectiles.rs` 在项目加载时读取 projectile spec。
 - `src-tauri/src/services/editor_specs.rs` 定位并保存 `.proj` JSON-like spec。
 
 ## 规范
 
 - 弹体编辑器保存只写对应 `.proj`。
-- 弹体数据可来自 Mod 或 core fallback。
+- 弹体数据可来自 Mod 或原版资源回退。
 - 弹体窗口保存成功后通过 `editor-spec-saved` 同步主窗口和其它编辑器窗口。
 - 弹体窗口加载失败只影响当前窗口。
 

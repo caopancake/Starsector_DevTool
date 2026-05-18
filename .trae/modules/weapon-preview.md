@@ -6,9 +6,9 @@
 
 ## 边界
 
-- `src/features/editors/editor-window.ts` 打开 `kind=weapon-preview` 预览窗口。
+- `src/windows/editor.window.ts` 打开 `kind=weapon-preview` 预览窗口。
 - `src/app/EditorWindowApp.vue` 在 weapon-preview kind 下加载 AppData 并挂载 `WeaponFirePreview`。
-- `src/features/editors/components/WeaponFirePreview.vue` 承载预览画布和模拟状态。
+- `src/app/components/editors/WeaponFirePreview.vue` 承载预览画布和模拟状态。
 
 ## 规范
 

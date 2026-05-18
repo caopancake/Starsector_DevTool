@@ -10,8 +10,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useSettingsStore } from './settings-store';
-import { buildThemeOverrides } from './theme-overrides';
+import { useSettingsStore } from '@/stores/settings.store';
+import { buildThemeOverrides } from '@/app/theme-overrides';
 
 const settings = useSettingsStore();
 const themeOverrides = computed(() => buildThemeOverrides(settings));

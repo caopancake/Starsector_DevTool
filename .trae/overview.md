@@ -26,17 +26,22 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 - 任何前端业务代码都不得绕过 `src/shared/api/` 访问 Rust command。
 - Rust command 层只能调用 service；除参数接收和错误转换外，不允许包含任何实现细节。
 - `src/main.ts` 是前端运行时入口，按 URL 参数挂载主窗口、编辑器窗口或文件编辑器窗口。
-- `src/app/` 承载应用壳、窗口根组件、全局 provider、主题和反馈入口。
-- `src/features/` 承载业务系统，每个子目录是一条稳定业务边界。
+- `src/app/` 承载应用壳、窗口根组件、全局 provider、主题、反馈入口、页面装配和 Vue 业务组件。
+- `src/domain/` 承载纯业务模型、schema、表格规则和编辑器纯工具，不访问后端和 store。
+- `src/services/` 承载后端 API 调用和单一业务服务，是 `shared/api` 的唯一业务使用层。
+- `src/stores/` 承载 Pinia store，只管理内存状态。
+- `src/orchestrators/` 承载跨 store、service、history 和窗口的用户动作编排。
+- `src/windows/` 承载窗口创建、窗口事件和窗口生命周期协调。
 - `src/shared/api/` 只封装 Tauri command 和 event 的调用形状。
 - `src/shared/lib/` 承载跨业务纯工具，例如路径、错误和 Starsector 数据辅助函数。
-- `src/shared/types.ts` 承载跨模块共享的前端数据类型。
+- `src/shared/types/` 承载跨模块共享的前端数据类型。
 - `src/styles/` 承载全局 CSS 模块，视觉边界以 `css-guidelines.md` 为准。
 - `src-tauri/src/lib.rs` 注册 Tauri command、plugin 和应用启动能力。
 - `src-tauri/src/commands/` 是 Tauri command 层，只负责参数接收、错误转换和调用 service。
-- `src-tauri/src/services/` 是 Rust 业务层，负责项目加载、保存、changeset、配置和资源扫描。
+- `src-tauri/src/services/` 是 Rust service 层，负责 command 后的项目加载、保存、changeset、配置和资源扫描。
+- `src-tauri/src/domain/` 承载不直接 IO 的 Rust 业务规则、适配器和数据转换。
 - `src-tauri/src/parsers/` 是格式解析和渲染层。
-- `src-tauri/src/filesystem/` 是 UTF-8、JSON-like、图片和路径相关 IO 层。
+- `src-tauri/src/io/` 是 UTF-8、JSON-like、图片和路径相关 IO 层。
 - `src-tauri/src/models/` 是 Rust 与前端交换的数据结构和 payload。
 
 ## 规范
@@ -50,7 +55,7 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 - CSV、spec、配置文件、workspace 私有状态和二进制贴图有不同保存边界，不能互相偷写。
 - Canvas 编辑器使用 Starsector 资源朝向约定做显示转换，但保存边界仍是对应 spec 文件本身。
 - 保存 JSON-like spec 时采用结构保真：内容正确、字段保留、规范缩进写回；不承诺保留原注释、尾逗号和手写格式。
-- `starsector-core` 只读，只作为 core fallback 和数据来源，不注册成可编辑 Mod。
+- `starsector-core` 只读，只作为原版资源回退和数据来源，不注册成可编辑 Mod。
 - 禁止性规则必须描述完整边界，不得用具体对象、文件类型、状态类型、函数名或模块名的枚举来限定禁止范围。示例只能作为非穷尽说明，不能构成允许边界。
 
 ## 核心数据流

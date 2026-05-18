@@ -1,6 +1,7 @@
 use crate::{
+    domain::config::validate_config_id,
     errors::{AppError, AppResult},
-    filesystem::strip_internal_fields,
+    io::strip_internal_fields,
     models::{
         DeleteIndexedConfigEntityPayload, IndexedConfigEntityPayload, IndexedConfigEntityResult,
     },
@@ -10,12 +11,10 @@ use crate::{
 use serde_json::{Map, Value};
 use std::path::Path;
 
-use super::validate_config_id;
-
 type IndexRows = Vec<Map<String, Value>>;
 type IndexTable = (Vec<String>, IndexRows);
 
-pub fn save_indexed_config_entity_with_history(
+pub fn save_indexed_config_entity(
     input: IndexedConfigEntityPayload,
 ) -> AppResult<IndexedConfigEntityResult> {
     let kind = EntityKind::parse(&input.kind)?;
@@ -85,17 +84,17 @@ pub fn save_indexed_config_entity_with_history(
     })
 }
 
-pub fn create_indexed_config_entity_with_history(
+pub fn create_indexed_config_entity(
     input: IndexedConfigEntityPayload,
 ) -> AppResult<IndexedConfigEntityResult> {
-    save_indexed_config_entity_with_history(IndexedConfigEntityPayload {
+    save_indexed_config_entity(IndexedConfigEntityPayload {
         previous_id: None,
         delete_previous_target: false,
         ..input
     })
 }
 
-pub fn delete_indexed_config_entity_with_history(
+pub fn delete_indexed_config_entity(
     input: DeleteIndexedConfigEntityPayload,
 ) -> AppResult<IndexedConfigEntityResult> {
     let kind = EntityKind::parse(&input.kind)?;
@@ -359,7 +358,7 @@ fn file_stem(value: &str) -> String {
 mod tests {
     use super::*;
     use crate::{
-        filesystem::{read_utf8_no_bom, write_utf8_no_bom},
+        io::{read_utf8_no_bom, write_utf8_no_bom},
         models::ApplyFileChangeSetPayload,
         services::file_changes::apply_file_change_set,
     };
@@ -381,7 +380,7 @@ mod tests {
         .unwrap();
         write_utf8_no_bom(&dir.join("old.faction"), r#"{"id":"old"}"#).unwrap();
 
-        let result = save_indexed_config_entity_with_history(IndexedConfigEntityPayload {
+        let result = save_indexed_config_entity(IndexedConfigEntityPayload {
             mod_root: root.to_string_lossy().to_string(),
             kind: "faction".to_string(),
             previous_id: Some("old".to_string()),
@@ -435,7 +434,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = save_indexed_config_entity_with_history(IndexedConfigEntityPayload {
+        let result = save_indexed_config_entity(IndexedConfigEntityPayload {
             mod_root: root.to_string_lossy().to_string(),
             kind: "faction".to_string(),
             previous_id: Some("old".to_string()),
