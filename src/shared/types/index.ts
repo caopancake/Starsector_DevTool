@@ -27,6 +27,7 @@ export interface AppData {
   skills: RowData[];
   shipFiles: Record<string, RowData>;
   variants: Record<string, RowData[]>;
+  variantFiles: VariantFile[];
   shipSprites: Record<string, string>;
   availableSprites: string[];
   wpnFiles: Record<string, RowData>;
@@ -39,6 +40,18 @@ export interface AppData {
   shipSystemSprites: Record<string, string>;
   industrySprites: Record<string, string>;
   skillSprites: Record<string, string>;
+}
+
+export interface VariantFile {
+  variantId: string;
+  hullId: string;
+  path: string;
+  relPath: string;
+  data: RowData;
+  weaponGroupCount: number;
+  hullModCount: number;
+  permaModCount: number;
+  wingCount: number;
 }
 
 export interface GameScanWarning {

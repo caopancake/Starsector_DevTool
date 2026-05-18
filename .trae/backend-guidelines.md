@@ -4,7 +4,8 @@
 
 ## 模块分层
 
-- Tauri command 层只负责参数接收、错误转换和调用 service。
+- 后端入口的唯一宏观链路是 `Rust command -> service -> 后端实现`，任何情况都不允许绕过。
+- Rust command 层只能调用 service；除参数接收和错误转换外，不允许包含任何实现细节。
 - 业务规则、路径安全、文件读写、解析和保存必须放在 service 或 parser 模块。
 - command 模块按 project、workspace、tables、config、files、assets 等边界组织；command 名称保持前端兼容。
 - Rust 是文件系统、路径校验、删除语义、写盘和 changeset 回放的权威实现。
@@ -30,7 +31,7 @@
 
 - 文件级保存历史的权威载体是 `FileChangeRecord[]`。
 - 单文件保存和多文件保存都使用同一种 changeset。
-- changeset 可以表达文本文件创建、修改、删除和目录删除。
+- changeset 可以表达文本文件、二进制文件创建、修改、删除和目录删除。
 - `apply_file_change_set` 必须在失败时尽量回滚已写入内容，并把错误返回给前端。
 - 文件级 undo/redo 的栈移动由前端在后端回放成功后提交，后端不替前端移动历史状态。
 
@@ -46,7 +47,7 @@
 
 - 图片加载优先 Mod 文件，再使用推断或显式 `starsectorRoot` 下的 core fallback。
 - 像素资源预览必须保持邻近采样。
-- 二进制贴图覆盖暂不纳入文件级 changeset，必须作为不可逆操作处理。
+- 二进制贴图上传和覆盖必须纳入文件级 changeset，不得作为不可逆操作处理。
 - 贴图上传和覆盖必须由后端校验扩展名、目标目录和写入路径。
 
 ## 验证目标

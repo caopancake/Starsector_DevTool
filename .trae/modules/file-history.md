@@ -2,7 +2,7 @@
 
 ## 定义
 
-文件级 history 记录已经写入磁盘的保存事件。每条保存事件是一个 `FileChangeRecord[]` changeset，可以包含单文件、多文件或目录删除。
+文件级 history 记录已经写入磁盘的保存事件。每条保存事件是一个 `FileChangeRecord[]` changeset，可以包含文本文件、二进制文件、多文件或目录删除。
 
 ## 边界
 
@@ -20,8 +20,9 @@
 - undo/redo 必须先 peek entry，再弹窗确认，再调用 Rust 回放。
 - Rust 回放成功后前端才能 commit 栈移动。
 - Rust 回放失败时前端不能移动 undo/redo 栈。
-- barrier 会阻断跨越不可逆操作的 undo/redo。
-- 二进制贴图覆盖不进入文本 changeset，只记录不可逆 barrier。
+- barrier 只用于真正不能表达为 changeset 的不可逆操作，不得用于 Mod 内普通文件保存。
+- 单文件 changeset 可以用 `beforeText/afterText` 表达 UTF-8 无 BOM 文本，也可以用 `beforeDataBase64/afterDataBase64` 表达二进制内容。
+- 贴图上传和覆盖必须作为普通文件 changeset 进入文件级 history。
 
 ## 链路：记录文件保存
 
@@ -40,7 +41,7 @@
 4. 用户确认。
 5. `file-history-replay-service.ts` 调用 `applyFileChangeSet('undo', changes)`。
 6. Rust `apply_file_change_set` 写回 before 状态。
-7. 前端刷新受影响的文件编辑器、编辑器窗口、project cache 和 tables cache。
+7. 前端刷新受影响的文本文件编辑器、编辑器窗口、project cache 和 tables cache；二进制文件只写回磁盘。
 8. file history store commit undo。
 9. 前端显示成功消息。
 
@@ -52,6 +53,6 @@
 4. 用户确认。
 5. `file-history-replay-service.ts` 调用 `applyFileChangeSet('redo', changes)`。
 6. Rust `apply_file_change_set` 写回 after 状态。
-7. 前端刷新受影响的文件编辑器、编辑器窗口、project cache 和 tables cache。
+7. 前端刷新受影响的文本文件编辑器、编辑器窗口、project cache 和 tables cache；二进制文件只写回磁盘。
 8. file history store commit redo。
 9. 前端显示成功消息。

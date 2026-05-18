@@ -141,10 +141,15 @@ function formatTimestamp(timestamp: number): string {
 
 function formatChange(change: FileChangeRecord): string {
   const type = change.kind === 'directory' ? '目录' : '文件';
-  return `${type}：${formatExists(change.beforeExists)} → ${formatExists(change.afterExists)}`;
+  const content = change.kind === 'file' && isBinaryChange(change) ? '，二进制' : '';
+  return `${type}${content}：${formatExists(change.beforeExists)} → ${formatExists(change.afterExists)}`;
 }
 
 function formatExists(exists: boolean): string {
   return exists ? '存在' : '不存在';
+}
+
+function isBinaryChange(change: FileChangeRecord): boolean {
+  return Boolean(change.beforeDataBase64 || change.afterDataBase64);
 }
 </script>

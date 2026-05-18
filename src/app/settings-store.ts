@@ -16,7 +16,8 @@ const ACCENT_KEY = 'starsector-devtool.accent';
 const CUSTOM_ACCENT_KEY = 'starsector-devtool.customAccent';
 const HISTORY_LIMIT_KEY = 'starsector-devtool.historyLimit';
 const STARSECTOR_ROOT_KEY = 'starsector-devtool.starsectorRoot';
-const DEFAULT_HISTORY_LIMIT = 128;
+export const DEFAULT_HISTORY_LIMIT = 20;
+export const MAX_HISTORY_LIMIT = 100;
 const DEFAULT_ACCENT: AccentPreset = 'blue';
 const DEFAULT_CUSTOM_ACCENT = '#2563eb';
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -103,7 +104,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function setHistoryLimit(limit: number) {
-    historyLimit.value = Math.max(1, Math.min(1000, Math.round(limit)));
+    historyLimit.value = Math.max(1, Math.min(MAX_HISTORY_LIMIT, Math.round(limit)));
   }
 
   function setStarsectorRoot(path: string) {

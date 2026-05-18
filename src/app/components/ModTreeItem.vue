@@ -50,6 +50,14 @@
         <span>{{ MODULE_LABELS[key] }}</span>
         <span class="mod-tree-module-count">{{ getRowCount(key) }}</span>
       </button>
+      <button
+        class="mod-tree-module-btn"
+        :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'variants' }"
+        @click="$emit('switch-config', mod.modRoot, 'variants')"
+      >
+        <span>装配</span>
+        <span class="mod-tree-module-count">{{ variantCount }}</span>
+      </button>
 
       <div class="mod-tree-separator" />
 
@@ -116,6 +124,7 @@ const factionCount = computed(() => {
   return data?.factionFiles ? Object.keys(data.factionFiles).length : 0;
 });
 const missionCount = computed(() => project.getModData(props.mod.modRoot)?.missionCount ?? 0);
+const variantCount = computed(() => project.getModData(props.mod.modRoot)?.variantFiles.length ?? 0);
 
 function getRowCount(key: TableKey): number {
   return project.getModData(props.mod.modRoot)?.[key]?.length ?? 0;

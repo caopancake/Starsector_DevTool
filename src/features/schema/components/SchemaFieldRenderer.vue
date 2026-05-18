@@ -159,7 +159,15 @@
             @update:show="handleKvSelectShowUpdate(idx, $event)"
             @update:value="updateKvKey(idx, $event)"
           />
-          <n-input :value="formatKvVal(entry.val)" class="kv-value-input" size="small" @update:value="updateKvVal(idx, $event)" />
+          <SchemaFieldRenderer
+            v-if="field.valueSchema"
+            :field="field.valueSchema"
+            :value="entry.val"
+            :app-data="appData"
+            :is-nested="true"
+            @update="updateKvValue(idx, $event)"
+          />
+          <n-input v-else :value="formatKvVal(entry.val)" class="kv-value-input" size="small" @update:value="updateKvVal(idx, $event)" />
           <n-button class="compact-icon-button" size="tiny" quaternary title="删除" @click="removeKvEntry(idx)">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M6 6l12 12M18 6 6 18" />
@@ -180,6 +188,28 @@
           :is-nested="true"
           @update="onSubUpdate(sub.key, $event)"
         />
+      </div>
+
+      <!-- array -->
+      <div v-else-if="field.type === 'array' && field.item" class="array-of-object">
+        <div v-for="(_item, idx) in genericArrayItems" :key="idx" class="array-item">
+          <div class="array-item-header">
+            <span class="array-item-index">#{{ idx + 1 }}</span>
+            <n-button class="compact-icon-button" size="tiny" quaternary title="删除" @click="removeGenericArrayItem(idx)">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </n-button>
+          </div>
+          <SchemaFieldRenderer
+            :field="field.item"
+            :value="genericArrayItems[idx]"
+            :app-data="appData"
+            :is-nested="true"
+            @update="updateGenericArrayItem(idx, $event)"
+          />
+        </div>
+        <n-button size="tiny" @click="addGenericArrayItem">+ 添加项</n-button>
       </div>
 
       <!-- array-of-object -->
@@ -461,6 +491,12 @@ function updateKvVal(idx: number, newVal: string) {
   emit('update', rebuildKvObject(entries));
 }
 
+function updateKvValue(idx: number, newVal: unknown) {
+  const entries = [...kvEntries.value];
+  entries[idx] = { ...entries[idx], val: newVal };
+  emit('update', rebuildKvObject(entries));
+}
+
 function removeKvEntry(idx: number) {
   const entries = [...kvEntries.value];
   entries.splice(idx, 1);
@@ -485,6 +521,28 @@ function addKvEntry() {
     newKey = `newField${i++}`;
   }
   emit('update', { ...current, [newKey]: '' });
+}
+
+// ─── Generic array helpers ────────────────────────────────────────────
+
+const genericArrayItems = computed(() => (Array.isArray(props.value) ? props.value : []));
+
+function updateGenericArrayItem(idx: number, itemValue: unknown) {
+  const items = [...genericArrayItems.value];
+  items[idx] = itemValue;
+  emit('update', items);
+}
+
+function addGenericArrayItem() {
+  const items = [...genericArrayItems.value];
+  items.push(props.field.item?.default ?? null);
+  emit('update', items);
+}
+
+function removeGenericArrayItem(idx: number) {
+  const items = [...genericArrayItems.value];
+  items.splice(idx, 1);
+  emit('update', items);
 }
 
 // ─── Fallback JSON parser ─────────────────────────────────────────────

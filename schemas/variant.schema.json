@@ -1,0 +1,210 @@
+{
+  "id": "variant",
+  "fileType": "variant",
+  "displayName": "装配",
+  "description": "Starsector .variant 装配文件",
+  "sections": [
+    {
+      "id": "basic",
+      "label": "基础",
+      "fields": [
+        {
+          "key": "variantId",
+          "type": "string",
+          "label": "variantId",
+          "required": true
+        },
+        {
+          "key": "hullId",
+          "type": "enum",
+          "label": "hullId",
+          "required": true,
+          "source": "csv:ships.id"
+        },
+        {
+          "key": "displayName",
+          "type": "string",
+          "label": "displayName"
+        },
+        {
+          "key": "goalVariant",
+          "type": "boolean",
+          "label": "goalVariant"
+        }
+      ]
+    },
+    {
+      "id": "flux",
+      "label": "幅能",
+      "fields": [
+        {
+          "key": "fluxVents",
+          "type": "integer",
+          "label": "fluxVents",
+          "min": 0
+        },
+        {
+          "key": "fluxCapacitors",
+          "type": "integer",
+          "label": "fluxCapacitors",
+          "min": 0
+        }
+      ]
+    },
+    {
+      "id": "mods",
+      "label": "插件",
+      "fields": [
+        {
+          "key": "hullMods",
+          "type": "string-array",
+          "label": "hullMods",
+          "source": "csv:hullmods.id"
+        },
+        {
+          "key": "permaMods",
+          "type": "string-array",
+          "label": "permaMods",
+          "source": "csv:hullmods.id"
+        },
+        {
+          "key": "sMods",
+          "type": "string-array",
+          "label": "sMods",
+          "source": "csv:hullmods.id"
+        }
+      ]
+    },
+    {
+      "id": "weapons",
+      "label": "武器组",
+      "fields": [
+        {
+          "key": "weaponGroups",
+          "type": "array-of-object",
+          "label": "weaponGroups",
+          "nested": [
+            {
+              "key": "mode",
+              "type": "enum",
+              "label": "mode",
+              "options": ["LINKED", "ALTERNATING", "LINKED_GROUP", "ALTERNATING_GROUP"]
+            },
+            {
+              "key": "weapons",
+              "type": "key-value",
+              "label": "weapons",
+              "valueSchema": {
+                "key": "weaponId",
+                "type": "enum",
+                "label": "weapon",
+                "source": "csv:weapons.id"
+              }
+            },
+            {
+              "key": "autofire",
+              "type": "boolean",
+              "label": "autofire"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wings",
+      "label": "联队",
+      "fields": [
+        {
+          "key": "wings",
+          "type": "string-array",
+          "label": "wings",
+          "source": "csv:wings.id"
+        }
+      ]
+    },
+    {
+      "id": "modules",
+      "label": "模块",
+      "fields": [
+        {
+          "key": "modules",
+          "type": "key-value",
+          "label": "modules",
+          "valueSchema": {
+            "key": "variantId",
+            "type": "string",
+            "label": "variantId"
+          }
+        },
+        {
+          "key": "stationModules",
+          "type": "key-value",
+          "label": "stationModules",
+          "valueSchema": {
+            "key": "variantId",
+            "type": "string",
+            "label": "variantId"
+          }
+        }
+      ]
+    },
+    {
+      "id": "autofit",
+      "label": "自动装配",
+      "collapsed": true,
+      "fields": [
+        {
+          "key": "quality",
+          "type": "float",
+          "label": "quality",
+          "min": 0,
+          "max": 1,
+          "step": 0.05
+        },
+        {
+          "key": "weaponQuality",
+          "type": "float",
+          "label": "weaponQuality",
+          "min": 0,
+          "max": 1,
+          "step": 0.05
+        },
+        {
+          "key": "fighterQuality",
+          "type": "float",
+          "label": "fighterQuality",
+          "min": 0,
+          "max": 1,
+          "step": 0.05
+        },
+        {
+          "key": "doctrine",
+          "type": "object",
+          "label": "doctrine",
+          "nested": [
+            {
+              "key": "warships",
+              "type": "integer",
+              "label": "warships"
+            },
+            {
+              "key": "carriers",
+              "type": "integer",
+              "label": "carriers"
+            },
+            {
+              "key": "phaseShips",
+              "type": "integer",
+              "label": "phaseShips"
+            },
+            {
+              "key": "officerQuality",
+              "type": "integer",
+              "label": "officerQuality"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

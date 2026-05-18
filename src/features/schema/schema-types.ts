@@ -12,6 +12,7 @@ export type FieldType =
   | 'string-array'
   | 'tag-select'
   | 'object'
+  | 'array'
   | 'array-of-object'
   | 'key-value';
 
@@ -31,6 +32,8 @@ export interface FieldSchema {
   step?: number | null;
   options?: string[] | null;
   nested?: FieldSchema[] | null;
+  item?: FieldSchema | null;
+  valueSchema?: FieldSchema | null;
 }
 
 export interface SectionSchema {

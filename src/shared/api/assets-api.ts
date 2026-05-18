@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import type { FileChangeRecord } from './files-api';
 
 export interface UploadResult {
   ok: boolean;
@@ -6,6 +7,7 @@ export interface UploadResult {
   path: string;
   overwritten: boolean;
   message?: string;
+  changes: FileChangeRecord[];
 }
 
 export function uploadSprite(

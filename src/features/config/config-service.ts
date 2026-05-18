@@ -1,18 +1,21 @@
 import {
-  createFactionWithHistory,
-  deleteFactionWithHistory,
-  deleteMissionWithHistory,
-  loadMission,
-  loadMissionListCsv,
-  saveFactionWithHistory,
-  saveMissionWithHistory,
-  scanMissionList,
-  type MissionData,
-} from '../../shared/api/config-api';
+  createIndexedConfigEntityWithHistory,
+  deleteIndexedConfigEntityWithHistory,
+  saveIndexedConfigEntityWithHistory,
+  type IndexedConfigEntityKind,
+  type IndexedConfigEntityResult,
+} from '../../shared/api/indexed-api';
+import { loadMission, loadMissionListCsv, scanMissionList, type MissionData } from '../../shared/api/missions-api';
+import {
+  createVariantEntityWithHistory,
+  deleteVariantEntityWithHistory,
+  saveVariantEntityWithHistory,
+  type VariantEntityResult,
+} from '../../shared/api/variants-api';
 import { saveModFilesWithHistory, type FileChangeRecord } from '../../shared/api/files-api';
 import type { CsvTable } from '../../shared/api/tables-api';
 import { AppError, withCause } from '../../shared/lib/errors';
-import type { RowData } from '../../shared/types';
+import type { JsonValue, RowData } from '../../shared/types';
 
 export async function saveModInfoData(modRoot: string, data: RowData): Promise<FileChangeRecord[]> {
   if (!modRoot) {
@@ -24,40 +27,6 @@ export async function saveModInfoData(modRoot: string, data: RowData): Promise<F
     ]);
   } catch (error) {
     throw withCause('保存 mod_info.json 失败', error, 'save-mod-info');
-  }
-}
-
-export async function saveFactionData(
-  modRoot: string,
-  id: string,
-  data: RowData,
-  previousId?: string | null,
-  deletePreviousFile = false,
-): Promise<FileChangeRecord[]> {
-  if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'save-faction' });
-  try {
-    return await saveFactionWithHistory(modRoot, id, stripInternalFields(data), previousId, deletePreviousFile);
-  } catch (error) {
-    throw withCause(`保存 ${id}.faction 失败`, error, 'save-faction');
-  }
-}
-
-export async function createFactionFile(modRoot: string, id: string): Promise<{ data: RowData; changes: FileChangeRecord[] }> {
-  if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'create-faction' });
-  try {
-    const result = await createFactionWithHistory(modRoot, id);
-    return { data: result.data ?? {}, changes: result.changes };
-  } catch (error) {
-    throw withCause(`新建 ${id}.faction 失败`, error, 'create-faction');
-  }
-}
-
-export async function deleteFactionFile(modRoot: string, id: string, deleteFile = false): Promise<FileChangeRecord[]> {
-  if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'delete-faction' });
-  try {
-    return await deleteFactionWithHistory(modRoot, id, deleteFile);
-  } catch (error) {
-    throw withCause(`删除 ${id}.faction 失败`, error, 'delete-faction');
   }
 }
 
@@ -88,56 +57,151 @@ export async function loadMissionData(modRoot: string, mission: string): Promise
   }
 }
 
-export async function saveMissionData(
+export async function saveIndexedConfigEntityData(payload: {
+  modRoot: string;
+  kind: IndexedConfigEntityKind;
+  previousId?: string | null;
+  nextId: string;
+  indexRow: RowData;
+  payload: RowData;
+  deletePreviousTarget?: boolean;
+}): Promise<IndexedConfigEntityResult> {
+  if (!payload.modRoot) throw new AppError('缺少 mod 根目录', { action: 'save-indexed-entity' });
+  const action = payload.previousId ? saveIndexedConfigEntityWithHistory : createIndexedConfigEntityWithHistory;
+  return await action({
+    modRoot: payload.modRoot,
+    kind: payload.kind,
+    previousId: payload.previousId ?? null,
+    nextId: payload.nextId,
+    indexRow: payload.indexRow,
+    payload: payload.payload,
+    deletePreviousTarget: payload.deletePreviousTarget ?? false,
+  });
+}
+
+export async function deleteIndexedConfigEntityData(
   modRoot: string,
-  mission: string,
-  descriptor: RowData,
-  text: string,
-  missionListRelPath: string,
-  header: string[],
-  rows: RowData[],
-  previousMissionId?: string | null,
-  deletePreviousDirectory = false,
-): Promise<FileChangeRecord[]> {
-  if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'save-mission' });
+  kind: IndexedConfigEntityKind,
+  id: string,
+  deleteTarget: boolean,
+): Promise<IndexedConfigEntityResult> {
+  if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'delete-indexed-entity' });
+  return await deleteIndexedConfigEntityWithHistory({ modRoot, kind, id, deleteTarget });
+}
+
+export async function saveVariantEntityData(payload: {
+  modRoot: string;
+  previousId?: string | null;
+  previousRelPath?: string | null;
+  nextId: string;
+  data: RowData;
+}): Promise<VariantEntityResult> {
+  const variantId = stringField(payload.data, 'variantId');
+  if (!payload.modRoot) throw new AppError('缺少 mod 根目录', { action: 'save-variant' });
+  if (!variantId) throw new AppError('variantId 不能为空', { action: 'save-variant' });
   try {
-    return await saveMissionWithHistory(
+    return await saveVariantEntityWithHistory({
+      modRoot: payload.modRoot,
+      previousId: payload.previousId ?? null,
+      previousRelPath: payload.previousRelPath ?? null,
+      nextId: payload.nextId,
+      data: stripInternalFields(payload.data) as RowData,
+    });
+  } catch (error) {
+    throw withCause(`保存装配 ${variantId} 失败`, error, 'save-variant');
+  }
+}
+
+export async function createVariantEntityData(modRoot: string, hullId: string, variantId: string): Promise<VariantEntityResult> {
+  if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'create-variant' });
+  if (!isSafeFileStem(variantId)) throw new AppError('variantId 不能包含路径分隔符或 ..', { action: 'create-variant' });
+  try {
+    return await createVariantEntityWithHistory({
       modRoot,
-      mission,
-      stripInternalFields(descriptor),
-      text,
-      missionListRelPath,
-      header,
-      rows,
-      previousMissionId,
-      deletePreviousDirectory,
-    );
+      nextId: variantId,
+      data: defaultVariantData(hullId, variantId),
+    });
   } catch (error) {
-    throw withCause(`保存战役 ${mission} 失败`, error, 'save-mission');
+    throw withCause(`新建装配 ${variantId} 失败`, error, 'create-variant');
   }
 }
 
-export async function deleteMissionData(
-  modRoot: string,
-  mission: string,
-  missionListRelPath: string,
-  header: string[],
-  rows: RowData[],
-  deleteMissionDirectory = false,
-): Promise<FileChangeRecord[]> {
-  if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'delete-mission' });
+export async function deleteVariantEntityData(modRoot: string, relPath: string, variantId: string): Promise<FileChangeRecord[]> {
+  if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'delete-variant' });
   try {
-    return await deleteMissionWithHistory(modRoot, mission, missionListRelPath, header, rows, deleteMissionDirectory);
+    return await deleteVariantEntityWithHistory({ modRoot, relPath, variantId });
   } catch (error) {
-    throw withCause(`删除战役 ${mission} 失败`, error, 'delete-mission');
+    throw withCause(`删除装配 ${variantId} 失败`, error, 'delete-variant');
   }
 }
 
-function stripInternalFields(value: RowData): RowData {
+export function defaultVariantData(hullId: string, variantId: string): RowData {
+  return {
+    variantId,
+    hullId,
+    displayName: variantId,
+    goalVariant: false,
+    fluxVents: 0,
+    fluxCapacitors: 0,
+    hullMods: [],
+    permaMods: [],
+    sMods: [],
+    weaponGroups: [],
+    wings: [],
+  };
+}
+
+export function defaultFactionData(id: string): RowData {
+  return {
+    id,
+    displayName: id,
+    displayNameLong: id,
+    color: [128, 128, 128, 255],
+    baseColor: [128, 128, 128, 255],
+    darkColor: [64, 64, 64, 255],
+    shipNamePrefix: '',
+    knownShips: { tags: [] },
+    knownWeapons: { tags: [] },
+    knownFighters: { tags: [] },
+  };
+}
+
+export function factionIndexRow(id: string): RowData {
+  return {
+    id,
+    file: `data/world/factions/${id}.faction`,
+  };
+}
+
+export function missionIndexRow(rows: RowData[], header: string[], mission: string): RowData {
+  const row = rows.find((item) => String(item.mission ?? '').trim() === mission) ?? {};
+  const result: RowData = {};
+  for (const col of header.length ? header : ['mission']) {
+    result[col] = row[col] ?? '';
+  }
+  for (const [key, value] of Object.entries(row)) {
+    if (!(key in result)) result[key] = value;
+  }
+  result.mission = mission;
+  return result;
+}
+
+export function isSafeFileStem(value: string): boolean {
+  return value.length > 0 && !value.includes('/') && !value.includes('\\') && value !== '.' && value !== '..' && !value.includes('..');
+}
+
+function stringField(data: RowData, key: string): string {
+  const value = data[key];
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+export function stripInternalFields(value: JsonValue): JsonValue {
+  if (Array.isArray(value)) return value.map(stripInternalFields);
+  if (!value || typeof value !== 'object') return value;
   const result: RowData = {};
   for (const [key, item] of Object.entries(value)) {
     if (key.startsWith('_')) continue;
-    result[key] = item;
+    result[key] = stripInternalFields(item);
   }
   return result;
 }

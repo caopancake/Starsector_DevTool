@@ -1,10 +1,12 @@
 mod assets;
-mod factions;
+mod indexed_entities;
 mod missions;
+mod variants;
 
 pub use assets::*;
-pub use factions::*;
+pub use indexed_entities::*;
 pub use missions::*;
+pub use variants::*;
 
 use crate::errors::{AppError, AppResult};
 

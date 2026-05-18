@@ -22,6 +22,9 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 
 ## 总体架构边界
 
+- 前端访问后端的唯一宏观链路是 `前端 -> shared/api -> Rust command -> service -> 后端实现`。
+- 任何前端业务代码都不得绕过 `src/shared/api/` 访问 Rust command。
+- Rust command 层只能调用 service；除参数接收和错误转换外，不允许包含任何实现细节。
 - `src/main.ts` 是前端运行时入口，按 URL 参数挂载主窗口、编辑器窗口或文件编辑器窗口。
 - `src/app/` 承载应用壳、窗口根组件、全局 provider、主题和反馈入口。
 - `src/features/` 承载业务系统，每个子目录是一条稳定业务边界。
@@ -40,7 +43,7 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 
 - 前端不能把磁盘写入当成普通状态变更，所有写盘必须经过 shared API 到 Rust command。
 - Rust 是磁盘路径、删除语义、文件写入、parser 和 changeset 回放的权威。
-- Tauri command 层显式调用 `services::<module>::function()`，不依赖 `services::function()` 形式的宽泛 re-export。
+- Tauri command 层只调用明确的 service 边界，不承载实现细节。
 - 主窗口状态按 `modRoot` 隔离，独立窗口按窗口 URL 自行加载目标 Mod。
 - `workspace` 记录打开了什么，`project` 缓存完整 `AppData`，`tables` 记录 CSV 草稿，`file-history` 记录已经写盘的 changeset。
 - CSV 草稿历史、文件级 history、编辑器窗口局部 history 是三套系统，不共用栈。
@@ -48,6 +51,7 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 - Canvas 编辑器使用 Starsector 资源朝向约定做显示转换，但保存边界仍是对应 spec 文件本身。
 - 保存 JSON-like spec 时采用结构保真：内容正确、字段保留、规范缩进写回；不承诺保留原注释、尾逗号和手写格式。
 - `starsector-core` 只读，只作为 core fallback 和数据来源，不注册成可编辑 Mod。
+- 禁止性规则必须描述完整边界，不得用具体对象、文件类型、状态类型、函数名或模块名的枚举来限定禁止范围。示例只能作为非穷尽说明，不能构成允许边界。
 
 ## 核心数据流
 
@@ -55,7 +59,7 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 - 前端调用目录识别 command，决定进入游戏概览或完整读取单个 Mod。
 - Rust 扫描 `data/`、`graphics/` 和配置入口，解析 CSV、宽松 JSON-like 文件和资源列表。
 - 前端将数据写入 project store，并驱动表格、右侧详情和独立编辑器窗口。
-- 用户编辑 CSV、spec、配置或文本文件后，前端通过对应 orchestrator 或 service 调用 Tauri command。
+- 用户编辑 CSV、spec、配置或文本文件后，前端通过对应 orchestrator 或 service 调用 `shared/api`，再调用对应的 Rust command 和 service。
 - Rust service 执行路径解析、数据校验、文件写回和 changeset 回放。
 - workspace 状态自动持久化至 `%APPDATA%/com.starsector.devtool/workspace.json`，启动时按当前 parser 重新加载。
 

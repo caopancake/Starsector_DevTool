@@ -2,7 +2,7 @@ use crate::{
     errors::{AppError, AppResult},
     models::{csv_path_for, FileChangeRecord, SaveCsvWithHistoryPayload},
     parsers::render_csv_text,
-    services::file_changes::{apply_file_change_set, build_text_change},
+    services::file_changes::{apply_file_change_set, build_file_change, build_text_change},
 };
 use std::path::Path;
 
@@ -26,9 +26,10 @@ pub fn save_csv_with_history(
                 file.rel_path
             )));
         }
-        changes.push(build_text_change(
+        changes.push(build_file_change(
             &Path::new(&payload.mod_root).join(rel_path),
             file.after_text,
+            file.after_data_base64,
         )?);
     }
     apply_file_change_set(crate::models::ApplyFileChangeSetPayload {
@@ -66,6 +67,7 @@ mod tests {
             associated_files: vec![crate::models::AssociatedFileChangePayload {
                 rel_path: "data/hulls/new_ship.ship".to_string(),
                 after_text: Some("{\n  \"hullId\": \"new_ship\"\n}".to_string()),
+                after_data_base64: None,
             }],
         })
         .unwrap();
@@ -102,6 +104,7 @@ mod tests {
             associated_files: vec![crate::models::AssociatedFileChangePayload {
                 rel_path: "data/weapons/old_weapon.wpn".to_string(),
                 after_text: None,
+                after_data_base64: None,
             }],
         })
         .unwrap();

@@ -112,6 +112,11 @@ const previewState = computed<PreviewState>(() => {
   if (tables.currentTab === 'weapons') {
     return previewFromMap(weaponPreviewSprite(data.weaponSpritesData[id]), expectedWeaponSprite(data.wpnFiles[id]), id, tables.currentTab);
   }
+  if (tables.currentTab === 'wings') {
+    const variant = variantForWing(row, data);
+    const hullId = variant?.hullId ?? '';
+    return previewFromMap(data.shipSprites[hullId], expectedShipSprite(data.shipFiles[hullId]), id, tables.currentTab);
+  }
   if (tables.currentTab === 'hullmods') {
     return previewFromMap(data.hullmodSprites[id], str(row.sprite), id, tables.currentTab);
   }
@@ -151,6 +156,23 @@ function noPreview(tab: TableKey): PreviewState {
 
 function expectedShipSprite(ship: RowData | undefined): string {
   return str(ship?.spriteName);
+}
+
+function variantForWing(row: RowData, data: NonNullable<ReturnType<typeof useProjectStore>['activeModData']>) {
+  const raw = str(row.variant);
+  if (!raw) return null;
+  const normalized = raw.replace(/\\/g, '/');
+  const stem = normalized
+    .split('/')
+    .filter(Boolean)
+    .pop()
+    ?.replace(/\.variant$/i, '');
+  return (
+    data.variantFiles.find((variant) => variant.variantId === raw) ??
+    data.variantFiles.find((variant) => variant.variantId === stem) ??
+    data.variantFiles.find((variant) => variant.relPath === normalized) ??
+    null
+  );
 }
 
 function expectedWeaponSprite(weapon: RowData | undefined): string {

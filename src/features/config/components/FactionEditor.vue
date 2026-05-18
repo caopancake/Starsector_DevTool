@@ -26,7 +26,8 @@
 import { computed, ref, watch } from 'vue';
 import { useProjectStore } from '../../project/project-store';
 import { useSettingsStore } from '../../../app/settings-store';
-import { saveFactionWithFileHistory } from '../config-save-orchestrator';
+import { saveIndexedConfigEntityWithFileHistory } from '../config-save-orchestrator';
+import { factionIndexRow, stripInternalFields } from '../config-service';
 import { loadImageDataUrl } from '../../../shared/api/assets-api';
 import { deepClone } from '../../../shared/lib/starsector';
 import { formatError } from '../../../shared/lib/errors';
@@ -37,6 +38,7 @@ import { aggregateSchemaSources, splitSchemaSources } from '../../schema/schema-
 import { createAppFeedback } from '../../../app/app-feedback';
 
 const props = defineProps<{ factionId: string }>();
+const emit = defineEmits<{ saved: [factionId: string] }>();
 
 const project = useProjectStore();
 const settings = useSettingsStore();
@@ -127,19 +129,30 @@ async function save() {
     const previousId = props.factionId;
     const idChanged = newId !== previousId;
 
-    await saveFactionWithFileHistory(modData.modRoot, newId, file, idChanged ? previousId : null, idChanged);
+    const result = await saveIndexedConfigEntityWithFileHistory({
+      modRoot: modData.modRoot,
+      kind: 'faction',
+      previousId: idChanged ? previousId : null,
+      nextId: newId,
+      indexRow: factionIndexRow(newId),
+      payload: { file: stripInternalFields(file) as RowData },
+      deletePreviousTarget: idChanged,
+    });
+    const payload = result.entityPayload;
+    const savedFile = payload && typeof payload.file === 'object' && !Array.isArray(payload.file) ? (payload.file as RowData) : file;
 
     if (idChanged) {
       delete modData.factionFiles[previousId];
       delete modData.factionMeta[previousId];
     }
 
-    modData.factionFiles[newId] = deepClone(file);
+    modData.factionFiles[newId] = deepClone(savedFile);
     modData.factionMeta[newId] = {
-      name: str(file.displayName) || newId,
-      color: rgbaToCss(file.color),
+      name: str(savedFile.displayName) || newId,
+      color: rgbaToCss(savedFile.color),
     };
 
+    emit('saved', newId);
     message.success(`${newId}.faction 已保存`);
   } catch (error) {
     message.error(formatError(error));

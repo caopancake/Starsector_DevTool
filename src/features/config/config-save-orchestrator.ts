@@ -1,13 +1,15 @@
 import type { FileChangeRecord } from '../../shared/api/files-api';
+import type { IndexedConfigEntityKind, IndexedConfigEntityResult } from '../../shared/api/indexed-api';
+import type { VariantEntityResult } from '../../shared/api/variants-api';
 import type { RowData } from '../../shared/types';
 import { recordFileSave } from '../file-history/file-save-orchestrator';
 import {
-  createFactionFile,
-  deleteFactionFile,
-  deleteMissionData,
-  saveFactionData,
-  saveMissionData,
+  saveIndexedConfigEntityData,
+  deleteIndexedConfigEntityData,
+  deleteVariantEntityData,
+  createVariantEntityData,
   saveModInfoData,
+  saveVariantEntityData,
 } from './config-service';
 
 export async function saveModInfoWithFileHistory(modRoot: string, data: RowData): Promise<FileChangeRecord[]> {
@@ -16,69 +18,85 @@ export async function saveModInfoWithFileHistory(modRoot: string, data: RowData)
   return changes;
 }
 
-export async function saveFactionWithFileHistory(
-  modRoot: string,
-  id: string,
-  data: RowData,
-  previousId?: string | null,
-  deletePreviousFile = false,
-): Promise<FileChangeRecord[]> {
-  const changes = await saveFactionData(modRoot, id, data, previousId, deletePreviousFile);
-  recordConfigFileSave(modRoot, changes, `保存 ${id}.faction`);
-  return changes;
-}
-
-export async function createFactionWithFileHistory(modRoot: string, id: string): Promise<{ data: RowData; changes: FileChangeRecord[] }> {
-  const result = await createFactionFile(modRoot, id);
-  recordConfigFileSave(modRoot, result.changes, `创建势力 ${id}`);
+export async function saveIndexedConfigEntityWithFileHistory(payload: {
+  modRoot: string;
+  kind: IndexedConfigEntityKind;
+  previousId?: string | null;
+  nextId: string;
+  indexRow: RowData;
+  payload: RowData;
+  deletePreviousTarget?: boolean;
+}): Promise<IndexedConfigEntityResult> {
+  const result = await saveIndexedConfigEntityData(payload);
+  recordConfigFileSave(payload.modRoot, result.changes, indexedEntitySaveLabel(payload.kind, result.entityId));
   return result;
 }
 
-export async function deleteFactionWithFileHistory(modRoot: string, id: string, deleteFile = false): Promise<FileChangeRecord[]> {
-  const changes = await deleteFactionFile(modRoot, id, deleteFile);
-  recordConfigFileSave(modRoot, changes, `删除势力 ${id}`);
-  return changes;
+export async function createIndexedConfigEntityWithFileHistory(payload: {
+  modRoot: string;
+  kind: IndexedConfigEntityKind;
+  nextId: string;
+  indexRow: RowData;
+  payload: RowData;
+}): Promise<IndexedConfigEntityResult> {
+  const result = await saveIndexedConfigEntityData(payload);
+  recordConfigFileSave(payload.modRoot, result.changes, indexedEntityCreateLabel(payload.kind, result.entityId));
+  return result;
 }
 
-export async function saveMissionWithFileHistory(
+export async function deleteIndexedConfigEntityWithFileHistory(
   modRoot: string,
-  mission: string,
-  descriptor: RowData,
-  text: string,
-  missionListRelPath: string,
-  header: string[],
-  rows: RowData[],
-  previousMissionId?: string | null,
-  deletePreviousDirectory = false,
-): Promise<FileChangeRecord[]> {
-  const changes = await saveMissionData(
+  kind: IndexedConfigEntityKind,
+  id: string,
+  deleteTarget = false,
+): Promise<IndexedConfigEntityResult> {
+  const result = await deleteIndexedConfigEntityData(modRoot, kind, id, deleteTarget);
+  recordConfigFileSave(modRoot, result.changes, indexedEntityDeleteLabel(kind, id));
+  return result;
+}
+
+export async function saveVariantWithFileHistory(
+  modRoot: string,
+  variantId: string,
+  data: RowData,
+  previousId?: string | null,
+  previousRelPath?: string | null,
+): Promise<VariantEntityResult> {
+  const result = await saveVariantEntityData({
     modRoot,
-    mission,
-    descriptor,
-    text,
-    missionListRelPath,
-    header,
-    rows,
-    previousMissionId,
-    deletePreviousDirectory,
-  );
-  recordConfigFileSave(modRoot, changes, `保存战役 ${mission}`);
-  return changes;
+    previousId,
+    previousRelPath,
+    nextId: variantId,
+    data,
+  });
+  recordConfigFileSave(modRoot, result.changes, `保存装配 ${variantId}`);
+  return result;
 }
 
-export async function deleteMissionWithFileHistory(
-  modRoot: string,
-  mission: string,
-  missionListRelPath: string,
-  header: string[],
-  rows: RowData[],
-  deleteMissionDirectory = false,
-): Promise<FileChangeRecord[]> {
-  const changes = await deleteMissionData(modRoot, mission, missionListRelPath, header, rows, deleteMissionDirectory);
-  recordConfigFileSave(modRoot, changes, `删除战役列表项 ${mission}`);
+export async function createVariantWithFileHistory(modRoot: string, hullId: string, variantId: string): Promise<VariantEntityResult> {
+  const result = await createVariantEntityData(modRoot, hullId, variantId);
+  recordConfigFileSave(modRoot, result.changes, `创建装配 ${variantId}`);
+  return result;
+}
+
+export async function deleteVariantWithFileHistory(modRoot: string, relPath: string, variantId: string): Promise<FileChangeRecord[]> {
+  const changes = await deleteVariantEntityData(modRoot, relPath, variantId);
+  recordConfigFileSave(modRoot, changes, `删除装配 ${variantId}`);
   return changes;
 }
 
 function recordConfigFileSave(modRoot: string, changes: FileChangeRecord[], label: string) {
   recordFileSave(modRoot, changes, label);
+}
+
+function indexedEntitySaveLabel(kind: IndexedConfigEntityKind, id: string): string {
+  return kind === 'faction' ? `保存 ${id}.faction` : `保存战役 ${id}`;
+}
+
+function indexedEntityCreateLabel(kind: IndexedConfigEntityKind, id: string): string {
+  return kind === 'faction' ? `创建势力 ${id}` : `创建战役 ${id}`;
+}
+
+function indexedEntityDeleteLabel(kind: IndexedConfigEntityKind, id: string): string {
+  return kind === 'faction' ? `删除势力 ${id}` : `删除战役 ${id}`;
 }

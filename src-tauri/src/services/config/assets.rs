@@ -1,11 +1,16 @@
 use crate::{
     errors::{AppError, AppResult},
-    filesystem::read_json_file,
+    filesystem::{read_json_file, upload_sprite as upload_sprite_file},
+    models::{UploadSpritePayload, UploadSpriteResult},
 };
 use base64::{engine::general_purpose, Engine as _};
 use serde_json::{json, Value};
 use std::{collections::BTreeMap, fs, path::Path};
 use walkdir::WalkDir;
+
+pub fn upload_sprite(payload: UploadSpritePayload) -> AppResult<UploadSpriteResult> {
+    upload_sprite_file(payload)
+}
 
 pub fn load_image_as_data_url(
     mod_root: &str,

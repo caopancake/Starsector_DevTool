@@ -5,10 +5,10 @@ mod tables;
 
 use crate::{
     errors::AppResult,
-    filesystem::{list_sprites, load_json_dir, load_json_dir_by_id, read_json_file},
+    filesystem::{list_sprites, load_json_dir_by_id, read_json_file},
     models::{
         AppData, FactionMeta, GameModSummary, GameOverviewData, GameScanWarning,
-        OpenDirectoryResult,
+        OpenDirectoryResult, VariantFile,
     },
     parsers::read_csv_data,
 };
@@ -22,6 +22,7 @@ use std::{
 struct SpecBundle {
     ship_files: BTreeMap<String, Value>,
     variants: BTreeMap<String, Vec<Value>>,
+    variant_files: Vec<VariantFile>,
     wpn_files: BTreeMap<String, Value>,
     proj_files: BTreeMap<String, Value>,
     system_files: BTreeMap<String, Value>,
@@ -50,8 +51,18 @@ pub fn load_all_data(mod_root: &Path) -> AppResult<AppData> {
     load_all_data_with_root(mod_root, None)
 }
 
+pub fn load_all_data_from_path(mod_root: String) -> AppResult<AppData> {
+    load_all_data(Path::new(&mod_root))
+}
+
 pub fn load_csv_table(mod_root: &Path, table: &str) -> AppResult<crate::models::CsvTable> {
     tables::load_csv_table(mod_root, table)
+}
+
+pub fn load_csv_table_from_payload(
+    payload: crate::models::LoadCsvTablePayload,
+) -> AppResult<crate::models::CsvTable> {
+    load_csv_table(Path::new(&payload.mod_root), &payload.table)
 }
 
 pub fn load_all_data_with_root(
@@ -124,6 +135,7 @@ pub fn load_all_data_with_root(
         skills: loaded_tables.rows.remove("skills").unwrap_or_default(),
         ship_files: spec_bundle.ship_files,
         variants: spec_bundle.variants,
+        variant_files: spec_bundle.variant_files,
         ship_sprites: sprite_bundle.ship_sprites,
         available_sprites: sprite_bundle.available_sprites,
         wpn_files: spec_bundle.wpn_files,
@@ -139,12 +151,25 @@ pub fn load_all_data_with_root(
     })
 }
 
+pub fn load_all_data_with_root_from_path(
+    mod_root: String,
+    starsector_root: Option<String>,
+) -> AppResult<AppData> {
+    load_all_data_with_root(
+        Path::new(&mod_root),
+        starsector_root.as_deref().map(Path::new),
+    )
+}
+
 fn load_spec_bundle(mod_root: &Path, core_dir: Option<&Path>) -> AppResult<SpecBundle> {
     let ship_files = load_json_dir_by_id(&mod_root.join("data/hulls"), "ship", "hullId")?;
     let wpn_files = load_json_dir_by_id(&mod_root.join("data/weapons"), "wpn", "id")?;
+    let variant_files = load_variant_files(mod_root)?;
+    let variants = group_variants_by_hull(&variant_files);
     Ok(SpecBundle {
         ship_files,
-        variants: load_variants_by_hull(mod_root)?,
+        variants,
+        variant_files,
         wpn_files,
         proj_files: projectiles::load_projectile_files(mod_root, core_dir)?,
         system_files: load_json_dir_by_id(&mod_root.join("data/shipsystems"), "system", "id")?,
@@ -233,6 +258,13 @@ pub fn detect_directory(
     }
 }
 
+pub fn detect_directory_from_path(
+    path: String,
+    fallback_starsector_root: Option<String>,
+) -> OpenDirectoryResult {
+    detect_directory(Path::new(&path), fallback_starsector_root.as_deref())
+}
+
 pub fn scan_game_overview(starsector_root: &Path) -> GameOverviewData {
     let mods_dir = starsector_root.join("mods");
     let mut warnings = Vec::new();
@@ -292,6 +324,10 @@ pub fn scan_game_overview(starsector_root: &Path) -> GameOverviewData {
         mods,
         warnings,
     }
+}
+
+pub fn scan_game_overview_from_path(starsector_root: String) -> GameOverviewData {
+    scan_game_overview(Path::new(&starsector_root))
 }
 
 fn is_game_root(path: &Path) -> bool {
@@ -405,14 +441,81 @@ fn count_mission_list_entries(mod_root: &Path) -> usize {
         .unwrap_or(0)
 }
 
-fn load_variants_by_hull(mod_root: &Path) -> AppResult<BTreeMap<String, Vec<Value>>> {
-    let mut variants: BTreeMap<String, Vec<Value>> = BTreeMap::new();
-    for value in load_json_dir(&mod_root.join("data/variants"), "variant")? {
-        if let Some(hull_id) = value.get("hullId").and_then(Value::as_str) {
-            variants.entry(hull_id.to_string()).or_default().push(value);
-        }
+fn load_variant_files(mod_root: &Path) -> AppResult<Vec<VariantFile>> {
+    let dir = mod_root.join("data/variants");
+    if !dir.exists() {
+        return Ok(vec![]);
     }
-    Ok(variants)
+    let mut seen = HashMap::new();
+    let mut files = Vec::new();
+    for entry in walkdir::WalkDir::new(&dir).into_iter() {
+        let entry = entry.map_err(|error| {
+            crate::errors::AppError::context(
+                format!("遍历 variant 目录失败 ({})", dir.display()),
+                crate::errors::AppError::message(error.to_string()),
+            )
+        })?;
+        if entry.path().extension().and_then(|s| s.to_str()) != Some("variant") {
+            continue;
+        }
+        let path = entry.path();
+        let data = read_json_file(path)?;
+        let variant_id = required_string(&data, "variantId", path)?;
+        let hull_id = required_string(&data, "hullId", path)?;
+        if let Some(previous) = seen.insert(variant_id.clone(), path.to_string_lossy().to_string())
+        {
+            return Err(crate::errors::AppError::message(format!(
+                "重复 variantId {variant_id}: {previous} 和 {}",
+                path.display()
+            )));
+        }
+        let rel_path = path
+            .strip_prefix(mod_root)
+            .map_err(|error| crate::errors::AppError::message(error.to_string()))?
+            .to_string_lossy()
+            .replace('\\', "/");
+        files.push(VariantFile {
+            variant_id,
+            hull_id,
+            path: path.to_string_lossy().to_string(),
+            rel_path,
+            weapon_group_count: array_len(data.get("weaponGroups")),
+            hull_mod_count: array_len(data.get("hullMods")),
+            perma_mod_count: array_len(data.get("permaMods")),
+            wing_count: array_len(data.get("wings")),
+            data,
+        });
+    }
+    files.sort_by(|a, b| {
+        a.hull_id
+            .cmp(&b.hull_id)
+            .then_with(|| a.variant_id.cmp(&b.variant_id))
+    });
+    Ok(files)
+}
+
+fn group_variants_by_hull(variant_files: &[VariantFile]) -> BTreeMap<String, Vec<Value>> {
+    let mut variants: BTreeMap<String, Vec<Value>> = BTreeMap::new();
+    for file in variant_files {
+        variants
+            .entry(file.hull_id.clone())
+            .or_default()
+            .push(file.data.clone());
+    }
+    variants
+}
+
+fn required_string(value: &Value, key: &str, path: &Path) -> AppResult<String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .filter(|text| !text.trim().is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| crate::errors::AppError::message(format!("{} 缺少 {key}", path.display())))
+}
+
+fn array_len(value: Option<&Value>) -> usize {
+    value.and_then(Value::as_array).map_or(0, Vec::len)
 }
 
 #[cfg(test)]
@@ -503,6 +606,79 @@ mod tests {
         let _ = fs::remove_dir_all(root);
         assert!(data.skills.is_empty());
         assert!(data.skill_files.is_empty());
+    }
+
+    #[test]
+    fn load_all_data_reads_variant_files_with_paths_and_stats() {
+        let root = temp_dir("load_variants");
+        fs::create_dir_all(root.join("data/variants/sub")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/variants/sub/demo.variant"),
+            r#"{
+  "variantId": "demo_variant",
+  "hullId": "demo_hull",
+  "hullMods": ["heavyarmor"],
+  "permaMods": ["built_in"],
+  "wings": ["demo_wing"],
+  "weaponGroups": [{"mode":"LINKED","weapons":{"WS 001":"demo_weapon"}}]
+}"#,
+        )
+        .unwrap();
+
+        let data = load_all_data(&root).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(data.variant_files.len(), 1);
+        let variant = &data.variant_files[0];
+        assert_eq!(variant.variant_id, "demo_variant");
+        assert_eq!(variant.hull_id, "demo_hull");
+        assert_eq!(variant.rel_path, "data/variants/sub/demo.variant");
+        assert_eq!(variant.weapon_group_count, 1);
+        assert_eq!(variant.hull_mod_count, 1);
+        assert_eq!(variant.perma_mod_count, 1);
+        assert_eq!(variant.wing_count, 1);
+        assert_eq!(data.variants["demo_hull"][0]["variantId"], "demo_variant");
+    }
+
+    #[test]
+    fn load_all_data_rejects_variant_missing_required_ids() {
+        let root = temp_dir("variant_missing_ids");
+        fs::create_dir_all(root.join("data/variants")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/variants/bad.variant"),
+            r#"{"variantId":"bad"}"#,
+        )
+        .unwrap();
+
+        let error = load_all_data(&root).unwrap_err().to_string();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(error.contains("bad.variant"));
+        assert!(error.contains("hullId"));
+    }
+
+    #[test]
+    fn load_all_data_rejects_duplicate_variant_id() {
+        let root = temp_dir("variant_duplicate_id");
+        fs::create_dir_all(root.join("data/variants/a")).unwrap();
+        fs::create_dir_all(root.join("data/variants/b")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/variants/a/one.variant"),
+            r#"{"variantId":"dup","hullId":"hull_a"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("data/variants/b/two.variant"),
+            r#"{"variantId":"dup","hullId":"hull_b"}"#,
+        )
+        .unwrap();
+
+        let error = load_all_data(&root).unwrap_err().to_string();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(error.contains("重复 variantId dup"));
+        assert!(error.contains("one.variant"));
+        assert!(error.contains("two.variant"));
     }
 
     #[test]

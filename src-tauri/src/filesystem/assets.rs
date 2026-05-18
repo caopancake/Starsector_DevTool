@@ -1,11 +1,12 @@
 use crate::{
     errors::AppResult,
     models::{UploadSpritePayload, UploadSpriteResult},
+    services::file_changes::FileChangeSetBuilder,
 };
-use base64::{engine::general_purpose, Engine as _};
 use regex::Regex;
+use std::fs;
+use std::path::Path;
 use std::sync::OnceLock;
-use std::{fs, path::Path};
 use walkdir::WalkDir;
 
 static SAFE_FILENAME_RE: OnceLock<Regex> = OnceLock::new();
@@ -60,15 +61,117 @@ pub fn upload_sprite(payload: UploadSpritePayload) -> AppResult<UploadSpriteResu
             path: rel,
             overwritten: false,
             message: Some(format!("{safe_name} already exists. Overwrite?")),
+            changes: vec![],
         });
     }
-    let bytes = general_purpose::STANDARD.decode(payload.data)?;
-    fs::write(target, bytes)?;
+    let mut builder = FileChangeSetBuilder::new(mod_root);
+    builder.binary_file(&rel, Some(payload.data))?;
+    let changes = builder.apply()?;
     Ok(UploadSpriteResult {
         ok: true,
         exists,
         path: rel,
         overwritten: exists,
         message: None,
+        changes,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{models::ApplyFileChangeSetPayload, services::file_changes::apply_file_change_set};
+    use base64::{engine::general_purpose, Engine as _};
+    use std::{
+        fs,
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    #[test]
+    fn upload_sprite_create_returns_replayable_history() {
+        let root = temp_dir("upload_sprite_create_history");
+        let result = upload_sprite(UploadSpritePayload {
+            mod_root: root.to_string_lossy().to_string(),
+            filename: "demo.png".to_string(),
+            data: general_purpose::STANDARD.encode([1, 2, 3]),
+            overwrite: false,
+            subfolder: Some("ships".to_string()),
+        })
+        .unwrap();
+        let path = root.join("graphics/ships/demo.png");
+
+        assert!(result.ok);
+        assert_eq!(fs::read(&path).unwrap(), vec![1, 2, 3]);
+        apply_file_change_set(ApplyFileChangeSetPayload {
+            direction: "undo".to_string(),
+            changes: result.changes.clone(),
+        })
+        .unwrap();
+        assert!(!path.exists());
+        apply_file_change_set(ApplyFileChangeSetPayload {
+            direction: "redo".to_string(),
+            changes: result.changes,
+        })
+        .unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(bytes, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn upload_sprite_overwrite_returns_replayable_history() {
+        let root = temp_dir("upload_sprite_overwrite_history");
+        let path = root.join("graphics/ships/demo.png");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, [9, 8, 7]).unwrap();
+
+        let exists = upload_sprite(UploadSpritePayload {
+            mod_root: root.to_string_lossy().to_string(),
+            filename: "demo.png".to_string(),
+            data: general_purpose::STANDARD.encode([1, 2, 3]),
+            overwrite: false,
+            subfolder: Some("ships".to_string()),
+        })
+        .unwrap();
+        assert!(!exists.ok);
+        assert!(exists.changes.is_empty());
+
+        let result = upload_sprite(UploadSpritePayload {
+            mod_root: root.to_string_lossy().to_string(),
+            filename: "demo.png".to_string(),
+            data: general_purpose::STANDARD.encode([1, 2, 3]),
+            overwrite: true,
+            subfolder: Some("ships".to_string()),
+        })
+        .unwrap();
+
+        assert!(result.ok);
+        assert!(result.overwritten);
+        assert_eq!(fs::read(&path).unwrap(), vec![1, 2, 3]);
+        apply_file_change_set(ApplyFileChangeSetPayload {
+            direction: "undo".to_string(),
+            changes: result.changes.clone(),
+        })
+        .unwrap();
+        assert_eq!(fs::read(&path).unwrap(), vec![9, 8, 7]);
+        apply_file_change_set(ApplyFileChangeSetPayload {
+            direction: "redo".to_string(),
+            changes: result.changes,
+        })
+        .unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(bytes, vec![1, 2, 3]);
+    }
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
 }

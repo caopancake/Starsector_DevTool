@@ -1,7 +1,7 @@
 import { fileToBase64 } from '../../../shared/lib/starsector';
 import type { UploadResult } from '../../../shared/api/assets-api';
 import { uploadEditorSprite } from '../editor-service';
-import { recordFileBarrier } from '../../file-history/file-save-orchestrator';
+import { recordFileSave } from '../../file-history/file-save-orchestrator';
 
 type SpriteSubfolder = 'ships' | 'weapons' | 'missiles' | 'fx';
 type DialogLike = {
@@ -30,6 +30,7 @@ export function useSpriteUpload() {
     let result = await uploadEditorSprite(options.modRoot, file.name, data, options.subfolder, false);
     if (!result.exists) {
       options.onUploaded(result, dataUrl);
+      recordSpriteUpload(options.modRoot, result, file.name);
       return;
     }
     options.dialog.warning({
@@ -40,10 +41,16 @@ export function useSpriteUpload() {
       onPositiveClick: async () => {
         result = await uploadEditorSprite(options.modRoot, file.name, data, options.subfolder, true);
         options.onUploaded(result, dataUrl);
-        recordFileBarrier(options.modRoot, 'sprite-overwrite', `覆盖贴图: ${file.name}`);
+        recordSpriteUpload(options.modRoot, result, file.name);
       },
     });
   }
 
   return { uploadSpriteFile };
+}
+
+function recordSpriteUpload(modRoot: string, result: UploadResult, filename: string) {
+  if (!result.ok || result.changes.length === 0) return;
+  const action = result.overwritten ? '覆盖贴图' : '上传贴图';
+  recordFileSave(modRoot, result.changes, `${action}: ${filename}`);
 }

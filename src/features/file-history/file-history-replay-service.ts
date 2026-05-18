@@ -4,7 +4,7 @@ import { h } from 'vue';
 import { emit } from '@tauri-apps/api/event';
 import { applyFileChangeSet, type FileChangeRecord } from '../../shared/api/files-api';
 import { normalizeFsPath, pathStem, relativePathFromRoot } from '../../shared/lib/paths';
-import type { AppData, RowData, TableKey } from '../../shared/types';
+import type { AppData, RowData, TableKey, VariantFile } from '../../shared/types';
 import type { useProjectStore } from '../project/project-store';
 import type { useTablesStore } from '../tables/tables-store';
 import { loadTableRows } from '../tables/table-service';
@@ -87,11 +87,15 @@ async function applyFileSaveHistoryEntry(
   for (const change of entry.changes) {
     if (change.kind === 'directory') continue;
     const text = textForFileHistoryDirection(change, direction);
+    if (text === null && hasBinaryFileContent(change, direction)) continue;
     await emit(WINDOW_EVENTS.fileEditorTextApplied, { path: change.path, text: text ?? '' });
     const specChange = parseJsonSpecFileChange(project.modsData, change.path, text);
     if (specChange) {
       syncEditorSpecChange(project, specChange);
       await emit(WINDOW_EVENTS.editorSpecApplied, specChange);
+      continue;
+    }
+    if (syncVariantFileChange(project, change.path, text)) {
       continue;
     }
     syncConfigFileChange(project.modsData, change, direction);
@@ -109,8 +113,35 @@ async function applyFileSaveHistoryEntry(
   }
 }
 
+function syncVariantFileChange(project: ProjectStore, path: string, text: string | null): boolean {
+  const modRoot = resolveLoadedModRootForPath(project.modsData, path);
+  if (!modRoot) return false;
+  const rel = relativePathFromRoot(modRoot, path);
+  if (!rel.startsWith('data/variants/') || !rel.endsWith('.variant')) return false;
+  if (!text) {
+    const existing = project.getModData(modRoot)?.variantFiles.find((variant) => normalizeFsPath(variant.path) === normalizeFsPath(path));
+    if (existing) project.deleteVariantFile(modRoot, existing.variantId);
+    return true;
+  }
+  try {
+    const data = JSON.parse(text) as RowData;
+    const variantId = stringField(data, 'variantId') || pathStem(path);
+    const hullId = stringField(data, 'hullId');
+    if (!hullId) return true;
+    const previous = project.getModData(modRoot)?.variantFiles.find((variant) => normalizeFsPath(variant.path) === normalizeFsPath(path));
+    project.upsertVariantFile(modRoot, buildVariantFile(modRoot, rel, data), previous?.variantId);
+    return Boolean(variantId);
+  } catch {
+    return true;
+  }
+}
+
 function textForFileHistoryDirection(change: FileChangeRecord, direction: 'undo' | 'redo'): string | null {
   return direction === 'undo' ? (change.beforeText ?? null) : (change.afterText ?? null);
+}
+
+function hasBinaryFileContent(change: FileChangeRecord, direction: 'undo' | 'redo'): boolean {
+  return Boolean(direction === 'undo' ? change.beforeDataBase64 : change.afterDataBase64);
 }
 
 function parseJsonSpecFileChange(modsData: Map<string, AppData>, path: string, text: string | null): EditorSpecSavedEvent | null {
@@ -222,4 +253,31 @@ function kindForRelPath(relPath: string): EditorSpecSavedEvent['kind'] | null {
 function idForSpec(kind: EditorSpecSavedEvent['kind'], spec: RowData, path: string): string {
   const value = kind === 'ship' ? spec.hullId : spec.id;
   return typeof value === 'string' && value ? value : pathStem(path);
+}
+
+function buildVariantFile(modRoot: string, relPath: string, data: RowData): VariantFile {
+  return {
+    variantId: stringField(data, 'variantId'),
+    hullId: stringField(data, 'hullId'),
+    relPath,
+    path: joinModPath(modRoot, relPath),
+    data,
+    weaponGroupCount: arrayCount(data.weaponGroups),
+    hullModCount: arrayCount(data.hullMods),
+    permaModCount: arrayCount(data.permaMods),
+    wingCount: arrayCount(data.wings),
+  };
+}
+
+function stringField(data: RowData, key: string): string {
+  const value = data[key];
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function arrayCount(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function joinModPath(root: string, relPath: string): string {
+  return `${root.replace(/[\\/]+$/, '')}\\${relPath.replace(/\//g, '\\')}`;
 }

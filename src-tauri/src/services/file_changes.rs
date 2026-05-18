@@ -2,8 +2,8 @@ use crate::{
     errors::{AppError, AppResult},
     filesystem::{read_utf8_no_bom, write_utf8_no_bom},
     models::{
-        ApplyFileChangeSetPayload, FileChangeKind, FileChangeRecord, FileSnapshot,
-        SaveModFilesWithHistoryPayload, SaveTextFileWithHistoryPayload,
+        ApplyFileChangeSetPayload, EditableFileData, FileChangeKind, FileChangeRecord,
+        FileSnapshot, SaveModFilesWithHistoryPayload, SaveTextFileWithHistoryPayload,
     },
 };
 use base64::{engine::general_purpose, Engine as _};
@@ -22,12 +22,20 @@ pub fn save_text_file_with_history(
     Ok(vec![change])
 }
 
+pub fn load_editable_file(path: String) -> AppResult<EditableFileData> {
+    let target = Path::new(&path);
+    read_utf8_no_bom(target).map(|text| EditableFileData {
+        path: target.display().to_string(),
+        text,
+    })
+}
+
 pub fn save_mod_files_with_history(
     payload: SaveModFilesWithHistoryPayload,
 ) -> AppResult<Vec<FileChangeRecord>> {
     let mut builder = FileChangeSetBuilder::new(Path::new(&payload.mod_root));
     for file in payload.files {
-        builder.text_file(&file.rel_path, file.after_text)?;
+        builder.file(&file.rel_path, file.after_text, file.after_data_base64)?;
     }
     builder.apply()
 }
@@ -52,20 +60,33 @@ fn validate_relative_path(path: &str) -> AppResult<&Path> {
 }
 
 pub fn build_text_change(path: &Path, after_text: Option<String>) -> AppResult<FileChangeRecord> {
+    build_file_change(path, after_text, None)
+}
+
+pub fn build_file_change(
+    path: &Path,
+    after_text: Option<String>,
+    after_data_base64: Option<String>,
+) -> AppResult<FileChangeRecord> {
     let before_exists = path.exists();
-    let before_text = if before_exists {
-        Some(read_utf8_no_bom(path)?)
+    let (before_text, before_data_base64) = if before_exists {
+        snapshot_file_content(path)?
     } else {
-        None
+        (None, None)
     };
+    if let Some(data) = &after_data_base64 {
+        general_purpose::STANDARD.decode(data)?;
+    }
     Ok(FileChangeRecord {
         kind: FileChangeKind::File,
         path: path.to_string_lossy().to_string(),
         before_exists,
         before_text,
+        before_data_base64,
         before_files: vec![],
-        after_exists: after_text.is_some(),
+        after_exists: after_text.is_some() || after_data_base64.is_some(),
         after_text,
+        after_data_base64,
         after_files: vec![],
     })
 }
@@ -82,10 +103,36 @@ pub fn build_directory_delete_change(path: &Path) -> AppResult<FileChangeRecord>
         path: path.to_string_lossy().to_string(),
         before_exists,
         before_text: None,
+        before_data_base64: None,
         before_files,
         after_exists: false,
         after_text: None,
+        after_data_base64: None,
         after_files: vec![],
+    })
+}
+
+pub fn build_directory_replace_change(
+    path: &Path,
+    after_files: Vec<FileSnapshot>,
+) -> AppResult<FileChangeRecord> {
+    let before_exists = path.exists();
+    let before_files = if before_exists {
+        snapshot_directory(path)?
+    } else {
+        vec![]
+    };
+    Ok(FileChangeRecord {
+        kind: FileChangeKind::Directory,
+        path: path.to_string_lossy().to_string(),
+        before_exists,
+        before_text: None,
+        before_data_base64: None,
+        before_files,
+        after_exists: true,
+        after_text: None,
+        after_data_base64: None,
+        after_files,
     })
 }
 
@@ -107,9 +154,29 @@ impl FileChangeSetBuilder {
         rel_path: impl AsRef<str>,
         after_text: Option<String>,
     ) -> AppResult<&mut Self> {
+        self.file(rel_path, after_text, None)
+    }
+
+    pub fn binary_file(
+        &mut self,
+        rel_path: impl AsRef<str>,
+        after_data_base64: Option<String>,
+    ) -> AppResult<&mut Self> {
+        self.file(rel_path, None, after_data_base64)
+    }
+
+    pub fn file(
+        &mut self,
+        rel_path: impl AsRef<str>,
+        after_text: Option<String>,
+        after_data_base64: Option<String>,
+    ) -> AppResult<&mut Self> {
         let rel_path = validate_relative_path(rel_path.as_ref())?;
-        self.changes
-            .push(build_text_change(&self.root.join(rel_path), after_text)?);
+        self.changes.push(build_file_change(
+            &self.root.join(rel_path),
+            after_text,
+            after_data_base64,
+        )?);
         Ok(self)
     }
 
@@ -126,6 +193,25 @@ impl FileChangeSetBuilder {
         let rel_path = validate_relative_path(rel_path.as_ref())?;
         self.changes
             .push(build_directory_delete_change(&self.root.join(rel_path))?);
+        Ok(self)
+    }
+
+    pub fn copy_directory(
+        &mut self,
+        source_rel_path: impl AsRef<str>,
+        target_rel_path: impl AsRef<str>,
+    ) -> AppResult<&mut Self> {
+        let source_rel_path = validate_relative_path(source_rel_path.as_ref())?;
+        let target_rel_path = validate_relative_path(target_rel_path.as_ref())?;
+        let source = self.root.join(source_rel_path);
+        let target = self.root.join(target_rel_path);
+        let after_files = if source.exists() {
+            snapshot_directory(&source)?
+        } else {
+            vec![]
+        };
+        self.changes
+            .push(build_directory_replace_change(&target, after_files)?);
         Ok(self)
     }
 
@@ -174,17 +260,31 @@ fn apply_one(change: &FileChangeRecord, direction: ChangeDirection) -> AppResult
 }
 
 fn apply_file_change(change: &FileChangeRecord, direction: ChangeDirection) -> AppResult<()> {
-    let (exists, text) = match direction {
-        ChangeDirection::Undo => (change.before_exists, change.before_text.as_deref()),
-        ChangeDirection::Redo => (change.after_exists, change.after_text.as_deref()),
+    let (exists, text, data_base64) = match direction {
+        ChangeDirection::Undo => (
+            change.before_exists,
+            change.before_text.as_deref(),
+            change.before_data_base64.as_deref(),
+        ),
+        ChangeDirection::Redo => (
+            change.after_exists,
+            change.after_text.as_deref(),
+            change.after_data_base64.as_deref(),
+        ),
     };
     let path = Path::new(&change.path);
     if exists {
-        let text = text.ok_or_else(|| AppError::message("changeset missing file text"))?;
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        write_utf8_no_bom(path, text)?;
+        if let Some(text) = text {
+            write_utf8_no_bom(path, text)?;
+        } else if let Some(data) = data_base64 {
+            let bytes = general_purpose::STANDARD.decode(data)?;
+            fs::write(path, bytes)?;
+        } else {
+            return Err(AppError::message("changeset missing file content"));
+        }
     } else if path.exists() {
         fs::remove_file(path)?;
     }
@@ -221,26 +321,30 @@ fn build_current_state(path: &Path) -> AppResult<FileChangeRecord> {
             path: path.to_string_lossy().to_string(),
             before_exists: true,
             before_text: None,
+            before_data_base64: None,
             before_files: snapshot_directory(path)?,
             after_exists: true,
             after_text: None,
+            after_data_base64: None,
             after_files: snapshot_directory(path)?,
         });
     }
     let exists = path.exists();
-    let text = if exists {
-        Some(read_utf8_no_bom(path)?)
+    let (text, data_base64) = if exists {
+        snapshot_file_content(path)?
     } else {
-        None
+        (None, None)
     };
     Ok(FileChangeRecord {
         kind: FileChangeKind::File,
         path: path.to_string_lossy().to_string(),
         before_exists: exists,
         before_text: text.clone(),
+        before_data_base64: data_base64.clone(),
         before_files: vec![],
         after_exists: exists,
         after_text: text,
+        after_data_base64: data_base64,
         after_files: vec![],
     })
 }
@@ -276,19 +380,20 @@ fn snapshot_directory(path: &Path) -> AppResult<Vec<FileSnapshot>> {
 }
 
 fn snapshot_file(path: &Path, rel_path: String) -> AppResult<FileSnapshot> {
+    let (text, data_base64) = snapshot_file_content(path)?;
+    Ok(FileSnapshot {
+        rel_path,
+        text,
+        data_base64,
+    })
+}
+
+fn snapshot_file_content(path: &Path) -> AppResult<(Option<String>, Option<String>)> {
     match read_utf8_no_bom(path) {
-        Ok(text) => Ok(FileSnapshot {
-            rel_path,
-            text: Some(text),
-            data_base64: None,
-        }),
+        Ok(text) => Ok((Some(text), None)),
         Err(_) => {
             let bytes = fs::read(path)?;
-            Ok(FileSnapshot {
-                rel_path,
-                text: None,
-                data_base64: Some(general_purpose::STANDARD.encode(bytes)),
-            })
+            Ok((None, Some(general_purpose::STANDARD.encode(bytes))))
         }
     }
 }
@@ -328,10 +433,12 @@ mod tests {
                 AssociatedFileChangePayload {
                     rel_path: "mod_info.json".to_string(),
                     after_text: Some("{\"id\":\"new\"}".to_string()),
+                    after_data_base64: None,
                 },
                 AssociatedFileChangePayload {
                     rel_path: "data/missions/demo/mission_text.txt".to_string(),
                     after_text: Some("text".to_string()),
+                    after_data_base64: None,
                 },
             ],
         })
@@ -356,6 +463,7 @@ mod tests {
             files: vec![AssociatedFileChangePayload {
                 rel_path: "../outside.txt".to_string(),
                 after_text: Some("bad".to_string()),
+                after_data_base64: None,
             }],
         });
 
@@ -393,6 +501,103 @@ mod tests {
         assert_eq!(descriptor, "{\"title\":\"Demo\"}");
         assert_eq!(nested, "details");
         assert_eq!(icon, vec![0, 159, 146, 150]);
+    }
+
+    #[test]
+    fn binary_file_change_can_create_undo_and_redo() {
+        let root = temp_dir("binary_file_create_history");
+        let path = root.join("graphics/ships/demo.png");
+        let change = build_file_change(
+            &path,
+            None,
+            Some(general_purpose::STANDARD.encode([1, 2, 3])),
+        )
+        .unwrap();
+
+        apply_file_change_set(ApplyFileChangeSetPayload {
+            direction: "redo".to_string(),
+            changes: vec![change.clone()],
+        })
+        .unwrap();
+        assert_eq!(fs::read(&path).unwrap(), vec![1, 2, 3]);
+
+        apply_file_change_set(ApplyFileChangeSetPayload {
+            direction: "undo".to_string(),
+            changes: vec![change.clone()],
+        })
+        .unwrap();
+        assert!(!path.exists());
+
+        apply_file_change_set(ApplyFileChangeSetPayload {
+            direction: "redo".to_string(),
+            changes: vec![change],
+        })
+        .unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(bytes, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn binary_file_change_can_overwrite_and_restore() {
+        let root = temp_dir("binary_file_overwrite_history");
+        let path = root.join("graphics/ships/demo.png");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, [9, 8, 7]).unwrap();
+        let change = build_file_change(
+            &path,
+            None,
+            Some(general_purpose::STANDARD.encode([1, 2, 3])),
+        )
+        .unwrap();
+
+        apply_file_change_set(ApplyFileChangeSetPayload {
+            direction: "redo".to_string(),
+            changes: vec![change.clone()],
+        })
+        .unwrap();
+        assert_eq!(fs::read(&path).unwrap(), vec![1, 2, 3]);
+
+        apply_file_change_set(ApplyFileChangeSetPayload {
+            direction: "undo".to_string(),
+            changes: vec![change.clone()],
+        })
+        .unwrap();
+        assert_eq!(fs::read(&path).unwrap(), vec![9, 8, 7]);
+
+        apply_file_change_set(ApplyFileChangeSetPayload {
+            direction: "redo".to_string(),
+            changes: vec![change],
+        })
+        .unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(bytes, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn binary_file_change_can_delete_and_restore() {
+        let root = temp_dir("binary_file_delete_history");
+        let path = root.join("graphics/ships/demo.png");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, [9, 8, 7]).unwrap();
+        let change = build_file_change(&path, None, None).unwrap();
+
+        apply_file_change_set(ApplyFileChangeSetPayload {
+            direction: "redo".to_string(),
+            changes: vec![change.clone()],
+        })
+        .unwrap();
+        assert!(!path.exists());
+
+        apply_file_change_set(ApplyFileChangeSetPayload {
+            direction: "undo".to_string(),
+            changes: vec![change],
+        })
+        .unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(bytes, vec![9, 8, 7]);
     }
 
     fn temp_dir(name: &str) -> PathBuf {

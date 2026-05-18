@@ -26,7 +26,7 @@ export interface ModTableState {
 export type WorkspaceView = 'overview' | 'table' | 'settings' | 'config';
 
 /** Which config sub-view is shown when currentView === 'config' */
-export type ConfigView = 'mod-overview' | 'file-history' | 'mod-info' | 'factions' | 'mission';
+export type ConfigView = 'mod-overview' | 'file-history' | 'mod-info' | 'factions' | 'variants' | 'mission';
 
 /** Persisted mod entry (stored to disk) */
 export interface PersistedMod {

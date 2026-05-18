@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import type { AppData, RowData } from '../../shared/types';
+import type { AppData, RowData, VariantFile } from '../../shared/types';
 import { cell, deepClone } from '../../shared/lib/starsector';
 import { loadProject } from './project-service';
 import { getNextActiveKeyAfterRemoval } from '../../shared/lib/store-utils';
@@ -58,6 +58,31 @@ export const useProjectStore = defineStore('project', () => {
     modData.projFiles[id] = deepClone(projectile);
   }
 
+  function replaceVariantFiles(modRoot: string, variantFiles: VariantFile[]) {
+    const modData = modsData.value.get(modRoot);
+    if (!modData) return;
+    modData.variantFiles = deepClone(variantFiles);
+    modData.variants = groupVariantsByHull(modData.variantFiles);
+  }
+
+  function upsertVariantFile(modRoot: string, variant: VariantFile, previousVariantId?: string | null) {
+    const modData = modsData.value.get(modRoot);
+    if (!modData) return;
+    const next = modData.variantFiles.filter((item) => item.variantId !== variant.variantId && item.variantId !== previousVariantId);
+    next.push(deepClone(variant));
+    next.sort((a, b) => a.hullId.localeCompare(b.hullId) || a.variantId.localeCompare(b.variantId));
+    replaceVariantFiles(modRoot, next);
+  }
+
+  function deleteVariantFile(modRoot: string, variantId: string) {
+    const modData = modsData.value.get(modRoot);
+    if (!modData) return;
+    replaceVariantFiles(
+      modRoot,
+      modData.variantFiles.filter((item) => item.variantId !== variantId),
+    );
+  }
+
   return {
     activeModRoot,
     activeModData,
@@ -68,9 +93,21 @@ export const useProjectStore = defineStore('project', () => {
     getModData,
     openProject,
     removeModData,
+    deleteVariantFile,
     setActiveModRoot,
     updateProjectileFile,
+    replaceVariantFiles,
     updateShipFile,
+    upsertVariantFile,
     updateWeaponFile,
   };
 });
+
+function groupVariantsByHull(variantFiles: VariantFile[]): Record<string, RowData[]> {
+  const grouped: Record<string, RowData[]> = {};
+  for (const file of variantFiles) {
+    grouped[file.hullId] ||= [];
+    grouped[file.hullId].push(deepClone(file.data));
+  }
+  return grouped;
+}

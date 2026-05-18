@@ -1,22 +1,14 @@
 use crate::{
-    filesystem,
     models::{
         ApplyFileChangeSetPayload, EditableFileData, FileChangeRecord, SaveJsonWithHistoryPayload,
         SaveModFilesWithHistoryPayload, SaveTextFileWithHistoryPayload,
     },
     services,
 };
-use std::path::Path;
 
 #[tauri::command]
 pub fn load_editable_file(path: String) -> Result<EditableFileData, String> {
-    let target = Path::new(&path);
-    filesystem::read_utf8_no_bom(target)
-        .map(|text| EditableFileData {
-            path: target.display().to_string(),
-            text,
-        })
-        .map_err(|e| e.to_string())
+    services::file_changes::load_editable_file(path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

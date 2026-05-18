@@ -1,5 +1,4 @@
 use crate::{
-    filesystem,
     models::{UploadSpritePayload, UploadSpriteResult},
     services,
 };
@@ -8,7 +7,7 @@ use std::collections::BTreeMap;
 
 #[tauri::command]
 pub fn upload_sprite(payload: UploadSpritePayload) -> Result<UploadSpriteResult, String> {
-    filesystem::upload_sprite(payload).map_err(|e| e.to_string())
+    services::config::upload_sprite(payload).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

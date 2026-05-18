@@ -1,3 +1,4 @@
+pub mod app_paths;
 pub mod config;
 pub mod editor_specs;
 pub mod file_changes;

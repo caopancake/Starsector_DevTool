@@ -1,10 +1,24 @@
 use crate::{
     errors::{AppError, AppResult},
     models::PersistedWorkspace,
+    services::app_paths,
 };
 use std::{fs, path::Path};
 
 const WORKSPACE_FILE: &str = "workspace.json";
+
+pub fn load_workspace_for_app(app_handle: tauri::AppHandle) -> AppResult<PersistedWorkspace> {
+    let app_data = app_paths::app_data_dir(app_handle)?;
+    Ok(load_workspace(&app_data))
+}
+
+pub fn save_workspace_for_app(
+    app_handle: tauri::AppHandle,
+    state: PersistedWorkspace,
+) -> AppResult<()> {
+    let app_data = app_paths::app_data_dir(app_handle)?;
+    save_workspace(&app_data, &state)
+}
 
 pub fn load_workspace(app_data_dir: &Path) -> PersistedWorkspace {
     let path = app_data_dir.join(WORKSPACE_FILE);

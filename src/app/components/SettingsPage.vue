@@ -56,16 +56,16 @@
       </div>
     </section>
     <section class="settings-section">
-      <h3>历史记录</h3>
+      <h3>全局记录</h3>
       <div class="settings-row">
-        <span>全局撤销上限</span>
+        <span>文件历史记录</span>
         <n-input-number
           class="settings-number-input"
           :value="settings.historyLimit"
           :min="1"
-          :max="1000"
-          :step="16"
-          @update:value="settings.setHistoryLimit($event ?? 128)"
+          :max="MAX_HISTORY_LIMIT"
+          :step="1"
+          @update:value="settings.setHistoryLimit($event ?? DEFAULT_HISTORY_LIMIT)"
         />
       </div>
     </section>
@@ -75,7 +75,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { open } from '@tauri-apps/plugin-dialog';
-import { ACCENT_PRESETS, useSettingsStore } from '../settings-store';
+import { ACCENT_PRESETS, DEFAULT_HISTORY_LIMIT, MAX_HISTORY_LIMIT, useSettingsStore } from '../settings-store';
 import ColorPicker from '../../shared/components/ColorPicker.vue';
 
 const settings = useSettingsStore();

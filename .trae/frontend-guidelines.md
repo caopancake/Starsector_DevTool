@@ -22,6 +22,8 @@
 
 ## Store 与 Service
 
+- 前端访问后端的唯一宏观链路是 `前端 -> shared/api -> Rust command -> service -> 后端实现`，任何情况都不允许绕过。
+- 前端业务代码不得直接 import `@tauri-apps/api/core`，不得直接执行 `invoke()`；只有 `src/shared/api/` 可以封装 Tauri command。
 - Store 拥有内存状态和纯状态变更，不直接承担文件 IO、确认弹窗、跨模块编排。
 - Service 负责单一业务能力，例如打开窗口、保存文件、同步缓存或回放历史。
 - Orchestrator 负责一次用户动作跨越多个模块的流程，例如 CSV 保存、配置保存、文件级 undo/redo。
@@ -43,7 +45,7 @@
 - CSV 保存、配置保存、文件编辑器保存、舰船/武器/弹体 spec 保存都必须进入文件级保存历史。
 - 文件级保存历史只记录 `FileChangeRecord[]` changeset，undo/redo 必须通过后端 `apply_file_change_set` 写回磁盘。
 - 文件级 undo/redo 必须先确认，写盘成功后再移动 undo/redo 栈；失败时栈保持原样。
-- 二进制贴图覆盖暂不进入文件级 changeset，只能作为不可逆屏障记录。
+- 二进制贴图上传和覆盖必须进入文件级 changeset，不得作为不可逆屏障记录。
 
 ## 编辑器与窗口
 

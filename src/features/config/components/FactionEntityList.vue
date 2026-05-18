@@ -9,7 +9,7 @@
         v-for="faction in factions"
         :key="faction.id"
         class="faction-list-item config-entity-list-item"
-        :class="{ active: faction.id === selectedFaction }"
+        :class="{ active: faction.id === selectedId }"
         @click="selectFaction(faction.id)"
       >
         <span class="faction-list-preview config-entity-thumb">
@@ -66,19 +66,20 @@
 import { computed, ref, watch } from 'vue';
 import { useProjectStore } from '../../project/project-store';
 import { useSettingsStore } from '../../../app/settings-store';
-import { createFactionWithFileHistory, deleteFactionWithFileHistory } from '../config-save-orchestrator';
+import { createIndexedConfigEntityWithFileHistory, deleteIndexedConfigEntityWithFileHistory } from '../config-save-orchestrator';
+import { defaultFactionData, factionIndexRow } from '../config-service';
 import { loadImageDataUrl } from '../../../shared/api/assets-api';
 import { formatError } from '../../../shared/lib/errors';
 import type { JsonValue } from '../../../shared/types';
 import { createAppFeedback } from '../../../app/app-feedback';
 
+const props = defineProps<{ selectedId: string }>();
 const emit = defineEmits<{ select: [factionId: string] }>();
 
 const project = useProjectStore();
 const settings = useSettingsStore();
 const { message } = createAppFeedback(['message']);
 
-const selectedFaction = ref<string | null>(null);
 const showCreateDialog = ref(false);
 const newFactionId = ref('');
 const factionCrests = ref<Record<string, string>>({});
@@ -86,7 +87,7 @@ const showDeleteDialog = ref(false);
 const deleteFactionDataFile = ref(false);
 const pendingDeleteFaction = ref('');
 
-interface FactionListItem {
+interface FactionViewItem {
   id: string;
   displayName: string;
   colorCss: string;
@@ -109,7 +110,7 @@ function str(value: JsonValue | undefined): string {
   return JSON.stringify(value);
 }
 
-const factions = computed<FactionListItem[]>(() => {
+const factions = computed<FactionViewItem[]>(() => {
   const modData = project.activeModData;
   if (!modData) return [];
   const files = modData.factionFiles;
@@ -149,7 +150,6 @@ async function refreshFactionCrests() {
 }
 
 function selectFaction(id: string) {
-  selectedFaction.value = id;
   emit('select', id);
 }
 
@@ -175,7 +175,18 @@ async function doCreate() {
     return;
   }
   try {
-    const { data } = await createFactionWithFileHistory(modData.modRoot, trimmedId);
+    const result = await createIndexedConfigEntityWithFileHistory({
+      modRoot: modData.modRoot,
+      kind: 'faction',
+      nextId: trimmedId,
+      indexRow: factionIndexRow(trimmedId),
+      payload: { file: defaultFactionData(trimmedId) },
+    });
+    const payload = result.entityPayload;
+    const data =
+      payload && payload.file && typeof payload.file === 'object' && !Array.isArray(payload.file)
+        ? payload.file
+        : defaultFactionData(trimmedId);
     modData.factionFiles[trimmedId] = data;
     modData.factionMeta[trimmedId] = {
       name: String(data.displayName ?? trimmedId),
@@ -208,12 +219,11 @@ async function doDelete(id: string, deleteFile: boolean) {
   if (!modData) return;
 
   try {
-    await deleteFactionWithFileHistory(modData.modRoot, id, deleteFile);
+    await deleteIndexedConfigEntityWithFileHistory(modData.modRoot, 'faction', id, deleteFile);
     delete modData.factionFiles[id];
     delete modData.factionMeta[id];
     delete factionCrests.value[id];
-    if (selectedFaction.value === id) {
-      selectedFaction.value = null;
+    if (props.selectedId === id) {
       emit('select', '');
     }
     message.success(`势力 "${id}" 已删除`);

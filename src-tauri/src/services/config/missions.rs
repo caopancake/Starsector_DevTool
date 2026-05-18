@@ -1,9 +1,8 @@
 use crate::{
     errors::{AppError, AppResult},
-    filesystem::{read_json_file, read_utf8_no_bom, strip_internal_fields},
-    models::{CsvTable, FileChangeRecord, MissionData},
-    parsers::{read_csv_data, render_csv_text},
-    services::file_changes::FileChangeSetBuilder,
+    filesystem::{read_json_file, read_utf8_no_bom},
+    models::{CsvTable, MissionData},
+    parsers::read_csv_data,
 };
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -49,68 +48,6 @@ pub fn load_mission(mod_root: &str, mission: &str) -> AppResult<MissionData> {
     })
 }
 
-pub struct MissionHistorySaveInput<'a> {
-    pub mod_root: &'a str,
-    pub mission: &'a str,
-    pub previous_mission_id: Option<&'a str>,
-    pub descriptor: &'a Value,
-    pub text: &'a str,
-    pub mission_list_rel_path: &'a str,
-    pub header: &'a [String],
-    pub rows: &'a [Map<String, Value>],
-    pub delete_previous_directory: bool,
-}
-
-pub fn save_mission_with_history(
-    input: MissionHistorySaveInput<'_>,
-) -> AppResult<Vec<FileChangeRecord>> {
-    let mission = validate_config_id(input.mission, "无效战役 ID")?;
-    let previous_mission_id = input
-        .previous_mission_id
-        .filter(|value| !value.trim().is_empty())
-        .map(|value| validate_config_id(value, "无效战役 ID"))
-        .transpose()?;
-    let list_path = mission_list_path(input.mod_root, input.mission_list_rel_path)?;
-    let clean = strip_internal_fields(input.descriptor);
-    let mod_root = Path::new(input.mod_root);
-    let mut builder = FileChangeSetBuilder::new(mod_root);
-    builder
-        .absolute_text_file(&list_path, Some(render_csv_text(input.header, input.rows)?))?
-        .text_file(
-            format!("data/missions/{mission}/descriptor.json"),
-            Some(serde_json::to_string_pretty(&clean)?),
-        )?
-        .text_file(
-            format!("data/missions/{mission}/mission_text.txt"),
-            Some(input.text.to_string()),
-        )?;
-    if input.delete_previous_directory
-        && previous_mission_id.is_some_and(|previous| previous != mission)
-    {
-        let previous = previous_mission_id.unwrap();
-        builder.delete_directory(format!("data/missions/{previous}"))?;
-    }
-    builder.apply()
-}
-
-pub fn delete_mission_with_history(
-    mod_root: &str,
-    mission: &str,
-    mission_list_rel_path: &str,
-    header: &[String],
-    rows: &[Map<String, Value>],
-    delete_directory: bool,
-) -> AppResult<Vec<FileChangeRecord>> {
-    let mission = validate_config_id(mission, "无效战役 ID")?;
-    let list_path = mission_list_path(mod_root, mission_list_rel_path)?;
-    let mut builder = FileChangeSetBuilder::new(Path::new(mod_root));
-    builder.absolute_text_file(&list_path, Some(render_csv_text(header, rows)?))?;
-    if delete_directory {
-        builder.delete_directory(format!("data/missions/{mission}"))?;
-    }
-    builder.apply()
-}
-
 fn mission_dir(mod_root: &str, mission: &str) -> AppResult<std::path::PathBuf> {
     let clean = validate_config_id(mission, "无效战役 ID")?;
     Ok(Path::new(mod_root).join("data/missions").join(clean))
@@ -127,7 +64,13 @@ fn mission_list_path(mod_root: &str, rel_path: &str) -> AppResult<std::path::Pat
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::filesystem::write_utf8_no_bom;
+    use crate::{
+        filesystem::write_utf8_no_bom,
+        models::{DeleteIndexedConfigEntityPayload, IndexedConfigEntityPayload},
+        services::config::{
+            delete_indexed_config_entity_with_history, save_indexed_config_entity_with_history,
+        },
+    };
     use std::{
         fs,
         path::PathBuf,
@@ -145,8 +88,8 @@ mod tests {
     }
 
     #[test]
-    fn delete_mission_with_history_can_delete_directory() {
-        let root = temp_dir("delete_mission_with_history_dir");
+    fn indexed_entity_can_delete_mission_directory() {
+        let root = temp_dir("delete_indexed_mission_dir");
         fs::create_dir_all(root.join("data/missions/demo")).unwrap();
         write_utf8_no_bom(
             &root.join("data/missions/mission_list.csv"),
@@ -160,23 +103,85 @@ mod tests {
         .unwrap();
         write_utf8_no_bom(&root.join("data/missions/demo/mission_text.txt"), "text").unwrap();
 
-        let changes = delete_mission_with_history(
-            &root.to_string_lossy(),
-            "demo",
-            "data/missions/mission_list.csv",
-            &["mission".to_string()],
-            &[],
-            true,
-        )
+        let result = delete_indexed_config_entity_with_history(DeleteIndexedConfigEntityPayload {
+            mod_root: root.to_string_lossy().to_string(),
+            kind: "mission".to_string(),
+            id: "demo".to_string(),
+            delete_target: true,
+        })
         .unwrap();
 
         assert!(!root.join("data/missions/demo").exists());
-        assert_eq!(changes.len(), 2);
+        assert_eq!(result.changes.len(), 2);
         assert!(matches!(
-            changes[1].kind,
+            result.changes[1].kind,
             crate::models::FileChangeKind::Directory
         ));
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn indexed_entity_renames_mission_directory_preserving_binary_assets() {
+        let root = temp_dir("rename_mission_preserve_assets");
+        fs::create_dir_all(root.join("data/missions/old/nested")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/missions/mission_list.csv"),
+            "mission\r\nold\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("data/missions/old/descriptor.json"),
+            r#"{"title":"Old","icon":"icon.png"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(&root.join("data/missions/old/mission_text.txt"), "old text").unwrap();
+        write_utf8_no_bom(&root.join("data/missions/old/nested/readme.txt"), "keep").unwrap();
+        fs::write(
+            root.join("data/missions/old/icon.png"),
+            [0x89, 0x50, 0x4E, 0x47],
+        )
+        .unwrap();
+
+        let mut descriptor = Map::new();
+        descriptor.insert("title".to_string(), Value::String("New".to_string()));
+        descriptor.insert("icon".to_string(), Value::String("icon.png".to_string()));
+        let result = save_indexed_config_entity_with_history(IndexedConfigEntityPayload {
+            mod_root: root.to_string_lossy().to_string(),
+            kind: "mission".to_string(),
+            previous_id: Some("old".to_string()),
+            next_id: "new".to_string(),
+            index_row: {
+                let mut row = Map::new();
+                row.insert("mission".to_string(), Value::String("new".to_string()));
+                row
+            },
+            payload: serde_json::json!({
+                "descriptor": Value::Object(descriptor),
+                "text": "new text"
+            }),
+            delete_previous_target: true,
+        })
+        .unwrap();
+
+        let descriptor_text =
+            read_utf8_no_bom(&root.join("data/missions/new/descriptor.json")).unwrap();
+        let mission_text =
+            read_utf8_no_bom(&root.join("data/missions/new/mission_text.txt")).unwrap();
+        let nested_text =
+            read_utf8_no_bom(&root.join("data/missions/new/nested/readme.txt")).unwrap();
+        let icon = fs::read(root.join("data/missions/new/icon.png")).unwrap();
+        let old_exists = root.join("data/missions/old").exists();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(result
+            .changes
+            .iter()
+            .any(|change| matches!(change.kind, crate::models::FileChangeKind::Directory)));
+        assert!(descriptor_text.contains("\"title\": \"New\""));
+        assert_eq!(mission_text, "new text");
+        assert_eq!(nested_text, "keep");
+        assert_eq!(icon, vec![0x89, 0x50, 0x4E, 0x47]);
+        assert!(!old_exists);
     }
 
     fn temp_dir(name: &str) -> PathBuf {

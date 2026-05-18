@@ -40,6 +40,7 @@ pub struct AppData {
     pub skills: Vec<Map<String, Value>>,
     pub ship_files: BTreeMap<String, Value>,
     pub variants: BTreeMap<String, Vec<Value>>,
+    pub variant_files: Vec<VariantFile>,
     pub ship_sprites: BTreeMap<String, String>,
     pub available_sprites: Vec<String>,
     pub wpn_files: BTreeMap<String, Value>,
@@ -52,6 +53,20 @@ pub struct AppData {
     pub ship_system_sprites: BTreeMap<String, String>,
     pub industry_sprites: BTreeMap<String, String>,
     pub skill_sprites: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct VariantFile {
+    pub variant_id: String,
+    pub hull_id: String,
+    pub path: String,
+    pub rel_path: String,
+    pub data: Value,
+    pub weapon_group_count: usize,
+    pub hull_mod_count: usize,
+    pub perma_mod_count: usize,
+    pub wing_count: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

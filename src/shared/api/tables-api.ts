@@ -5,6 +5,7 @@ import type { FileChangeRecord } from './files-api';
 export interface AssociatedFileChange {
   relPath: string;
   afterText?: string | null;
+  afterDataBase64?: string | null;
 }
 
 export function saveCsvWithHistory(

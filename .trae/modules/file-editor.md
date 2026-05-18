@@ -10,7 +10,7 @@
 - `src/app/FileEditorApp.vue` 加载、编辑、保存文本，并处理窗口内快捷键。
 - `src/shared/api/files-api.ts` 封装 `load_editable_file` 和 `save_text_file_with_history`。
 - `src-tauri/src/commands/files.rs` 暴露文本文件读取和保存 command。
-- `src-tauri/src/services/file_changes.rs` 构建单文件 changeset 并写盘。
+- `src-tauri/src/services/file_changes.rs` 读取可编辑文本文件、构建单文件 changeset 并写盘。
 - `src/styles/file-editor.css` 承载文件编辑器样式。
 
 ## 规范
@@ -28,8 +28,9 @@
 2. 文件编辑器窗口 service 按规范化文件路径单例化。
 3. 目标窗口已存在时，窗口 service 聚焦已有窗口。
 4. 目标窗口不存在时，窗口 service 创建文件编辑器窗口。
-5. `FileEditorApp.vue` 读取文件文本。
-6. 请求带有错误行信息时，窗口高亮对应行并显示路径和错误消息。
+5. `FileEditorApp.vue` 调用 `loadEditableFile()`。
+6. Rust files command 调用 file changes service 读取 UTF-8 无 BOM 文本。
+7. 请求带有错误行信息时，窗口高亮对应行并显示路径和错误消息。
 
 ## 链路：文件编辑器保存
 

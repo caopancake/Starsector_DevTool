@@ -5,11 +5,13 @@ import type { FieldSchema, FileSchema, SectionSchema } from './schema-types';
 import modInfoSchemaRaw from '../../../schemas/mod-info.schema.json';
 import factionSchemaRaw from '../../../schemas/faction.schema.json';
 import missionSchemaRaw from '../../../schemas/mission.schema.json';
+import variantSchemaRaw from '../../../schemas/variant.schema.json';
 
 const SCHEMAS: Record<string, FileSchema> = {
   'mod-info': modInfoSchemaRaw as unknown as FileSchema,
   faction: factionSchemaRaw as unknown as FileSchema,
   mission: missionSchemaRaw as unknown as FileSchema,
+  variant: variantSchemaRaw as unknown as FileSchema,
 };
 
 /**
