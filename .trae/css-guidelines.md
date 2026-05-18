@@ -288,7 +288,8 @@
 - `.array-item` width fit-content，max-width 100%，padding `6px 8px`，背景 `--color-surface`，border `1px solid var(--color-border)`，圆角 `--radius-sm`。
 - `.array-item-header` flex row，justify-content space-between，gap 4px，margin-bottom 2px。
 - `.array-item-index` 字号 10px，字重 650，颜色 `--color-muted`。
-- `.kv-row` grid 列固定 `minmax(160px, 220px) minmax(80px, 1fr) 28px`，gap 4px。
+- `.kv-row` grid 列固定 `minmax(96px, 140px) minmax(220px, 1fr) 28px`，gap 4px。
+- `.reference-key-value .kv-row` grid 列固定 `minmax(220px, 1fr) 88px 28px`，用于 `csv:*` key-value 引用频率编辑。
 - `.json-field-row` grid 列固定 `120px minmax(0, 1fr) auto`，gap 8px，padding `3px 0`。
 - `.json-field-key` padding-top 5px，字号 11px，颜色 `--color-muted`，必须 ellipsis 且 nowrap。
 - `.json-field-empty` padding `8px 0`，字号 12px，颜色 `--color-muted`。

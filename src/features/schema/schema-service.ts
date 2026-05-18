@@ -1,6 +1,7 @@
-import type { AppData, JsonValue, RowData } from '../../shared/types';
+import type { AppData, CoreReferences, JsonValue, RowData, TableKey } from '../../shared/types';
 import type { DiscoveredField } from '../../shared/api/assets-api';
 import type { FieldSchema, FileSchema, SectionSchema } from './schema-types';
+import { isDisabledCsvReference } from '../../shared/lib/starsector';
 
 import modInfoSchemaRaw from '../../../schemas/mod-info.schema.json';
 import factionSchemaRaw from '../../../schemas/faction.schema.json';
@@ -94,6 +95,8 @@ export interface SelectOption {
   label: string;
   value: string;
   sprite?: string; // data URL for thumbnail preview
+  type?: 'group';
+  children?: SelectOption[];
 }
 
 /**
@@ -114,34 +117,14 @@ export function resolveSource(source: string | undefined | null, appData: AppDat
     const table = dotIdx > 0 ? rest.slice(0, dotIdx) : rest;
     const col = dotIdx > 0 ? rest.slice(dotIdx + 1) : 'id';
 
-    const rows = (appData as unknown as Record<string, unknown>)[table] as RowData[] | undefined;
-    if (!rows || !Array.isArray(rows)) return [];
+    const modRows = rowsForTable(appData, table);
+    const coreRows = coreRowsForTable(appData.coreReferences, table);
+    if (modRows.length === 0 && coreRows.length === 0) return [];
 
     if (col === 'tags') {
-      const tagSet = new Set<string>();
-      for (const row of rows) {
-        const raw = String(row.tags ?? '');
-        for (const tag of raw.split(',')) {
-          const t = tag.trim();
-          if (t) tagSet.add(t);
-        }
-      }
-      return [...tagSet].sort().map((t) => ({ label: t, value: t }));
+      return groupedOptions(tagOptions(modRows), tagOptions(coreRows));
     } else {
-      // Extract id + name for display, with optional sprite
-      const spriteMap = getSpriteMap(appData, table);
-      const options: SelectOption[] = [];
-      const seen = new Set<string>();
-      for (const row of rows) {
-        const id = String(row[col] ?? '').trim();
-        if (!id || seen.has(id)) continue;
-        seen.add(id);
-        const name = String(row.name ?? row.hullName ?? '').trim();
-        const label = name && name !== id ? `${name} (${id})` : id;
-        const sprite = spriteMap?.[id];
-        options.push({ label, value: id, sprite });
-      }
-      return options.sort((a, b) => a.label.localeCompare(b.label));
+      return groupedOptions(entityOptions(appData, table, col, modRows, 'mod'), entityOptions(appData, table, col, coreRows, 'core'));
     }
   }
 
@@ -166,11 +149,131 @@ function getSpriteMap(appData: AppData, table: string): Record<string, string> |
       return appData.shipSprites;
     case 'hullmods':
       return appData.hullmodSprites;
+    case 'weapons':
+      return flattenWeaponSprites(appData.weaponSpritesData);
+    case 'wings':
+      return wingSprites(appData.wings, appData.variantFiles, appData.shipSprites);
+    case 'shipSystems':
+      return appData.shipSystemSprites;
     case 'industries':
       return appData.industrySprites;
+    case 'skills':
+      return appData.skillSprites;
     default:
       return undefined;
   }
+}
+
+function getCoreSpriteMap(appData: AppData, table: string): Record<string, string> | undefined {
+  const core = appData.coreReferences;
+  switch (table) {
+    case 'ships':
+      return core.shipSprites;
+    case 'weapons':
+      return flattenWeaponSprites(core.weaponSpritesData);
+    case 'wings':
+      return core.wingSprites;
+    case 'hullmods':
+      return core.hullmodSprites;
+    case 'shipSystems':
+      return core.shipSystemSprites;
+    case 'industries':
+      return core.industrySprites;
+    case 'skills':
+      return core.skillSprites;
+    default:
+      return undefined;
+  }
+}
+
+function rowsForTable(appData: AppData, table: string): RowData[] {
+  const rows = (appData as unknown as Record<string, unknown>)[table];
+  return Array.isArray(rows) ? (rows as RowData[]) : [];
+}
+
+function coreRowsForTable(core: CoreReferences | undefined, table: string): RowData[] {
+  const rows = core?.tables?.[table as TableKey];
+  return Array.isArray(rows) ? rows : [];
+}
+
+function groupedOptions(modOptions: SelectOption[], coreOptions: SelectOption[]): SelectOption[] {
+  const modValues = new Set(modOptions.map((option) => option.value));
+  const coreOnly = coreOptions.filter((option) => !modValues.has(option.value));
+  const groups: SelectOption[] = [];
+  if (modOptions.length > 0) groups.push({ type: 'group', label: '当前 Mod', value: '__mod', children: sortOptions(modOptions) });
+  if (coreOnly.length > 0) groups.push({ type: 'group', label: '原版', value: '__core', children: sortOptions(coreOnly) });
+  return groups;
+}
+
+function sortOptions(options: SelectOption[]): SelectOption[] {
+  return [...options].sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function tagOptions(rows: RowData[]): SelectOption[] {
+  const tagSet = new Set<string>();
+  for (const row of rows) {
+    const raw = String(row.tags ?? '');
+    for (const tag of raw.split(',')) {
+      const t = tag.trim();
+      if (t) tagSet.add(t);
+    }
+  }
+  return [...tagSet].map((tag) => ({ label: tag, value: tag }));
+}
+
+function entityOptions(appData: AppData, table: string, col: string, rows: RowData[], origin: 'mod' | 'core'): SelectOption[] {
+  const spriteMap = origin === 'mod' ? getSpriteMap(appData, table) : getCoreSpriteMap(appData, table);
+  const options: SelectOption[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const id = String(row[col] ?? '').trim();
+    if (!id || isDisabledCsvReference(id) || seen.has(id)) continue;
+    seen.add(id);
+    const name = String(row.name ?? row.hullName ?? '').trim();
+    const label = name && name !== id ? `${name} (${id})` : id;
+    const sprite = spriteMap?.[id];
+    options.push({ label, value: id, sprite });
+  }
+  return options;
+}
+
+function flattenWeaponSprites(data: Record<string, Record<string, string>>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [id, sprites] of Object.entries(data)) {
+    const sprite =
+      sprites.turretSprite ||
+      sprites.hardpointSprite ||
+      sprites.turretGunSprite ||
+      sprites.hardpointGunSprite ||
+      sprites.turretUnderSprite ||
+      sprites.hardpointUnderSprite ||
+      sprites.turretGlowSprite ||
+      sprites.hardpointGlowSprite;
+    if (sprite) result[id] = sprite;
+  }
+  return result;
+}
+
+function wingSprites(rows: RowData[], variants: AppData['variantFiles'], shipSprites: Record<string, string>): Record<string, string> {
+  const byVariantId = new Map(variants.map((variant) => [variant.variantId, variant.hullId]));
+  const byRelPath = new Map(variants.map((variant) => [variant.relPath, variant.hullId]));
+  const result: Record<string, string> = {};
+  for (const row of rows) {
+    const id = String(row.id ?? '').trim();
+    const variantRef = String(row.variant ?? '')
+      .trim()
+      .replace(/\\/g, '/');
+    if (!id || !variantRef) continue;
+    const stem = variantRef
+      .split('/')
+      .filter(Boolean)
+      .pop()
+      ?.replace(/\.variant$/i, '');
+    const hullId = byVariantId.get(variantRef) ?? (stem ? byVariantId.get(stem) : undefined) ?? byRelPath.get(variantRef);
+    const sprite = hullId ? shipSprites[hullId] : '';
+    if (sprite) result[id] = sprite;
+  }
+  return result;
 }
 
 /**

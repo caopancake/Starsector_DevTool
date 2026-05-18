@@ -16,9 +16,15 @@ pub fn read_utf8_no_bom(path: &Path) -> AppResult<String> {
             path.display()
         )));
     }
-    String::from_utf8(bytes).map_err(|error| {
-        AppError::message(format!("{} is not valid UTF-8: {error}", path.display()))
-    })
+    match String::from_utf8(bytes) {
+        Ok(text) => Ok(text),
+        Err(error) => {
+            let bytes = normalize_known_cp1252_bytes(error.into_bytes());
+            String::from_utf8(bytes).map_err(|error| {
+                AppError::message(format!("{} is not valid UTF-8: {error}", path.display()))
+            })
+        }
+    }
 }
 
 pub fn write_utf8_no_bom(path: &Path, text: &str) -> AppResult<()> {
@@ -29,6 +35,15 @@ pub fn write_utf8_no_bom(path: &Path, text: &str) -> AppResult<()> {
         )
     })?;
     Ok(())
+}
+
+fn normalize_known_cp1252_bytes(mut bytes: Vec<u8>) -> Vec<u8> {
+    for byte in &mut bytes {
+        if *byte == 0x92 {
+            *byte = b'\'';
+        }
+    }
+    bytes
 }
 
 #[cfg(test)]
@@ -56,6 +71,17 @@ mod tests {
         let _ = fs::remove_file(path);
         assert!(!bytes.starts_with(UTF8_BOM));
         assert_eq!(String::from_utf8(bytes).unwrap(), "舰船");
+    }
+
+    #[test]
+    fn reads_cp1252_right_single_quote_as_ascii_apostrophe() {
+        let path = temp_path("reads_cp1252_quote.txt");
+        fs::write(&path, b"it\x92s").unwrap();
+
+        let text = read_utf8_no_bom(&path).unwrap();
+
+        let _ = fs::remove_file(path);
+        assert_eq!(text, "it's");
     }
 
     fn temp_path(name: &str) -> PathBuf {

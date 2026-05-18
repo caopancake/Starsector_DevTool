@@ -20,6 +20,7 @@
 - 目录识别先判断用户选择路径是否为 Mod 目录；是 Mod 时再尝试用 `modRoot/../..` 推断游戏目录。
 - 游戏概览只扫描 `mods/*/mod_info.json` 和基本元信息，不加载 CSV、spec 和贴图 data URL。
 - 完整读取 Mod 时可以使用显式 `starsectorRoot`、路径推断 root 或设置 fallback。
+- 完整读取 Mod 时返回 `coreReferences` 只读原版引用，供 schema source 和缩略图使用，不混入可编辑表格。
 - Rust 返回的 `coreAvailable` 只表达 core fallback 是否可用。
 - 打开未知目录必须返回错误，由前端显示错误提示。
 
@@ -60,7 +61,7 @@
 2. shared API 根据是否有 root 调用 `load_mod_data_with_root` 或 `load_mod_data`。
 3. Rust project service 确定有效 `starsectorRoot`。
 4. Rust 读取 `mod_info.json`。
-5. Rust 读取配置入口、CSV tables、spec bundle 和 sprite bundle。
+5. Rust 读取配置入口、CSV tables、spec bundle、sprite bundle 和只读原版引用。
 6. Rust 返回 `AppData`。
 7. project store 缓存 `AppData`。
 8. tables store hydrate CSV 表格状态。

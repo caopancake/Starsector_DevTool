@@ -2,7 +2,10 @@
   <main v-if="schema" class="mission-editor">
     <header class="mission-editor-header">
       <h3>{{ editingMissionId || missionId }}</h3>
-      <n-button type="primary" size="small" :loading="saving" @click="save">保存战役</n-button>
+      <div class="config-editor-actions">
+        <n-button size="small" secondary type="error" @click="confirmDeleteMission">删除</n-button>
+        <n-button type="primary" size="small" :loading="saving" @click="save">保存战役</n-button>
+      </div>
     </header>
     <div class="mission-editor-body">
       <div v-if="iconSrc" class="mission-icon-preview">
@@ -10,6 +13,18 @@
       </div>
       <SchemaFormRenderer :schema="schema" v-model="localMission" :app-data="project.activeModData" />
     </div>
+
+    <n-modal
+      v-model:show="showDeleteDialog"
+      preset="dialog"
+      title="确认删除"
+      positive-text="删除"
+      negative-text="取消"
+      type="error"
+      @positive-click="deleteCurrentMission"
+    >
+      <p>确定要删除战役 "{{ loadedMissionId || missionId }}" 吗？</p>
+    </n-modal>
   </main>
 </template>
 
@@ -23,7 +38,7 @@ import type { JsonValue, RowData } from '../../../shared/types';
 import SchemaFormRenderer from '../../schema/components/SchemaFormRenderer.vue';
 import { aggregateSchemaSources, getSchema, splitSchemaSources } from '../../schema/schema-service';
 import { loadMissionData, loadMissionListData, missionIndexRow, scanMissionListFiles, stripInternalFields } from '../config-service';
-import { saveIndexedConfigEntityWithFileHistory } from '../config-save-orchestrator';
+import { deleteIndexedConfigEntityWithFileHistory, saveIndexedConfigEntityWithFileHistory } from '../config-save-orchestrator';
 import { createAppFeedback } from '../../../app/app-feedback';
 
 const props = defineProps<{ missionId: string }>();
@@ -41,6 +56,7 @@ const localMission = ref<RowData>({});
 const loadedMissionId = ref('');
 const iconSrc = ref('');
 const saving = ref(false);
+const showDeleteDialog = ref(false);
 
 const modRoot = computed(() => project.activeModData?.modRoot ?? null);
 const schema = computed(() => getSchema('mission'));
@@ -126,6 +142,28 @@ async function save() {
   } finally {
     saving.value = false;
   }
+}
+
+function confirmDeleteMission() {
+  showDeleteDialog.value = true;
+}
+
+async function deleteCurrentMission() {
+  if (!modRoot.value || !loadedMissionId.value) return false;
+  try {
+    const deleted = loadedMissionId.value;
+    await deleteIndexedConfigEntityWithFileHistory(modRoot.value, 'mission', deleted, true);
+    showDeleteDialog.value = false;
+    loadedMissionId.value = '';
+    localMission.value = {};
+    iconSrc.value = '';
+    emit('saved', '');
+    message.success(`战役 "${deleted}" 已删除`);
+  } catch (error) {
+    message.error(formatError(error));
+    return false;
+  }
+  return true;
 }
 
 function requireObjectSource(value: unknown, errorMessage: string): RowData {

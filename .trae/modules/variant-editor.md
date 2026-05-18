@@ -21,11 +21,14 @@
 - 每个 `.variant` 必须有 `variantId` 和 `hullId`。
 - `variantId` 必须在当前 Mod 内全局唯一。
 - 装配模块不提供文件编辑器入口。
+- 装配列表必须按 `hullId` 尝试读取对应舰船贴图作为缩略图，读取不到时显示装配占位图标。
 - 保存允许修改 `variantId`；修改后必须在同一个 changeset 中删除旧文件并创建新文件。
 - 新建路径固定为 `data/variants/{variantId}.variant`。
 - 新建、保存、重命名和删除都必须进入文件级 history。
 - 前端不能直接用 `saveModFilesWithHistory` 拼 `.variant` 文件操作，必须走 `saveVariantEntityWithHistory`、`createVariantEntityWithHistory` 或 `deleteVariantEntityWithHistory`。
 - `VariantView.vue` 只维护选中 ID；列表和编辑器分别负责自己的 UI 状态。
+- 装配详情页不显示额外总览统计块，只显示顶部当前文件信息和 schema 表单。
+- `wings` 必须按逐项数组编辑，不能使用去重的多选控件。
 
 ## 链路：读取装配
 

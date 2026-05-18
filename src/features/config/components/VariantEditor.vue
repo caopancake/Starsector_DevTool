@@ -11,23 +11,6 @@
       </div>
     </header>
     <div class="variant-editor-body">
-      <div class="variant-summary">
-        <div>
-          <span>hullId</span><strong>{{ selectedVariant.hullId }}</strong>
-        </div>
-        <div>
-          <span>武器组</span><strong>{{ selectedVariant.weaponGroupCount }}</strong>
-        </div>
-        <div>
-          <span>插件</span><strong>{{ selectedVariant.hullModCount }}</strong>
-        </div>
-        <div>
-          <span>永久插件</span><strong>{{ selectedVariant.permaModCount }}</strong>
-        </div>
-        <div>
-          <span>联队</span><strong>{{ selectedVariant.wingCount }}</strong>
-        </div>
-      </div>
       <SchemaFormRenderer :schema="schema" v-model="localVariant" :app-data="project.activeModData" />
     </div>
 

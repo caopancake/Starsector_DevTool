@@ -40,6 +40,21 @@ export interface AppData {
   shipSystemSprites: Record<string, string>;
   industrySprites: Record<string, string>;
   skillSprites: Record<string, string>;
+  coreReferences: CoreReferences;
+}
+
+export interface CoreReferences {
+  tables: Partial<Record<TableKey, RowData[]>>;
+  shipFiles: Record<string, RowData>;
+  wpnFiles: Record<string, RowData>;
+  variantFiles: VariantFile[];
+  shipSprites: Record<string, string>;
+  weaponSpritesData: Record<string, Record<string, string>>;
+  wingSprites: Record<string, string>;
+  hullmodSprites: Record<string, string>;
+  shipSystemSprites: Record<string, string>;
+  industrySprites: Record<string, string>;
+  skillSprites: Record<string, string>;
 }
 
 export interface VariantFile {

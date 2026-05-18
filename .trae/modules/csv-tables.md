@@ -20,7 +20,8 @@ CSV 表格系统负责展示和编辑 Starsector CSV 表，包括 ships、weapon
 - 表格状态按 `modRoot` 隔离。
 - `_rowKey` 是前端行身份，不写入磁盘。
 - 业务 ID 只能通过 `rowSpecId()` 或对应表字段计算，不能把 `_rowKey` 当业务 ID。
-- 空行、全逗号空行和 `#` 注释行都必须保留为可编辑、可删除的行。
+- 空行、全逗号空行和 `#` 开头行都必须保留为可编辑、可删除的行。
+- `#` 开头行不得作为其它字段、schema source、关联文件或编辑器入口的合法引用。
 - 没有业务 ID 的行不能显示 spec 文件编辑入口。
 - `tables.store.ts` 只管理草稿、dirty、选择和编辑状态。
 - 写盘、副作用、文件级 history 和关联 spec 创建删除由表格保存 orchestrator 处理。

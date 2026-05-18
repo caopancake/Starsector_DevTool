@@ -116,9 +116,14 @@
       "fields": [
         {
           "key": "wings",
-          "type": "string-array",
+          "type": "array",
           "label": "wings",
-          "source": "csv:wings.id"
+          "item": {
+            "key": "wingId",
+            "type": "enum",
+            "label": "wing",
+            "source": "csv:wings.id"
+          }
         }
       ]
     },

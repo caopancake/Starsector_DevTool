@@ -2,7 +2,12 @@
   <div class="faction-editor-page">
     <header class="faction-editor-header">
       <h2>{{ displayName }}</h2>
-      <n-button type="primary" size="small" :loading="saving" @click="save"> 保存 {{ str(factionFile.id) || factionId }}.faction </n-button>
+      <div class="config-editor-actions">
+        <n-button size="small" secondary type="error" @click="confirmDeleteFaction">删除</n-button>
+        <n-button type="primary" size="small" :loading="saving" @click="save">
+          保存 {{ str(factionFile.id) || factionId }}.faction
+        </n-button>
+      </div>
     </header>
 
     <!-- Logo/Crest preview -->
@@ -19,6 +24,18 @@
 
     <!-- Schema-driven form -->
     <SchemaFormRenderer v-if="schema" :schema="schema" v-model="local" :app-data="project.activeModData" />
+
+    <n-modal
+      v-model:show="showDeleteDialog"
+      preset="dialog"
+      title="确认删除"
+      positive-text="删除"
+      negative-text="取消"
+      type="error"
+      @positive-click="deleteCurrentFaction"
+    >
+      <p>确定要删除势力 "{{ factionId }}" 吗？</p>
+    </n-modal>
   </div>
 </template>
 
@@ -26,7 +43,7 @@
 import { computed, ref, watch } from 'vue';
 import { useProjectStore } from '../../project/project-store';
 import { useSettingsStore } from '../../../app/settings-store';
-import { saveIndexedConfigEntityWithFileHistory } from '../config-save-orchestrator';
+import { deleteIndexedConfigEntityWithFileHistory, saveIndexedConfigEntityWithFileHistory } from '../config-save-orchestrator';
 import { factionIndexRow, stripInternalFields } from '../config-service';
 import { loadImageDataUrl } from '../../../shared/api/assets-api';
 import { deepClone } from '../../../shared/lib/starsector';
@@ -51,6 +68,7 @@ const schema = computed(() => getMergedSchema('faction'));
 const { message } = createAppFeedback(['message']);
 
 const saving = ref(false);
+const showDeleteDialog = ref(false);
 const local = ref<RowData>({});
 const factionFile = computed<RowData>(() => {
   const file = local.value.file;
@@ -159,6 +177,27 @@ async function save() {
   } finally {
     saving.value = false;
   }
+}
+
+function confirmDeleteFaction() {
+  showDeleteDialog.value = true;
+}
+
+async function deleteCurrentFaction() {
+  const modData = project.activeModData;
+  if (!modData || !props.factionId) return false;
+  try {
+    await deleteIndexedConfigEntityWithFileHistory(modData.modRoot, 'faction', props.factionId, true);
+    delete modData.factionFiles[props.factionId];
+    delete modData.factionMeta[props.factionId];
+    showDeleteDialog.value = false;
+    emit('saved', '');
+    message.success(`势力 "${props.factionId}" 已删除`);
+  } catch (error) {
+    message.error(formatError(error));
+    return false;
+  }
+  return true;
 }
 
 function rgbaToCss(color: JsonValue | undefined): string {

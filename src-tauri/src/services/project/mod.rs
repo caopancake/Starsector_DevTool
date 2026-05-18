@@ -7,7 +7,7 @@ use crate::{
     errors::AppResult,
     filesystem::{list_sprites, load_json_dir_by_id, read_json_file},
     models::{
-        AppData, FactionMeta, GameModSummary, GameOverviewData, GameScanWarning,
+        AppData, CoreReferences, FactionMeta, GameModSummary, GameOverviewData, GameScanWarning,
         OpenDirectoryResult, VariantFile,
     },
     parsers::read_csv_data,
@@ -115,6 +115,7 @@ pub fn load_all_data_with_root(
             skills: &skills,
         },
     )?;
+    let core_references = load_core_references(core_dir.as_deref())?;
 
     Ok(AppData {
         mod_root: mod_root.to_string_lossy().to_string(),
@@ -148,6 +149,7 @@ pub fn load_all_data_with_root(
         ship_system_sprites: sprite_bundle.ship_system_sprites,
         industry_sprites: sprite_bundle.industry_sprites,
         skill_sprites: sprite_bundle.skill_sprites,
+        core_references,
     })
 }
 
@@ -205,6 +207,57 @@ fn load_sprite_bundle(
         ),
         skill_sprites: sprites::load_skill_sprite_data(mod_root, core_dir, table_rows.skills),
     })
+}
+
+fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
+    let Some(core_dir) = core_dir.filter(|path| path.exists()) else {
+        return Ok(CoreReferences::default());
+    };
+
+    let tables = load_core_reference_tables(core_dir)?;
+    let ship_files = load_json_dir_by_id(&core_dir.join("data/hulls"), "ship", "hullId")?;
+    let wpn_files = load_json_dir_by_id(&core_dir.join("data/weapons"), "wpn", "id")?;
+    let variant_files = load_variant_files(core_dir)?;
+    let empty: &[Map<String, Value>] = &[];
+    let hullmods = tables.get("hullmods").map(Vec::as_slice).unwrap_or(empty);
+    let industries = tables.get("industries").map(Vec::as_slice).unwrap_or(empty);
+    let ship_systems = tables
+        .get("shipSystems")
+        .map(Vec::as_slice)
+        .unwrap_or(empty);
+    let skills = tables.get("skills").map(Vec::as_slice).unwrap_or(empty);
+    let wings = tables.get("wings").map(Vec::as_slice).unwrap_or(empty);
+    let ship_sprites = sprites::load_ship_sprite_data(core_dir, None, &ship_files)?;
+    let wing_sprites = sprites::load_wing_sprite_data(&ship_sprites, &variant_files, wings);
+    let weapon_sprites_data = sprites::load_weapon_sprite_data(core_dir, None, &wpn_files);
+    let hullmod_sprites = sprites::load_hullmod_sprite_data(core_dir, None, hullmods);
+    let ship_system_sprites = sprites::load_ship_system_sprite_data(core_dir, None, ship_systems);
+    let industry_sprites = sprites::load_industry_sprite_data(core_dir, None, industries);
+    let skill_sprites = sprites::load_skill_sprite_data(core_dir, None, skills);
+
+    Ok(CoreReferences {
+        tables,
+        ship_files,
+        wpn_files: wpn_files.clone(),
+        variant_files,
+        ship_sprites,
+        weapon_sprites_data,
+        wing_sprites,
+        hullmod_sprites,
+        ship_system_sprites,
+        industry_sprites,
+        skill_sprites,
+    })
+}
+
+fn load_core_reference_tables(
+    core_dir: &Path,
+) -> AppResult<BTreeMap<String, Vec<Map<String, Value>>>> {
+    let mut tables = BTreeMap::new();
+    for (key, rel) in crate::models::CSV_TABLES {
+        tables.insert(key.to_string(), read_csv_data(&core_dir.join(rel))?.rows);
+    }
+    Ok(tables)
 }
 
 pub fn detect_directory(
@@ -464,6 +517,10 @@ fn load_variant_files(mod_root: &Path) -> AppResult<Vec<VariantFile>> {
         let hull_id = required_string(&data, "hullId", path)?;
         if let Some(previous) = seen.insert(variant_id.clone(), path.to_string_lossy().to_string())
         {
+            if is_temporary_core_kite_interceptor_duplicate(mod_root, path, &previous, &variant_id)
+            {
+                continue;
+            }
             return Err(crate::errors::AppError::message(format!(
                 "重复 variantId {variant_id}: {previous} 和 {}",
                 path.display()
@@ -492,6 +549,79 @@ fn load_variant_files(mod_root: &Path) -> AppResult<Vec<VariantFile>> {
             .then_with(|| a.variant_id.cmp(&b.variant_id))
     });
     Ok(files)
+}
+
+fn is_temporary_core_kite_interceptor_duplicate(
+    root: &Path,
+    current: &Path,
+    previous: &str,
+    variant_id: &str,
+) -> bool {
+    // Temporary vanilla-core compatibility exception.
+    //
+    if root.file_name().and_then(|name| name.to_str()) != Some("starsector-core") {
+        return false;
+    }
+    let previous_rel = normalize_rel_path(root, Path::new(previous));
+    let current_rel = normalize_rel_path(root, current);
+    temporary_core_duplicate_variant_pairs()
+        .iter()
+        .any(|(known_id, known_paths)| {
+            variant_id == *known_id
+                && known_paths.contains(&previous_rel.as_str())
+                && known_paths.contains(&current_rel.as_str())
+        })
+}
+
+fn temporary_core_duplicate_variant_pairs() -> [(&'static str, [&'static str; 2]); 3] {
+    // Temporary vanilla-core compatibility exceptions.
+    //
+    // Starsector currently ships these known duplicate variantIds in
+    // starsector-core:
+    // - kite_hegemony_Interceptor:
+    //   - data/variants/kite/kite_Interceptor.variant
+    //   - data/variants/kite_hegemony_Interceptor.variant
+    // - kite_original_Stock:
+    //   - data/variants/kite/kite_Stock.variant
+    //   - data/variants/kite_original_Stock.variant
+    // - ziggurat_Experimental:
+    //   - data/variants/ziggurat_Experimental.variant
+    //   - data/variants/ziggurat_HF.variant
+    //
+    // Core references are read-only fallback data, so these duplicates must not
+    // make Mod loading fail. Editable Mod variant loading remains strict; these
+    // exceptions are intentionally path- and id-exact so they can be removed when
+    // the upstream vanilla data is fixed.
+    [
+        (
+            "kite_hegemony_Interceptor",
+            [
+                "data/variants/kite/kite_Interceptor.variant",
+                "data/variants/kite_hegemony_Interceptor.variant",
+            ],
+        ),
+        (
+            "kite_original_Stock",
+            [
+                "data/variants/kite/kite_Stock.variant",
+                "data/variants/kite_original_Stock.variant",
+            ],
+        ),
+        (
+            "ziggurat_Experimental",
+            [
+                "data/variants/ziggurat_Experimental.variant",
+                "data/variants/ziggurat_HF.variant",
+            ],
+        ),
+    ]
+}
+
+fn normalize_rel_path(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
 }
 
 fn group_variants_by_hull(variant_files: &[VariantFile]) -> BTreeMap<String, Vec<Value>> {
@@ -641,6 +771,115 @@ mod tests {
     }
 
     #[test]
+    fn load_all_data_reads_core_reference_tables_and_sprites() {
+        let root = temp_dir("core_references");
+        let mod_root = root.join("mods/demo");
+        let core_root = root.join("starsector-core");
+        fs::create_dir_all(mod_root.join("data/weapons")).unwrap();
+        fs::create_dir_all(core_root.join("data/weapons")).unwrap();
+        fs::create_dir_all(core_root.join("data/hulls")).unwrap();
+        fs::create_dir_all(core_root.join("data/hullmods")).unwrap();
+        fs::create_dir_all(core_root.join("data/variants")).unwrap();
+        fs::create_dir_all(core_root.join("graphics/ships")).unwrap();
+        fs::create_dir_all(core_root.join("graphics/weapons")).unwrap();
+        fs::create_dir_all(core_root.join("graphics/icons/hullmods")).unwrap();
+        let png_bytes: [u8; 69] = [
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00,
+            0x00, 0x90, 0x77, 0x53, 0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54, 0x08,
+            0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0xE2, 0x21, 0xBC,
+            0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+        ];
+        fs::write(core_root.join("graphics/ships/core_ship.png"), png_bytes).unwrap();
+        fs::write(
+            core_root.join("graphics/weapons/core_weapon.png"),
+            png_bytes,
+        )
+        .unwrap();
+        fs::write(
+            core_root.join("graphics/icons/hullmods/core_mod.png"),
+            png_bytes,
+        )
+        .unwrap();
+        write_utf8_no_bom(&mod_root.join("mod_info.json"), r#"{"id":"demo"}"#).unwrap();
+        write_utf8_no_bom(
+            &mod_root.join("data/weapons/weapon_data.csv"),
+            "id,name\r\nmod_weapon,Mod Weapon\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &core_root.join("data/weapons/weapon_data.csv"),
+            "id,name\r\ncore_weapon,Core Weapon\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &core_root.join("data/hulls/ship_data.csv"),
+            "id,name\r\ncore_ship,Core Ship\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &core_root.join("data/hulls/wing_data.csv"),
+            "id,variant\r\ncore_wing,core_variant\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &core_root.join("data/hullmods/hull_mods.csv"),
+            "id,name,sprite\r\ncore_mod,Core Mod,graphics/icons/hullmods/core_mod.png\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &core_root.join("data/hulls/core_ship.ship"),
+            r#"{"hullId":"core_ship","spriteName":"graphics/ships/core_ship.png"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &core_root.join("data/weapons/core_weapon.wpn"),
+            r#"{"id":"core_weapon","turretSprite":"graphics/weapons/core_weapon.png"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &core_root.join("data/variants/core_variant.variant"),
+            r#"{"variantId":"core_variant","hullId":"core_ship"}"#,
+        )
+        .unwrap();
+
+        let data = load_all_data_with_root(&mod_root, Some(&root)).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(data.weapons.len(), 1);
+        assert_eq!(data.weapons[0]["id"], "mod_weapon");
+        assert_eq!(
+            data.core_references.tables["weapons"][0]["id"],
+            "core_weapon"
+        );
+        assert_eq!(data.core_references.tables["hullmods"][0]["id"], "core_mod");
+        assert!(
+            data.core_references.ship_sprites["core_ship"].starts_with("data:image/png;base64,")
+        );
+        assert!(
+            data.core_references.weapon_sprites_data["core_weapon"]["turretSprite"]
+                .starts_with("data:image/png;base64,")
+        );
+        assert!(
+            data.core_references.wing_sprites["core_wing"].starts_with("data:image/png;base64,")
+        );
+        assert!(
+            data.core_references.hullmod_sprites["core_mod"].starts_with("data:image/png;base64,")
+        );
+    }
+
+    #[test]
+    fn load_all_data_without_core_has_empty_core_references() {
+        let root = temp_dir("no_core_references");
+
+        let data = load_all_data(&root).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(data.core_references.tables.is_empty());
+        assert!(data.core_references.ship_sprites.is_empty());
+    }
+
+    #[test]
     fn load_all_data_rejects_variant_missing_required_ids() {
         let root = temp_dir("variant_missing_ids");
         fs::create_dir_all(root.join("data/variants")).unwrap();
@@ -679,6 +918,78 @@ mod tests {
         assert!(error.contains("重复 variantId dup"));
         assert!(error.contains("one.variant"));
         assert!(error.contains("two.variant"));
+    }
+
+    #[test]
+    fn core_known_duplicate_variant_ids_are_temporary_exceptions() {
+        let root = temp_dir("core_kite_duplicate");
+        let core_root = root.join("starsector-core");
+        fs::create_dir_all(core_root.join("data/variants/kite")).unwrap();
+        write_utf8_no_bom(
+            &core_root.join("data/variants/kite/kite_Interceptor.variant"),
+            r#"{"variantId":"kite_hegemony_Interceptor","hullId":"kite_hegemony"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &core_root.join("data/variants/kite_hegemony_Interceptor.variant"),
+            r#"{"variantId":"kite_hegemony_Interceptor","hullId":"kite_hegemony"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &core_root.join("data/variants/kite/kite_Stock.variant"),
+            r#"{"variantId":"kite_original_Stock","hullId":"kite_original"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &core_root.join("data/variants/kite_original_Stock.variant"),
+            r#"{"variantId":"kite_original_Stock","hullId":"kite_original"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &core_root.join("data/variants/ziggurat_Experimental.variant"),
+            r#"{"variantId":"ziggurat_Experimental","hullId":"ziggurat"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &core_root.join("data/variants/ziggurat_HF.variant"),
+            r#"{"variantId":"ziggurat_Experimental","hullId":"ziggurat"}"#,
+        )
+        .unwrap();
+
+        let variants = load_variant_files(&core_root).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(variants.len(), 3);
+        assert!(variants
+            .iter()
+            .any(|variant| variant.variant_id == "kite_hegemony_Interceptor"));
+        assert!(variants
+            .iter()
+            .any(|variant| variant.variant_id == "kite_original_Stock"));
+        assert!(variants
+            .iter()
+            .any(|variant| variant.variant_id == "ziggurat_Experimental"));
+    }
+
+    #[test]
+    fn mod_kite_interceptor_duplicate_variant_id_still_fails() {
+        let root = temp_dir("mod_kite_duplicate");
+        fs::create_dir_all(root.join("data/variants/kite")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/variants/kite/kite_Interceptor.variant"),
+            r#"{"variantId":"kite_hegemony_Interceptor","hullId":"kite_hegemony"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("data/variants/kite_hegemony_Interceptor.variant"),
+            r#"{"variantId":"kite_hegemony_Interceptor","hullId":"kite_hegemony"}"#,
+        )
+        .unwrap();
+
+        let error = load_variant_files(&root).unwrap_err().to_string();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(error.contains("重复 variantId kite_hegemony_Interceptor"));
     }
 
     #[test]

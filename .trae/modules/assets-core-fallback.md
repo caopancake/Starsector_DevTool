@@ -2,7 +2,7 @@
 
 ## 定义
 
-资源系统读取、扫描和上传图片资源，并为 Mod 缺失资源提供 `starsector-core` fallback。
+资源系统读取、扫描和上传图片资源，并为 Mod 缺失资源提供 `starsector-core` fallback；完整项目读取还会从 `starsector-core` 构建只读原版引用。
 
 ## 边界
 
@@ -17,6 +17,7 @@
 
 - 图片加载优先 Mod 路径，再使用 core fallback。
 - core fallback 来源由完整项目加载时确定的 `starsectorRoot` 表达。
+- 原版引用数据只用于下拉选择和缩略图，不注册为可编辑 Mod，也不参与保存。
 - 上传贴图必须由 Rust 校验目标目录、文件名、扩展名和覆盖语义。
 - 上传和覆盖二进制贴图必须进入文件级 history，使用二进制单文件 changeset。
 - Canvas 和预览中的像素资源必须保持邻近采样。

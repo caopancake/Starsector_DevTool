@@ -60,6 +60,7 @@
         :show="selectOpen"
         :value="strVal"
         :options="enumOptions"
+        :render-label="hasSprites ? renderSelectLabel : undefined"
         size="small"
         clearable
         @mousedown.capture="closeOpenSelectOnFieldClick"
@@ -145,12 +146,13 @@
       />
 
       <!-- key-value -->
-      <div v-else-if="field.type === 'key-value'" class="key-value-editor">
+      <div v-else-if="field.type === 'key-value'" class="key-value-editor" :class="{ 'reference-key-value': isReferenceKeyValue }">
         <div v-for="(entry, idx) in kvEntries" :key="idx" class="kv-row">
           <n-select
             :show="kvSelectOpen[idx]"
             :value="entry.key"
             :options="kvKeyOptions"
+            :render-label="optionsContainSprites(kvKeyOptions) ? renderSelectLabel : undefined"
             filterable
             tag
             size="small"
@@ -316,13 +318,14 @@ function wrapTags(tags: string[]): unknown {
 // ─── Source / enum options ────────────────────────────────────────────
 
 const sourceOptions = computed(() => resolveSource(props.field.source, props.appData));
+const isReferenceKeyValue = computed(() => props.field.type === 'key-value' && props.field.source?.startsWith('csv:'));
 const selectOpen = ref(false);
 const suppressNextSelectOpen = ref(false);
 const kvSelectOpen = ref<Record<number, boolean>>({});
 const suppressNextKvSelectOpen = ref<Record<number, boolean>>({});
 
 // Check if any source option has a sprite — enables thumbnail rendering
-const hasSprites = computed(() => sourceOptions.value.some((o) => o.sprite));
+const hasSprites = computed(() => optionsContainSprites(sourceOptions.value));
 
 // Render label with optional thumbnail for n-select options
 function renderSelectLabel(option: SelectOption & { label?: string; value?: string }) {
@@ -334,6 +337,10 @@ function renderSelectLabel(option: SelectOption & { label?: string; value?: stri
     }),
     h('span', { class: 'schema-select-option-label' }, option.label ?? option.value ?? ''),
   ]);
+}
+
+function optionsContainSprites(options: SelectOption[]): boolean {
+  return options.some((option) => Boolean(option.sprite) || Boolean(option.children?.some((child) => child.sprite)));
 }
 
 const enumOptions = computed(() => {
@@ -378,19 +385,20 @@ function renderGraphicsLabel(option: SelectOption & { label?: string; value?: st
 
 // For key-value fields: merge source options with existing keys as candidates
 const kvKeyOptions = computed(() => {
-  const opts = new Map<string, { label: string; value: string }>();
-  // Add source options first
-  for (const opt of sourceOptions.value) {
-    opts.set(opt.value, opt);
-  }
-  // Add existing keys that aren't already in source
+  const source = sourceOptions.value;
+  const existing: SelectOption[] = [];
   for (const entry of kvEntries.value) {
-    if (entry.key && !opts.has(entry.key)) {
-      opts.set(entry.key, { label: entry.key, value: entry.key });
+    if (entry.key && !optionValueExists(source, entry.key) && !existing.some((option) => option.value === entry.key)) {
+      existing.push({ label: entry.key, value: entry.key });
     }
   }
-  return [...opts.values()];
+  if (existing.length === 0) return source;
+  return [{ type: 'group' as const, label: '当前值', value: '__existing', children: existing }, ...source];
 });
+
+function optionValueExists(options: SelectOption[], value: string): boolean {
+  return options.some((option) => option.value === value || Boolean(option.children?.some((child) => child.value === value)));
+}
 
 // ─── Nested object helpers ────────────────────────────────────────────
 

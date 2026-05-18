@@ -12,7 +12,13 @@
         :class="{ active: variant.variantId === selectedId }"
         @click="emit('select', variant.variantId)"
       >
-        <span class="variant-list-marker config-entity-thumb">{{ variant.hullId.slice(0, 1).toUpperCase() }}</span>
+        <span class="variant-list-preview config-entity-thumb">
+          <img v-if="variantShipSprite(variant)" :src="variantShipSprite(variant)" alt="" />
+          <svg v-else class="variant-list-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3 5 18l7 3 7-3-7-15z" />
+            <path d="M12 3v18M7 15l5 2 5-2" />
+          </svg>
+        </span>
         <span class="variant-list-text">
           <span class="config-entity-name">{{ variant.variantId }}</span>
           <small>{{ variant.hullId }}</small>
@@ -43,7 +49,14 @@
       @positive-click="createVariant"
     >
       <div class="variant-dialog-fields">
-        <n-select v-model:value="newHullId" :options="hullOptions" filterable tag placeholder="hullId" />
+        <n-select
+          v-model:value="newHullId"
+          :options="hullOptions"
+          :render-label="renderHullOptionLabel"
+          filterable
+          tag
+          placeholder="hullId"
+        />
         <n-input v-model:value="newVariantId" placeholder="variantId" />
       </div>
     </n-modal>
@@ -63,12 +76,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, h, ref, watch } from 'vue';
 import { createAppFeedback } from '../../../app/app-feedback';
 import { useProjectStore } from '../../project/project-store';
 import type { VariantFile } from '../../../shared/types';
 import { cell } from '../../../shared/lib/starsector';
 import { formatError } from '../../../shared/lib/errors';
+import type { SelectOption } from '../../schema/schema-service';
+import { resolveSource } from '../../schema/schema-service';
 import { createVariantWithFileHistory, deleteVariantWithFileHistory } from '../config-save-orchestrator';
 import { isSafeFileStem } from '../config-service';
 
@@ -87,13 +102,7 @@ const pendingDeleteVariant = ref<VariantFile | null>(null);
 const modData = computed(() => project.activeModData);
 const modRoot = computed(() => modData.value?.modRoot ?? '');
 const variants = computed(() => [...(modData.value?.variantFiles ?? [])].sort(compareVariants));
-const hullOptions = computed(() =>
-  (modData.value?.ships ?? [])
-    .map((ship) => cell(ship.id) || cell(ship.hullId))
-    .filter(Boolean)
-    .sort()
-    .map((id) => ({ label: id, value: id })),
-);
+const hullOptions = computed(() => resolveSource('csv:ships.id', modData.value ?? null));
 
 async function createVariant() {
   const hullId = newHullId.value.trim();
@@ -152,6 +161,32 @@ async function deletePendingVariant() {
 
 function compareVariants(a: VariantFile, b: VariantFile): number {
   return a.hullId.localeCompare(b.hullId) || a.variantId.localeCompare(b.variantId);
+}
+
+function variantShipSprite(variant: VariantFile): string {
+  return shipSpriteForHull(variant.hullId);
+}
+
+function shipSpriteForHull(hullId: string): string {
+  const data = modData.value;
+  if (!data) return '';
+  const direct = data.shipSprites[hullId];
+  if (direct) return direct;
+  const row = data.ships.find((ship) => cell(ship.id) === hullId || cell(ship.hullId) === hullId);
+  const shipId = cell(row?.id) || cell(row?.hullId);
+  if (shipId && data.shipSprites[shipId]) return data.shipSprites[shipId];
+  return data.coreReferences.shipSprites[hullId] || (shipId ? data.coreReferences.shipSprites[shipId] || '' : '');
+}
+
+function renderHullOptionLabel(option: SelectOption & { label?: string; value?: string; sprite?: string }) {
+  if (!option.sprite) return option.label ?? option.value ?? '';
+  return h('span', { class: 'schema-select-option' }, [
+    h('img', {
+      src: option.sprite,
+      class: 'schema-select-option-thumb',
+    }),
+    h('span', { class: 'schema-select-option-label' }, option.label ?? option.value ?? ''),
+  ]);
 }
 
 watch(

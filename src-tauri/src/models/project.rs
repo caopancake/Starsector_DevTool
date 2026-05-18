@@ -53,6 +53,23 @@ pub struct AppData {
     pub ship_system_sprites: BTreeMap<String, String>,
     pub industry_sprites: BTreeMap<String, String>,
     pub skill_sprites: BTreeMap<String, String>,
+    pub core_references: CoreReferences,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CoreReferences {
+    pub tables: BTreeMap<String, Vec<Map<String, Value>>>,
+    pub ship_files: BTreeMap<String, Value>,
+    pub wpn_files: BTreeMap<String, Value>,
+    pub variant_files: Vec<VariantFile>,
+    pub ship_sprites: BTreeMap<String, String>,
+    pub weapon_sprites_data: BTreeMap<String, BTreeMap<String, String>>,
+    pub wing_sprites: BTreeMap<String, String>,
+    pub hullmod_sprites: BTreeMap<String, String>,
+    pub ship_system_sprites: BTreeMap<String, String>,
+    pub industry_sprites: BTreeMap<String, String>,
+    pub skill_sprites: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

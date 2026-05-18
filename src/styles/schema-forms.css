@@ -135,7 +135,7 @@
 }
 
 .array-item {
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
   padding: 6px var(--space-2);
@@ -155,12 +155,25 @@
 
 .kv-row {
   display: grid;
-  grid-template-columns: minmax(160px, 220px) minmax(80px, 1fr) 28px;
+  grid-template-columns: minmax(96px, 140px) minmax(220px, 1fr) 28px;
   gap: var(--space-1);
   align-items: center;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+}
+
+.reference-key-value .kv-row {
+  grid-template-columns: minmax(220px, 1fr) 88px 28px;
+}
+
+.kv-row > .schema-field.nested-row {
+  display: block;
+  padding: 0;
+}
+
+.kv-row > .schema-field.nested-row > .field-label {
+  display: none;
 }
 
 .array-item-header {

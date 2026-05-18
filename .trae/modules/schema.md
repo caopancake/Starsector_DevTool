@@ -20,6 +20,8 @@ Schema 系统为配置页面提供字段定义、分组、枚举来源、多来�
 - `SchemaFieldRenderer` 只能通过字段类型选择控件，不应绕过 schema 直接写业务文件。
 - 多来源字段必须通过 schema service 聚合和拆分。
 - core discovered fields 只能作为 schema 的动态补充来源。
+- `csv:*` source 必须解析为当前 Mod 与原版引用的分组选项，当前 Mod 分组在上，原版分组在下，重复 ID 以当前 Mod 为准。
+- `csv:*` source 必须过滤 `#` 开头 ID；这类 CSV 行可在表格中编辑，但不能作为合法引用。
 
 ## 链路：渲染 Schema 表单
 

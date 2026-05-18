@@ -10,10 +10,10 @@
 - `src/features/config/components/ModInfoEditor.vue` 编辑 `mod_info.json`。
 - `src/features/config/components/FactionView.vue` 作为势力完整模块容器，组合列表、编辑器和空状态。
 - `src/features/config/components/FactionEntityList.vue` 管理势力列表、新建和删除。
-- `src/features/config/components/FactionEditor.vue` 编辑 `.faction`。
+- `src/features/config/components/FactionEditor.vue` 编辑和删除 `.faction`。
 - `src/features/config/components/MissionView.vue` 作为战役完整模块容器，组合列表、编辑器和空状态。
 - `src/features/config/components/MissionEntityList.vue` 管理 mission 列表、新建和删除。
-- `src/features/config/components/MissionEditor.vue` 编辑 mission 列表项、descriptor 和文本。
+- `src/features/config/components/MissionEditor.vue` 编辑和删除 mission 列表项、descriptor 和文本。
 - `src/features/config/config-service.ts` 封装配置 API。
 - `src/features/config/config-save-orchestrator.ts` 统一记录配置保存的文件级 history。
 - `src/shared/api/missions-api.ts`、`src/shared/api/indexed-api.ts` 和 `src/shared/api/files-api.ts` 封装 mission、indexed entity 和文件 command。
@@ -71,7 +71,7 @@
 
 ## 链路：删除 indexed config entity
 
-1. 用户在 `FactionEntityList.vue` 或 `MissionEntityList.vue` 删除条目。
+1. 用户在 entity list 或 editor header 删除条目。
 2. 组件调用 `deleteIndexedConfigEntityWithFileHistory()`，提交 `kind`、`id` 和 `deleteTarget`。
 3. config save orchestrator 调用 `deleteIndexedConfigEntityData()`。
 4. `indexed-api.ts` 调用 Rust `delete_indexed_config_entity_with_history` command。

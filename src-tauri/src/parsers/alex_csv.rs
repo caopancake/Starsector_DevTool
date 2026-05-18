@@ -80,7 +80,7 @@ fn normalize_visible_empty_rows(text: &str) -> String {
     let Some((header_index, header)) = lines
         .iter()
         .enumerate()
-        .find(|(_, line)| !is_visible_empty_line(line))
+        .find(|(_, line)| !is_blank_visible_empty_line(line))
     else {
         return text.to_string();
     };
@@ -90,19 +90,35 @@ fn normalize_visible_empty_rows(text: &str) -> String {
     }
     let empty_record = ",".repeat(header_width.saturating_sub(1));
     let mut normalized = Vec::with_capacity(lines.len());
+    let mut in_quoted_record = false;
     for (index, line) in lines.iter().enumerate() {
-        if index > header_index && is_visible_empty_line(line) {
+        if index > header_index && !in_quoted_record && is_blank_visible_empty_line(line) {
             normalized.push(empty_record.clone());
+        } else if index > header_index && !in_quoted_record && is_hash_single_cell_row(line) {
+            normalized.push(render_single_cell_row(line.trim(), header_width));
         } else {
             normalized.push((*line).to_string());
         }
+        in_quoted_record = update_csv_quote_state(line, in_quoted_record);
     }
     normalized.join("\r\n")
 }
 
-fn is_visible_empty_line(line: &str) -> bool {
+fn is_blank_visible_empty_line(line: &str) -> bool {
     let trimmed = line.trim();
-    trimmed.is_empty() || trimmed.starts_with('#') || trimmed.chars().all(|ch| ch == ',')
+    trimmed.is_empty() || trimmed.chars().all(|ch| ch == ',')
+}
+
+fn is_hash_single_cell_row(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed.starts_with('#') && !trimmed.contains(',')
+}
+
+fn render_single_cell_row(first_cell: &str, header_width: usize) -> String {
+    let mut row = Vec::with_capacity(header_width);
+    row.push(first_cell.to_string());
+    row.resize(header_width, String::new());
+    row.join(",")
 }
 
 fn record_width(line: &str) -> Option<usize> {
@@ -114,6 +130,21 @@ fn record_width(line: &str) -> Option<usize> {
         .next()
         .and_then(Result::ok)
         .map(|record| record.len())
+}
+
+fn update_csv_quote_state(line: &str, mut in_quotes: bool) -> bool {
+    let mut chars = line.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch != '"' {
+            continue;
+        }
+        if in_quotes && chars.peek() == Some(&'"') {
+            chars.next();
+            continue;
+        }
+        in_quotes = !in_quotes;
+    }
+    in_quotes
 }
 
 #[cfg(test)]
@@ -180,10 +211,69 @@ mod tests {
         let _ = fs::remove_file(&path);
         assert_eq!(table.rows.len(), 5);
         assert_eq!(table.rows[0]["id"], "a");
-        assert_eq!(table.rows[1]["id"], "");
+        assert_eq!(table.rows[1]["id"], "#section");
         assert_eq!(table.rows[2]["id"], "");
         assert_eq!(table.rows[3]["id"], "");
         assert_eq!(table.rows[4]["id"], "b");
+    }
+
+    #[test]
+    fn read_preserves_blank_lines_inside_quoted_multiline_fields() {
+        let path = temp_path("csv_multiline_blank_field.csv");
+        write_utf8_no_bom(
+            &path,
+            "id,name,desc\r\na,A,\"first line\r\n\r\nthird line\"\r\n#section\r\nb,B,plain\r\n",
+        )
+        .unwrap();
+
+        let table = read_csv_data(&path).unwrap();
+
+        let _ = fs::remove_file(&path);
+        assert_eq!(table.rows.len(), 3);
+        assert_eq!(table.rows[0]["id"], "a");
+        assert_eq!(table.rows[0]["desc"], "first line\r\n\r\nthird line");
+        assert_eq!(table.rows[1]["id"], "#section");
+        assert_eq!(table.rows[2]["id"], "b");
+    }
+
+    #[test]
+    fn read_keeps_hash_prefixed_data_rows_with_full_width() {
+        let path = temp_path("csv_hash_prefixed_data_row.csv");
+        write_utf8_no_bom(
+            &path,
+            "name,id,desc\r\nA,a,alpha\r\n#Disabled Name,disabled,\"first line\r\n\r\nthird line\"\r\n#section\r\nB,b,beta\r\n",
+        )
+        .unwrap();
+
+        let table = read_csv_data(&path).unwrap();
+
+        let _ = fs::remove_file(&path);
+        assert_eq!(table.rows.len(), 4);
+        assert_eq!(table.rows[1]["name"], "#Disabled Name");
+        assert_eq!(table.rows[1]["id"], "disabled");
+        assert_eq!(table.rows[1]["desc"], "first line\r\n\r\nthird line");
+        assert_eq!(table.rows[2]["name"], "#section");
+        assert_eq!(table.rows[2]["id"], "");
+        assert_eq!(table.rows[3]["id"], "b");
+    }
+
+    #[test]
+    fn read_keeps_hash_prefixed_multiline_data_rows() {
+        let path = temp_path("csv_hash_prefixed_multiline_data_row.csv");
+        write_utf8_no_bom(
+            &path,
+            "name,id,desc,short,sprite\r\nA,a,alpha,A,graphics/a.png\r\n#Disabled Name,disabled,\"first line\r\n\r\nthird line\",Disabled,graphics/disabled.png\r\nB,b,beta,B,graphics/b.png\r\n",
+        )
+        .unwrap();
+
+        let table = read_csv_data(&path).unwrap();
+
+        let _ = fs::remove_file(&path);
+        assert_eq!(table.rows.len(), 3);
+        assert_eq!(table.rows[1]["name"], "#Disabled Name");
+        assert_eq!(table.rows[1]["id"], "disabled");
+        assert_eq!(table.rows[1]["desc"], "first line\r\n\r\nthird line");
+        assert_eq!(table.rows[1]["short"], "Disabled");
     }
 
     #[test]

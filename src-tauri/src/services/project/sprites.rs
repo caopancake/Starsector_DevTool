@@ -82,6 +82,42 @@ pub(super) fn load_skill_sprite_data(
     load_table_sprite_data(mod_root, core_dir, skills, "icon")
 }
 
+pub(super) fn load_wing_sprite_data(
+    ship_sprites: &BTreeMap<String, String>,
+    variants: &[crate::models::VariantFile],
+    wings: &[Map<String, Value>],
+) -> BTreeMap<String, String> {
+    let mut by_variant_id = BTreeMap::new();
+    let mut by_rel_path = BTreeMap::new();
+    for variant in variants {
+        by_variant_id.insert(variant.variant_id.as_str(), variant.hull_id.as_str());
+        by_rel_path.insert(variant.rel_path.as_str(), variant.hull_id.as_str());
+    }
+
+    let mut sprites = BTreeMap::new();
+    for row in wings {
+        let id = str_field(row, "id");
+        let variant_ref = str_field(row, "variant").replace('\\', "/");
+        if id.is_empty() || variant_ref.is_empty() {
+            continue;
+        }
+        let stem = variant_ref
+            .split('/')
+            .rfind(|part| !part.is_empty())
+            .unwrap_or("")
+            .trim_end_matches(".variant");
+        let hull_id = by_variant_id
+            .get(variant_ref.as_str())
+            .copied()
+            .or_else(|| by_variant_id.get(stem).copied())
+            .or_else(|| by_rel_path.get(variant_ref.as_str()).copied());
+        if let Some(sprite) = hull_id.and_then(|hull_id| ship_sprites.get(hull_id)) {
+            sprites.insert(id, sprite.clone());
+        }
+    }
+    sprites
+}
+
 fn load_table_sprite_data(
     mod_root: &Path,
     core_dir: Option<&Path>,
