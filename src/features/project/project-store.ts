@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import type { AppData, RowData, VariantFile } from '../../shared/types';
+import type { AppData, RowData, SkinFile, VariantFile } from '../../shared/types';
 import { cell, deepClone } from '../../shared/lib/starsector';
 import { loadProject } from './project-service';
 import { getNextActiveKeyAfterRemoval } from '../../shared/lib/store-utils';
@@ -83,6 +83,30 @@ export const useProjectStore = defineStore('project', () => {
     );
   }
 
+  function replaceSkinFiles(modRoot: string, skinFiles: SkinFile[]) {
+    const modData = modsData.value.get(modRoot);
+    if (!modData) return;
+    modData.skinFiles = deepClone(skinFiles);
+  }
+
+  function upsertSkinFile(modRoot: string, skin: SkinFile, previousSkinHullId?: string | null) {
+    const modData = modsData.value.get(modRoot);
+    if (!modData) return;
+    const next = modData.skinFiles.filter((item) => item.skinHullId !== skin.skinHullId && item.skinHullId !== previousSkinHullId);
+    next.push(deepClone(skin));
+    next.sort((a, b) => a.baseHullId.localeCompare(b.baseHullId) || a.skinHullId.localeCompare(b.skinHullId));
+    replaceSkinFiles(modRoot, next);
+  }
+
+  function deleteSkinFile(modRoot: string, skinHullId: string) {
+    const modData = modsData.value.get(modRoot);
+    if (!modData) return;
+    replaceSkinFiles(
+      modRoot,
+      modData.skinFiles.filter((item) => item.skinHullId !== skinHullId),
+    );
+  }
+
   return {
     activeModRoot,
     activeModData,
@@ -94,10 +118,13 @@ export const useProjectStore = defineStore('project', () => {
     openProject,
     removeModData,
     deleteVariantFile,
+    deleteSkinFile,
     setActiveModRoot,
     updateProjectileFile,
     replaceVariantFiles,
+    replaceSkinFiles,
     updateShipFile,
+    upsertSkinFile,
     upsertVariantFile,
     updateWeaponFile,
   };

@@ -74,6 +74,22 @@ pub(super) fn load_ship_system_sprite_data(
     load_table_sprite_data(mod_root, core_dir, ship_systems, "icon")
 }
 
+pub(super) fn merge_skin_sprite_data(
+    sprites: &mut BTreeMap<String, String>,
+    mod_root: &Path,
+    core_dir: Option<&Path>,
+    skin_files: &[crate::models::SkinFile],
+) -> AppResult<()> {
+    for skin in skin_files {
+        if let Some(sprite) = skin.data.get("spriteName").and_then(Value::as_str) {
+            if let Some(data_url) = load_sprite_data_url(mod_root, core_dir, sprite)? {
+                sprites.insert(skin.skin_hull_id.clone(), data_url);
+            }
+        }
+    }
+    Ok(())
+}
+
 pub(super) fn load_skill_sprite_data(
     mod_root: &Path,
     core_dir: Option<&Path>,

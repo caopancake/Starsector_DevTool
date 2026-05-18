@@ -4,7 +4,7 @@ import { h } from 'vue';
 import { emit } from '@tauri-apps/api/event';
 import { applyFileChangeSet, type FileChangeRecord } from '../../shared/api/files-api';
 import { normalizeFsPath, pathStem, relativePathFromRoot } from '../../shared/lib/paths';
-import type { AppData, RowData, TableKey, VariantFile } from '../../shared/types';
+import type { AppData, RowData, SkinFile, TableKey, VariantFile } from '../../shared/types';
 import type { useProjectStore } from '../project/project-store';
 import type { useTablesStore } from '../tables/tables-store';
 import { loadTableRows } from '../tables/table-service';
@@ -98,6 +98,9 @@ async function applyFileSaveHistoryEntry(
     if (syncVariantFileChange(project, change.path, text)) {
       continue;
     }
+    if (syncSkinFileChange(project, change.path, text)) {
+      continue;
+    }
     syncConfigFileChange(project.modsData, change, direction);
     const tableChange = tableForCsvFileChange(project.modsData, change.path);
     if (tableChange) {
@@ -110,6 +113,29 @@ async function applyFileSaveHistoryEntry(
       }
       tables.replaceTableForMod(tableChange.modRoot, tableChange.table, loaded.rows);
     }
+  }
+}
+
+function syncSkinFileChange(project: ProjectStore, path: string, text: string | null): boolean {
+  const modRoot = resolveLoadedModRootForPath(project.modsData, path);
+  if (!modRoot) return false;
+  const rel = relativePathFromRoot(modRoot, path);
+  if (!rel.startsWith('data/hulls/skins/') || !rel.endsWith('.skin')) return false;
+  if (!text) {
+    const existing = project.getModData(modRoot)?.skinFiles.find((skin) => normalizeFsPath(skin.path) === normalizeFsPath(path));
+    if (existing) project.deleteSkinFile(modRoot, existing.skinHullId);
+    return true;
+  }
+  try {
+    const data = JSON.parse(text) as RowData;
+    const skinHullId = stringField(data, 'skinHullId') || pathStem(path);
+    const baseHullId = stringField(data, 'baseHullId');
+    if (!baseHullId) return true;
+    const previous = project.getModData(modRoot)?.skinFiles.find((skin) => normalizeFsPath(skin.path) === normalizeFsPath(path));
+    project.upsertSkinFile(modRoot, buildSkinFile(modRoot, rel, data), previous?.skinHullId);
+    return Boolean(skinHullId);
+  } catch {
+    return true;
   }
 }
 
@@ -269,6 +295,21 @@ function buildVariantFile(modRoot: string, relPath: string, data: RowData): Vari
   };
 }
 
+function buildSkinFile(modRoot: string, relPath: string, data: RowData): SkinFile {
+  return {
+    skinHullId: stringField(data, 'skinHullId'),
+    baseHullId: stringField(data, 'baseHullId'),
+    relPath,
+    path: joinModPath(modRoot, relPath),
+    data,
+    builtInModCount: arrayCount(data.builtInMods),
+    builtInWeaponCount: objectCount(data.builtInWeapons),
+    builtInWingCount: arrayCount(data.builtInWings),
+    weaponSlotChangeCount: objectCount(data.weaponSlotChanges),
+    engineSlotChangeCount: objectCount(data.engineSlotChanges),
+  };
+}
+
 function stringField(data: RowData, key: string): string {
   const value = data[key];
   return typeof value === 'string' ? value.trim() : '';
@@ -276,6 +317,10 @@ function stringField(data: RowData, key: string): string {
 
 function arrayCount(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
+}
+
+function objectCount(value: unknown): number {
+  return value && typeof value === 'object' && !Array.isArray(value) ? Object.keys(value).length : 0;
 }
 
 function joinModPath(root: string, relPath: string): string {

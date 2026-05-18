@@ -19,6 +19,7 @@
 - 文件级 history 按 `modRoot` 隔离。
 - undo/redo 必须先 peek entry，再弹窗确认，再调用 Rust 回放。
 - Rust 回放成功后前端才能 commit 栈移动。
+- schema 配置 entity 的单文件保存回放后，前端必须同步对应 project cache；当前包括装配和舰船皮肤。
 - Rust 回放失败时前端不能移动 undo/redo 栈。
 - barrier 只用于真正不能表达为 changeset 的不可逆操作，不得用于 Mod 内普通文件保存。
 - 单文件 changeset 可以用 `beforeText/afterText` 表达 UTF-8 无 BOM 文本，也可以用 `beforeDataBase64/afterDataBase64` 表达二进制内容。

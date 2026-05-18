@@ -4,6 +4,7 @@
     <FileHistoryView v-else-if="workspace.configView === 'file-history'" />
     <ModInfoEditor v-else-if="workspace.configView === 'mod-info'" />
     <FactionView v-else-if="workspace.configView === 'factions'" />
+    <SkinView v-else-if="workspace.configView === 'skins'" />
     <VariantView v-else-if="workspace.configView === 'variants'" />
     <MissionView v-else-if="workspace.configView === 'mission'" />
   </main>
@@ -16,6 +17,7 @@ import FileHistoryView from './FileHistoryView.vue';
 import ModInfoEditor from './ModInfoEditor.vue';
 import FactionView from './FactionView.vue';
 import MissionView from './MissionView.vue';
+import SkinView from './SkinView.vue';
 import VariantView from './VariantView.vue';
 
 const workspace = useWorkspaceStore();

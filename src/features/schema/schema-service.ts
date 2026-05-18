@@ -2,16 +2,19 @@ import type { AppData, CoreReferences, JsonValue, RowData, TableKey } from '../.
 import type { DiscoveredField } from '../../shared/api/assets-api';
 import type { FieldSchema, FileSchema, SectionSchema } from './schema-types';
 import { isDisabledCsvReference } from '../../shared/lib/starsector';
+import { hullReferenceRows, hullSpriteMap, wingSpriteMap } from '../../shared/lib/hull-references';
 
 import modInfoSchemaRaw from '../../../schemas/mod-info.schema.json';
 import factionSchemaRaw from '../../../schemas/faction.schema.json';
 import missionSchemaRaw from '../../../schemas/mission.schema.json';
+import skinSchemaRaw from '../../../schemas/skin.schema.json';
 import variantSchemaRaw from '../../../schemas/variant.schema.json';
 
 const SCHEMAS: Record<string, FileSchema> = {
   'mod-info': modInfoSchemaRaw as unknown as FileSchema,
   faction: factionSchemaRaw as unknown as FileSchema,
   mission: missionSchemaRaw as unknown as FileSchema,
+  skin: skinSchemaRaw as unknown as FileSchema,
   variant: variantSchemaRaw as unknown as FileSchema,
 };
 
@@ -117,8 +120,8 @@ export function resolveSource(source: string | undefined | null, appData: AppDat
     const table = dotIdx > 0 ? rest.slice(0, dotIdx) : rest;
     const col = dotIdx > 0 ? rest.slice(dotIdx + 1) : 'id';
 
-    const modRows = rowsForTable(appData, table);
-    const coreRows = coreRowsForTable(appData.coreReferences, table);
+    const modRows = table === 'ships' ? hullReferenceRows(appData, 'mod') : rowsForTable(appData, table);
+    const coreRows = table === 'ships' ? hullReferenceRows(appData, 'core') : coreRowsForTable(appData.coreReferences, table);
     if (modRows.length === 0 && coreRows.length === 0) return [];
 
     if (col === 'tags') {
@@ -146,13 +149,13 @@ export function resolveSource(source: string | undefined | null, appData: AppDat
 function getSpriteMap(appData: AppData, table: string): Record<string, string> | undefined {
   switch (table) {
     case 'ships':
-      return appData.shipSprites;
+      return hullSpriteMap(appData, 'mod');
     case 'hullmods':
       return appData.hullmodSprites;
     case 'weapons':
       return flattenWeaponSprites(appData.weaponSpritesData);
     case 'wings':
-      return wingSprites(appData.wings, appData.variantFiles, appData.shipSprites);
+      return wingSpriteMap(appData, appData.wings, appData.variantFiles, 'mod');
     case 'shipSystems':
       return appData.shipSystemSprites;
     case 'industries':
@@ -168,11 +171,11 @@ function getCoreSpriteMap(appData: AppData, table: string): Record<string, strin
   const core = appData.coreReferences;
   switch (table) {
     case 'ships':
-      return core.shipSprites;
+      return hullSpriteMap(appData, 'core');
     case 'weapons':
       return flattenWeaponSprites(core.weaponSpritesData);
     case 'wings':
-      return core.wingSprites;
+      return wingSpriteMap(appData, core.tables.wings ?? [], core.variantFiles, 'core');
     case 'hullmods':
       return core.hullmodSprites;
     case 'shipSystems':
@@ -249,28 +252,6 @@ function flattenWeaponSprites(data: Record<string, Record<string, string>>): Rec
       sprites.hardpointUnderSprite ||
       sprites.turretGlowSprite ||
       sprites.hardpointGlowSprite;
-    if (sprite) result[id] = sprite;
-  }
-  return result;
-}
-
-function wingSprites(rows: RowData[], variants: AppData['variantFiles'], shipSprites: Record<string, string>): Record<string, string> {
-  const byVariantId = new Map(variants.map((variant) => [variant.variantId, variant.hullId]));
-  const byRelPath = new Map(variants.map((variant) => [variant.relPath, variant.hullId]));
-  const result: Record<string, string> = {};
-  for (const row of rows) {
-    const id = String(row.id ?? '').trim();
-    const variantRef = String(row.variant ?? '')
-      .trim()
-      .replace(/\\/g, '/');
-    if (!id || !variantRef) continue;
-    const stem = variantRef
-      .split('/')
-      .filter(Boolean)
-      .pop()
-      ?.replace(/\.variant$/i, '');
-    const hullId = byVariantId.get(variantRef) ?? (stem ? byVariantId.get(stem) : undefined) ?? byRelPath.get(variantRef);
-    const sprite = hullId ? shipSprites[hullId] : '';
     if (sprite) result[id] = sprite;
   }
   return result;

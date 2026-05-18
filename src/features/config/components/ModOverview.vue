@@ -59,12 +59,13 @@ const breakdown = computed(() => [
   { label: '联队', count: data.value?.wings.length ?? 0 },
   { label: '舰船插件', count: data.value?.hullmods.length ?? 0 },
   { label: '战术系统', count: data.value?.shipSystems.length ?? 0 },
+  { label: '舰船皮肤', count: data.value?.skinFiles.length ?? 0 },
   { label: '装配', count: data.value?.variantFiles.length ?? 0 },
   { label: '工业', count: data.value?.industries.length ?? 0 },
   { label: '技能', count: data.value?.skills.length ?? 0 },
   { label: '势力', count: data.value ? Object.keys(data.value.factionFiles).length : 0 },
   { label: '战役', count: data.value?.missionCount ?? 0 },
 ]);
-const tableTotal = computed(() => breakdown.value.slice(0, 8).reduce((sum, item) => sum + item.count, 0));
-const configTotal = computed(() => breakdown.value.slice(8).reduce((sum, item) => sum + item.count, 0));
+const tableTotal = computed(() => breakdown.value.slice(0, 9).reduce((sum, item) => sum + item.count, 0));
+const configTotal = computed(() => breakdown.value.slice(9).reduce((sum, item) => sum + item.count, 0));
 </script>

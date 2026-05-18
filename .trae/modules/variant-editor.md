@@ -19,9 +19,10 @@
 
 - `.variant` 读取不依赖 schema；schema 只负责前端表单渲染。
 - 每个 `.variant` 必须有 `variantId` 和 `hullId`。
+- `hullId` 可以指向 `.ship` 的舰船 ID，也可以指向 `.skin` 的 `skinHullId`；任何装配 hull 引用都必须把 `skinHullId` 当作合法 hull ID。
 - `variantId` 必须在当前 Mod 内全局唯一。
 - 装配模块不提供文件编辑器入口。
-- 装配列表必须按 `hullId` 尝试读取对应舰船贴图作为缩略图，读取不到时显示装配占位图标。
+- 装配列表必须按 `hullId` 尝试读取对应舰船或舰船皮肤贴图作为缩略图，读取不到时显示装配占位图标。
 - 保存允许修改 `variantId`；修改后必须在同一个 changeset 中删除旧文件并创建新文件。
 - 新建路径固定为 `data/variants/{variantId}.variant`。
 - 新建、保存、重命名和删除都必须进入文件级 history。

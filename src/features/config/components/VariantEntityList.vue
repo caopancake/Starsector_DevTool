@@ -80,12 +80,12 @@ import { computed, h, ref, watch } from 'vue';
 import { createAppFeedback } from '../../../app/app-feedback';
 import { useProjectStore } from '../../project/project-store';
 import type { VariantFile } from '../../../shared/types';
-import { cell } from '../../../shared/lib/starsector';
 import { formatError } from '../../../shared/lib/errors';
 import type { SelectOption } from '../../schema/schema-service';
 import { resolveSource } from '../../schema/schema-service';
 import { createVariantWithFileHistory, deleteVariantWithFileHistory } from '../config-save-orchestrator';
 import { isSafeFileStem } from '../config-service';
+import { resolveHullSprite } from '../../../shared/lib/hull-references';
 
 const props = defineProps<{ selectedId: string }>();
 const emit = defineEmits<{ select: [variantId: string] }>();
@@ -164,18 +164,7 @@ function compareVariants(a: VariantFile, b: VariantFile): number {
 }
 
 function variantShipSprite(variant: VariantFile): string {
-  return shipSpriteForHull(variant.hullId);
-}
-
-function shipSpriteForHull(hullId: string): string {
-  const data = modData.value;
-  if (!data) return '';
-  const direct = data.shipSprites[hullId];
-  if (direct) return direct;
-  const row = data.ships.find((ship) => cell(ship.id) === hullId || cell(ship.hullId) === hullId);
-  const shipId = cell(row?.id) || cell(row?.hullId);
-  if (shipId && data.shipSprites[shipId]) return data.shipSprites[shipId];
-  return data.coreReferences.shipSprites[hullId] || (shipId ? data.coreReferences.shipSprites[shipId] || '' : '');
+  return resolveHullSprite(modData.value, variant.hullId);
 }
 
 function renderHullOptionLabel(option: SelectOption & { label?: string; value?: string; sprite?: string }) {

@@ -28,6 +28,7 @@ export interface AppData {
   shipFiles: Record<string, RowData>;
   variants: Record<string, RowData[]>;
   variantFiles: VariantFile[];
+  skinFiles: SkinFile[];
   shipSprites: Record<string, string>;
   availableSprites: string[];
   wpnFiles: Record<string, RowData>;
@@ -48,6 +49,7 @@ export interface CoreReferences {
   shipFiles: Record<string, RowData>;
   wpnFiles: Record<string, RowData>;
   variantFiles: VariantFile[];
+  skinFiles: SkinFile[];
   shipSprites: Record<string, string>;
   weaponSpritesData: Record<string, Record<string, string>>;
   wingSprites: Record<string, string>;
@@ -67,6 +69,19 @@ export interface VariantFile {
   hullModCount: number;
   permaModCount: number;
   wingCount: number;
+}
+
+export interface SkinFile {
+  skinHullId: string;
+  baseHullId: string;
+  path: string;
+  relPath: string;
+  data: RowData;
+  builtInModCount: number;
+  builtInWeaponCount: number;
+  builtInWingCount: number;
+  weaponSlotChangeCount: number;
+  engineSlotChangeCount: number;
 }
 
 export interface GameScanWarning {

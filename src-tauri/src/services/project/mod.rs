@@ -8,7 +8,7 @@ use crate::{
     filesystem::{list_sprites, load_json_dir_by_id, read_json_file},
     models::{
         AppData, CoreReferences, FactionMeta, GameModSummary, GameOverviewData, GameScanWarning,
-        OpenDirectoryResult, VariantFile,
+        OpenDirectoryResult, SkinFile, VariantFile,
     },
     parsers::read_csv_data,
 };
@@ -23,6 +23,7 @@ struct SpecBundle {
     ship_files: BTreeMap<String, Value>,
     variants: BTreeMap<String, Vec<Value>>,
     variant_files: Vec<VariantFile>,
+    skin_files: Vec<SkinFile>,
     wpn_files: BTreeMap<String, Value>,
     proj_files: BTreeMap<String, Value>,
     system_files: BTreeMap<String, Value>,
@@ -107,6 +108,7 @@ pub fn load_all_data_with_root(
         mod_root,
         core_dir.as_deref(),
         &spec_bundle.ship_files,
+        &spec_bundle.skin_files,
         &spec_bundle.wpn_files,
         SpriteTableRows {
             hullmods: &hullmods,
@@ -137,6 +139,7 @@ pub fn load_all_data_with_root(
         ship_files: spec_bundle.ship_files,
         variants: spec_bundle.variants,
         variant_files: spec_bundle.variant_files,
+        skin_files: spec_bundle.skin_files,
         ship_sprites: sprite_bundle.ship_sprites,
         available_sprites: sprite_bundle.available_sprites,
         wpn_files: spec_bundle.wpn_files,
@@ -168,10 +171,12 @@ fn load_spec_bundle(mod_root: &Path, core_dir: Option<&Path>) -> AppResult<SpecB
     let wpn_files = load_json_dir_by_id(&mod_root.join("data/weapons"), "wpn", "id")?;
     let variant_files = load_variant_files(mod_root)?;
     let variants = group_variants_by_hull(&variant_files);
+    let skin_files = load_skin_files(mod_root)?;
     Ok(SpecBundle {
         ship_files,
         variants,
         variant_files,
+        skin_files,
         wpn_files,
         proj_files: projectiles::load_projectile_files(mod_root, core_dir)?,
         system_files: load_json_dir_by_id(&mod_root.join("data/shipsystems"), "system", "id")?,
@@ -183,11 +188,14 @@ fn load_sprite_bundle(
     mod_root: &Path,
     core_dir: Option<&Path>,
     ship_files: &BTreeMap<String, Value>,
+    skin_files: &[SkinFile],
     wpn_files: &BTreeMap<String, Value>,
     table_rows: SpriteTableRows<'_>,
 ) -> AppResult<SpriteBundle> {
+    let mut ship_sprites = sprites::load_ship_sprite_data(mod_root, core_dir, ship_files)?;
+    sprites::merge_skin_sprite_data(&mut ship_sprites, mod_root, core_dir, skin_files)?;
     Ok(SpriteBundle {
-        ship_sprites: sprites::load_ship_sprite_data(mod_root, core_dir, ship_files)?,
+        ship_sprites,
         available_sprites: list_sprites(mod_root, &["graphics/ships"]),
         weapon_sprites: list_sprites(
             mod_root,
@@ -218,6 +226,7 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
     let ship_files = load_json_dir_by_id(&core_dir.join("data/hulls"), "ship", "hullId")?;
     let wpn_files = load_json_dir_by_id(&core_dir.join("data/weapons"), "wpn", "id")?;
     let variant_files = load_variant_files(core_dir)?;
+    let skin_files = load_skin_files(core_dir)?;
     let empty: &[Map<String, Value>] = &[];
     let hullmods = tables.get("hullmods").map(Vec::as_slice).unwrap_or(empty);
     let industries = tables.get("industries").map(Vec::as_slice).unwrap_or(empty);
@@ -227,7 +236,8 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
         .unwrap_or(empty);
     let skills = tables.get("skills").map(Vec::as_slice).unwrap_or(empty);
     let wings = tables.get("wings").map(Vec::as_slice).unwrap_or(empty);
-    let ship_sprites = sprites::load_ship_sprite_data(core_dir, None, &ship_files)?;
+    let mut ship_sprites = sprites::load_ship_sprite_data(core_dir, None, &ship_files)?;
+    sprites::merge_skin_sprite_data(&mut ship_sprites, core_dir, None, &skin_files)?;
     let wing_sprites = sprites::load_wing_sprite_data(&ship_sprites, &variant_files, wings);
     let weapon_sprites_data = sprites::load_weapon_sprite_data(core_dir, None, &wpn_files);
     let hullmod_sprites = sprites::load_hullmod_sprite_data(core_dir, None, hullmods);
@@ -240,6 +250,7 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
         ship_files,
         wpn_files: wpn_files.clone(),
         variant_files,
+        skin_files,
         ship_sprites,
         weapon_sprites_data,
         wing_sprites,
@@ -551,6 +562,61 @@ fn load_variant_files(mod_root: &Path) -> AppResult<Vec<VariantFile>> {
     Ok(files)
 }
 
+fn load_skin_files(mod_root: &Path) -> AppResult<Vec<SkinFile>> {
+    let dir = mod_root.join("data/hulls/skins");
+    if !dir.exists() {
+        return Ok(vec![]);
+    }
+    let mut seen = HashMap::new();
+    let mut files = Vec::new();
+    for entry in walkdir::WalkDir::new(&dir).into_iter() {
+        let entry = entry.map_err(|error| {
+            crate::errors::AppError::context(
+                format!("遍历 skin 目录失败 ({})", dir.display()),
+                crate::errors::AppError::message(error.to_string()),
+            )
+        })?;
+        if entry.path().extension().and_then(|s| s.to_str()) != Some("skin") {
+            continue;
+        }
+        let path = entry.path();
+        let data = read_json_file(path)?;
+        let skin_hull_id = required_string(&data, "skinHullId", path)?;
+        let base_hull_id = required_string(&data, "baseHullId", path)?;
+        if let Some(previous) =
+            seen.insert(skin_hull_id.clone(), path.to_string_lossy().to_string())
+        {
+            return Err(crate::errors::AppError::message(format!(
+                "重复 skinHullId {skin_hull_id}: {previous} 和 {}",
+                path.display()
+            )));
+        }
+        let rel_path = path
+            .strip_prefix(mod_root)
+            .map_err(|error| crate::errors::AppError::message(error.to_string()))?
+            .to_string_lossy()
+            .replace('\\', "/");
+        files.push(SkinFile {
+            skin_hull_id,
+            base_hull_id,
+            path: path.to_string_lossy().to_string(),
+            rel_path,
+            built_in_mod_count: array_len(data.get("builtInMods")),
+            built_in_weapon_count: object_len(data.get("builtInWeapons")),
+            built_in_wing_count: array_len(data.get("builtInWings")),
+            weapon_slot_change_count: object_len(data.get("weaponSlotChanges")),
+            engine_slot_change_count: object_len(data.get("engineSlotChanges")),
+            data,
+        });
+    }
+    files.sort_by(|a, b| {
+        a.base_hull_id
+            .cmp(&b.base_hull_id)
+            .then_with(|| a.skin_hull_id.cmp(&b.skin_hull_id))
+    });
+    Ok(files)
+}
+
 fn is_temporary_core_kite_interceptor_duplicate(
     root: &Path,
     current: &Path,
@@ -646,6 +712,12 @@ fn required_string(value: &Value, key: &str, path: &Path) -> AppResult<String> {
 
 fn array_len(value: Option<&Value>) -> usize {
     value.and_then(Value::as_array).map_or(0, Vec::len)
+}
+
+fn object_len(value: Option<&Value>) -> usize {
+    value
+        .and_then(Value::as_object)
+        .map_or(0, |object| object.len())
 }
 
 #[cfg(test)]
@@ -771,6 +843,39 @@ mod tests {
     }
 
     #[test]
+    fn load_all_data_reads_skin_files_with_paths_and_stats() {
+        let root = temp_dir("load_skins");
+        fs::create_dir_all(root.join("data/hulls/skins")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/hulls/skins/demo.skin"),
+            r#"{
+  "skinHullId": "demo_skin",
+  "baseHullId": "demo_hull",
+  "builtInMods": ["heavyarmor"],
+  "builtInWeapons": {"WS 001":"demo_weapon"},
+  "builtInWings": ["demo_wing"],
+  "weaponSlotChanges": {"WS 001": {"size": "SMALL"}},
+  "engineSlotChanges": {"0": {"style": "LOW_TECH"}}
+}"#,
+        )
+        .unwrap();
+
+        let data = load_all_data(&root).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(data.skin_files.len(), 1);
+        let skin = &data.skin_files[0];
+        assert_eq!(skin.skin_hull_id, "demo_skin");
+        assert_eq!(skin.base_hull_id, "demo_hull");
+        assert_eq!(skin.rel_path, "data/hulls/skins/demo.skin");
+        assert_eq!(skin.built_in_mod_count, 1);
+        assert_eq!(skin.built_in_weapon_count, 1);
+        assert_eq!(skin.built_in_wing_count, 1);
+        assert_eq!(skin.weapon_slot_change_count, 1);
+        assert_eq!(skin.engine_slot_change_count, 1);
+    }
+
+    #[test]
     fn load_all_data_reads_core_reference_tables_and_sprites() {
         let root = temp_dir("core_references");
         let mod_root = root.join("mods/demo");
@@ -832,6 +937,12 @@ mod tests {
             r#"{"hullId":"core_ship","spriteName":"graphics/ships/core_ship.png"}"#,
         )
         .unwrap();
+        fs::create_dir_all(core_root.join("data/hulls/skins")).unwrap();
+        write_utf8_no_bom(
+            &core_root.join("data/hulls/skins/core_skin.skin"),
+            r#"{"skinHullId":"core_skin","baseHullId":"core_ship","spriteName":"graphics/ships/core_ship.png"}"#,
+        )
+        .unwrap();
         write_utf8_no_bom(
             &core_root.join("data/weapons/core_weapon.wpn"),
             r#"{"id":"core_weapon","turretSprite":"graphics/weapons/core_weapon.png"}"#,
@@ -855,6 +966,10 @@ mod tests {
         assert_eq!(data.core_references.tables["hullmods"][0]["id"], "core_mod");
         assert!(
             data.core_references.ship_sprites["core_ship"].starts_with("data:image/png;base64,")
+        );
+        assert_eq!(data.core_references.skin_files[0].skin_hull_id, "core_skin");
+        assert!(
+            data.core_references.ship_sprites["core_skin"].starts_with("data:image/png;base64,")
         );
         assert!(
             data.core_references.weapon_sprites_data["core_weapon"]["turretSprite"]
@@ -918,6 +1033,47 @@ mod tests {
         assert!(error.contains("重复 variantId dup"));
         assert!(error.contains("one.variant"));
         assert!(error.contains("two.variant"));
+    }
+
+    #[test]
+    fn load_all_data_rejects_skin_missing_required_ids() {
+        let root = temp_dir("skin_missing_ids");
+        fs::create_dir_all(root.join("data/hulls/skins")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/hulls/skins/bad.skin"),
+            r#"{"skinHullId":"bad"}"#,
+        )
+        .unwrap();
+
+        let error = load_all_data(&root).unwrap_err().to_string();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(error.contains("bad.skin"));
+        assert!(error.contains("baseHullId"));
+    }
+
+    #[test]
+    fn load_all_data_rejects_duplicate_skin_hull_id() {
+        let root = temp_dir("skin_duplicate_id");
+        fs::create_dir_all(root.join("data/hulls/skins/a")).unwrap();
+        fs::create_dir_all(root.join("data/hulls/skins/b")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/hulls/skins/a/one.skin"),
+            r#"{"skinHullId":"dup","baseHullId":"hull_a"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("data/hulls/skins/b/two.skin"),
+            r#"{"skinHullId":"dup","baseHullId":"hull_b"}"#,
+        )
+        .unwrap();
+
+        let error = load_all_data(&root).unwrap_err().to_string();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(error.contains("重复 skinHullId dup"));
+        assert!(error.contains("one.skin"));
+        assert!(error.contains("two.skin"));
     }
 
     #[test]

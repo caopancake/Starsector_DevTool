@@ -42,12 +42,12 @@
 
 ## Phase 5: 舰船皮肤编辑器（Skins）
 
-- [ ] 覆盖 `data/hulls/skins/*.skin`，先按当前 CSV 列式文件的基础接入方式提供列表、选择、文本/字段基础编辑和保存。
-- [ ] 后端：扫描、加载、保存 `.skin` 文件。
-- [ ] 前端：舰船皮肤列表，支持选择、查看、基础字段编辑和保存。编辑和保存由通用文件编辑器链路处理。
-- [ ] 前端：右侧上下文预览和字段速览，行为对齐现有列式文件。
-- [ ] 集成左侧树，在“装配”的下方。
-- [ ] 验收：列表 → 选择 → 基础编辑 → 保存。
+- [x] 覆盖 `data/hulls/skins/*.skin`，以 schema 表单方式提供列表、选择、字段编辑和保存。
+- [x] 后端：扫描、加载、保存 `.skin` 文件。
+- [x] 前端：舰船皮肤列表，支持选择、查看、schema 字段编辑和保存。
+- [x] 前端：右侧 schema 表单和字段速览，行为对齐现有列式文件。
+- [x] 集成左侧树，在“战术系统”的下方、在“装配”的上方。
+- [x] 验收：列表 → 选择 → schema 基础编辑 → 保存。
 
 ## Phase 6: 生涯 CSV 补全
 
@@ -59,12 +59,9 @@
 - [ ] 添加 `sim_opponents.csv` 编辑支持（模拟对手）。
 - [ ] 添加 `special_items.csv` 编辑支持（特殊物品）。
 
-- [ ] 添加复杂生涯 CSV：`bar_events.csv` 编辑支持（酒吧事件）。
-
 ## Phase 7: Schema Registry 收尾
 
 - [ ] 补齐 CSV 列 schema，并评估现有编辑器检查器是否适合局部 schema 化。
-
 - [ ] 编写 CSV 列定义 Schema：`csv/ship_data.columns.json`、`csv/weapon_data.columns.json` 等。
 - [ ] 定义 CSV 列 Schema 格式：key、type、source、options、显示标签和可编辑性。
 - [ ] 主表格根据列 Schema 渲染富控件，例如下拉选择器、path-image 缩略图、颜色块和数字输入。
@@ -129,7 +126,6 @@
 
 - [ ] 将 Starsector 高度模板化的 Java 模块（Ship System、Bar Event、Mission、rules.csv 对话）抽象为可视化节点图。
 - [ ] 集成社区核心库支持：MagicLib、GraphicsLib、LazyLib、LunaLib、BoxUtil。
-
 - [ ] 模板向导：Bar Event 新建向导，配置出现条件 + 对话文本 + 选项分支 → 生成 Java BarEvent + BarEventCreator 类。
 - [ ] 模板向导：HubMission 新建向导，配置目标类型 + 奖励 + 完成条件 → 生成 Java Mission 类骨架。
 - [ ] 模板向导：代码生成引擎由 Rust 端模板渲染（Tera/Handlebars）→ 输出 `.java` 源文件。
@@ -174,7 +170,6 @@
 
 - [ ] 将社区核心库的数据文件格式纳入工具编辑范围，本阶段聚焦纯数据配置文件的编辑支持。
 - [ ] 仅当 Mod 的 `mod_info.json` 声明对应库为依赖时，暴露相关编辑入口。
-
 - [ ] 直接嵌入：`data/config/*.json` 加入可编辑文件列表。
 - [ ] 直接嵌入：`data/lights/*.csv` 加入可编辑 CSV 扫描。
 - [ ] 直接嵌入：读取 `mod_info.json` 的 `dependencies`，条件性暴露 MagicLib/GraphicsLib 编辑入口。

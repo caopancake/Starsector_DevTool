@@ -2,7 +2,7 @@
 
 ## 定义
 
-配置系统编辑 Mod 配置类文件，包括 `mod_info.json`、indexed config entity、势力文件与势力索引、任务 descriptor、任务文本和任务列表 CSV。
+配置系统编辑 Mod 配置类文件，包括 `mod_info.json`、indexed config entity、势力文件与势力索引、任务 descriptor、任务文本、任务列表 CSV、装配和舰船皮肤。
 
 ## 边界
 
@@ -16,7 +16,7 @@
 - `src/features/config/components/MissionEditor.vue` 编辑和删除 mission 列表项、descriptor 和文本。
 - `src/features/config/config-service.ts` 封装配置 API。
 - `src/features/config/config-save-orchestrator.ts` 统一记录配置保存的文件级 history。
-- `src/shared/api/missions-api.ts`、`src/shared/api/indexed-api.ts` 和 `src/shared/api/files-api.ts` 封装 mission、indexed entity 和文件 command。
+- `src/shared/api/missions-api.ts`、`src/shared/api/indexed-api.ts`、`src/shared/api/variants-api.ts`、`src/shared/api/skins-api.ts` 和 `src/shared/api/files-api.ts` 封装配置相关 command。
 - `src-tauri/src/services/config/indexed_entities.rs` 统一处理 indexed config entity 的 CSV index、target adapter 和 changeset。
 - `src-tauri/src/services/config/missions.rs` 只保留 mission 列表扫描、mission 读取和相关测试。
 
@@ -32,6 +32,7 @@
 - `MissionEditor.vue` 必须以 `localMission` schema 模型作为唯一编辑状态，不能用并行的 descriptor/text 状态作为保存 fallback。
 - mission 删除目录必须使用目录级 changeset；faction 删除文件必须使用文件级 changeset。
 - 配置 ID 必须由 Rust 校验，禁止路径穿越。
+- 装配和舰船皮肤是单文件 schema entity，必须通过各自 shared API 和 config save orchestrator 进入文件级 history。
 
 ## 链路：保存 mod_info
 

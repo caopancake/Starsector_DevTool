@@ -1,0 +1,319 @@
+{
+  "id": "skin",
+  "fileType": "skin",
+  "displayName": "舰船皮肤",
+  "description": "Starsector .skin 舰船皮肤文件",
+  "sections": [
+    {
+      "id": "basic",
+      "label": "基础",
+      "fields": [
+        {
+          "key": "skinHullId",
+          "type": "string",
+          "label": "skinHullId",
+          "required": true
+        },
+        {
+          "key": "baseHullId",
+          "type": "enum",
+          "label": "baseHullId",
+          "required": true,
+          "source": "csv:ships.id"
+        },
+        {
+          "key": "hullName",
+          "type": "string",
+          "label": "hullName"
+        },
+        {
+          "key": "hullDesignation",
+          "type": "string",
+          "label": "hullDesignation"
+        },
+        {
+          "key": "descriptionId",
+          "type": "string",
+          "label": "descriptionId"
+        },
+        {
+          "key": "descriptionPrefix",
+          "type": "string",
+          "label": "descriptionPrefix"
+        },
+        {
+          "key": "tech",
+          "type": "string",
+          "label": "tech"
+        },
+        {
+          "key": "spriteName",
+          "type": "path-image",
+          "label": "spriteName"
+        }
+      ]
+    },
+    {
+      "id": "flags",
+      "label": "标签与规则",
+      "fields": [
+        {
+          "key": "tags",
+          "type": "tag-select",
+          "label": "tags",
+          "source": "csv:ships.tags"
+        },
+        {
+          "key": "removeHints",
+          "type": "string-array",
+          "label": "removeHints"
+        },
+        {
+          "key": "addHints",
+          "type": "string-array",
+          "label": "addHints"
+        },
+        {
+          "key": "restoreToBaseHull",
+          "type": "boolean",
+          "label": "restoreToBaseHull"
+        },
+        {
+          "key": "incompatibleWithBaseHull",
+          "type": "boolean",
+          "label": "incompatibleWithBaseHull"
+        }
+      ]
+    },
+    {
+      "id": "stats",
+      "label": "数值覆盖",
+      "fields": [
+        {
+          "key": "fleetPoints",
+          "type": "integer",
+          "label": "fleetPoints",
+          "min": 0
+        },
+        {
+          "key": "ordnancePoints",
+          "type": "integer",
+          "label": "ordnancePoints",
+          "min": 0
+        },
+        {
+          "key": "baseValueMult",
+          "type": "float",
+          "label": "baseValueMult",
+          "min": 0,
+          "step": 0.05
+        },
+        {
+          "key": "suppliesToRecover",
+          "type": "integer",
+          "label": "suppliesToRecover",
+          "min": 0
+        },
+        {
+          "key": "suppliesPerMonth",
+          "type": "integer",
+          "label": "suppliesPerMonth",
+          "min": 0
+        },
+        {
+          "key": "fighterBays",
+          "type": "integer",
+          "label": "fighterBays",
+          "min": 0
+        },
+        {
+          "key": "maxSpeed",
+          "type": "integer",
+          "label": "maxSpeed"
+        },
+        {
+          "key": "shieldEfficiency",
+          "type": "float",
+          "label": "shieldEfficiency",
+          "min": 0,
+          "step": 0.05
+        }
+      ]
+    },
+    {
+      "id": "mods",
+      "label": "插件",
+      "fields": [
+        {
+          "key": "builtInMods",
+          "type": "string-array",
+          "label": "builtInMods",
+          "source": "csv:hullmods.id"
+        },
+        {
+          "key": "removeBuiltInMods",
+          "type": "string-array",
+          "label": "removeBuiltInMods",
+          "source": "csv:hullmods.id"
+        }
+      ]
+    },
+    {
+      "id": "weapons",
+      "label": "武器",
+      "fields": [
+        {
+          "key": "builtInWeapons",
+          "type": "key-value",
+          "label": "builtInWeapons",
+          "valueSchema": {
+            "key": "weaponId",
+            "type": "enum",
+            "label": "weapon",
+            "source": "csv:weapons.id"
+          }
+        },
+        {
+          "key": "removeBuiltInWeapons",
+          "type": "string-array",
+          "label": "removeBuiltInWeapons",
+          "source": "csv:weapons.id"
+        },
+        {
+          "key": "removeWeaponSlots",
+          "type": "string-array",
+          "label": "removeWeaponSlots"
+        },
+        {
+          "key": "weaponSlotChanges",
+          "type": "key-value",
+          "label": "weaponSlotChanges",
+          "valueSchema": {
+            "key": "slot",
+            "type": "object",
+            "label": "slot",
+            "nested": [
+              {
+                "key": "type",
+                "type": "enum",
+                "label": "type",
+                "options": [
+                  "BALLISTIC",
+                  "ENERGY",
+                  "MISSILE",
+                  "HYBRID",
+                  "UNIVERSAL",
+                  "SYNERGY",
+                  "COMPOSITE",
+                  "DECORATIVE",
+                  "SYSTEM",
+                  "STATION_MODULE",
+                  "LAUNCH_BAY"
+                ]
+              },
+              {
+                "key": "size",
+                "type": "enum",
+                "label": "size",
+                "options": ["SMALL", "MEDIUM", "LARGE"]
+              },
+              {
+                "key": "mount",
+                "type": "enum",
+                "label": "mount",
+                "options": ["TURRET", "HARDPOINT", "HIDDEN"]
+              },
+              {
+                "key": "angle",
+                "type": "float",
+                "label": "angle"
+              },
+              {
+                "key": "arc",
+                "type": "float",
+                "label": "arc"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "wings",
+      "label": "联队",
+      "fields": [
+        {
+          "key": "builtInWings",
+          "type": "array",
+          "label": "builtInWings",
+          "item": {
+            "key": "wingId",
+            "type": "enum",
+            "label": "wing",
+            "source": "csv:wings.id"
+          }
+        }
+      ]
+    },
+    {
+      "id": "system",
+      "label": "系统与视觉",
+      "fields": [
+        {
+          "key": "systemId",
+          "type": "enum",
+          "label": "systemId",
+          "source": "csv:shipSystems.id"
+        },
+        {
+          "key": "coversColor",
+          "type": "color-rgba",
+          "label": "coversColor"
+        }
+      ]
+    },
+    {
+      "id": "engines",
+      "label": "引擎槽",
+      "fields": [
+        {
+          "key": "removeEngineSlots",
+          "type": "string-array",
+          "label": "removeEngineSlots"
+        },
+        {
+          "key": "engineSlotChanges",
+          "type": "key-value",
+          "label": "engineSlotChanges",
+          "valueSchema": {
+            "key": "engine",
+            "type": "object",
+            "label": "engine",
+            "nested": [
+              {
+                "key": "style",
+                "type": "string",
+                "label": "style"
+              },
+              {
+                "key": "length",
+                "type": "float",
+                "label": "length"
+              },
+              {
+                "key": "width",
+                "type": "float",
+                "label": "width"
+              },
+              {
+                "key": "angle",
+                "type": "float",
+                "label": "angle"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -11,13 +11,14 @@ Project 系统是完整读取 Mod 后的前端缓存层。它保存每个 `modRo
 - `src/shared/types.ts` 定义前端 `AppData`。
 - `src-tauri/src/models/project.rs` 定义 Rust `AppData`。
 - `src/features/tables/table-save-orchestrator.ts` 在 CSV 保存后同步 AppData 中的表格缓存。
-- `src/features/file-history/file-history-replay-service.ts` 在文件级回放后刷新 AppData 中受影响的文件或表格。
+- `src/features/file-history/file-history-replay-service.ts` 在文件级回放后刷新 AppData 中受影响的文件、配置 entity 或表格。
 
 ## 规范
 
 - `project.store` 是内存缓存，不是磁盘权威。
 - `modsData` 必须按 `modRoot` 分开存储。
 - spec 保存、文件历史回放和配置保存后可以同步 project cache，但同步本身不等于写盘。
+- `variantFiles` 和 `skinFiles` 是 schema 配置模块的扁平文件缓存，保存和回放后必须只基于后端结果或已回放文件内容同步。
 - 独立编辑器窗口自己加载 `AppData`，不直接共享主窗口 project store。
 - AppData 对前端保持 camelCase，对 Rust 保持 snake_case 并通过 serde 转换。
 

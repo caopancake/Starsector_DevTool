@@ -7,6 +7,12 @@ import {
 } from '../../shared/api/indexed-api';
 import { loadMission, loadMissionListCsv, scanMissionList, type MissionData } from '../../shared/api/missions-api';
 import {
+  createSkinEntityWithHistory,
+  deleteSkinEntityWithHistory,
+  saveSkinEntityWithHistory,
+  type SkinEntityResult,
+} from '../../shared/api/skins-api';
+import {
   createVariantEntityWithHistory,
   deleteVariantEntityWithHistory,
   saveVariantEntityWithHistory,
@@ -135,6 +141,52 @@ export async function deleteVariantEntityData(modRoot: string, relPath: string, 
   }
 }
 
+export async function saveSkinEntityData(payload: {
+  modRoot: string;
+  previousId?: string | null;
+  previousRelPath?: string | null;
+  nextId: string;
+  data: RowData;
+}): Promise<SkinEntityResult> {
+  const skinHullId = stringField(payload.data, 'skinHullId');
+  if (!payload.modRoot) throw new AppError('缺少 mod 根目录', { action: 'save-skin' });
+  if (!skinHullId) throw new AppError('skinHullId 不能为空', { action: 'save-skin' });
+  try {
+    return await saveSkinEntityWithHistory({
+      modRoot: payload.modRoot,
+      previousId: payload.previousId ?? null,
+      previousRelPath: payload.previousRelPath ?? null,
+      nextId: payload.nextId,
+      data: stripInternalFields(payload.data) as RowData,
+    });
+  } catch (error) {
+    throw withCause(`保存舰船皮肤 ${skinHullId} 失败`, error, 'save-skin');
+  }
+}
+
+export async function createSkinEntityData(modRoot: string, baseHullId: string, skinHullId: string): Promise<SkinEntityResult> {
+  if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'create-skin' });
+  if (!isSafeFileStem(skinHullId)) throw new AppError('skinHullId 不能包含路径分隔符或 ..', { action: 'create-skin' });
+  try {
+    return await createSkinEntityWithHistory({
+      modRoot,
+      nextId: skinHullId,
+      data: defaultSkinData(baseHullId, skinHullId),
+    });
+  } catch (error) {
+    throw withCause(`新建舰船皮肤 ${skinHullId} 失败`, error, 'create-skin');
+  }
+}
+
+export async function deleteSkinEntityData(modRoot: string, relPath: string, skinHullId: string): Promise<FileChangeRecord[]> {
+  if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'delete-skin' });
+  try {
+    return await deleteSkinEntityWithHistory({ modRoot, relPath, skinHullId });
+  } catch (error) {
+    throw withCause(`删除舰船皮肤 ${skinHullId} 失败`, error, 'delete-skin');
+  }
+}
+
 export function defaultVariantData(hullId: string, variantId: string): RowData {
   return {
     variantId,
@@ -148,6 +200,28 @@ export function defaultVariantData(hullId: string, variantId: string): RowData {
     sMods: [],
     weaponGroups: [],
     wings: [],
+  };
+}
+
+export function defaultSkinData(baseHullId: string, skinHullId: string): RowData {
+  return {
+    skinHullId,
+    baseHullId,
+    hullName: skinHullId,
+    descriptionId: '',
+    descriptionPrefix: '',
+    tags: [],
+    removeHints: [],
+    addHints: [],
+    removeBuiltInMods: [],
+    builtInMods: [],
+    removeBuiltInWeapons: [],
+    removeWeaponSlots: [],
+    removeEngineSlots: [],
+    builtInWeapons: {},
+    builtInWings: [],
+    weaponSlotChanges: {},
+    engineSlotChanges: {},
   };
 }
 

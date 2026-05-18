@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "vue-tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint . && node scripts/check-architecture.mjs",
     "encoding:check": "node scripts/check-encoding.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

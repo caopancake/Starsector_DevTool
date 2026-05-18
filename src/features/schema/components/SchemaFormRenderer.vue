@@ -44,7 +44,7 @@ import type { AppData, RowData } from '../../../shared/types';
 import type { FileSchema, SectionSchema } from '../schema-types';
 import { getExtraFieldSource, getNestedValue, getSchemaKeys, getSections, isMultiSourceSchema, setNestedValue } from '../schema-service';
 import SchemaFieldRenderer from './SchemaFieldRenderer.vue';
-import JsonFieldEditor from '../../config/components/JsonFieldEditor.vue';
+import JsonFieldEditor from '../../../shared/components/JsonFieldEditor.vue';
 
 const props = defineProps<{
   schema: FileSchema;

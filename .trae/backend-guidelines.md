@@ -6,6 +6,7 @@
 
 - 后端入口的唯一宏观链路是 `Rust command -> service -> 后端实现`，任何情况都不允许绕过。
 - Rust command 层只能调用 service；除参数接收和错误转换外，不允许包含任何实现细节。
+- `npm.cmd run lint` 包含 Rust 架构静态检查；command 层必须保持纯 service 边界，command 注册必须完整，service 不得反向依赖 command，filesystem / parser 不得反向依赖 service 或 command。
 - 业务规则、路径安全、文件读写、解析和保存必须放在 service 或 parser 模块。
 - command 模块按 project、workspace、tables、config、files、assets 等边界组织；command 名称保持前端兼容。
 - Rust 是文件系统、路径校验、删除语义、写盘和 changeset 回放的权威实现。

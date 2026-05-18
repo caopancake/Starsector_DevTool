@@ -41,6 +41,7 @@ pub struct AppData {
     pub ship_files: BTreeMap<String, Value>,
     pub variants: BTreeMap<String, Vec<Value>>,
     pub variant_files: Vec<VariantFile>,
+    pub skin_files: Vec<SkinFile>,
     pub ship_sprites: BTreeMap<String, String>,
     pub available_sprites: Vec<String>,
     pub wpn_files: BTreeMap<String, Value>,
@@ -63,6 +64,7 @@ pub struct CoreReferences {
     pub ship_files: BTreeMap<String, Value>,
     pub wpn_files: BTreeMap<String, Value>,
     pub variant_files: Vec<VariantFile>,
+    pub skin_files: Vec<SkinFile>,
     pub ship_sprites: BTreeMap<String, String>,
     pub weapon_sprites_data: BTreeMap<String, BTreeMap<String, String>>,
     pub wing_sprites: BTreeMap<String, String>,
@@ -84,6 +86,21 @@ pub struct VariantFile {
     pub hull_mod_count: usize,
     pub perma_mod_count: usize,
     pub wing_count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SkinFile {
+    pub skin_hull_id: String,
+    pub base_hull_id: String,
+    pub path: String,
+    pub rel_path: String,
+    pub data: Value,
+    pub built_in_mod_count: usize,
+    pub built_in_weapon_count: usize,
+    pub built_in_wing_count: usize,
+    pub weapon_slot_change_count: usize,
+    pub engine_slot_change_count: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -66,6 +66,7 @@ import { computed } from 'vue';
 import { useTablesStore } from '../features/tables/tables-store';
 import { useProjectStore } from '../features/project/project-store';
 import { cell, MODULE_LABELS, rowDisplayId, rowSpecId, str } from '../shared/lib/starsector';
+import { resolveHullSprite } from '../shared/lib/hull-references';
 import { fileEditorActionForRow, type TableDetailAction } from '../features/tables/table-detail-actions';
 import type { RowData, TableKey } from '../shared/types';
 
@@ -107,7 +108,7 @@ const previewState = computed<PreviewState>(() => {
 
   const id = rowSpecId(row, tables.currentTab) || rowDisplayId(row);
   if (tables.currentTab === 'ships') {
-    return previewFromMap(data.shipSprites[id], expectedShipSprite(data.shipFiles[id]), id, tables.currentTab);
+    return previewFromMap(resolveHullSprite(data, id), expectedShipSprite(data.shipFiles[id]), id, tables.currentTab);
   }
   if (tables.currentTab === 'weapons') {
     return previewFromMap(weaponPreviewSprite(data.weaponSpritesData[id]), expectedWeaponSprite(data.wpnFiles[id]), id, tables.currentTab);
@@ -115,7 +116,7 @@ const previewState = computed<PreviewState>(() => {
   if (tables.currentTab === 'wings') {
     const variant = variantForWing(row, data);
     const hullId = variant?.hullId ?? '';
-    return previewFromMap(data.shipSprites[hullId], expectedShipSprite(data.shipFiles[hullId]), id, tables.currentTab);
+    return previewFromMap(resolveHullSprite(data, hullId), expectedShipSprite(data.shipFiles[hullId]), id, tables.currentTab);
   }
   if (tables.currentTab === 'hullmods') {
     return previewFromMap(data.hullmodSprites[id], str(row.sprite), id, tables.currentTab);
@@ -171,6 +172,9 @@ function variantForWing(row: RowData, data: NonNullable<ReturnType<typeof usePro
     data.variantFiles.find((variant) => variant.variantId === raw) ??
     data.variantFiles.find((variant) => variant.variantId === stem) ??
     data.variantFiles.find((variant) => variant.relPath === normalized) ??
+    data.coreReferences.variantFiles.find((variant) => variant.variantId === raw) ??
+    data.coreReferences.variantFiles.find((variant) => variant.variantId === stem) ??
+    data.coreReferences.variantFiles.find((variant) => variant.relPath === normalized) ??
     null
   );
 }

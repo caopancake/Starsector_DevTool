@@ -46,7 +46,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { JsonValue, RowData } from '../../../shared/types';
+import type { JsonValue, RowData } from '../types';
 
 const props = defineProps<{
   modelValue: RowData;
@@ -69,7 +69,6 @@ function updateJsonField(key: string, raw: string) {
     const parsed = JSON.parse(raw) as JsonValue;
     updateField(key, parsed);
   } catch {
-    // Keep raw string if not valid JSON
     updateField(key, raw);
   }
 }

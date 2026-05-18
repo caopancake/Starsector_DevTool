@@ -32,6 +32,7 @@
 - [武器编辑器模块](modules/weapon-editor.md)：说明武器 spec 独立窗口编辑器及弹体、预览入口。
 - [弹体编辑器模块](modules/projectile-editor.md)：说明弹体 spec 独立窗口编辑器的加载、保存和同步。
 - [发射预览模块](modules/weapon-preview.md)：说明武器发射预览窗口的读取和非保存边界。
+- [舰船皮肤编辑模块](modules/skin-editor.md)：说明 `.skin` 列表、schema 表单、新建、保存和删除链路。
 - [装配编辑模块](modules/variant-editor.md)：说明 `.variant` 列表、schema 表单、新建、保存和删除链路。
 - [Schema 系统](modules/schema.md)：说明配置 schema、字段渲染、多来源字段和表单边界。
 - [资源、贴图与 core fallback 系统](modules/assets-core-fallback.md)：说明图片资源读取、上传、core fallback 和像素采样规则。

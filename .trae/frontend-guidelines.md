@@ -24,6 +24,8 @@
 
 - 前端访问后端的唯一宏观链路是 `前端 -> shared/api -> Rust command -> service -> 后端实现`，任何情况都不允许绕过。
 - 前端业务代码不得直接 import `@tauri-apps/api/core`，不得直接执行 `invoke()`；只有 `src/shared/api/` 可以封装 Tauri command。
+- hull 引用解析必须走 `src/shared/lib/hull-references.ts`；组件不得直接用 `shipSprites[hullId]` 解析舰船、舰船皮肤、装配或联队缩略图。
+- `npm.cmd run lint` 包含架构静态检查；shared 依赖方向、feature 横向依赖、前端后端链路、组件和 store 的 API 边界、保存入口、文件历史记录入口、配置 entity 保存入口、schema 注册与依赖方向、AppData 关键缓存同步和 config 组件 store 依赖都必须通过该检查。
 - Store 拥有内存状态和纯状态变更，不直接承担文件 IO、确认弹窗、跨模块编排。
 - Service 负责单一业务能力，例如打开窗口、保存文件、同步缓存或回放历史。
 - Orchestrator 负责一次用户动作跨越多个模块的流程，例如 CSV 保存、配置保存、文件级 undo/redo。

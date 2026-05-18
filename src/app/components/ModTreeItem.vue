@@ -52,6 +52,14 @@
       </button>
       <button
         class="mod-tree-module-btn"
+        :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'skins' }"
+        @click="$emit('switch-config', mod.modRoot, 'skins')"
+      >
+        <span>舰船皮肤</span>
+        <span class="mod-tree-module-count">{{ skinCount }}</span>
+      </button>
+      <button
+        class="mod-tree-module-btn"
         :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'variants' }"
         @click="$emit('switch-config', mod.modRoot, 'variants')"
       >
@@ -124,6 +132,7 @@ const factionCount = computed(() => {
   return data?.factionFiles ? Object.keys(data.factionFiles).length : 0;
 });
 const missionCount = computed(() => project.getModData(props.mod.modRoot)?.missionCount ?? 0);
+const skinCount = computed(() => project.getModData(props.mod.modRoot)?.skinFiles.length ?? 0);
 const variantCount = computed(() => project.getModData(props.mod.modRoot)?.variantFiles.length ?? 0);
 
 function getRowCount(key: TableKey): number {

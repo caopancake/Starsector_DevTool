@@ -1,5 +1,6 @@
 import type { FileChangeRecord } from '../../shared/api/files-api';
 import type { IndexedConfigEntityKind, IndexedConfigEntityResult } from '../../shared/api/indexed-api';
+import type { SkinEntityResult } from '../../shared/api/skins-api';
 import type { VariantEntityResult } from '../../shared/api/variants-api';
 import type { RowData } from '../../shared/types';
 import { recordFileSave } from '../file-history/file-save-orchestrator';
@@ -7,8 +8,11 @@ import {
   saveIndexedConfigEntityData,
   deleteIndexedConfigEntityData,
   deleteVariantEntityData,
+  deleteSkinEntityData,
   createVariantEntityData,
+  createSkinEntityData,
   saveModInfoData,
+  saveSkinEntityData,
   saveVariantEntityData,
 } from './config-service';
 
@@ -82,6 +86,36 @@ export async function createVariantWithFileHistory(modRoot: string, hullId: stri
 export async function deleteVariantWithFileHistory(modRoot: string, relPath: string, variantId: string): Promise<FileChangeRecord[]> {
   const changes = await deleteVariantEntityData(modRoot, relPath, variantId);
   recordConfigFileSave(modRoot, changes, `删除装配 ${variantId}`);
+  return changes;
+}
+
+export async function saveSkinWithFileHistory(
+  modRoot: string,
+  skinHullId: string,
+  data: RowData,
+  previousId?: string | null,
+  previousRelPath?: string | null,
+): Promise<SkinEntityResult> {
+  const result = await saveSkinEntityData({
+    modRoot,
+    previousId,
+    previousRelPath,
+    nextId: skinHullId,
+    data,
+  });
+  recordConfigFileSave(modRoot, result.changes, `保存舰船皮肤 ${skinHullId}`);
+  return result;
+}
+
+export async function createSkinWithFileHistory(modRoot: string, baseHullId: string, skinHullId: string): Promise<SkinEntityResult> {
+  const result = await createSkinEntityData(modRoot, baseHullId, skinHullId);
+  recordConfigFileSave(modRoot, result.changes, `创建舰船皮肤 ${skinHullId}`);
+  return result;
+}
+
+export async function deleteSkinWithFileHistory(modRoot: string, relPath: string, skinHullId: string): Promise<FileChangeRecord[]> {
+  const changes = await deleteSkinEntityData(modRoot, relPath, skinHullId);
+  recordConfigFileSave(modRoot, changes, `删除舰船皮肤 ${skinHullId}`);
   return changes;
 }
 

@@ -2,7 +2,7 @@
 
 ## 定义
 
-目录识别系统把用户选择的路径识别成游戏目录、游戏内 Mod、外部 Mod 或未知目录。游戏概览只轻量扫描 Mod 列表；完整读取只针对单个 Mod 加载 CSV、spec、配置和资源。
+目录识别系统把用户选择的路径识别成游戏目录、游戏内 Mod、外部 Mod 或未知目录。游戏概览只轻量扫描 Mod 列表；完整读取只针对单个 Mod 加载 CSV、spec、schema 配置 entity、配置和资源。
 
 ## 边界
 
@@ -18,9 +18,10 @@
 - 游戏目录以包含 `starsector-core/` 和 `mods/` 为判断依据。
 - Mod 目录以 `mod_info.json` 或可推导的 Mod 根目录为判断依据。
 - 目录识别先判断用户选择路径是否为 Mod 目录；是 Mod 时再尝试用 `modRoot/../..` 推断游戏目录。
-- 游戏概览只扫描 `mods/*/mod_info.json` 和基本元信息，不加载 CSV、spec 和贴图 data URL。
+- 游戏概览只扫描 `mods/*/mod_info.json` 和基本元信息，不加载 CSV、spec、schema 配置 entity 和贴图 data URL。
 - 完整读取 Mod 时可以使用显式 `starsectorRoot`、路径推断 root 或设置 fallback。
 - 完整读取 Mod 时返回 `coreReferences` 只读原版引用，供 schema source 和缩略图使用，不混入可编辑表格。
+- `coreReferences` 必须包含原版 skin 只读引用，使原版 `skinHullId` 能作为合法 hull 引用参与下拉和缩略图。
 - Rust 返回的 `coreAvailable` 只表达 core fallback 是否可用。
 - 打开未知目录必须返回错误，由前端显示错误提示。
 
@@ -61,7 +62,7 @@
 2. shared API 根据是否有 root 调用 `load_mod_data_with_root` 或 `load_mod_data`。
 3. Rust project service 确定有效 `starsectorRoot`。
 4. Rust 读取 `mod_info.json`。
-5. Rust 读取配置入口、CSV tables、spec bundle、sprite bundle 和只读原版引用。
+5. Rust 读取配置入口、CSV tables、spec bundle、schema 配置 entity、sprite bundle 和只读原版引用。
 6. Rust 返回 `AppData`。
 7. project store 缓存 `AppData`。
 8. tables store hydrate CSV 表格状态。

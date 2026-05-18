@@ -128,6 +128,31 @@ pub struct VariantEntityResult {
     pub variant_file: crate::models::VariantFile,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkinEntityPayload {
+    pub mod_root: String,
+    pub previous_id: Option<String>,
+    pub previous_rel_path: Option<String>,
+    pub next_id: String,
+    pub data: Value,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteSkinEntityPayload {
+    pub mod_root: String,
+    pub skin_hull_id: String,
+    pub rel_path: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkinEntityResult {
+    pub changes: Vec<FileChangeRecord>,
+    pub skin_file: crate::models::SkinFile,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EditableFileData {
