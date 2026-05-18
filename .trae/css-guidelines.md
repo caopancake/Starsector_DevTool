@@ -334,7 +334,10 @@
 - `.inspector-title` margin-bottom 8px，字号 11px，字重 650，颜色 `--color-muted`。
 - `.editor-scroll` height `calc(100% - 22px)`，padding-right 4px，overflow auto。
 - `.projectile-body` height 100%，padding 12px，overflow auto。
-- `.preview-scroll` overflow hidden；`.preview-canvas` width/height 100%，image-rendering crisp-edges 和 pixelated。
+- 发射预览窗口使用 `editor-body`、`canvas-stage` 和右侧 `editor-side` 控制面板布局，不在顶部或底部放速度按钮。
+- `.preview-canvas-stage` inset 固定 `0 300px 0 0`；`.preview-window .editor-side` 宽度固定 300px。
+- `.preview-canvas` width/height 100%，image-rendering crisp-edges 和 pixelated。
+- `.preview-control-panel` grid gap 固定 16px；`.preview-control-section` 使用 panel 背景、边框和 8px 圆角；`.preview-control-actions` grid 两列。
 - `.segmented` flex row，gap 4px，padding 3px，背景 `--color-surface`，border `1px solid var(--color-border)`，圆角 `--radius-md`。
 - `.segmented button` 和 `.item-list button` padding `5px 10px`，border `1px solid transparent`，圆角 `--radius-sm`。
 - `.segmented button.active`、`.item-list button.selected`、`.bounds-list .selected` 背景 `--color-panel`，文字 `--color-primary`，border-color `--color-primary`，阴影 `--shadow-subtle`。

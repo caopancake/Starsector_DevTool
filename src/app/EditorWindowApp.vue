@@ -44,6 +44,7 @@
         :weapons="appData.weapons"
         :wpn-files="appData.wpnFiles"
         :proj-files="appData.projFiles"
+        :sprite-data="appData.weaponSpritesData[id]"
         @close="closeWindow"
       />
       <div v-else class="editor-window-status editor-window-error">
