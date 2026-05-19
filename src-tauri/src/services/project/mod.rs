@@ -40,6 +40,7 @@ struct SpriteBundle {
     ship_system_sprites: BTreeMap<String, String>,
     industry_sprites: BTreeMap<String, String>,
     skill_sprites: BTreeMap<String, String>,
+    ability_sprites: BTreeMap<String, String>,
 }
 
 struct SpriteTableRows<'a> {
@@ -47,6 +48,7 @@ struct SpriteTableRows<'a> {
     industries: &'a [Map<String, Value>],
     ship_systems: &'a [Map<String, Value>],
     skills: &'a [Map<String, Value>],
+    abilities: &'a [Map<String, Value>],
 }
 
 pub fn load_mod_data(mod_root: &Path) -> AppResult<AppData> {
@@ -105,6 +107,11 @@ pub fn load_mod_data_with_root(
         .get("skills")
         .cloned()
         .unwrap_or_default();
+    let abilities = loaded_tables
+        .rows
+        .get("abilities")
+        .cloned()
+        .unwrap_or_default();
     let sprite_bundle = load_sprite_bundle(
         mod_root,
         core_dir.as_deref(),
@@ -116,6 +123,7 @@ pub fn load_mod_data_with_root(
             industries: &industries,
             ship_systems: &ship_systems,
             skills: &skills,
+            abilities: &abilities,
         },
     )?;
     let core_references = load_core_references(core_dir.as_deref())?;
@@ -137,6 +145,7 @@ pub fn load_mod_data_with_root(
         ship_systems: loaded_tables.rows.remove("shipSystems").unwrap_or_default(),
         industries: loaded_tables.rows.remove("industries").unwrap_or_default(),
         skills: loaded_tables.rows.remove("skills").unwrap_or_default(),
+        abilities: loaded_tables.rows.remove("abilities").unwrap_or_default(),
         ship_files: spec_bundle.ship_files,
         variants: spec_bundle.variants,
         variant_files: spec_bundle.variant_files,
@@ -153,6 +162,7 @@ pub fn load_mod_data_with_root(
         ship_system_sprites: sprite_bundle.ship_system_sprites,
         industry_sprites: sprite_bundle.industry_sprites,
         skill_sprites: sprite_bundle.skill_sprites,
+        ability_sprites: sprite_bundle.ability_sprites,
         core_references,
     })
 }
@@ -215,6 +225,11 @@ fn load_sprite_bundle(
             table_rows.industries,
         ),
         skill_sprites: sprites::load_skill_sprite_data(mod_root, core_dir, table_rows.skills),
+        ability_sprites: sprites::load_ability_sprite_data(
+            mod_root,
+            core_dir,
+            table_rows.abilities,
+        ),
     })
 }
 
@@ -236,6 +251,7 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
         .map(Vec::as_slice)
         .unwrap_or(empty);
     let skills = tables.get("skills").map(Vec::as_slice).unwrap_or(empty);
+    let abilities = tables.get("abilities").map(Vec::as_slice).unwrap_or(empty);
     let wings = tables.get("wings").map(Vec::as_slice).unwrap_or(empty);
     let mut ship_sprites = sprites::load_ship_sprite_data(core_dir, None, &ship_files)?;
     sprites::merge_skin_sprite_data(&mut ship_sprites, core_dir, None, &skin_files)?;
@@ -245,6 +261,7 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
     let ship_system_sprites = sprites::load_ship_system_sprite_data(core_dir, None, ship_systems);
     let industry_sprites = sprites::load_industry_sprite_data(core_dir, None, industries);
     let skill_sprites = sprites::load_skill_sprite_data(core_dir, None, skills);
+    let ability_sprites = sprites::load_ability_sprite_data(core_dir, None, abilities);
 
     Ok(CoreReferences {
         tables,
@@ -259,6 +276,7 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
         ship_system_sprites,
         industry_sprites,
         skill_sprites,
+        ability_sprites,
     })
 }
 

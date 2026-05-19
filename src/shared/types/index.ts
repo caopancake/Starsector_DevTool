@@ -25,6 +25,7 @@ export interface AppData {
   shipSystems: RowData[];
   industries: RowData[];
   skills: RowData[];
+  abilities: RowData[];
   shipFiles: Record<string, RowData>;
   variants: Record<string, RowData[]>;
   variantFiles: VariantFile[];
@@ -41,6 +42,7 @@ export interface AppData {
   shipSystemSprites: Record<string, string>;
   industrySprites: Record<string, string>;
   skillSprites: Record<string, string>;
+  abilitySprites: Record<string, string>;
   coreReferences: CoreReferences;
 }
 
@@ -57,6 +59,7 @@ export interface CoreReferences {
   shipSystemSprites: Record<string, string>;
   industrySprites: Record<string, string>;
   skillSprites: Record<string, string>;
+  abilitySprites: Record<string, string>;
 }
 
 export interface VariantFile {
@@ -115,7 +118,7 @@ export interface OpenDirectoryResult {
   warnings: GameScanWarning[];
 }
 
-export type TableKey = 'ships' | 'weapons' | 'wings' | 'hullmods' | 'shipSystems' | 'industries' | 'skills';
+export type TableKey = 'ships' | 'weapons' | 'wings' | 'hullmods' | 'shipSystems' | 'industries' | 'skills' | 'abilities';
 export type EditorKind = 'ship' | 'weapon' | 'projectile';
 
 export interface SelectOption {
