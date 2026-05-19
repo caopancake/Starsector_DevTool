@@ -163,6 +163,8 @@ function getSpriteMap(appData: AppData, table: string): Record<string, string> |
       return appData.skillSprites;
     case 'abilities':
       return appData.abilitySprites;
+    case 'commodities':
+      return appData.commoditySprites;
     default:
       return undefined;
   }
@@ -187,6 +189,8 @@ function getCoreSpriteMap(appData: AppData, table: string): Record<string, strin
       return core.skillSprites;
     case 'abilities':
       return core.abilitySprites;
+    case 'commodities':
+      return core.commoditySprites;
     default:
       return undefined;
   }

@@ -106,6 +106,14 @@ pub(super) fn load_ability_sprite_data(
     load_table_sprite_data(mod_root, core_dir, abilities, "icon")
 }
 
+pub(super) fn load_commodity_sprite_data(
+    mod_root: &Path,
+    core_dir: Option<&Path>,
+    commodities: &[Map<String, Value>],
+) -> BTreeMap<String, String> {
+    load_table_sprite_data(mod_root, core_dir, commodities, "icon")
+}
+
 pub(super) fn load_wing_sprite_data(
     ship_sprites: &BTreeMap<String, String>,
     variants: &[crate::models::VariantFile],

@@ -6,14 +6,24 @@ import { getNextActiveKeyAfterRemoval } from '@/shared/lib/store-utils';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { assignTableRowKey, assignTableRowKeys, resolveTableRowKey } from '@/domain/tables/table-row-key';
 
-export const TABLE_KEYS: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'shipSystems', 'industries', 'skills', 'abilities'];
+export const TABLE_KEYS: TableKey[] = [
+  'ships',
+  'weapons',
+  'wings',
+  'hullmods',
+  'shipSystems',
+  'industries',
+  'skills',
+  'abilities',
+  'commodities',
+];
 
 function emptyDirtyState(): Record<TableKey, Record<string, Record<string, string>>> {
-  return { ships: {}, weapons: {}, wings: {}, hullmods: {}, shipSystems: {}, industries: {}, skills: {}, abilities: {} };
+  return { ships: {}, weapons: {}, wings: {}, hullmods: {}, shipSystems: {}, industries: {}, skills: {}, abilities: {}, commodities: {} };
 }
 
 function emptyTablesRecord(): Record<TableKey, RowData[]> {
-  return { ships: [], weapons: [], wings: [], hullmods: [], shipSystems: [], industries: [], skills: [], abilities: [] };
+  return { ships: [], weapons: [], wings: [], hullmods: [], shipSystems: [], industries: [], skills: [], abilities: [], commodities: [] };
 }
 
 function createModTableState(): ModTableState {

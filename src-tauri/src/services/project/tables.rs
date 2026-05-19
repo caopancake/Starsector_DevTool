@@ -96,6 +96,8 @@ mod tests {
         assert!(loaded.rows.contains_key("weapons"));
         assert!(loaded.rows.contains_key("abilities"));
         assert!(loaded.rows["abilities"].is_empty());
+        assert!(loaded.rows.contains_key("commodities"));
+        assert!(loaded.rows["commodities"].is_empty());
         assert_eq!(loaded.rows["shipSystems"][0]["id"], "burndrive");
     }
 
@@ -114,6 +116,23 @@ mod tests {
         let _ = fs::remove_dir_all(root);
         assert_eq!(loaded.csv_headers["abilities"], ["name", "id", "icon"]);
         assert_eq!(loaded.rows["abilities"][0]["id"], "emergency_burn");
+    }
+
+    #[test]
+    fn loads_commodities_csv_when_present() {
+        let root = temp_dir("load_commodities_csv");
+        fs::create_dir_all(root.join("data/campaign")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/campaign/commodities.csv"),
+            "name,id,icon\r\nSupplies,supplies,graphics/icons/cargo/supplies.png\r\n",
+        )
+        .unwrap();
+
+        let loaded = load_csv_tables(&root, &HashMap::new()).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(loaded.csv_headers["commodities"], ["name", "id", "icon"]);
+        assert_eq!(loaded.rows["commodities"][0]["id"], "supplies");
     }
 
     fn temp_dir(name: &str) -> PathBuf {

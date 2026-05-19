@@ -68,6 +68,8 @@ function assignAppDataTable(appData: AppData, table: TableKey, rows: RowData[]) 
   else if (table === 'shipSystems') appData.shipSystems = next;
   else if (table === 'industries') appData.industries = next;
   else if (table === 'skills') appData.skills = next;
+  else if (table === 'abilities') appData.abilities = next;
+  else if (table === 'commodities') appData.commodities = next;
 }
 
 function applyAssociatedFileCache(appData: AppData, files: AssociatedFileChange[]) {

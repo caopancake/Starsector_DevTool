@@ -133,6 +133,9 @@ const previewState = computed<PreviewState>(() => {
   if (tables.currentTab === 'abilities') {
     return previewFromMap(data.abilitySprites[id], str(row.icon), id, tables.currentTab);
   }
+  if (tables.currentTab === 'commodities') {
+    return previewFromMap(data.commoditySprites[id], str(row.icon), id, tables.currentTab);
+  }
   return noPreview(tables.currentTab);
 });
 
