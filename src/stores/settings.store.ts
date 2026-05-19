@@ -4,6 +4,7 @@ import { darkTheme, lightTheme } from 'naive-ui';
 
 export type AppTheme = 'light' | 'dark';
 export type AccentPreset = 'blue' | 'orange' | 'green' | 'cyan' | 'pink' | 'purple' | 'gray' | 'custom';
+export type EditMode = 'plain' | 'smart';
 
 export interface AccentTone {
   name: string;
@@ -15,9 +16,11 @@ const STORAGE_KEY = 'starsector-devtool.theme';
 const ACCENT_KEY = 'starsector-devtool.accent';
 const CUSTOM_ACCENT_KEY = 'starsector-devtool.customAccent';
 const HISTORY_LIMIT_KEY = 'starsector-devtool.historyLimit';
+const EDIT_MODE_KEY = 'starsector-devtool.editMode';
 const STARSECTOR_ROOT_KEY = 'starsector-devtool.starsectorRoot';
 export const DEFAULT_HISTORY_LIMIT = 20;
 export const MAX_HISTORY_LIMIT = 100;
+export const DEFAULT_EDIT_MODE: EditMode = 'smart';
 const DEFAULT_ACCENT: AccentPreset = 'blue';
 const DEFAULT_CUSTOM_ACCENT = '#2563eb';
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -65,6 +68,12 @@ function readStoredHistoryLimit(): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_HISTORY_LIMIT;
 }
 
+function readStoredEditMode(): EditMode {
+  if (typeof window === 'undefined') return DEFAULT_EDIT_MODE;
+  const stored = window.localStorage.getItem(EDIT_MODE_KEY);
+  return stored === 'plain' ? 'plain' : DEFAULT_EDIT_MODE;
+}
+
 function readStoredStarsectorRoot(): string {
   if (typeof window === 'undefined') return '';
   return window.localStorage.getItem(STARSECTOR_ROOT_KEY) || '';
@@ -75,9 +84,11 @@ export const useSettingsStore = defineStore('settings', () => {
   const accent = ref<AccentPreset>(readStoredAccent());
   const customAccent = ref(readStoredCustomAccent());
   const historyLimit = ref(readStoredHistoryLimit());
+  const editMode = ref<EditMode>(readStoredEditMode());
   const starsectorRoot = ref(readStoredStarsectorRoot());
   const naiveTheme = computed(() => (theme.value === 'dark' ? darkTheme : lightTheme));
   const isDark = computed(() => theme.value === 'dark');
+  const isPlainEditMode = computed(() => editMode.value === 'plain');
   const activeAccentHex = computed(() => {
     if (accent.value === 'custom') return customAccent.value;
     return ACCENT_PRESETS.find((preset) => preset.value === accent.value)?.hex ?? DEFAULT_CUSTOM_ACCENT;
@@ -105,6 +116,10 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function setHistoryLimit(limit: number) {
     historyLimit.value = Math.max(1, Math.min(MAX_HISTORY_LIMIT, Math.round(limit)));
+  }
+
+  function setEditMode(mode: EditMode) {
+    editMode.value = mode;
   }
 
   function setStarsectorRoot(path: string) {
@@ -281,6 +296,10 @@ export const useSettingsStore = defineStore('settings', () => {
     if (typeof window !== 'undefined') window.localStorage.setItem(HISTORY_LIMIT_KEY, String(value));
   });
 
+  watch(editMode, (value) => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(EDIT_MODE_KEY, value);
+  });
+
   watch(starsectorRoot, (value) => {
     if (typeof window !== 'undefined') window.localStorage.setItem(STARSECTOR_ROOT_KEY, value);
   });
@@ -289,13 +308,16 @@ export const useSettingsStore = defineStore('settings', () => {
     accent,
     activeAccentHex,
     customAccent,
+    editMode,
     historyLimit,
     isDark,
+    isPlainEditMode,
     naiveTheme,
     starsectorRoot,
     theme,
     setAccent,
     setCustomAccent,
+    setEditMode,
     setHistoryLimit,
     setStarsectorRoot,
     setTheme,

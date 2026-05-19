@@ -1,3 +1,5 @@
+import { singleFileByRel } from '../shared/files.mjs';
+
 const schemaImportPattern = /import\s+([A-Za-z0-9_]+)\s+from\s+['"][^'"]*\/schemas\/([^'"]+\.schema\.json)['"]/g;
 const schemaRegistryEntryPattern = /(?:['"][^'"]+['"]|[A-Za-z0-9_-]+)\s*:\s*([A-Za-z0-9_]+)\s+as\s+unknown\s+as\s+FileSchema/g;
 
@@ -9,13 +11,13 @@ export const schemaRegistryBoundaryRule = {
       .map((file) => file.rel)
       .filter((rel) => rel.startsWith('schemas/') && rel.endsWith('.schema.json'))
       .map((rel) => rel.slice('schemas/'.length));
-    const service = files.find((file) => file.rel === 'src/domain/schema/schema-registry.ts');
-    if (!service) {
+    const schemaRegistry = singleFileByRel(files, 'src/domain/schema/schema-registry.ts');
+    if (!schemaRegistry) {
       failures.push('src/domain/schema/schema-registry.ts: schema registry file is missing');
       return failures;
     }
-    const imports = new Map([...service.text.matchAll(schemaImportPattern)].map((match) => [match[2], match[1]]));
-    const registeredImportNames = new Set([...service.text.matchAll(schemaRegistryEntryPattern)].map((match) => match[1]));
+    const imports = new Map([...schemaRegistry.text.matchAll(schemaImportPattern)].map((match) => [match[2], match[1]]));
+    const registeredImportNames = new Set([...schemaRegistry.text.matchAll(schemaRegistryEntryPattern)].map((match) => match[1]));
 
     for (const schemaFile of schemaFiles) {
       const importName = imports.get(schemaFile);

@@ -6,12 +6,11 @@ mod tables;
 use crate::{
     domain::config::{build_skin_file, build_variant_file},
     errors::AppResult,
-    io::{list_sprites, load_json_dir_by_id, read_json_file},
+    io::{list_sprites, load_json_dir_by_id, read_csv_data, read_json_file},
     models::{
         AppData, CoreReferences, FactionMeta, GameModSummary, GameOverviewData, GameScanWarning,
         OpenDirectoryResult, SkinFile, VariantFile,
     },
-    parsers::read_csv_data,
 };
 use serde_json::{Map, Value};
 use std::{

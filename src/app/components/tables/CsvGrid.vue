@@ -29,7 +29,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
-import type { ModTableState } from '@/shared/types/workspace';
+import type { ModTableState } from '@/shared/types/workspace.types';
 import type { CsvGridColumn, CsvGridModel, CsvGridRow } from '@/domain/tables/csv-grid-model';
 import { useCsvGridViewport } from '@/app/composables/use-csv-grid-viewport';
 import CsvGridBody from '@/app/components/tables/CsvGridBody.vue';

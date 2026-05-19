@@ -56,6 +56,17 @@
       </div>
     </section>
     <section class="settings-section">
+      <h3>编辑模式</h3>
+      <div class="settings-row">
+        <span>引用式编辑</span>
+        <n-radio-group :value="settings.editMode" class="settings-mode-group" @update:value="settings.setEditMode">
+          <n-radio-button value="plain">纯文本</n-radio-button>
+          <n-radio-button value="smart">增强控件</n-radio-button>
+        </n-radio-group>
+      </div>
+      <div class="settings-hint">纯文本模式下，CSV 表格和其它引用型编辑入口都只使用文本编辑；增强控件模式下保持当前实现。</div>
+    </section>
+    <section class="settings-section">
       <h3>全局记录</h3>
       <div class="settings-row">
         <span>文件历史记录</span>
@@ -74,7 +85,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { open } from '@tauri-apps/plugin-dialog';
+import { pickDirectoryDialog } from '@/shared/runtime/dialog.runtime';
 import { ACCENT_PRESETS, DEFAULT_HISTORY_LIMIT, MAX_HISTORY_LIMIT, useSettingsStore } from '@/stores/settings.store';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 
@@ -98,7 +109,7 @@ function applyCustomAccent(value: string | number[] = customAccentDraft.value) {
 }
 
 async function pickStarsectorRoot() {
-  const selected = await open({ directory: true, title: '选择 Starsector 安装目录' });
+  const selected = await pickDirectoryDialog('选择 Starsector 安装目录');
   if (selected && typeof selected === 'string') {
     settings.setStarsectorRoot(selected);
   }

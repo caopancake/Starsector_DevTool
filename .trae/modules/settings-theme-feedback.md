@@ -7,6 +7,7 @@
 ## 边界
 
 - `src/stores/settings.store.ts` 持有主题、历史限制、Starsector root 等设置。
+- `src/stores/settings.store.ts` 也持有全局编辑模式；编辑模式影响 CSV 表格、schema 表单和引用型编辑入口的呈现。
 - `src/app/app-feedback.ts` 提供唯一的 `AppFeedback` 入口。
 - `src/app/App.vue` 提供 Naive UI provider 和 theme overrides。
 - `src/app/components/SettingsPage.vue` 渲染设置页面。
@@ -25,6 +26,8 @@
 - 主题状态必须通过 settings store 和 app 根节点 data theme 驱动。
 - 业务 service 不应自行创建消息、弹窗或不受主题控制的反馈 UI。
 - history limit 由 settings store 提供，CSV 草稿历史和文件级 history 裁剪都读取该设置。
+- 编辑模式由 settings store 提供，plain 模式退回文本编辑；复杂结构字段保留多行 JSON 文本，smart 模式保持现有增强控件。
+- 编辑模式边界由架构静态检查覆盖，新增 schema 字段类型或 CSV control 不能只接入单一模式。
 
 ## 链路：显示文件级 history 确认框
 

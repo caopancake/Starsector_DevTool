@@ -49,7 +49,9 @@
       @positive-click="createVariant"
     >
       <div class="variant-dialog-fields">
+        <n-input v-if="settings.isPlainEditMode" v-model:value="newHullId" placeholder="hullId" />
         <n-select
+          v-else
           v-model:value="newHullId"
           :options="hullOptions"
           :render-label="renderHullOptionLabel"
@@ -67,6 +69,7 @@
 import { computed, h, ref, watch } from 'vue';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useProjectStore } from '@/stores/project.store';
+import { useSettingsStore } from '@/stores/settings.store';
 import type { VariantFile } from '@/shared/types';
 import type { SelectOption } from '@/domain/schema/schema-registry';
 import { resolveSource } from '@/domain/schema/schema-registry';
@@ -79,6 +82,7 @@ const emit = defineEmits<{ select: [variantId: string] }>();
 
 const project = useProjectStore();
 const feedback = useAppFeedback();
+const settings = useSettingsStore();
 
 const showCreateDialog = ref(false);
 const newHullId = ref('');

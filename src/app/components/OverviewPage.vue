@@ -19,7 +19,7 @@
       <n-button type="primary" size="large" @click="$emit('import-mod')">打开目录</n-button>
     </section>
 
-    <LoadedModsPanel v-else />
+    <LoadedModsPanel v-if="workspace.hasWorkspaceContext && !workspace.gameOverview" />
   </div>
 </template>
 
@@ -34,7 +34,7 @@ defineEmits<{ 'import-mod': []; 'refresh-workspace': []; 'close-workspace': []; 
 const workspace = useWorkspaceStore();
 
 const subtitle = computed(() => {
-  if (workspace.gameOverview) return `${workspace.gameOverview.mods.length} 个 Mod 可用，${workspace.loadedModCount} 个已完整读取`;
+  if (workspace.gameOverview) return `${workspace.gameOverview.mods.length} 个 Mod 可用，当前仅显示游戏目录概览`;
   if (workspace.hasLoadedMods) return `${workspace.loadedModCount} 个 Mod 已完整读取`;
   return '尚未打开工作区';
 });

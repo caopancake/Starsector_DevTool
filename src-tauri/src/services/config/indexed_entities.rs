@@ -1,11 +1,11 @@
 use crate::{
     domain::config::validate_config_id,
     errors::{AppError, AppResult},
-    io::strip_internal_fields,
+    io::{read_csv_data, strip_internal_fields},
     models::{
         DeleteIndexedConfigEntityPayload, IndexedConfigEntityPayload, IndexedConfigEntityResult,
     },
-    parsers::{read_csv_data, render_csv_text},
+    parsers::render_csv_text,
     services::file_changes::FileChangeSetBuilder,
 };
 use serde_json::{Map, Value};

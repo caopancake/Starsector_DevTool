@@ -1,8 +1,8 @@
 use super::factions;
 use crate::{
     errors::AppResult,
+    io::read_csv_data,
     models::{csv_path_for, CsvTable, CSV_TABLES},
-    parsers::read_csv_data,
 };
 use serde_json::{Map, Value};
 use std::{

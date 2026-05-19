@@ -3,17 +3,19 @@ import { join, relative } from 'node:path';
 
 const ignoredDirs = new Set(['.git', 'dist', 'node_modules', 'release', 'target']);
 const ignoredPathParts = ['src-tauri\\gen', 'src-tauri/gen', 'src-tauri\\target', 'src-tauri/target'];
-const architectureExtensions = new Set(['.json', '.rs', '.ts', '.vue']);
+const architectureExtensions = new Set(['.json', '.mjs', '.rs', '.ts', '.vue']);
 
 export async function collectArchitectureFiles(root) {
   const paths = await collectPaths(root, root);
-  return Promise.all(
+  const files = await Promise.all(
     paths.map(async (path) => ({
       path,
       rel: normalizePath(relative(root, path)),
       text: await readFile(path, 'utf8'),
     })),
   );
+  currentFiles = files;
+  return files;
 }
 
 export function frontendFile(path) {
@@ -43,4 +45,14 @@ async function collectPaths(root, dir) {
 
 function normalizePath(path) {
   return path.replace(/\\/g, '/');
+}
+
+let currentFiles = [];
+
+export function fileTextByRel(rel) {
+  return currentFiles.find((file) => file.rel === rel)?.text ?? '';
+}
+
+export function singleFileByRel(files, rel) {
+  return files.find((file) => file.rel === rel);
 }

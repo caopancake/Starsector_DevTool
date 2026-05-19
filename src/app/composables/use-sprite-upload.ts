@@ -1,6 +1,6 @@
 import { fileToBase64 } from '@/shared/lib/starsector';
-import { uploadEditorSprite, type EditorSpriteUploadResult } from '@/services/editor.service';
-import { recordSpriteUploadSaved } from '@/orchestrators/file-save.orchestrator';
+import { uploadEditorSpriteWithHistory } from '@/orchestrators/sprite-upload.orchestrator';
+import type { EditorSpriteUploadResult } from '@/services/editor.service';
 import type { AppFeedback } from '@/shared/types';
 
 type SpriteSubfolder = 'ships' | 'weapons' | 'missiles' | 'fx';
@@ -17,10 +17,9 @@ export function useSpriteUpload() {
     if (!file) return;
     const data = await fileToBase64(file);
     const dataUrl = `data:image/png;base64,${data}`;
-    let result = await uploadEditorSprite(options.modRoot, file.name, data, options.subfolder, false);
+    let result = await uploadEditorSpriteWithHistory(options.modRoot, file.name, data, options.subfolder, false);
     if (!result.exists) {
       options.onUploaded(result, dataUrl);
-      recordSpriteUpload(options.modRoot, result, file.name);
       return;
     }
     options.feedback.confirmWarning({
@@ -28,17 +27,11 @@ export function useSpriteUpload() {
       content: result.message,
       actionText: '覆盖',
       onConfirm: async () => {
-        result = await uploadEditorSprite(options.modRoot, file.name, data, options.subfolder, true);
+        result = await uploadEditorSpriteWithHistory(options.modRoot, file.name, data, options.subfolder, true);
         options.onUploaded(result, dataUrl);
-        recordSpriteUpload(options.modRoot, result, file.name);
       },
     });
   }
 
   return { uploadSpriteFile };
-}
-
-function recordSpriteUpload(modRoot: string, result: EditorSpriteUploadResult, filename: string) {
-  if (!result.ok || result.changes.length === 0) return;
-  recordSpriteUploadSaved(modRoot, result.changes, result.overwritten, filename);
 }

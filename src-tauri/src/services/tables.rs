@@ -2,7 +2,7 @@ use crate::{
     errors::{AppError, AppResult},
     models::{csv_path_for, AssociatedFileChangePayload, FileChangeRecord},
     parsers::render_csv_text,
-    services::file_changes::{apply_file_change_set, build_file_change, build_text_change},
+    services::file_changes::FileChangeSetBuilder,
 };
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -16,32 +16,13 @@ pub fn save_csv(
 ) -> AppResult<Vec<FileChangeRecord>> {
     let rel =
         csv_path_for(table).ok_or_else(|| AppError::message(format!("unknown table: {table}")))?;
-    let target = Path::new(mod_root).join(rel);
     let csv_text = render_csv_text(header, rows)?;
-    let mut changes = vec![build_text_change(&target, Some(csv_text))?];
+    let mut builder = FileChangeSetBuilder::new(Path::new(mod_root));
+    builder.text_file(rel, Some(csv_text))?;
     for file in associated_files {
-        let rel_path = Path::new(&file.rel_path);
-        if rel_path.is_absolute()
-            || rel_path
-                .components()
-                .any(|part| matches!(part, std::path::Component::ParentDir))
-        {
-            return Err(AppError::message(format!(
-                "invalid associated file path: {}",
-                file.rel_path
-            )));
-        }
-        changes.push(build_file_change(
-            &Path::new(mod_root).join(rel_path),
-            file.after_text,
-            file.after_data_base64,
-        )?);
+        builder.file(&file.rel_path, file.after_text, file.after_data_base64)?;
     }
-    apply_file_change_set(crate::models::ApplyFileChangeSetPayload {
-        direction: "redo".to_string(),
-        changes: changes.clone(),
-    })?;
-    Ok(changes)
+    builder.apply()
 }
 
 #[cfg(test)]

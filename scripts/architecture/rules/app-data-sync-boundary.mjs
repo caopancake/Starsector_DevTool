@@ -1,27 +1,41 @@
+import { singleFileByRel } from '../shared/files.mjs';
+
 export const appDataSyncBoundaryRule = {
   name: 'app-data-sync-boundary',
   check(files) {
     const failures = [];
-    const typeFile = files.find((file) => file.rel === 'src/shared/types/index.ts');
-    const projectStore = files.find((file) => file.rel === 'src/stores/project.store.ts');
-    const replayService = files.find((file) => file.rel === 'src/orchestrators/file-history-replay.orchestrator.ts');
-    if (!typeFile || !projectStore || !replayService) return failures;
+    const typeFile = singleFileByRel(files, 'src/shared/types/index.ts');
+    if (!typeFile) return failures;
+    const projectStore = files.find(isProjectCacheStore);
+    const replayService = files.find(isFileHistoryReplayOrchestrator);
+    if (!projectStore || !replayService) return failures;
 
     const fields = appDataFields(typeFile.text);
     for (const field of fields) {
       if (!isFileBackedEntityArray(typeFile.text, field)) continue;
       if (!new RegExp(`\\b${field}\\b`).test(projectStore.text)) {
-        failures.push(`src/stores/project.store.ts: AppData field ${field} must be handled by project cache`);
+        failures.push(`${projectStore.rel}: AppData field ${field} must be handled by project cache`);
       }
       if (!new RegExp(`\\b${field}\\b`).test(replayService.text)) {
-        failures.push(
-          `src/orchestrators/file-history-replay.orchestrator.ts: AppData field ${field} must be considered by file replay sync`,
-        );
+        failures.push(`${replayService.rel}: AppData field ${field} must be considered by file replay sync`);
       }
     }
     return failures;
   },
 };
+
+function isProjectCacheStore(file) {
+  return file.rel.startsWith('src/stores/') && file.rel.endsWith('.store.ts') && /defineStore\(\s*['"]project['"]/.test(file.text);
+}
+
+function isFileHistoryReplayOrchestrator(file) {
+  return (
+    file.rel.startsWith('src/orchestrators/') &&
+    file.rel.endsWith('.orchestrator.ts') &&
+    file.text.includes('applyFileChangeSet') &&
+    file.text.includes('FileHistoryReplayDirection')
+  );
+}
 
 function appDataFields(text) {
   const match = text.match(/export\s+interface\s+AppData\s+\{([\s\S]*?)\n\}/);

@@ -43,13 +43,17 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
-import { emit, listen } from '@tauri-apps/api/event';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
-import { loadEditableFile, saveTextFile } from '@/services/files.service';
+import { loadEditableFile } from '@/services/files.service';
+import { saveFileEditorTextWithUserAction } from '@/orchestrators/file-editor-save.orchestrator';
+import {
+  emitFileEditorSaved,
+  listenFileEditorFocusLine,
+  listenFileEditorTextApplied,
+} from '@/orchestrators/file-editor-window.orchestrator';
 import { normalizeFsPath } from '@/shared/lib/paths';
 import { useSettingsStore } from '@/stores/settings.store';
-import { WINDOW_EVENTS, type FileEditorFocusLineEvent, type FileEditorTextAppliedEvent } from '@/windows/window.events';
+import { closeCurrentWebviewWindow } from '@/windows/current.window';
 
 const params = new window.URLSearchParams(window.location.search);
 const settings = useSettingsStore();
@@ -116,9 +120,9 @@ async function saveFile() {
   saving.value = true;
   try {
     const newText = text.value;
-    const changes = await saveTextFile(filePath, text.value);
+    const changes = await saveFileEditorTextWithUserAction(filePath, text.value);
     originalText.value = newText;
-    await emit(WINDOW_EVENTS.fileEditorSaved, {
+    await emitFileEditorSaved({
       path: filePath,
       changes,
     });
@@ -168,7 +172,7 @@ function restoreEditorFocus() {
 }
 
 async function closeEditorWindow() {
-  await getCurrentWebviewWindow().close();
+  await closeCurrentWebviewWindow();
 }
 
 function handleEditorKeydown(event: KeyboardEvent) {
@@ -200,17 +204,17 @@ function handleEditorKeydown(event: KeyboardEvent) {
 onMounted(() => {
   window.addEventListener('keydown', handleEditorKeydown);
   void loadFile();
-  void listen<FileEditorFocusLineEvent>(WINDOW_EVENTS.fileEditorFocusLine, async (event) => {
-    if (event.payload.message) contextMessage.value = event.payload.message;
-    if (event.payload.contextLabel) contextLabel.value = event.payload.contextLabel;
-    if (event.payload.line) targetLine.value = event.payload.line;
+  void listenFileEditorFocusLine(async (payload) => {
+    if (payload.message) contextMessage.value = payload.message;
+    if (payload.contextLabel) contextLabel.value = payload.contextLabel;
+    if (payload.line) targetLine.value = payload.line;
     await nextTick();
     scrollToTargetLine();
   });
-  void listen<FileEditorTextAppliedEvent>(WINDOW_EVENTS.fileEditorTextApplied, (event) => {
-    if (normalizeFsPath(event.payload.path) !== normalizeFsPath(filePath)) return;
-    setTextSnapshot(event.payload.text);
-    originalText.value = event.payload.text;
+  void listenFileEditorTextApplied((payload) => {
+    if (normalizeFsPath(payload.path) !== normalizeFsPath(filePath)) return;
+    setTextSnapshot(payload.text);
+    originalText.value = payload.text;
   });
 });
 

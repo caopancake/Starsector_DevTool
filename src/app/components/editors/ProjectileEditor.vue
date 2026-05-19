@@ -111,7 +111,7 @@ import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import ObjectEditor from '@/app/components/editors/common/ObjectEditor.vue';
-import { saveProjectileSpec } from '@/services/editor.service';
+import { saveProjectileSpecWithUserAction } from '@/orchestrators/editor-save.orchestrator';
 import type { RowData } from '@/shared/types';
 import type { FileChangeRecord } from '@/shared/api/files-api';
 import { arr, str } from '@/shared/lib/starsector';
@@ -186,7 +186,7 @@ async function uploadSpriteFile(field: string, event: Event) {
 }
 async function save() {
   try {
-    const changes = await saveProjectileSpec(props.modRoot, props.projectileId, localProjectile.value);
+    const changes = await saveProjectileSpecWithUserAction(props.modRoot, props.projectileId, localProjectile.value);
     emit('saved', props.projectileId, localProjectile.value, changes);
   } catch (error) {
     feedback.error(error, '保存弹体失败');

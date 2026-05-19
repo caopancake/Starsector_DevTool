@@ -6,11 +6,12 @@
 
 - 后端入口的唯一宏观链路是 `Rust command -> service -> domain / io / parser / model`，任何情况都不允许绕过。
 - Rust command 层只能调用 service；除参数接收和错误转换外，不允许包含任何实现细节。
-- `npm.cmd run lint` 包含 Rust 架构静态检查；command 层必须保持纯 service 边界，command 注册必须完整，service 不得反向依赖 command，io / parser 不得反向依赖 service 或 command。
+- `npm.cmd run lint` 包含 Rust 架构静态检查；检查依据是 crate 层级依赖方向，不得靠禁止项枚举来定义边界。
+- command 层必须保持纯 service 边界，command 注册必须完整，service 不得反向依赖 command，domain / io / parser 不得反向依赖 service 或 command。
 - 业务规则和数据转换放在 service 或 domain；路径安全、文件读写放在 service 或 io；解析和渲染放在 parser。
 - command 模块按 project、workspace、tables、config、files、assets 等边界组织；command 名称保持前端兼容。
 - service 公开函数名表达业务能力，不使用 command wire 名里的 `_with_history`。
-- service 公开函数签名不得使用 command wire 名里的 `WithHistoryPayload` 类型。
+- service 不得依赖 command payload 模型；command wire payload 只能停留在 command 边界。
 - command 入参适配函数统一使用 `*_for_command`；不得新增 `*_from_path` 或 `*_from_payload` 公开 service 函数。
 - domain 只放纯业务规则、校验、构造和数据转换，不依赖 command、service、io、parser 或 command payload。
 - Rust 是文件系统、路径校验、删除语义、写盘和 changeset 回放的权威实现。
@@ -20,40 +21,28 @@
 
 - 所有文本文件按 UTF-8 无 BOM 读取和写入。
 - 文档与源码保持 CRLF。
-- 读取 CSV、JSON-like spec、配置文件和 workspace 私有状态必须返回带路径和上下文的错误。
+- 读取、解析、写入和删除错误必须返回足够定位问题的上下文。
 - 写文件前必须确保目标路径在允许的 Mod、游戏目录或工具私有目录内。
 - 删除目录必须由后端显式支持目录级事件，不能靠前端递归拼路径。
 
 ## 数据格式
 
-- CSV 解析必须保留真正空行、全逗号空行和 `#` 开头行，让前端表格能显示和删除；`#` 开头行是合法数据行，但不得作为引用 ID。
-- CSV 行身份由前端 `_rowKey` 表示，业务 ID 只从表格字段读取。
-- Starsector JSON-like 文件使用 `alex_json` 宽松 parser，支持当前已验证的注释、尾逗号、未加引号枚举、无前导零小数和分号条目结束。
-- 宽松 parser 必须保留负例测试，避免把明显错误的格式放得过宽。
-- `mod_info.json`、`.ship`、`.wpn`、`.proj`、`.system`、`.faction`、mission 文件都必须在错误中带出具体文件路径。
+- 数据格式解析规则归属对应 parser 模块文档。
+- parser 必须有负例测试，避免把明显错误的格式放得过宽。
 
 ## 文件变更集
 
-- 文件级保存历史的权威载体是 `FileChangeRecord[]`。
-- 单文件保存和多文件保存都使用同一种 changeset。
-- changeset 可以表达文本文件、二进制文件创建、修改、删除和目录删除。
-- `apply_file_change_set` 必须在失败时尽量回滚已写入内容，并把错误返回给前端。
-- 文件级 undo/redo 的栈移动由前端在后端回放成功后提交，后端不替前端移动历史状态。
+- 后端写盘、删除和回放必须通过统一 changeset 边界。
+- changeset 应能覆盖声明支持的文件和目录变更，并在失败时返回错误。
 
 ## 保存边界
 
-- CSV 保存只写对应 CSV，除非用户确认创建或删除关联 spec 文件。
-- `.ship`、`.wpn`、`.proj`、`.system` 保存只写对应 spec，不隐式保存 CSV。
-- 配置保存只写当前配置模块明确拥有的文件。
+- 保存流程只能写入当前模块明确声明拥有的目标。
 - Workspace 私有状态只能写工具私有目录，不得写入 Mod。
-- `starsector-core` 只读，不注册为可编辑 Mod。
 
 ## 资源与贴图
 
-- 图片加载优先 Mod 文件，再使用推断或显式 `starsectorRoot` 下的原版资源回退。
-- 像素资源预览必须保持邻近采样。
-- 二进制贴图上传和覆盖必须纳入文件级 changeset，不得作为不可逆操作处理。
-- 贴图上传和覆盖必须由后端校验扩展名、目标目录和写入路径。
+- 资源读取和写入必须通过后端校验路径、目标和格式。
 
 ## 验证目标
 

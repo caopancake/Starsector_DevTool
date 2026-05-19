@@ -1,33 +1,23 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::read_utf8_no_bom,
     models::CsvTable,
 };
 use serde_json::{Map, Value};
-use std::path::Path;
 
-pub fn read_csv_data(path: &Path) -> AppResult<CsvTable> {
-    if !path.exists() {
-        return Ok(CsvTable {
-            header: vec![],
-            rows: vec![],
-            path: path.to_string_lossy().to_string(),
-        });
-    }
-    let text = read_utf8_no_bom(path)?;
-    let normalized = normalize_visible_empty_rows(&text);
+pub fn parse_csv_text(path_label: &str, text: &str) -> AppResult<CsvTable> {
+    let normalized = normalize_visible_empty_rows(text);
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(false)
         .from_reader(normalized.as_bytes());
     let records: Vec<csv::StringRecord> =
         rdr.records().collect::<Result<_, _>>().map_err(|error| {
-            AppError::context(format!("解析 CSV 失败 ({})", path.display()), error.into())
+            AppError::context(format!("解析 CSV 失败 ({path_label})"), error.into())
         })?;
     if records.is_empty() {
         return Ok(CsvTable {
             header: vec![],
             rows: vec![],
-            path: path.to_string_lossy().to_string(),
+            path: path_label.to_string(),
         });
     }
     let header: Vec<String> = records[0].iter().map(ToString::to_string).collect();
@@ -45,7 +35,7 @@ pub fn read_csv_data(path: &Path) -> AppResult<CsvTable> {
     Ok(CsvTable {
         header,
         rows,
-        path: path.to_string_lossy().to_string(),
+        path: path_label.to_string(),
     })
 }
 
@@ -150,12 +140,6 @@ fn update_csv_quote_state(line: &str, mut in_quotes: bool) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::io::write_utf8_no_bom;
-    use std::{
-        fs,
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
 
     #[test]
     fn save_preserves_visible_empty_rows_from_rows() {
@@ -172,26 +156,11 @@ mod tests {
     }
 
     #[test]
-    fn read_rejects_utf8_bom() {
-        let path = temp_path("csv_rejects_utf8_bom.csv");
-        fs::write(
-            &path,
-            [b"\xef\xbb\xbf".as_slice(), b"id,name\r\na,A\r\n".as_slice()].concat(),
-        )
-        .unwrap();
-        let result = read_csv_data(&path);
-        let _ = fs::remove_file(path);
-        assert!(result.is_err());
-    }
-
-    #[test]
     fn read_reports_path_for_mismatched_record_width() {
-        let path = temp_path("csv_bad_width.csv");
-        write_utf8_no_bom(&path, "id,name\r\na,A\r\nbroken\r\n").unwrap();
+        let error = parse_csv_text("csv_bad_width.csv", "id,name\r\na,A\r\nbroken\r\n")
+            .unwrap_err()
+            .to_string();
 
-        let error = read_csv_data(&path).unwrap_err().to_string();
-
-        let _ = fs::remove_file(&path);
         assert!(error.contains("解析 CSV 失败"));
         assert!(error.contains("csv_bad_width.csv"));
         assert!(error.contains("found record with 1 fields"));
@@ -199,16 +168,12 @@ mod tests {
 
     #[test]
     fn read_keeps_visible_empty_rows() {
-        let path = temp_path("csv_keeps_visible_empty_rows.csv");
-        write_utf8_no_bom(
-            &path,
+        let table = parse_csv_text(
+            "csv_keeps_visible_empty_rows.csv",
             "id,name,notes\r\na,A,alpha\r\n#section\r\n\r\n,,\r\nb,B,beta\r\n",
         )
         .unwrap();
 
-        let table = read_csv_data(&path).unwrap();
-
-        let _ = fs::remove_file(&path);
         assert_eq!(table.rows.len(), 5);
         assert_eq!(table.rows[0]["id"], "a");
         assert_eq!(table.rows[1]["id"], "#section");
@@ -219,16 +184,12 @@ mod tests {
 
     #[test]
     fn read_preserves_blank_lines_inside_quoted_multiline_fields() {
-        let path = temp_path("csv_multiline_blank_field.csv");
-        write_utf8_no_bom(
-            &path,
+        let table = parse_csv_text(
+            "csv_multiline_blank_field.csv",
             "id,name,desc\r\na,A,\"first line\r\n\r\nthird line\"\r\n#section\r\nb,B,plain\r\n",
         )
         .unwrap();
 
-        let table = read_csv_data(&path).unwrap();
-
-        let _ = fs::remove_file(&path);
         assert_eq!(table.rows.len(), 3);
         assert_eq!(table.rows[0]["id"], "a");
         assert_eq!(table.rows[0]["desc"], "first line\r\n\r\nthird line");
@@ -238,16 +199,12 @@ mod tests {
 
     #[test]
     fn read_keeps_hash_prefixed_data_rows_with_full_width() {
-        let path = temp_path("csv_hash_prefixed_data_row.csv");
-        write_utf8_no_bom(
-            &path,
+        let table = parse_csv_text(
+            "csv_hash_prefixed_data_row.csv",
             "name,id,desc\r\nA,a,alpha\r\n#Disabled Name,disabled,\"first line\r\n\r\nthird line\"\r\n#section\r\nB,b,beta\r\n",
         )
         .unwrap();
 
-        let table = read_csv_data(&path).unwrap();
-
-        let _ = fs::remove_file(&path);
         assert_eq!(table.rows.len(), 4);
         assert_eq!(table.rows[1]["name"], "#Disabled Name");
         assert_eq!(table.rows[1]["id"], "disabled");
@@ -259,16 +216,12 @@ mod tests {
 
     #[test]
     fn read_keeps_hash_prefixed_multiline_data_rows() {
-        let path = temp_path("csv_hash_prefixed_multiline_data_row.csv");
-        write_utf8_no_bom(
-            &path,
+        let table = parse_csv_text(
+            "csv_hash_prefixed_multiline_data_row.csv",
             "name,id,desc,short,sprite\r\nA,a,alpha,A,graphics/a.png\r\n#Disabled Name,disabled,\"first line\r\n\r\nthird line\",Disabled,graphics/disabled.png\r\nB,b,beta,B,graphics/b.png\r\n",
         )
         .unwrap();
 
-        let table = read_csv_data(&path).unwrap();
-
-        let _ = fs::remove_file(&path);
         assert_eq!(table.rows.len(), 3);
         assert_eq!(table.rows[1]["name"], "#Disabled Name");
         assert_eq!(table.rows[1]["id"], "disabled");
@@ -285,13 +238,5 @@ mod tests {
         let out = render_csv_text(&header, &[row]).unwrap();
         assert!(out.lines().next().is_some_and(|line| line == "id,name"));
         assert!(out.contains("x,X"));
-    }
-
-    fn temp_path(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        std::env::temp_dir().join(format!("{stamp}_{name}"))
     }
 }

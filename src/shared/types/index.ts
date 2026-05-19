@@ -154,5 +154,5 @@ export interface SelectOption {
 
 export type RenderFn = () => VNodeChild;
 
-export type { ConfigView, ModEntry, ModTableState, PersistedMod, PersistedWorkspace, WorkspaceView } from '@/shared/types/workspace';
+export type { ConfigView, ModEntry, ModTableState, PersistedMod, PersistedWorkspace, WorkspaceView } from '@/shared/types/workspace.types';
 export type { AppFeedback, ConfirmOptions } from '@/shared/types/feedback.types';

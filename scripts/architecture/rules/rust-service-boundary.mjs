@@ -1,3 +1,5 @@
+import { cratePaths } from '../shared/rust-crate-paths.mjs';
+
 export const rustServiceBoundaryRule = {
   name: 'rust-service-boundary',
   check(files) {
@@ -7,8 +9,8 @@ export const rustServiceBoundaryRule = {
       if (/\bcommands::/.test(text) || /#\[tauri::command\]/.test(text)) {
         failures.push(`${rel}: services must not depend on command layer`);
       }
-      if (/\b[A-Za-z0-9_]*WithHistoryPayload\b/.test(text)) {
-        failures.push(`${rel}: services must not expose command history payload types`);
+      if (cratePaths(text).some((path) => path[0] === 'models' && path[1] === 'payloads')) {
+        failures.push(`${rel}: services must not depend on command payload models`);
       }
       for (const match of text.matchAll(/\bpub\s+fn\s+([A-Za-z0-9_]+)/g)) {
         const name = match[1];

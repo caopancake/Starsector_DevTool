@@ -19,6 +19,7 @@
 - Mod 目录以 `mod_info.json` 或可推导的 Mod 根目录为判断依据。
 - 目录识别先判断用户选择路径是否为 Mod 目录；是 Mod 时再尝试用 `modRoot/../..` 推断游戏目录。
 - 游戏概览只扫描 `mods/*/mod_info.json` 和基本元信息，不加载 CSV、spec、schema 配置 entity 和贴图 data URL。
+- 工作区总览页在展示游戏概览时不再同时叠加已完整读取 Mod 列表。
 - 完整读取 Mod 时可以使用显式 `starsectorRoot`、路径推断 root 或设置中的回退 root。
 - 完整读取 Mod 时返回 `coreReferences` 只读原版引用，供 schema source 和缩略图使用，不混入可编辑表格。
 - `coreReferences` 必须包含原版 skin 只读引用，使原版 `skinHullId` 能作为合法 hull 引用参与下拉和缩略图。

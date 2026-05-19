@@ -1,6 +1,9 @@
 <template>
   <div :class="['csv-static-control', staticClass]">
-    <template v-if="column.schema?.control === 'tags' || column.schema?.control === 'multi'">
+    <template v-if="plainMode">
+      <span class="csv-static-value">{{ rawValue }}</span>
+    </template>
+    <template v-else-if="column.schema?.control === 'tags' || column.schema?.control === 'multi'">
       <span v-for="value in listValues" :key="value" class="csv-static-tag">{{ value }}</span>
     </template>
     <template v-else-if="column.schema?.control === 'reference'">
@@ -24,6 +27,7 @@ import { cell } from '@/shared/lib/starsector';
 import type { CsvGridColumn, CsvGridRow } from '@/domain/tables/csv-grid-model';
 import type { CsvSourceIndex } from '@/domain/tables/csv-source-options';
 import { sourceValue } from '@/domain/tables/csv-source-options';
+import { useSettingsStore } from '@/stores/settings.store';
 
 const props = defineProps<{
   column: CsvGridColumn;
@@ -32,6 +36,8 @@ const props = defineProps<{
 }>();
 
 const rawValue = computed(() => cell(props.row.row[props.column.key]));
+const settings = useSettingsStore();
+const plainMode = computed(() => settings.isPlainEditMode);
 const listValues = computed(() =>
   rawValue.value
     .split(',')

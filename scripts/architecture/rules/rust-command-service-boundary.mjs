@@ -1,6 +1,5 @@
 import { rustFile } from '../shared/files.mjs';
-
-const commandForbiddenPatterns = [/\bio::/, /\bparsers::/, /\bstd::fs\b/, /\bPath::new\b/, /\btauri::Manager\b/, /\bfs::/];
+import { cratePaths, rustLayerForCratePath } from '../shared/rust-crate-paths.mjs';
 
 export const rustCommandServiceBoundaryRule = {
   name: 'rust-command-service-boundary',
@@ -14,10 +13,10 @@ export const rustCommandServiceBoundaryRule = {
 };
 
 function checkRustCommandFile(rel, text, failures) {
-  for (const pattern of commandForbiddenPatterns) {
-    if (pattern.test(text)) {
-      failures.push(`${rel}: Rust command layer must only call service boundaries`);
-      break;
+  for (const path of cratePaths(text)) {
+    const layer = rustLayerForCratePath(path);
+    if (layer !== 'services' && layer !== 'models' && layer !== 'other') {
+      failures.push(`${rel}: Rust command layer must only depend on service boundaries and model types`);
     }
   }
   const serviceCalls = text.match(/\bservices::/g) ?? [];

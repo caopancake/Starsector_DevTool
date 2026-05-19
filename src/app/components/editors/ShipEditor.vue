@@ -213,7 +213,7 @@ import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import EditorInspector from '@/app/components/editors/common/EditorInspector.vue';
-import { saveShipSpec } from '@/services/editor.service';
+import { saveShipSpecWithUserAction } from '@/orchestrators/editor-save.orchestrator';
 import type { RowData } from '@/shared/types';
 import { arr, deepClone, num, str } from '@/shared/lib/starsector';
 import type { FileChangeRecord } from '@/shared/api/files-api';
@@ -1385,7 +1385,7 @@ async function uploadShipSprite(event: Event) {
 }
 async function save() {
   try {
-    const changes = await saveShipSpec(props.modRoot, props.hullId, localShip.value);
+    const changes = await saveShipSpecWithUserAction(props.modRoot, props.hullId, localShip.value);
     emit('saved', props.hullId, localShip.value, changes);
   } catch (error) {
     feedback.error(error, '保存舰船失败');

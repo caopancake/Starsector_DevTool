@@ -8,7 +8,6 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 - 支持多 Mod 工作区：同时读取多个 Mod，隔离状态，自由切换。
 - 游戏目录先进入轻量概览，只有用户选择“完整读取”后才加载单个 Mod 的完整数据。
 - 覆盖 CSV 表格编辑、配置编辑、舰船编辑器、武器编辑器、弹体编辑器、发射预览、文件编辑器和 PNG 贴图导入。
-- 舰船和武器编辑器以独立窗口承载画布操作，支持快捷键、自动吸附选择、右侧检查器联动和局部 undo/redo。
 - 让工程结构保持清晰边界，避免臃肿调用链和“为了拆而拆”的碎片化。
 
 ## 技术栈
@@ -28,11 +27,11 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 - `src/main.ts` 是前端运行时入口，按 URL 参数挂载主窗口、编辑器窗口或文件编辑器窗口。
 - `src/app/` 承载应用壳、窗口根组件、全局 provider、主题、反馈入口、页面装配和 Vue 业务组件。
 - `src/domain/` 承载纯业务模型、schema、表格规则和编辑器纯工具，不访问后端和 store。
-- `src/services/` 承载后端 API 调用和单一业务服务，是 `shared/api` 的唯一业务使用层。
+- `src/services/` 承载后端 API 调用和单一业务服务。
 - `src/stores/` 承载 Pinia store，只管理内存状态。
 - `src/orchestrators/` 承载跨 store、service、history 和窗口的用户动作编排。
 - `src/windows/` 承载窗口创建、窗口事件和窗口生命周期协调。
-- `src/shared/api/` 只封装 Tauri command 和 event 的调用形状。
+- `src/shared/api/` 只封装 Tauri command 的调用形状。
 - `src/shared/lib/` 承载跨业务纯工具，例如路径、错误和 Starsector 数据辅助函数。
 - `src/shared/types/` 承载跨模块共享的前端数据类型。
 - `src/styles/` 承载全局 CSS 模块，视觉边界以 `css-guidelines.md` 为准。
@@ -43,6 +42,7 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 - `src-tauri/src/parsers/` 是格式解析和渲染层。
 - `src-tauri/src/io/` 是 UTF-8、JSON-like、图片和路径相关 IO 层。
 - `src-tauri/src/models/` 是 Rust 与前端交换的数据结构和 payload。
+- 具体模块链路和职责以 `.trae/module-map.md` 及 `.trae/modules/` 为准。
 
 ## 规范
 
@@ -50,26 +50,21 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 - 前端不能把磁盘写入当成普通状态变更，所有写盘必须经过 shared API 到 Rust command。
 - Rust 是磁盘路径、删除语义、文件写入、parser 和 changeset 回放的权威。
 - Tauri command 层只调用明确的 service 边界，不承载实现细节。
-- 主窗口状态按 `modRoot` 隔离，独立窗口按窗口 URL 自行加载目标 Mod。
-- `workspace` 记录打开了什么，`project` 缓存完整 `AppData`，`tables` 记录 CSV 草稿，`file-history` 记录已经写盘的 changeset。
-- CSV 草稿历史、文件级 history、编辑器窗口局部 history 是三套系统，不共用栈。
-- CSV、spec、配置文件、workspace 私有状态和二进制贴图有不同保存边界，不能互相偷写。
-- Canvas 编辑器使用 Starsector 资源朝向约定做显示转换，但保存边界仍是对应 spec 文件本身。
-- 保存 JSON-like spec 时采用结构保真：内容正确、字段保留、规范缩进写回；不承诺保留原注释、尾逗号和手写格式。
-- `starsector-core` 只读，只作为原版资源回退和数据来源，不注册成可编辑 Mod。
+- 前端运行时状态不是磁盘权威；所有按 Mod 归属的状态必须按 `modRoot` 隔离。
+- 保存流程只能写入当前模块声明拥有的目标。
+- 字段编辑入口必须遵守全局编辑模式。
 - 禁止性规则必须描述完整边界，不得用具体对象、文件类型、状态类型、函数名或模块名的枚举来限定禁止范围。示例只能作为非穷尽说明，不能构成允许边界。
 
 ## 核心数据流
 
 - 用户通过目录选择器打开游戏目录或 Mod 目录。
 - 前端调用目录识别 command，决定进入游戏概览或完整读取单个 Mod。
-- Rust 扫描 `data/`、`graphics/` 和配置入口，解析 CSV、宽松 JSON-like 文件和资源列表。
+- Rust 完整读取单个 Mod 的表格、配置、spec、资源索引和只读引用数据。
 - 前端将数据写入 project store，并驱动表格、右侧详情和独立编辑器窗口。
-- 用户编辑 CSV、spec、配置或文本文件后，前端通过对应 orchestrator 或 service 调用 `shared/api`，再调用对应的 Rust command 和 service。
+- 用户编辑并保存后，前端通过对应 orchestrator 编排状态、历史和 service 调用。
 - Rust service 执行路径解析、数据校验、文件写回和 changeset 回放。
-- workspace 状态自动持久化至 `%APPDATA%/com.starsector.devtool/workspace.json`，启动时按当前 parser 重新加载。
+- workspace 状态写入工具私有目录，启动时按当前 parser 重新加载。
 
 ## 发布策略
 
-- 项目只发布单文件 exe，不生成安装包。
 - 具体构建命令、产物路径和验收步骤见 `.trae/workflow.md`。

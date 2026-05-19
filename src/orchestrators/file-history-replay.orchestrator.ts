@@ -1,5 +1,4 @@
 import { h } from 'vue';
-import { emit } from '@tauri-apps/api/event';
 import type { AppFeedback } from '@/shared/types';
 import { applyFileChangeSet, type FileChangeRecord } from '@/shared/api/files-api';
 import { normalizeFsPath, pathStem, relativePathFromRoot } from '@/shared/lib/paths';
@@ -9,6 +8,7 @@ import type { useTablesStore } from '@/stores/tables.store';
 import { loadTableRows } from '@/services/table.service';
 import { WINDOW_EVENTS } from '@/windows/window.events';
 import type { EditorSpecSavedEvent } from '@/windows/window.events';
+import { emitWindowEvent } from '@/windows/tauri.events';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import type { FileSaveHistoryEntry } from '@/shared/types/file-history.types';
 
@@ -85,11 +85,11 @@ async function applyFileSaveHistoryEntry(
     if (change.kind === 'directory') continue;
     const text = textForFileHistoryDirection(change, direction);
     if (text === null && hasBinaryFileContent(change, direction)) continue;
-    await emit(WINDOW_EVENTS.fileEditorTextApplied, { path: change.path, text: text ?? '' });
+    await emitWindowEvent(WINDOW_EVENTS.fileEditorTextApplied, { path: change.path, text: text ?? '' });
     const specChange = parseJsonSpecFileChange(project.modsData, change.path, text);
     if (specChange) {
       syncEditorSpecChange(project, specChange);
-      await emit(WINDOW_EVENTS.editorSpecApplied, specChange);
+      await emitWindowEvent(WINDOW_EVENTS.editorSpecApplied, specChange);
       continue;
     }
     if (syncVariantFileChange(project, change.path, text)) {

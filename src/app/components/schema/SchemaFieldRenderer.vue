@@ -2,244 +2,317 @@
   <div class="schema-field" :class="{ 'nested-row': isNested }">
     <span class="field-label" :title="field.description ?? undefined">{{ field.label }}</span>
     <div class="field-control">
-      <!-- string -->
-      <n-input
-        v-if="field.type === 'string'"
-        :value="strVal"
-        size="small"
-        :disabled="field.editable === false"
-        @update:value="emitStringOrObject($event)"
-      />
-
-      <!-- text (textarea) -->
-      <n-input
-        v-else-if="field.type === 'text'"
-        :value="strVal"
-        type="textarea"
-        :autosize="{ minRows: 2, maxRows: 6 }"
-        size="small"
-        @update:value="emit('update', $event)"
-      />
-
-      <!-- integer -->
-      <n-input-number
-        v-else-if="field.type === 'integer'"
-        :value="numVal"
-        :min="field.min ?? undefined"
-        :max="field.max ?? undefined"
-        :step="field.step ?? 1"
-        :show-button="false"
-        size="small"
-        @update:value="emit('update', $event ?? 0)"
-      />
-
-      <!-- float -->
-      <n-input-number
-        v-else-if="field.type === 'float'"
-        :value="numVal"
-        :min="field.min ?? undefined"
-        :max="field.max ?? undefined"
-        :step="field.step ?? 0.1"
-        :show-button="false"
-        size="small"
-        @update:value="emit('update', $event ?? 0)"
-      />
-
-      <!-- boolean -->
-      <n-switch
-        v-else-if="field.type === 'boolean'"
-        class="tool-switch field-switch"
-        :value="boolVal"
-        size="small"
-        @update:value="emit('update', $event)"
-      />
-
-      <!-- enum -->
-      <n-select
-        v-else-if="field.type === 'enum'"
-        :show="selectOpen"
-        :value="strVal"
-        :options="enumOptions"
-        :render-label="hasSprites ? renderSelectLabel : undefined"
-        size="small"
-        clearable
-        @mousedown.capture="closeOpenSelectOnFieldClick"
-        @update:show="handleSelectShowUpdate"
-        @update:value="emit('update', $event)"
-      />
-
-      <!-- color-rgba -->
-      <ColorPicker
-        v-else-if="field.type === 'color-rgb' || field.type === 'color-rgba'"
-        :model-value="props.value as JsonValue"
-        :channels="field.type === 'color-rgb' ? 'rgb' : 'rgba'"
-        :output="field.type === 'color-rgb' ? 'rgb-array' : 'rgba-array'"
-        @update:model-value="emit('update', $event)"
-      />
-
-      <!-- path-image: searchable dropdown + file picker -->
-      <div v-else-if="field.type === 'path-image'" class="path-field">
-        <n-select
-          :show="selectOpen"
-          :value="strVal || null"
-          :options="graphicsOptions"
-          :render-label="renderGraphicsLabel"
-          filterable
-          clearable
-          tag
+      <template v-if="plainMode">
+        <n-input
+          v-if="field.type === 'string'"
+          :value="strVal"
           size="small"
-          placeholder="搜索或输入图片路径"
-          class="path-select"
+          :disabled="field.editable === false"
+          @update:value="emitStringOrObject($event)"
+        />
+        <n-input
+          v-else-if="field.type === 'text'"
+          :value="strVal"
+          type="textarea"
+          :autosize="{ minRows: 2, maxRows: 6 }"
+          size="small"
+          @update:value="emit('update', $event)"
+        />
+        <n-input
+          v-else-if="field.type === 'integer'"
+          :value="plainNumberText"
+          size="small"
+          :disabled="field.editable === false"
+          @update:value="emitPlainNumber($event, true)"
+        />
+        <n-input
+          v-else-if="field.type === 'float'"
+          :value="plainNumberText"
+          size="small"
+          :disabled="field.editable === false"
+          @update:value="emitPlainNumber($event, false)"
+        />
+        <n-input
+          v-else-if="field.type === 'boolean'"
+          :value="plainBooleanText"
+          size="small"
+          :disabled="field.editable === false"
+          @update:value="emitPlainBoolean"
+        />
+        <n-input
+          v-else-if="field.type === 'enum'"
+          :value="strVal"
+          size="small"
+          :disabled="field.editable === false"
+          @update:value="emit('update', $event)"
+        />
+        <n-input
+          v-else-if="field.type === 'color-rgb' || field.type === 'color-rgba'"
+          :value="jsonVal"
+          type="textarea"
+          :autosize="{ minRows: 1, maxRows: 4 }"
+          size="small"
+          @update:value="emitParsed"
+        />
+        <n-input
+          v-else-if="field.type === 'path-image' || field.type === 'path'"
+          :value="strVal"
+          size="small"
+          @update:value="emit('update', $event)"
+        />
+        <n-input v-else-if="field.type === 'string-array'" :value="arrVal.join(', ')" size="small" @update:value="emitPlainStringArray" />
+        <n-input v-else-if="field.type === 'tag-select'" :value="tagSelectVal.join(', ')" size="small" @update:value="emitPlainTagSelect" />
+        <n-input
+          v-else-if="field.type === 'key-value' || field.type === 'object' || field.type === 'array' || field.type === 'array-of-object'"
+          :value="jsonVal"
+          type="textarea"
+          :autosize="{ minRows: 2, maxRows: 10 }"
+          size="small"
+          @update:value="emitParsed"
+        />
+        <n-input v-else :value="jsonVal" type="textarea" :autosize="{ minRows: 1, maxRows: 4 }" size="small" @update:value="emitParsed" />
+      </template>
+
+      <template v-else>
+        <!-- string -->
+        <n-input
+          v-if="field.type === 'string'"
+          :value="strVal"
+          size="small"
+          :disabled="field.editable === false"
+          @update:value="emitStringOrObject($event)"
+        />
+
+        <!-- text (textarea) -->
+        <n-input
+          v-else-if="field.type === 'text'"
+          :value="strVal"
+          type="textarea"
+          :autosize="{ minRows: 2, maxRows: 6 }"
+          size="small"
+          @update:value="emit('update', $event)"
+        />
+
+        <!-- integer -->
+        <n-input-number
+          v-else-if="field.type === 'integer'"
+          :value="numVal"
+          :min="field.min ?? undefined"
+          :max="field.max ?? undefined"
+          :step="field.step ?? 1"
+          :show-button="false"
+          size="small"
+          @update:value="emit('update', $event ?? 0)"
+        />
+
+        <!-- float -->
+        <n-input-number
+          v-else-if="field.type === 'float'"
+          :value="numVal"
+          :min="field.min ?? undefined"
+          :max="field.max ?? undefined"
+          :step="field.step ?? 0.1"
+          :show-button="false"
+          size="small"
+          @update:value="emit('update', $event ?? 0)"
+        />
+
+        <!-- boolean -->
+        <n-switch
+          v-else-if="field.type === 'boolean'"
+          class="tool-switch field-switch"
+          :value="boolVal"
+          size="small"
+          @update:value="emit('update', $event)"
+        />
+
+        <!-- enum -->
+        <n-select
+          v-else-if="field.type === 'enum'"
+          :show="selectOpen"
+          :value="strVal"
+          :options="enumOptions"
+          :render-label="hasSprites ? renderSelectLabel : undefined"
+          size="small"
+          clearable
           @mousedown.capture="closeOpenSelectOnFieldClick"
           @update:show="handleSelectShowUpdate"
-          @update:value="emit('update', $event ?? '')"
+          @update:value="emit('update', $event)"
         />
-        <n-button class="compact-icon-button" size="small" quaternary title="选择文件" @click="pickFile">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 19V5h6l2 2h8v12H4z" />
-            <path d="M8 14h8M12 10v8" />
-          </svg>
-        </n-button>
-      </div>
 
-      <!-- path: input + file picker (no image dropdown) -->
-      <div v-else-if="field.type === 'path'" class="path-field">
-        <n-input :value="strVal" size="small" @update:value="emit('update', $event)" />
-        <n-button class="compact-icon-button" size="small" quaternary title="选择文件" @click="pickFile">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 19V5h6l2 2h8v12H4z" />
-            <path d="M8 14h8M12 10v8" />
-          </svg>
-        </n-button>
-      </div>
+        <!-- color-rgba -->
+        <ColorPicker
+          v-else-if="field.type === 'color-rgb' || field.type === 'color-rgba'"
+          :model-value="props.value as JsonValue"
+          :channels="field.type === 'color-rgb' ? 'rgb' : 'rgba'"
+          :output="field.type === 'color-rgb' ? 'rgb-array' : 'rgba-array'"
+          @update:model-value="emit('update', $event)"
+        />
 
-      <!-- string-array -->
-      <n-select
-        v-else-if="field.type === 'string-array'"
-        :show="selectOpen"
-        :value="arrVal"
-        :options="sourceOptions.length > 0 ? sourceOptions : arrVal.map((v) => ({ label: v, value: v }))"
-        :render-label="hasSprites ? renderSelectLabel : undefined"
-        multiple
-        filterable
-        tag
-        size="small"
-        @mousedown.capture="closeOpenSelectOnFieldClick"
-        @update:show="handleSelectShowUpdate"
-        @update:value="emit('update', $event)"
-      />
-
-      <!-- tag-select -->
-      <n-select
-        v-else-if="field.type === 'tag-select'"
-        :show="selectOpen"
-        :value="tagSelectVal"
-        :options="sourceOptions"
-        :render-label="hasSprites ? renderSelectLabel : undefined"
-        multiple
-        filterable
-        tag
-        size="small"
-        @mousedown.capture="closeOpenSelectOnFieldClick"
-        @update:show="handleSelectShowUpdate"
-        @update:value="emit('update', wrapTags($event))"
-      />
-
-      <!-- key-value -->
-      <div v-else-if="field.type === 'key-value'" class="key-value-editor" :class="{ 'reference-key-value': isReferenceKeyValue }">
-        <div v-for="(entry, idx) in kvEntries" :key="idx" class="kv-row">
+        <!-- path-image: searchable dropdown + file picker -->
+        <div v-else-if="field.type === 'path-image'" class="path-field">
           <n-select
-            :show="kvSelectOpen[idx]"
-            :value="entry.key"
-            :options="kvKeyOptions"
-            :render-label="optionsContainSprites(kvKeyOptions) ? renderSelectLabel : undefined"
+            :show="selectOpen"
+            :value="strVal || null"
+            :options="graphicsOptions"
+            :render-label="renderGraphicsLabel"
             filterable
+            clearable
             tag
             size="small"
-            class="kv-key-select"
-            @mousedown.capture="closeOpenKvSelectOnFieldClick($event, idx)"
-            @update:show="handleKvSelectShowUpdate(idx, $event)"
-            @update:value="updateKvKey(idx, $event)"
+            placeholder="搜索或输入图片路径"
+            class="path-select"
+            @mousedown.capture="closeOpenSelectOnFieldClick"
+            @update:show="handleSelectShowUpdate"
+            @update:value="emit('update', $event ?? '')"
           />
-          <SchemaFieldRenderer
-            v-if="field.valueSchema"
-            :field="field.valueSchema"
-            :value="entry.val"
-            :app-data="appData"
-            :is-nested="true"
-            @update="updateKvValue(idx, $event)"
-          />
-          <n-input v-else :value="formatKvVal(entry.val)" class="kv-value-input" size="small" @update:value="updateKvVal(idx, $event)" />
-          <n-button class="compact-icon-button" size="tiny" quaternary title="删除" @click="removeKvEntry(idx)">
+          <n-button class="compact-icon-button" size="small" quaternary title="选择文件" @click="pickFile">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6 6l12 12M18 6 6 18" />
+              <path d="M4 19V5h6l2 2h8v12H4z" />
+              <path d="M8 14h8M12 10v8" />
             </svg>
           </n-button>
         </div>
-        <n-button size="tiny" @click="addKvEntry">+ 添加</n-button>
-      </div>
 
-      <!-- object (recurse into nested fields) -->
-      <div v-else-if="field.type === 'object' && field.nested" class="nested-object">
-        <SchemaFieldRenderer
-          v-for="sub in field.nested"
-          :key="sub.key"
-          :field="sub"
-          :value="getSubValue(sub.key)"
-          :app-data="appData"
-          :is-nested="true"
-          @update="onSubUpdate(sub.key, $event)"
-        />
-      </div>
-
-      <!-- array -->
-      <div v-else-if="field.type === 'array' && field.item" class="array-of-object">
-        <div v-for="(_item, idx) in genericArrayItems" :key="idx" class="array-item">
-          <div class="array-item-header">
-            <span class="array-item-index">#{{ idx + 1 }}</span>
-            <n-button class="compact-icon-button" size="tiny" quaternary title="删除" @click="removeGenericArrayItem(idx)">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M6 6l12 12M18 6 6 18" />
-              </svg>
-            </n-button>
-          </div>
-          <SchemaFieldRenderer
-            :field="field.item"
-            :value="genericArrayItems[idx]"
-            :app-data="appData"
-            :is-nested="true"
-            @update="updateGenericArrayItem(idx, $event)"
-          />
+        <!-- path: input + file picker (no image dropdown) -->
+        <div v-else-if="field.type === 'path'" class="path-field">
+          <n-input :value="strVal" size="small" @update:value="emit('update', $event)" />
+          <n-button class="compact-icon-button" size="small" quaternary title="选择文件" @click="pickFile">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 19V5h6l2 2h8v12H4z" />
+              <path d="M8 14h8M12 10v8" />
+            </svg>
+          </n-button>
         </div>
-        <n-button size="tiny" @click="addGenericArrayItem">+ 添加项</n-button>
-      </div>
 
-      <!-- array-of-object -->
-      <div v-else-if="field.type === 'array-of-object' && field.nested" class="array-of-object">
-        <div v-for="(item, idx) in arrayItems" :key="idx" class="array-item">
-          <div class="array-item-header">
-            <span class="array-item-index">#{{ idx + 1 }}</span>
-            <n-button class="compact-icon-button" size="tiny" quaternary title="删除" @click="removeArrayItem(idx)">
+        <!-- string-array -->
+        <n-select
+          v-else-if="field.type === 'string-array'"
+          :show="selectOpen"
+          :value="arrVal"
+          :options="sourceOptions.length > 0 ? sourceOptions : arrVal.map((v) => ({ label: v, value: v }))"
+          :render-label="hasSprites ? renderSelectLabel : undefined"
+          multiple
+          filterable
+          tag
+          size="small"
+          @mousedown.capture="closeOpenSelectOnFieldClick"
+          @update:show="handleSelectShowUpdate"
+          @update:value="emit('update', $event)"
+        />
+
+        <!-- tag-select -->
+        <n-select
+          v-else-if="field.type === 'tag-select'"
+          :show="selectOpen"
+          :value="tagSelectVal"
+          :options="sourceOptions"
+          :render-label="hasSprites ? renderSelectLabel : undefined"
+          multiple
+          filterable
+          tag
+          size="small"
+          @mousedown.capture="closeOpenSelectOnFieldClick"
+          @update:show="handleSelectShowUpdate"
+          @update:value="emit('update', wrapTags($event))"
+        />
+
+        <!-- key-value -->
+        <div v-else-if="field.type === 'key-value'" class="key-value-editor" :class="{ 'reference-key-value': isReferenceKeyValue }">
+          <div v-for="(entry, idx) in kvEntries" :key="idx" class="kv-row">
+            <n-select
+              :show="kvSelectOpen[idx]"
+              :value="entry.key"
+              :options="kvKeyOptions"
+              :render-label="optionsContainSprites(kvKeyOptions) ? renderSelectLabel : undefined"
+              filterable
+              tag
+              size="small"
+              class="kv-key-select"
+              @mousedown.capture="closeOpenKvSelectOnFieldClick($event, idx)"
+              @update:show="handleKvSelectShowUpdate(idx, $event)"
+              @update:value="updateKvKey(idx, $event)"
+            />
+            <SchemaFieldRenderer
+              v-if="field.valueSchema"
+              :field="field.valueSchema"
+              :value="entry.val"
+              :app-data="appData"
+              :is-nested="true"
+              @update="updateKvValue(idx, $event)"
+            />
+            <n-input v-else :value="formatKvVal(entry.val)" class="kv-value-input" size="small" @update:value="updateKvVal(idx, $event)" />
+            <n-button class="compact-icon-button" size="tiny" quaternary title="删除" @click="removeKvEntry(idx)">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M6 6l12 12M18 6 6 18" />
               </svg>
             </n-button>
           </div>
+          <n-button size="tiny" @click="addKvEntry">+ 添加</n-button>
+        </div>
+
+        <!-- object (recurse into nested fields) -->
+        <div v-else-if="field.type === 'object' && field.nested" class="nested-object">
           <SchemaFieldRenderer
             v-for="sub in field.nested"
             :key="sub.key"
             :field="sub"
-            :value="getArrayItemValue(idx, sub.key)"
+            :value="getSubValue(sub.key)"
             :app-data="appData"
             :is-nested="true"
-            @update="onArrayItemUpdate(idx, sub.key, $event)"
+            @update="onSubUpdate(sub.key, $event)"
           />
         </div>
-        <n-button size="tiny" @click="addArrayItem">+ 添加项</n-button>
-      </div>
 
-      <!-- fallback: JSON textarea -->
-      <n-input v-else :value="jsonVal" type="textarea" :autosize="{ minRows: 1, maxRows: 4 }" size="small" @update:value="emitParsed" />
+        <!-- array -->
+        <div v-else-if="field.type === 'array' && field.item" class="array-of-object">
+          <div v-for="(_item, idx) in genericArrayItems" :key="idx" class="array-item">
+            <div class="array-item-header">
+              <span class="array-item-index">#{{ idx + 1 }}</span>
+              <n-button class="compact-icon-button" size="tiny" quaternary title="删除" @click="removeGenericArrayItem(idx)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6 6 18" />
+                </svg>
+              </n-button>
+            </div>
+            <SchemaFieldRenderer
+              :field="field.item"
+              :value="genericArrayItems[idx]"
+              :app-data="appData"
+              :is-nested="true"
+              @update="updateGenericArrayItem(idx, $event)"
+            />
+          </div>
+          <n-button size="tiny" @click="addGenericArrayItem">+ 添加项</n-button>
+        </div>
+
+        <!-- array-of-object -->
+        <div v-else-if="field.type === 'array-of-object' && field.nested" class="array-of-object">
+          <div v-for="(item, idx) in arrayItems" :key="idx" class="array-item">
+            <div class="array-item-header">
+              <span class="array-item-index">#{{ idx + 1 }}</span>
+              <n-button class="compact-icon-button" size="tiny" quaternary title="删除" @click="removeArrayItem(idx)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6 6 18" />
+                </svg>
+              </n-button>
+            </div>
+            <SchemaFieldRenderer
+              v-for="sub in field.nested"
+              :key="sub.key"
+              :field="sub"
+              :value="getArrayItemValue(idx, sub.key)"
+              :app-data="appData"
+              :is-nested="true"
+              @update="onArrayItemUpdate(idx, sub.key, $event)"
+            />
+          </div>
+          <n-button size="tiny" @click="addArrayItem">+ 添加项</n-button>
+        </div>
+
+        <!-- fallback: JSON textarea -->
+        <n-input v-else :value="jsonVal" type="textarea" :autosize="{ minRows: 1, maxRows: 4 }" size="small" @update:value="emitParsed" />
+      </template>
 
       <!-- Warning text -->
       <span v-if="field.warning" class="field-warning">{{ field.warning }}</span>
@@ -250,13 +323,14 @@
 
 <script setup lang="ts">
 import { computed, h, ref } from 'vue';
-import { open } from '@tauri-apps/plugin-dialog';
+import { pickFileDialog } from '@/shared/runtime/dialog.runtime';
 import type { AppData, JsonValue } from '@/shared/types';
 import type { FieldSchema } from '@/domain/schema/schema.types';
 import type { SelectOption } from '@/domain/schema/schema-registry';
 import { resolveSource } from '@/domain/schema/schema-registry';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import { useCoreGraphics } from '@/app/composables/use-core-graphics';
+import { useSettingsStore } from '@/stores/settings.store';
 
 const { graphicsPaths, loadGraphics } = useCoreGraphics();
 loadGraphics(); // Fire-and-forget, loads once and caches
@@ -272,6 +346,9 @@ const emit = defineEmits<{
   update: [value: unknown];
 }>();
 
+const settings = useSettingsStore();
+const plainMode = computed(() => settings.isPlainEditMode);
+
 // ─── Computed value converters ────────────────────────────────────────
 
 const strVal = computed(() => {
@@ -281,6 +358,12 @@ const strVal = computed(() => {
 });
 
 const numVal = computed(() => (typeof props.value === 'number' ? props.value : parseFloat(String(props.value)) || 0));
+const plainNumberText = computed(() => (props.value === null || props.value === undefined ? '' : String(props.value)));
+const plainBooleanText = computed(() => {
+  if (props.value === true) return 'true';
+  if (props.value === false) return 'false';
+  return strVal.value;
+});
 
 const boolVal = computed(() => props.value === true);
 
@@ -313,6 +396,56 @@ function wrapTags(tags: string[]): unknown {
     return { ...(v as Record<string, unknown>), tags };
   }
   return tags;
+}
+
+function emitPlainNumber(raw: string, integer: boolean) {
+  const trimmed = raw.trim();
+  if (trimmed === '') {
+    emit('update', '');
+    return;
+  }
+  const parsed = integer ? parseInt(trimmed, 10) : Number(trimmed);
+  if (Number.isFinite(parsed)) {
+    emit('update', parsed);
+    return;
+  }
+  emit('update', raw);
+}
+
+function emitPlainBoolean(raw: string) {
+  const normalized = raw.trim().toLowerCase();
+  if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) {
+    emit('update', true);
+    return;
+  }
+  if (['false', '0', 'no', 'n', 'off'].includes(normalized)) {
+    emit('update', false);
+    return;
+  }
+  emit('update', raw);
+}
+
+function emitPlainStringArray(raw: string) {
+  emit(
+    'update',
+    raw
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean),
+  );
+}
+
+function emitPlainTagSelect(raw: string) {
+  const tags = raw
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const v = props.value;
+  if (v && typeof v === 'object' && !Array.isArray(v) && 'tags' in (v as Record<string, unknown>)) {
+    emit('update', { ...(v as Record<string, unknown>), tags });
+    return;
+  }
+  emit('update', tags);
 }
 
 // ─── Source / enum options ────────────────────────────────────────────
@@ -593,10 +726,9 @@ async function pickFile() {
   const modRoot = props.appData?.modRoot;
   if (!modRoot) return;
 
-  const selected = await open({
+  const selected = await pickFileDialog({
     title: '选择文件',
     defaultPath: modRoot,
-    multiple: false,
   });
 
   if (!selected || typeof selected !== 'string') return;

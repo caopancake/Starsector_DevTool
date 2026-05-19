@@ -14,7 +14,7 @@
         :mod-root="modRoot"
         :hull-id="id"
         :ship="appData.shipFiles[id]"
-        :sprite-data="appData.shipSprites[id]"
+        :sprite-data="shipSpriteForEditor"
         @close="closeWindow"
         @saved="onShipSaved"
       />
@@ -56,8 +56,6 @@
 </template>
 
 <script setup lang="ts">
-import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import ShipEditor from '@/app/components/editors/ShipEditor.vue';
 import WeaponEditor from '@/app/components/editors/WeaponEditor.vue';
@@ -73,9 +71,12 @@ import { useSettingsStore } from '@/stores/settings.store';
 import { loadProject } from '@/services/project.service';
 import type { AppData, RowData } from '@/shared/types';
 import { deepClone, defaultWeapon, rowSpecId } from '@/shared/lib/starsector';
+import { resolveHullSprite } from '@/shared/lib/hull-references';
 import { formatError } from '@/shared/lib/errors';
 import WindowShell from '@/app/WindowShell.vue';
+import { closeCurrentWindow } from '@/windows/current.window';
 import { WINDOW_EVENTS } from '@/windows/window.events';
+import { emitWindowEvent, listenWindowEvent, type UnlistenFn } from '@/windows/tauri.events';
 
 const params = new window.URLSearchParams(window.location.search);
 const kind = ref<EditorWindowKind>(parseKind(params.get('kind')));
@@ -94,6 +95,7 @@ const weaponForEditor = computed<RowData>(() => {
   const csvRow = data.weapons.find((weapon) => rowSpecId(weapon, 'weapons') === id);
   return data.wpnFiles[id] || defaultWeapon(id, csvRow);
 });
+const shipSpriteForEditor = computed(() => resolveHullSprite(appData.value, id, 'mod'));
 
 const missingEditorText = computed(() => {
   if (!modRoot || !id) return '缺少 Mod 路径或目标 id。';
@@ -109,7 +111,7 @@ function parseKind(value: string | null): EditorWindowKind {
 }
 
 function closeWindow() {
-  void getCurrentWindow().close();
+  void closeCurrentWindow();
 }
 
 async function loadEditorData() {
@@ -128,7 +130,7 @@ async function loadEditorData() {
 }
 
 async function emitSaved(payload: EditorSpecSavedEvent) {
-  await emit(WINDOW_EVENTS.editorSpecSaved, payload);
+  await emitWindowEvent(WINDOW_EVENTS.editorSpecSaved, payload);
 }
 
 function handleEditorSpecApplied(payload: EditorSpecSavedEvent) {
@@ -177,8 +179,8 @@ function openPreview(weaponId: string) {
 }
 
 onMounted(async () => {
-  unlistenEditorSpecApplied = await listen<EditorSpecSavedEvent>(WINDOW_EVENTS.editorSpecApplied, (event) => {
-    handleEditorSpecApplied(event.payload);
+  unlistenEditorSpecApplied = await listenWindowEvent<EditorSpecSavedEvent>(WINDOW_EVENTS.editorSpecApplied, (payload) => {
+    handleEditorSpecApplied(payload);
   });
   void loadEditorData();
 });

@@ -1,3 +1,5 @@
+import { singleFileByRel } from '../shared/files.mjs';
+
 const commandAttrPattern = /#\[tauri::command\]\s*(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)/g;
 const commandRegistrationPattern = /commands::([A-Za-z0-9_]+)/g;
 
@@ -12,7 +14,7 @@ export const rustCommandRegistrationBoundaryRule = {
         commands.add(match[1]);
       }
     }
-    const lib = files.find((file) => file.rel === 'src-tauri/src/lib.rs');
+    const lib = singleFileByRel(files, 'src-tauri/src/lib.rs');
     if (!lib) {
       failures.push('src-tauri/src/lib.rs: command registration file is missing');
       return failures;

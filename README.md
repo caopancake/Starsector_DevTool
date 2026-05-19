@@ -4,15 +4,12 @@ Windows 桌面版 Starsector Mod 配置工具，使用 Tauri 2 + Vue 3 + TypeScr
 
 ## 功能
 
-- 选择并打开 Starsector 游戏根目录
-- 或打开一个单独的 Starsector Mod 目录
-- 编辑舰船、武器、联队、舰船插件、工业 CSV
-- 势力筛选、搜索、排序、单元格编辑、保存和撤销
-- 舰船 `.ship` 可视化编辑
-- 武器 `.wpn` 可视化编辑
-- 弹体 `.proj` 编辑
-- 发射预览
-- PNG 贴图导入
+- 打开 Starsector 游戏目录或单独的 Mod 目录
+- 以工作区方式管理和切换多个 Mod
+- 编辑常用 CSV、配置、舰船、武器、弹体和文本文件
+- 预览武器发射效果
+- 导入和覆盖 PNG 贴图
+- 支持保存历史、撤销和重做
 
 ## 技术栈
 
@@ -25,9 +22,9 @@ Windows 桌面版 Starsector Mod 配置工具，使用 Tauri 2 + Vue 3 + TypeScr
 
 ## 开发
 
-```bash
+```powershell
 npm install
-npm run tauri -- dev
+npm.cmd run tauri -- dev
 ```
 
 ## 构建
@@ -48,17 +45,18 @@ build.bat
 src-tauri\target\release\starsector-devtool.exe
 ```
 
-构建脚本内部使用 `tauri build --no-bundle`，不生成 MSI/NSIS 安装包。
+项目只发布单文件 exe，不生成安装包。
 
 ## 验证
 
 ```powershell
-npm.cmd run encoding:check
 npm.cmd run format:check
 npm.cmd run lint
 npm.cmd run typecheck
+npm.cmd run encoding:check
 cargo test --manifest-path src-tauri\Cargo.toml
 cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings
+cargo fmt --manifest-path src-tauri\Cargo.toml --check
 ```
 
 ## 文档

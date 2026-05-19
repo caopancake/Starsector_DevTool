@@ -1,12 +1,12 @@
-import { importedProjectPaths } from '../shared/imports.mjs';
+import { exportedFunctionNames } from '../shared/imports.mjs';
 
-const layerRules = [
+const fileNamingRules = [
   { prefix: 'src/services/', pattern: /^[a-z0-9-]+\.service\.ts$/, message: 'services files must use *.service.ts' },
   { prefix: 'src/stores/', pattern: /^[a-z0-9-]+\.store\.ts$/, message: 'stores files must use *.store.ts' },
   { prefix: 'src/orchestrators/', pattern: /^[a-z0-9-]+\.orchestrator\.ts$/, message: 'orchestrator files must use *.orchestrator.ts' },
   { prefix: 'src/windows/', pattern: /^[a-z0-9-]+\.(?:window|events)\.ts$/, message: 'window files must use *.window.ts or *.events.ts' },
 ];
-const forbiddenDomainRoleSuffix = /\.(?:service|store|orchestrator)\.ts$/;
+const domainFileNamePattern = /^(?!.*\.(?:service|store|orchestrator)\.ts$).+\.ts$/;
 
 export const namingBoundaryRule = {
   name: 'naming-boundary',
@@ -15,7 +15,7 @@ export const namingBoundaryRule = {
     for (const file of files) {
       const { rel, text } = file;
       const name = rel.split('/').at(-1) ?? rel;
-      for (const rule of layerRules) {
+      for (const rule of fileNamingRules) {
         if (rel.startsWith(rule.prefix) && !rule.pattern.test(name)) failures.push(`${rel}: ${rule.message}`);
       }
       for (const exported of exportedFunctionNames(text)) {
@@ -35,17 +35,11 @@ export const namingBoundaryRule = {
           failures.push(`${rel}: use* exports belong in src/app/composables/use-*.ts`);
         }
       }
-      if (rel.startsWith('src/domain/') && forbiddenDomainRoleSuffix.test(name)) {
+      if (rel.startsWith('src/domain/') && !domainFileNamePattern.test(name)) {
         failures.push(`${rel}: domain files must not use service/store/orchestrator role suffixes`);
       }
-      if (rel.startsWith('src/domain/') && importsSharedApi(file)) {
-        failures.push(`${rel}: domain files must not import shared/api`);
-      }
-      if (rel.startsWith('src/app/composables/') && importsSharedApi(file)) {
-        failures.push(`${rel}: app composables must use services or orchestrators instead of shared/api`);
-      }
-      if (rel.startsWith('src/shared/types/') && !/^(?:index|workspace|[a-z0-9-]+\.types)\.ts$/.test(name)) {
-        failures.push(`${rel}: shared type files must use *.types.ts, index.ts, or workspace.ts`);
+      if (rel.startsWith('src/shared/types/') && !/^(?:index|[a-z0-9-]+\.types)\.ts$/.test(name)) {
+        failures.push(`${rel}: shared type files must use *.types.ts or index.ts`);
       }
       if (rel.startsWith('src/app/components/config/') && rel.endsWith('.vue') && !/^Config[A-Z].+\.vue$/.test(name)) {
         failures.push(`${rel}: config components must use Config* prefix`);
@@ -54,14 +48,3 @@ export const namingBoundaryRule = {
     return failures;
   },
 };
-
-function exportedFunctionNames(text) {
-  return [
-    ...[...text.matchAll(/export\s+(?:async\s+)?function\s+([A-Za-z0-9_]+)/g)].map((match) => match[1]),
-    ...[...text.matchAll(/export\s+const\s+([A-Za-z0-9_]+)\s*=\s*(?:async\s*)?\(/g)].map((match) => match[1]),
-  ];
-}
-
-function importsSharedApi(file) {
-  return importedProjectPaths(file).some((imported) => !imported.typeOnly && imported.resolved.startsWith('src/shared/api/'));
-}

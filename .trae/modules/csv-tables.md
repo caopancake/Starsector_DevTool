@@ -29,7 +29,9 @@ CSV 表格系统负责展示和编辑已注册的 Starsector CSV 表，并按 CS
 - `#` 开头行不得作为其它字段、schema source、关联文件或编辑器入口的合法引用。
 - CSV 列 schema 是文件资产，不得把字段 schema 内联在组件、store 或 domain 代码常量中。
 - CSV 列 schema 只覆盖确定类型、确定引用和确定多值语义；未覆盖列继续作为普通文本单元格编辑。
-- CSV Grid 使用虚拟化渲染可视行，但不得改变表格行高、列宽、控件外观、选中态或 dirty 态。
+- CSV Grid 使用正式虚拟化渲染层，只负责可视行与编辑承载，不得改变表格行高、列宽、控件外观、选中态或 dirty 态。
+- CSV Grid 的虚拟化只影响渲染成本，不得改变首屏可见内容、滚动跳变后的即时可读性或编辑语义。
+- CSV Grid 列宽按列内容与表头计算并固定，不能在滚动过程中变化。
 - CSV Grid 的业务编辑、选择和 dirty 状态必须以 row key 为索引。
 - 右侧字段速览可以读取 CSV 列 schema 增强展示，但不得修改单元格、dirty 或保存状态。
 - 没有业务 ID 的行不能显示 spec 文件编辑入口。
@@ -45,6 +47,7 @@ CSV 表格系统负责展示和编辑已注册的 Starsector CSV 表，并按 CS
 5. `tables.store.finishCellEdit()` 或结构化控件更新当前表格行。
 6. `tables.store` 根据 original table 更新 dirty。
 7. `tables.store` 推入 CSV 草稿历史事件。
+8. Grid 的虚拟化层只负责裁剪渲染范围，不改变已编辑值或行身份。
 
 ## 链路：新增 CSV 行
 

@@ -59,9 +59,9 @@
                 <strong>{{ item.value || '-' }}</strong>
               </template>
               <template v-else>
-                <img v-if="item.sprite" class="schema-preview-sprite" :src="item.sprite" :alt="item.display" />
+                <img v-if="showReferenceDecorations && item.sprite" class="schema-preview-sprite" :src="item.sprite" :alt="item.display" />
                 <strong>{{ item.display || '-' }}</strong>
-                <small v-if="item.meta">{{ item.meta }}</small>
+                <small v-if="showReferenceDecorations && item.meta">{{ item.meta }}</small>
               </template>
             </div>
           </div>
@@ -79,6 +79,7 @@
 import { computed } from 'vue';
 import { useTablesStore } from '@/stores/tables.store';
 import { useProjectStore } from '@/stores/project.store';
+import { useSettingsStore } from '@/stores/settings.store';
 import { cell, MODULE_LABELS, rowDisplayId, rowSpecId, str } from '@/shared/lib/starsector';
 import { resolveHullSprite } from '@/shared/lib/hull-references';
 import { fileEditorActionForRow, type TableDetailAction } from '@/domain/tables/table-detail-actions';
@@ -93,6 +94,8 @@ defineEmits<{
 
 const tables = useTablesStore();
 const project = useProjectStore();
+const settings = useSettingsStore();
+const showReferenceDecorations = computed(() => settings.editMode === 'smart');
 
 const displayName = computed(() => {
   if (!tables.selectedRow) return '';

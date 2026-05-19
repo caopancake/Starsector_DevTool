@@ -1,28 +1,42 @@
 import { frontendFile } from '../shared/files.mjs';
-
-const FEEDBACK_ENTRY = 'src/app/app-feedback.ts';
-const FEEDBACK_COMPOSABLE = 'src/app/composables/use-app-feedback.ts';
-const forbiddenPatterns = [
-  { pattern: /\bcreateDiscreteApi\b/, label: 'createDiscreteApi' },
-  { pattern: /\buseMessage\s*\(/, label: 'useMessage()' },
-  { pattern: /\buseDialog\s*\(/, label: 'useDialog()' },
-  { pattern: /\bMessageApiInjection\b/, label: 'MessageApiInjection' },
-  { pattern: /\bDialogApiInjection\b/, label: 'DialogApiInjection' },
-  { pattern: /\bdialog\.(warning|error|info|success)\s*\(/, label: 'direct dialog call' },
-];
+import { importSpecifiers } from '../shared/imports.mjs';
 
 export const feedbackBoundaryRule = {
   name: 'feedback-boundary',
   check(files) {
     const failures = [];
     for (const file of files.filter((item) => frontendFile(item.rel))) {
-      if (file.rel === FEEDBACK_ENTRY || file.rel === FEEDBACK_COMPOSABLE) continue;
-      for (const rule of forbiddenPatterns) {
-        if (rule.pattern.test(file.text)) {
-          failures.push(`${file.rel}: ${rule.label} must go through AppFeedback`);
-        }
+      if (isFeedbackBoundaryImplementation(file)) continue;
+      for (const imported of importSpecifiers(file.text)) {
+        if (isNaiveFeedbackImport(imported)) failures.push(`${file.rel}: Naive UI feedback APIs must go through AppFeedback`);
       }
+      if (/\bdialog\.(warning|error|info|success)\s*\(/.test(file.text))
+        failures.push(`${file.rel}: direct dialog calls must go through AppFeedback`);
     }
     return failures;
   },
 };
+
+function isFeedbackBoundaryImplementation(file) {
+  if (!file.rel.startsWith('src/app/') || (!file.rel.endsWith('.ts') && !file.rel.endsWith('.vue'))) return false;
+  const imports = importSpecifiers(file.text);
+  const returnsFeedbackContract = /:\s*AppFeedback\b/.test(file.text) || /\bcreateAppFeedback\b/.test(file.text);
+  const importsFeedbackApi = imports.some(
+    (item) => item.specifier === 'naive-ui' && ['useMessage', 'useDialog'].includes(item.importedName),
+  );
+  const importsFeedbackTypes = imports.some(
+    (item) => item.typeOnly && item.specifier.startsWith('naive-ui/') && /(?:MessageApiInjection|DialogApiInjection)/.test(file.text),
+  );
+  return returnsFeedbackContract && (importsFeedbackApi || importsFeedbackTypes);
+}
+
+function isNaiveFeedbackImport(imported) {
+  if (imported.specifier === 'naive-ui') {
+    return ['useMessage', 'useDialog', 'createDiscreteApi'].includes(imported.importedName);
+  }
+  return (
+    imported.typeOnly &&
+    imported.specifier.startsWith('naive-ui/') &&
+    /(?:MessageApiInjection|DialogApiInjection)/.test(imported.importedName)
+  );
+}

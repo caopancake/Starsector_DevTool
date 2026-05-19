@@ -1,9 +1,8 @@
 use crate::{
     domain::config::validate_config_id,
     errors::{AppError, AppResult},
-    io::{read_json_file, read_utf8_no_bom},
+    io::{read_csv_data, read_json_file, read_utf8_no_bom},
     models::{CsvTable, MissionData},
-    parsers::read_csv_data,
 };
 use serde_json::{Map, Value};
 use std::path::Path;

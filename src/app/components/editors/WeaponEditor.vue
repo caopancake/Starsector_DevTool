@@ -232,7 +232,7 @@ import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import EditorInspector from '@/app/components/editors/common/EditorInspector.vue';
 import ObjectEditor from '@/app/components/editors/common/ObjectEditor.vue';
-import { saveWeaponSpec } from '@/services/editor.service';
+import { saveWeaponSpecWithUserAction } from '@/orchestrators/editor-save.orchestrator';
 import type { FileChangeRecord } from '@/shared/api/files-api';
 import type { RowData } from '@/shared/types';
 import { arr, str } from '@/shared/lib/starsector';
@@ -835,7 +835,7 @@ async function uploadSpriteField(field: SpriteField, event: Event) {
 }
 async function save() {
   try {
-    const changes = await saveWeaponSpec(props.modRoot, props.weaponId, localWeapon.value);
+    const changes = await saveWeaponSpecWithUserAction(props.modRoot, props.weaponId, localWeapon.value);
     emit('saved', props.weaponId, localWeapon.value, changes);
   } catch (error) {
     feedback.error(error, '保存武器失败');

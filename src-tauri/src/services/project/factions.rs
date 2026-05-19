@@ -1,4 +1,8 @@
-use crate::{errors::AppResult, io::read_json_file, models::FactionMeta, parsers::read_csv_data};
+use crate::{
+    errors::AppResult,
+    io::{read_csv_data, read_json_file},
+    models::FactionMeta,
+};
 use serde_json::{Map, Value};
 use std::{
     collections::{BTreeMap, HashMap},

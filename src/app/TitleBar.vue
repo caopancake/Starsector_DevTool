@@ -35,37 +35,42 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useProjectStore } from '@/stores/project.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { useSettingsStore } from '@/stores/settings.store';
+import {
+  closeCurrentWindow,
+  isCurrentWindowMaximized,
+  minimizeCurrentWindow,
+  startCurrentWindowDrag,
+  toggleMaximizeCurrentWindow,
+} from '@/windows/current.window';
 
-const appWindow = getCurrentWindow();
 const project = useProjectStore();
 const workspace = useWorkspaceStore();
 const settings = useSettingsStore();
 const isMaximized = ref(false);
 
 async function refreshMaximized() {
-  isMaximized.value = await appWindow.isMaximized();
+  isMaximized.value = await isCurrentWindowMaximized();
 }
 
 async function startDrag(event: { button: number; detail: number }) {
   if (event.button !== 0 || event.detail > 1) return;
-  await appWindow.startDragging();
+  await startCurrentWindowDrag();
 }
 
 async function minimizeWindow() {
-  await appWindow.minimize();
+  await minimizeCurrentWindow();
 }
 
 async function toggleMaximize() {
-  await appWindow.toggleMaximize();
+  await toggleMaximizeCurrentWindow();
   await refreshMaximized();
 }
 
 async function closeWindow() {
-  await appWindow.close();
+  await closeCurrentWindow();
 }
 
 onMounted(refreshMaximized);

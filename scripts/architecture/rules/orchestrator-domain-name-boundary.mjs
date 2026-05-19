@@ -1,5 +1,7 @@
+import { exportedFunctionNames } from '../shared/imports.mjs';
+
 export const orchestratorDomainNameBoundaryRule = {
-  name: 'orchestrator-domain-name-boundary',
+  name: 'action-domain-export-boundary',
   check(files) {
     const domainExports = new Map();
     for (const { rel, text } of files) {
@@ -24,10 +26,3 @@ export const orchestratorDomainNameBoundaryRule = {
     return failures;
   },
 };
-
-function exportedFunctionNames(text) {
-  return [
-    ...[...text.matchAll(/export\s+(?:async\s+)?function\s+([A-Za-z0-9_]+)/g)].map((match) => match[1]),
-    ...[...text.matchAll(/export\s+const\s+([A-Za-z0-9_]+)\s*=\s*(?:async\s*)?\(/g)].map((match) => match[1]),
-  ];
-}

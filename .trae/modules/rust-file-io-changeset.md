@@ -20,6 +20,7 @@ Rust 文件 IO 系统负责 UTF-8 无 BOM 读写、文本文件 changeset、目�
 - 目录删除必须使用 `FileChangeKind::Directory`。
 - 目录快照中文本文件保存 text，非文本文件保存 base64。
 - apply 过程中失败时必须尽量回滚已经应用的 change。
+- apply 失败时必须把错误返回给前端。
 - 前端历史栈移动不由 Rust 执行。
 
 ## 链路：应用 changeset
