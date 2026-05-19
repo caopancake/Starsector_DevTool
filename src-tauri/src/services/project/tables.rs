@@ -94,7 +94,26 @@ mod tests {
         assert_eq!(loaded.csv_headers["ships"], ["id", "name", "tags"]);
         assert_eq!(loaded.rows["ships"][0]["_faction"], "demo");
         assert!(loaded.rows.contains_key("weapons"));
+        assert!(loaded.rows.contains_key("abilities"));
+        assert!(loaded.rows["abilities"].is_empty());
         assert_eq!(loaded.rows["shipSystems"][0]["id"], "burndrive");
+    }
+
+    #[test]
+    fn loads_abilities_csv_when_present() {
+        let root = temp_dir("load_abilities_csv");
+        fs::create_dir_all(root.join("data/campaign")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/campaign/abilities.csv"),
+            "name,id,icon\r\nEmergency Burn,emergency_burn,graphics/icons/abilities/emergency_burn.png\r\n",
+        )
+        .unwrap();
+
+        let loaded = load_csv_tables(&root, &HashMap::new()).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(loaded.csv_headers["abilities"], ["name", "id", "icon"]);
+        assert_eq!(loaded.rows["abilities"][0]["id"], "emergency_burn");
     }
 
     fn temp_dir(name: &str) -> PathBuf {
