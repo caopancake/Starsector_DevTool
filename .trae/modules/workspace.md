@@ -23,6 +23,7 @@
 - 启动恢复必须重新调用当前项目加载流程，不能信任旧缓存。
 - 恢复完成后主窗口进入总览视图。
 - 移除 Mod 时必须同时移除 workspace、project cache、tables、编辑器引用、CSV 草稿历史和文件级 history。
+- 关闭工作区时必须清空游戏目录概览、所有已加载 Mod、project cache、tables、编辑器引用、CSV 草稿历史和文件级 history。
 - 游戏目录概览和完整读取 Mod 是不同状态；概览中的 Mod 不等于已加载 Mod。
 - workspace 私有状态只能写入工具私有目录，不能写入游戏目录或 Mod 目录。
 
@@ -51,3 +52,11 @@
 5. Rust workspace command 调用 workspace service。
 6. workspace service 通过 app paths service 取得工具私有目录。
 7. Rust workspace service 写入工具私有 workspace 文件。
+
+## 链路：关闭工作区
+
+1. 用户在工作区总览点击关闭工作区。
+2. 前端确认关闭；如果存在未保存 CSV 修改，确认文案必须明确修改会丢失。
+3. `use-workspace-shell-actions.ts` 逐个移除已加载 Mod 的所有前端状态。
+4. workspace store 清空 `gameOverview` 并回到 `overview`。
+5. project、tables、editor、CSV 草稿历史和文件级 history 不再保留该工作区的 Mod 状态。

@@ -56,6 +56,14 @@
 6. Rust 返回 `GameOverviewData`。
 7. 前端把结果写入 workspace store。
 
+## 链路：刷新工作区
+
+1. 用户在工作区总览点击刷新工作区。
+2. 前端使用当前 `gameOverview.starsectorRoot` 调用 `scanGameOverview()`。
+3. Rust 重新扫描游戏目录概览。
+4. 前端用新的 `GameOverviewData` 覆盖 workspace store 中的游戏概览。
+5. 已完整读取的 Mod 缓存不因刷新概览而自动重新加载。
+
 ## 链路：完整读取 Mod
 
 1. 前端调用 `loadProject(modRoot, starsectorRoot?)`。

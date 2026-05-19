@@ -1,11 +1,14 @@
 <template>
   <section class="game-overview">
     <div class="game-overview-summary">
-      <div>
+      <div class="game-overview-title">
         <strong>{{ overview.starsectorRoot }}</strong>
         <span>{{ overview.coreAvailable ? '原版数据可用' : '原版数据不可用' }}</span>
       </div>
-      <n-button size="small" @click="$emit('import-mod')">重新打开目录</n-button>
+      <div class="game-overview-actions">
+        <n-button size="small" @click="$emit('refresh-workspace')">刷新工作区</n-button>
+        <n-button size="small" secondary type="error" @click="$emit('close-workspace')">关闭工作区</n-button>
+      </div>
     </div>
 
     <div v-if="overview.warnings.length > 0" class="game-warning-list">
@@ -18,7 +21,10 @@
     <div v-if="overview.mods.length === 0" class="game-overview-empty">
       <h2>没有发现可识别 Mod</h2>
       <p>已打开游戏目录，但 `mods` 目录下没有包含 `mod_info.json` 的 Mod。</p>
-      <n-button size="small" @click="$emit('import-mod')">打开其他目录</n-button>
+      <div class="game-overview-actions">
+        <n-button size="small" @click="$emit('refresh-workspace')">刷新工作区</n-button>
+        <n-button size="small" secondary type="error" @click="$emit('close-workspace')">关闭工作区</n-button>
+      </div>
     </div>
 
     <div v-else class="overview-grid">
@@ -51,7 +57,7 @@ import type { GameOverviewData } from '@/shared/types';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 
 defineProps<{ overview: GameOverviewData }>();
-defineEmits<{ 'import-mod': []; 'load-mod': [modRoot: string] }>();
+defineEmits<{ 'refresh-workspace': []; 'close-workspace': []; 'load-mod': [modRoot: string] }>();
 
 const workspace = useWorkspaceStore();
 

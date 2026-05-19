@@ -10,6 +10,8 @@
             <OverviewPage
               v-if="workspace.currentView === 'overview'"
               @import-mod="actions.openDirectory"
+              @refresh-workspace="actions.refreshWorkspace"
+              @close-workspace="actions.confirmCloseWorkspace"
               @load-mod="actions.loadOverviewMod"
             />
             <SettingsPage v-else-if="workspace.currentView === 'settings'" />

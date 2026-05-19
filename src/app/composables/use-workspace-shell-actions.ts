@@ -9,7 +9,7 @@ import { useEditorsStore } from '@/stores/editors.store';
 import { openShipEditorWindow, openWeaponEditorWindow, openWeaponPreviewWindow, type EditorSpecSavedEvent } from '@/windows/editor.window';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import { useProjectStore } from '@/stores/project.store';
-import { pickDirectory } from '@/services/project.service';
+import { pickDirectory, scanWorkspaceOverview } from '@/services/project.service';
 import { selectActiveTableAssociatedFileCandidates, saveActiveTableChanges } from '@/orchestrators/table-save.orchestrator';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { useTablesStore } from '@/stores/tables.store';
@@ -99,6 +99,30 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
     } catch (err) {
       showError(formatError(err), err);
     }
+  }
+
+  async function refreshWorkspace() {
+    const root = workspace.gameOverview?.starsectorRoot;
+    if (!root) return;
+    try {
+      const overview = await scanWorkspaceOverview(root);
+      workspace.setGameOverview(overview);
+      settings.setStarsectorRoot(overview.starsectorRoot);
+      message.success(`已刷新工作区: ${overview.mods.length} 个 Mod`);
+    } catch (err) {
+      showError(formatError(err), err);
+    }
+  }
+
+  function confirmCloseWorkspace() {
+    const hasDirtyMods = workspace.loadedModList.some((mod) => tables.hasModDirtyChanges(mod.modRoot));
+    dialog.warning({
+      title: '关闭工作区',
+      content: hasDirtyMods ? '当前工作区有未保存的 CSV 修改，关闭后这些修改将丢失。确认关闭？' : '确认关闭当前工作区？',
+      positiveText: '关闭',
+      negativeText: '取消',
+      onPositiveClick: closeWorkspace,
+    });
   }
 
   function confirmRemoveMod(modRoot: string) {
@@ -212,6 +236,19 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
     if (showMessage) message.success('已从工作区移除');
   }
 
+  function closeWorkspace() {
+    for (const mod of [...workspace.loadedModList]) {
+      removeMod(mod.modRoot, false);
+    }
+    workspace.setGameOverview(null);
+    workspace.navigateTo('overview');
+    project.setActiveModRoot(null);
+    tables.activateFor('', null);
+    editors.activateFor('');
+    fileHistory.activateFor('');
+    message.success('已关闭工作区');
+  }
+
   function showSaveResult(result: 'saved' | 'noop') {
     message[result === 'saved' ? 'success' : 'info'](result === 'saved' ? '已保存 CSV 修改' : '没有需要保存的修改');
   }
@@ -318,11 +355,13 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
 
   return {
     addNewRow,
+    confirmCloseWorkspace,
     confirmRemoveMod,
     deleteSelectedRow,
     handleDetailAction,
     loadOverviewMod,
     openDirectory,
+    refreshWorkspace,
     revertChanges,
     saveChanges,
   };
