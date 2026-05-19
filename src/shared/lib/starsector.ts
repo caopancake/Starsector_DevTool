@@ -103,6 +103,7 @@ export const TABLE_COLUMNS: Record<TableKey, string[]> = {
   commodities: ['name', 'id', 'icon', 'price', 'order', 'econUnit', 'tags'],
   submarkets: ['id', 'name', 'faction', 'desc', 'script', 'icon', 'order'],
   marketConditions: ['name', 'id', 'tags', 'planetary', 'decivRemove', 'script', 'desc', 'icon', 'order'],
+  simOpponents: ['variant id'],
 };
 
 export const MODULE_LABELS: Record<TableKey, string> = {
@@ -117,6 +118,7 @@ export const MODULE_LABELS: Record<TableKey, string> = {
   commodities: '贸易商品',
   submarkets: '市场类型',
   marketConditions: '市场条件',
+  simOpponents: '模拟对手',
 };
 
 export const WEAPON_COLORS: Record<string, string> = {
@@ -183,7 +185,7 @@ export function arr(value: JsonValue | undefined, fallback: number[] = []): numb
 }
 
 export function rowDisplayId(row: RowData): string {
-  return str(row.id) || str(row.hullId) || str(row.name);
+  return str(row.id) || str(row.hullId) || str(row['variant id']) || str(row.name);
 }
 
 export function isDisabledCsvReference(value: string): boolean {

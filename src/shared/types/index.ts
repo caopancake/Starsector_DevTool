@@ -29,6 +29,7 @@ export interface AppData {
   commodities: RowData[];
   submarkets: RowData[];
   marketConditions: RowData[];
+  simOpponents: RowData[];
   shipFiles: Record<string, RowData>;
   variants: Record<string, RowData[]>;
   variantFiles: VariantFile[];
@@ -138,7 +139,8 @@ export type TableKey =
   | 'abilities'
   | 'commodities'
   | 'submarkets'
-  | 'marketConditions';
+  | 'marketConditions'
+  | 'simOpponents';
 export type EditorKind = 'ship' | 'weapon' | 'projectile';
 
 export interface SelectOption {

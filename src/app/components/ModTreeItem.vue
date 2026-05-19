@@ -66,6 +66,14 @@
         <span>装配</span>
         <span class="mod-tree-module-count">{{ variantCount }}</span>
       </button>
+      <button
+        class="mod-tree-module-btn"
+        :class="{ 'module-active': isActive && workspace.currentView === 'table' && tables.currentTab === 'simOpponents' }"
+        @click="$emit('switch-tab', mod.modRoot, 'simOpponents')"
+      >
+        <span>{{ MODULE_LABELS.simOpponents }}</span>
+        <span class="mod-tree-module-count">{{ getRowCount('simOpponents') }}</span>
+      </button>
 
       <div class="mod-tree-separator" />
 

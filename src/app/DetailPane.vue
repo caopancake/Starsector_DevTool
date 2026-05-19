@@ -142,6 +142,11 @@ const previewState = computed<PreviewState>(() => {
   if (tables.currentTab === 'marketConditions') {
     return previewFromMap(data.marketConditionSprites[id], str(row.icon), id, tables.currentTab);
   }
+  if (tables.currentTab === 'simOpponents') {
+    const variant = variantForId(str(row['variant id']), data);
+    const hullId = variant?.hullId ?? '';
+    return previewFromMap(resolveHullSprite(data, hullId), expectedShipSprite(data.shipFiles[hullId]), id, tables.currentTab);
+  }
   return noPreview(tables.currentTab);
 });
 
@@ -173,6 +178,10 @@ function expectedShipSprite(ship: RowData | undefined): string {
 
 function variantForWing(row: RowData, data: NonNullable<ReturnType<typeof useProjectStore>['activeModData']>) {
   const raw = str(row.variant);
+  return variantForId(raw, data);
+}
+
+function variantForId(raw: string, data: NonNullable<ReturnType<typeof useProjectStore>['activeModData']>) {
   if (!raw) return null;
   const normalized = raw.replace(/\\/g, '/');
   const stem = normalized

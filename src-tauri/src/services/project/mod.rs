@@ -176,6 +176,10 @@ pub fn load_mod_data_with_root(
             .rows
             .remove("marketConditions")
             .unwrap_or_default(),
+        sim_opponents: loaded_tables
+            .rows
+            .remove("simOpponents")
+            .unwrap_or_default(),
         ship_files: spec_bundle.ship_files,
         variants: spec_bundle.variants,
         variant_files: spec_bundle.variant_files,

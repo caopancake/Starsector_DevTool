@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 
-pub const CSV_TABLES: [(&str, &str); 11] = [
+pub const CSV_TABLES: [(&str, &str); 12] = [
     ("ships", "data/hulls/ship_data.csv"),
     ("weapons", "data/weapons/weapon_data.csv"),
     ("wings", "data/hulls/wing_data.csv"),
@@ -14,6 +14,7 @@ pub const CSV_TABLES: [(&str, &str); 11] = [
     ("commodities", "data/campaign/commodities.csv"),
     ("submarkets", "data/campaign/submarkets.csv"),
     ("marketConditions", "data/campaign/market_conditions.csv"),
+    ("simOpponents", "data/campaign/sim_opponents.csv"),
 ];
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -46,6 +47,7 @@ pub struct AppData {
     pub commodities: Vec<Map<String, Value>>,
     pub submarkets: Vec<Map<String, Value>>,
     pub market_conditions: Vec<Map<String, Value>>,
+    pub sim_opponents: Vec<Map<String, Value>>,
     pub ship_files: BTreeMap<String, Value>,
     pub variants: BTreeMap<String, Vec<Value>>,
     pub variant_files: Vec<VariantFile>,

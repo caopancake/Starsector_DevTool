@@ -102,6 +102,8 @@ mod tests {
         assert!(loaded.rows["submarkets"].is_empty());
         assert!(loaded.rows.contains_key("marketConditions"));
         assert!(loaded.rows["marketConditions"].is_empty());
+        assert!(loaded.rows.contains_key("simOpponents"));
+        assert!(loaded.rows["simOpponents"].is_empty());
         assert_eq!(loaded.rows["shipSystems"][0]["id"], "burndrive");
     }
 
@@ -174,6 +176,26 @@ mod tests {
             ["name", "id", "icon"]
         );
         assert_eq!(loaded.rows["marketConditions"][0]["id"], "urbanized_polity");
+    }
+
+    #[test]
+    fn loads_sim_opponents_csv_when_present() {
+        let root = temp_dir("load_sim_opponents_csv");
+        fs::create_dir_all(root.join("data/campaign")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/campaign/sim_opponents.csv"),
+            "variant id\r\nparagon_Elite\r\n",
+        )
+        .unwrap();
+
+        let loaded = load_csv_tables(&root, &HashMap::new()).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(loaded.csv_headers["simOpponents"], ["variant id"]);
+        assert_eq!(
+            loaded.rows["simOpponents"][0]["variant id"],
+            "paragon_Elite"
+        );
     }
 
     fn temp_dir(name: &str) -> PathBuf {
