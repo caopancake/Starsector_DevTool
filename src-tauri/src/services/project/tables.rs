@@ -98,6 +98,8 @@ mod tests {
         assert!(loaded.rows["abilities"].is_empty());
         assert!(loaded.rows.contains_key("commodities"));
         assert!(loaded.rows["commodities"].is_empty());
+        assert!(loaded.rows.contains_key("submarkets"));
+        assert!(loaded.rows["submarkets"].is_empty());
         assert_eq!(loaded.rows["shipSystems"][0]["id"], "burndrive");
     }
 
@@ -133,6 +135,23 @@ mod tests {
         let _ = fs::remove_dir_all(root);
         assert_eq!(loaded.csv_headers["commodities"], ["name", "id", "icon"]);
         assert_eq!(loaded.rows["commodities"][0]["id"], "supplies");
+    }
+
+    #[test]
+    fn loads_submarkets_csv_when_present() {
+        let root = temp_dir("load_submarkets_csv");
+        fs::create_dir_all(root.join("data/campaign")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/campaign/submarkets.csv"),
+            "id,name,icon\r\nopen_market,Open Market,graphics/icons/submarkets/open_market.png\r\n",
+        )
+        .unwrap();
+
+        let loaded = load_csv_tables(&root, &HashMap::new()).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(loaded.csv_headers["submarkets"], ["id", "name", "icon"]);
+        assert_eq!(loaded.rows["submarkets"][0]["id"], "open_market");
     }
 
     fn temp_dir(name: &str) -> PathBuf {

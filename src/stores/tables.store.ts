@@ -16,14 +16,37 @@ export const TABLE_KEYS: TableKey[] = [
   'skills',
   'abilities',
   'commodities',
+  'submarkets',
 ];
 
 function emptyDirtyState(): Record<TableKey, Record<string, Record<string, string>>> {
-  return { ships: {}, weapons: {}, wings: {}, hullmods: {}, shipSystems: {}, industries: {}, skills: {}, abilities: {}, commodities: {} };
+  return {
+    ships: {},
+    weapons: {},
+    wings: {},
+    hullmods: {},
+    shipSystems: {},
+    industries: {},
+    skills: {},
+    abilities: {},
+    commodities: {},
+    submarkets: {},
+  };
 }
 
 function emptyTablesRecord(): Record<TableKey, RowData[]> {
-  return { ships: [], weapons: [], wings: [], hullmods: [], shipSystems: [], industries: [], skills: [], abilities: [], commodities: [] };
+  return {
+    ships: [],
+    weapons: [],
+    wings: [],
+    hullmods: [],
+    shipSystems: [],
+    industries: [],
+    skills: [],
+    abilities: [],
+    commodities: [],
+    submarkets: [],
+  };
 }
 
 function createModTableState(): ModTableState {
