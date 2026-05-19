@@ -124,7 +124,7 @@ const project = useProjectStore();
 const workspace = useWorkspaceStore();
 const showMenu = ref(false);
 const primaryTableKeys: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'shipSystems'];
-const secondaryTableKeys: TableKey[] = ['industries', 'skills', 'abilities', 'commodities', 'submarkets'];
+const secondaryTableKeys: TableKey[] = ['industries', 'skills', 'abilities', 'commodities', 'submarkets', 'marketConditions'];
 
 const hasDirtyChanges = computed(() => tables.hasModDirtyChanges(props.mod.modRoot));
 const factionCount = computed(() => {

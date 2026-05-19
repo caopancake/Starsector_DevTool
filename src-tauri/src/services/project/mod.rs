@@ -43,6 +43,7 @@ struct SpriteBundle {
     ability_sprites: BTreeMap<String, String>,
     commodity_sprites: BTreeMap<String, String>,
     submarket_sprites: BTreeMap<String, String>,
+    market_condition_sprites: BTreeMap<String, String>,
 }
 
 struct SpriteTableRows<'a> {
@@ -53,6 +54,7 @@ struct SpriteTableRows<'a> {
     abilities: &'a [Map<String, Value>],
     commodities: &'a [Map<String, Value>],
     submarkets: &'a [Map<String, Value>],
+    market_conditions: &'a [Map<String, Value>],
 }
 
 pub fn load_mod_data(mod_root: &Path) -> AppResult<AppData> {
@@ -126,6 +128,11 @@ pub fn load_mod_data_with_root(
         .get("submarkets")
         .cloned()
         .unwrap_or_default();
+    let market_conditions = loaded_tables
+        .rows
+        .get("marketConditions")
+        .cloned()
+        .unwrap_or_default();
     let sprite_bundle = load_sprite_bundle(
         mod_root,
         core_dir.as_deref(),
@@ -140,6 +147,7 @@ pub fn load_mod_data_with_root(
             abilities: &abilities,
             commodities: &commodities,
             submarkets: &submarkets,
+            market_conditions: &market_conditions,
         },
     )?;
     let core_references = load_core_references(core_dir.as_deref())?;
@@ -164,6 +172,10 @@ pub fn load_mod_data_with_root(
         abilities: loaded_tables.rows.remove("abilities").unwrap_or_default(),
         commodities: loaded_tables.rows.remove("commodities").unwrap_or_default(),
         submarkets: loaded_tables.rows.remove("submarkets").unwrap_or_default(),
+        market_conditions: loaded_tables
+            .rows
+            .remove("marketConditions")
+            .unwrap_or_default(),
         ship_files: spec_bundle.ship_files,
         variants: spec_bundle.variants,
         variant_files: spec_bundle.variant_files,
@@ -183,6 +195,7 @@ pub fn load_mod_data_with_root(
         ability_sprites: sprite_bundle.ability_sprites,
         commodity_sprites: sprite_bundle.commodity_sprites,
         submarket_sprites: sprite_bundle.submarket_sprites,
+        market_condition_sprites: sprite_bundle.market_condition_sprites,
         core_references,
     })
 }
@@ -260,6 +273,11 @@ fn load_sprite_bundle(
             core_dir,
             table_rows.submarkets,
         ),
+        market_condition_sprites: sprites::load_market_condition_sprite_data(
+            mod_root,
+            core_dir,
+            table_rows.market_conditions,
+        ),
     })
 }
 
@@ -287,6 +305,10 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
         .map(Vec::as_slice)
         .unwrap_or(empty);
     let submarkets = tables.get("submarkets").map(Vec::as_slice).unwrap_or(empty);
+    let market_conditions = tables
+        .get("marketConditions")
+        .map(Vec::as_slice)
+        .unwrap_or(empty);
     let wings = tables.get("wings").map(Vec::as_slice).unwrap_or(empty);
     let mut ship_sprites = sprites::load_ship_sprite_data(core_dir, None, &ship_files)?;
     sprites::merge_skin_sprite_data(&mut ship_sprites, core_dir, None, &skin_files)?;
@@ -299,6 +321,8 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
     let ability_sprites = sprites::load_ability_sprite_data(core_dir, None, abilities);
     let commodity_sprites = sprites::load_commodity_sprite_data(core_dir, None, commodities);
     let submarket_sprites = sprites::load_submarket_sprite_data(core_dir, None, submarkets);
+    let market_condition_sprites =
+        sprites::load_market_condition_sprite_data(core_dir, None, market_conditions);
 
     Ok(CoreReferences {
         tables,
@@ -316,6 +340,7 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
         ability_sprites,
         commodity_sprites,
         submarket_sprites,
+        market_condition_sprites,
     })
 }
 

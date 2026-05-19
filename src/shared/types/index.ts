@@ -28,6 +28,7 @@ export interface AppData {
   abilities: RowData[];
   commodities: RowData[];
   submarkets: RowData[];
+  marketConditions: RowData[];
   shipFiles: Record<string, RowData>;
   variants: Record<string, RowData[]>;
   variantFiles: VariantFile[];
@@ -47,6 +48,7 @@ export interface AppData {
   abilitySprites: Record<string, string>;
   commoditySprites: Record<string, string>;
   submarketSprites: Record<string, string>;
+  marketConditionSprites: Record<string, string>;
   coreReferences: CoreReferences;
 }
 
@@ -66,6 +68,7 @@ export interface CoreReferences {
   abilitySprites: Record<string, string>;
   commoditySprites: Record<string, string>;
   submarketSprites: Record<string, string>;
+  marketConditionSprites: Record<string, string>;
 }
 
 export interface VariantFile {
@@ -134,7 +137,8 @@ export type TableKey =
   | 'skills'
   | 'abilities'
   | 'commodities'
-  | 'submarkets';
+  | 'submarkets'
+  | 'marketConditions';
 export type EditorKind = 'ship' | 'weapon' | 'projectile';
 
 export interface SelectOption {

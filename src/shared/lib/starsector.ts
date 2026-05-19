@@ -102,6 +102,7 @@ export const TABLE_COLUMNS: Record<TableKey, string[]> = {
   abilities: ['name', 'id', 'type', 'tags', 'icon', 'desc', 'sortOrder', 'unlockedAtStart', 'defaultForAIFleet'],
   commodities: ['name', 'id', 'icon', 'price', 'order', 'econUnit', 'tags'],
   submarkets: ['id', 'name', 'faction', 'desc', 'script', 'icon', 'order'],
+  marketConditions: ['name', 'id', 'tags', 'planetary', 'decivRemove', 'script', 'desc', 'icon', 'order'],
 };
 
 export const MODULE_LABELS: Record<TableKey, string> = {
@@ -115,6 +116,7 @@ export const MODULE_LABELS: Record<TableKey, string> = {
   abilities: '舰队能力',
   commodities: '贸易商品',
   submarkets: '市场类型',
+  marketConditions: '市场条件',
 };
 
 export const WEAPON_COLORS: Record<string, string> = {

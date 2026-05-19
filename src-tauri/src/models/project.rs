@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 
-pub const CSV_TABLES: [(&str, &str); 10] = [
+pub const CSV_TABLES: [(&str, &str); 11] = [
     ("ships", "data/hulls/ship_data.csv"),
     ("weapons", "data/weapons/weapon_data.csv"),
     ("wings", "data/hulls/wing_data.csv"),
@@ -13,6 +13,7 @@ pub const CSV_TABLES: [(&str, &str); 10] = [
     ("abilities", "data/campaign/abilities.csv"),
     ("commodities", "data/campaign/commodities.csv"),
     ("submarkets", "data/campaign/submarkets.csv"),
+    ("marketConditions", "data/campaign/market_conditions.csv"),
 ];
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -44,6 +45,7 @@ pub struct AppData {
     pub abilities: Vec<Map<String, Value>>,
     pub commodities: Vec<Map<String, Value>>,
     pub submarkets: Vec<Map<String, Value>>,
+    pub market_conditions: Vec<Map<String, Value>>,
     pub ship_files: BTreeMap<String, Value>,
     pub variants: BTreeMap<String, Vec<Value>>,
     pub variant_files: Vec<VariantFile>,
@@ -63,6 +65,7 @@ pub struct AppData {
     pub ability_sprites: BTreeMap<String, String>,
     pub commodity_sprites: BTreeMap<String, String>,
     pub submarket_sprites: BTreeMap<String, String>,
+    pub market_condition_sprites: BTreeMap<String, String>,
     pub core_references: CoreReferences,
 }
 
@@ -84,6 +87,7 @@ pub struct CoreReferences {
     pub ability_sprites: BTreeMap<String, String>,
     pub commodity_sprites: BTreeMap<String, String>,
     pub submarket_sprites: BTreeMap<String, String>,
+    pub market_condition_sprites: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -122,6 +122,14 @@ pub(super) fn load_submarket_sprite_data(
     load_table_sprite_data(mod_root, core_dir, submarkets, "icon")
 }
 
+pub(super) fn load_market_condition_sprite_data(
+    mod_root: &Path,
+    core_dir: Option<&Path>,
+    market_conditions: &[Map<String, Value>],
+) -> BTreeMap<String, String> {
+    load_table_sprite_data(mod_root, core_dir, market_conditions, "icon")
+}
+
 pub(super) fn load_wing_sprite_data(
     ship_sprites: &BTreeMap<String, String>,
     variants: &[crate::models::VariantFile],
