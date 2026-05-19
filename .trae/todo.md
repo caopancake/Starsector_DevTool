@@ -55,21 +55,29 @@
 
 ## Phase 7: 生涯 CSV 补全收尾
 
-- [ ] 检查 Phase 1-6 新增生涯 CSV 是否全部进入 CSV 表格、完整读取、局部加载、保存、文件历史和原版引用链路。
-- [ ] 更新模块文档和表格索引，确保后续新增 CSV 只需要注册表路径和显示元数据。
+- [x] 检查 Phase 1-6 新增生涯 CSV 是否全部进入 CSV 表格、完整读取、局部加载、保存、文件历史和原版引用链路。
 
-## Phase 8: Schema Registry 收尾
+## Phase 8: CSV 列 Schema 试点
 
-- [ ] 补齐 CSV 列 schema，并评估现有编辑器检查器是否适合局部 schema 化。
-- [ ] 编写 CSV 列定义 Schema：`csv/ship_data.columns.json`、`csv/weapon_data.columns.json` 等。
-- [ ] 定义 CSV 列 Schema 格式：key、type、source、options、显示标签和可编辑性。
-- [ ] 主表格根据列 Schema 渲染富控件，例如下拉选择器、path-image 缩略图、颜色块和数字输入。
-- [ ] 为已基础接入的 `.skill`、`.skin`、`.variant`、`.system` 和 `ship_systems.csv` 补 Schema 适配。
-- [ ] 评估并补充技能等级效果、基础船体选择、武器槽覆盖、装配武器/插件/联队选择等富编辑控件。
-- [ ] 保持 CSV 保存链路不变，只改变编辑展示和输入约束。
-- [ ] 评估 `ShipEditor` / `WeaponEditor` / `ProjectileEditor` 的右侧检查器面板是否可部分迁移到 schema 驱动。
-- [ ] 明确画布交互、hit detection、拖拽、贴图上传等逻辑继续留在专用编辑器内。
-- [ ] 如果迁移可行，先选低风险字段分组试点，不一次性重写整个编辑器。
+- [ ] 明确本阶段只做主 CSV 表格的列级编辑控件，不迁移 `.ship`、`.wpn`、`.proj` 专用编辑器，也不改变 `.skin`、`.variant`、配置 schema 表单。
+- [ ] 定义 CSV 列 Schema 格式，覆盖列名、显示名、控件类型、source/options、默认值、只读、数字范围和显示优先级。
+- [ ] 新增 CSV 列 Schema 注册入口，使已注册 CSV 表可按 table key 查找列 schema；未注册列继续按原 header 文本编辑。
+- [ ] 扩展主表格单元格渲染，使列 schema 可驱动文本、数字、布尔、枚举、引用下拉、tag、多值、图片路径和颜色输入。
+- [ ] CSV 引用下拉沿用当前 Mod + 原版分组来源，继续过滤 `#` 开头 ID，并允许保留当前已有但不在来源中的值。
+- [ ] 全量支持项目内已注册 CSV 表的列 schema：`ships`、`weapons`、`wings`、`hullmods`、`shipSystems`、`industries`、`skills`、`abilities`、`commodities`、`specialItems`、`submarkets`、`marketConditions`、`simOpponents`。
+- [ ] 为上述每个已注册 CSV 表编写列 schema；确定类型和确定引用的列使用专用控件，未知或高风险列保持文本编辑。
+- [ ] 保持 CSV 读取、dirty、草稿 undo/redo、保存、文件历史和 AppData 同步链路不变；本阶段只改变单元格展示和输入约束。
+- [ ] 增加最小测试或静态检查，确认 table key、CSV 列 schema 注册和前端列控件覆盖不会漂移。
+- [ ] 手动验收新增生涯 CSV、舰船、武器、联队、插件和战术系统表格的 schema 控件、普通文本回退、保存和撤销重做。
+
+## Phase 8.1: 右侧只读 Schema 速览
+
+- [ ] 在 Phase 8 的 CSV 列 schema 稳定后，为右侧详情区接入只读 schema 速览。
+- [ ] 右侧详情区只读取当前行和列 schema，不写入单元格、不修改 dirty、不触发保存。
+- [ ] 按列 schema 展示字段标签、类型化值、引用 label、来源分组、缩略图、tag、多值、颜色和图片路径。
+- [ ] 未被列 schema 覆盖的列继续进入普通字段速览或其它字段区。
+- [ ] 保留现有缩略图预览、操作按钮和文件/专用编辑器入口，不改变右侧详情动作链路。
+- [ ] 明确主表格仍是 CSV 行编辑入口，右侧 schema 速览只负责上下文阅读。
 
 ## Phase 9: 自动数据校验和警示
 
