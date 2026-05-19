@@ -1,0 +1,9 @@
+[
+  { "key": "id", "label": "ID", "control": "text" },
+  { "key": "name", "label": "名称", "control": "text" },
+  { "key": "faction", "label": "势力", "control": "text" },
+  { "key": "desc", "label": "描述", "control": "text" },
+  { "key": "script", "label": "脚本", "control": "text" },
+  { "key": "icon", "label": "图标", "control": "path-image" },
+  { "key": "order", "label": "排序", "control": "number", "step": 1 }
+]

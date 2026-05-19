@@ -215,32 +215,40 @@ export const useTablesStore = defineStore('tables', () => {
     return tableRowKeyForTab(currentTab.value, row, index);
   }
 
-  function rowSelectionKey(row: RowData): string {
-    const index = rows.value.indexOf(row);
-    return index >= 0 ? tableRowKey(row, index) : '';
-  }
-
-  function selectRow(row: RowData) {
-    selectedRowKey.value = rowSelectionKey(row);
+  function selectRowByKey(rowKey: string) {
+    selectedRowKey.value = rowKey;
   }
 
   function isDirty(rowKey: string, col: string): boolean {
     return dirty.value[currentTab.value][rowKey]?.[col] !== undefined;
   }
 
-  function startCellEdit(row: RowData, col: string) {
-    editing.value = { tab: currentTab.value, rowKey: rowSelectionKey(row), col, value: cell(row[col]) };
+  function startCellEditByKey(rowKey: string, col: string, value: string) {
+    editing.value = { tab: currentTab.value, rowKey, col, value };
+  }
+
+  function setEditingValue(value: string) {
+    const state = getActiveState();
+    if (state?.editing) state.editing.value = value;
   }
 
   function finishCellEdit() {
     const state = getActiveState();
     if (!state || !state.editing) return;
     const { tab, rowKey, col, value } = state.editing;
+    applyCellValue(state, tab, rowKey, col, value);
+    state.editing = null;
+  }
+
+  function updateCellValueByKey(rowKey: string, col: string, value: string) {
+    const state = getActiveState();
+    if (!state) return;
+    applyCellValue(state, state.currentTab, rowKey, col, value);
+  }
+
+  function applyCellValue(state: ModTableState, tab: TableKey, rowKey: string, col: string, value: string) {
     const row = state.tables[tab].find((candidate, index) => tableRowKeyForTab(tab, candidate, index) === rowKey);
-    if (!row) {
-      state.editing = null;
-      return;
-    }
+    if (!row) return;
     const previousValue = cell(row[col]);
     row[col] = value;
     const original = state.originalTables[tab].find((candidate, index) => tableRowKeyForTab(tab, candidate, index) === rowKey);
@@ -294,14 +302,15 @@ export const useTablesStore = defineStore('tables', () => {
 
     state.tables[tab].push(row);
     assignTableRowKey(state, tab, row);
-    selectedRowKey.value = rowSelectionKey(row);
+    const rowKey = tableRowKeyForTab(tab, row, state.tables[tab].length - 1);
+    selectedRowKey.value = rowKey;
     markFullRowDirty(state, tab, row);
 
     const csvEditHistory = useTablesEditHistoryStore();
     csvEditHistory.pushCsvEditEvent(
       activeRoot.value,
       tab,
-      { type: 'row-create', tab, rowKey: rowSelectionKey(row), rowIndex: state.tables[tab].length - 1, row: deepClone(row) },
+      { type: 'row-create', tab, rowKey, rowIndex: state.tables[tab].length - 1, row: deepClone(row) },
       `新建 ${tab} 行: ${id}`,
     );
   }
@@ -408,13 +417,14 @@ export const useTablesStore = defineStore('tables', () => {
     removeModState,
     replaceTableForMod,
     revertChanges,
-    rowSelectionKey,
     rowsFor,
-    selectRow,
+    selectRowByKey,
     setSaving,
-    startCellEdit,
+    startCellEditByKey,
+    setEditingValue,
     switchTab,
     tableRowKey,
+    updateCellValueByKey,
   };
 });
 

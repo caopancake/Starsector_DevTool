@@ -1,0 +1,9 @@
+[
+  { "key": "name", "label": "名称", "control": "text" },
+  { "key": "id", "label": "ID", "control": "text" },
+  { "key": "icon", "label": "图标", "control": "path-image" },
+  { "key": "price", "label": "价格", "control": "number", "step": 1 },
+  { "key": "order", "label": "排序", "control": "number", "step": 1 },
+  { "key": "econUnit", "label": "经济单位", "control": "text" },
+  { "key": "tags", "label": "标签", "control": "tags", "source": "csv:commodities.tags" }
+]

@@ -1,20 +1,11 @@
 import { fileToBase64 } from '@/shared/lib/starsector';
 import { uploadEditorSprite, type EditorSpriteUploadResult } from '@/services/editor.service';
 import { recordSpriteUploadSaved } from '@/orchestrators/file-save.orchestrator';
+import type { AppFeedback } from '@/shared/types';
 
 type SpriteSubfolder = 'ships' | 'weapons' | 'missiles' | 'fx';
-type DialogLike = {
-  warning: (options: {
-    title: string;
-    content?: string;
-    positiveText: string;
-    negativeText: string;
-    onPositiveClick: () => void | Promise<void>;
-  }) => unknown;
-};
-
 interface UploadSpriteOptions {
-  dialog: DialogLike;
+  feedback: AppFeedback;
   modRoot: string;
   subfolder: SpriteSubfolder;
   onUploaded: (result: EditorSpriteUploadResult, dataUrl: string) => void;
@@ -32,12 +23,11 @@ export function useSpriteUpload() {
       recordSpriteUpload(options.modRoot, result, file.name);
       return;
     }
-    options.dialog.warning({
+    options.feedback.confirmWarning({
       title: '覆盖贴图？',
       content: result.message,
-      positiveText: '覆盖',
-      negativeText: '取消',
-      onPositiveClick: async () => {
+      actionText: '覆盖',
+      onConfirm: async () => {
         result = await uploadEditorSprite(options.modRoot, file.name, data, options.subfolder, true);
         options.onUploaded(result, dataUrl);
         recordSpriteUpload(options.modRoot, result, file.name);

@@ -24,18 +24,6 @@
 
     <!-- Schema-driven form -->
     <SchemaFormRenderer v-if="schema" :schema="schema" v-model="local" :app-data="project.activeModData" />
-
-    <n-modal
-      v-model:show="showDeleteDialog"
-      preset="dialog"
-      title="确认删除"
-      positive-text="删除"
-      negative-text="取消"
-      type="error"
-      @positive-click="deleteCurrentFaction"
-    >
-      <p>确定要删除势力 "{{ factionId }}" 吗？</p>
-    </n-modal>
   </div>
 </template>
 
@@ -47,12 +35,11 @@ import { deleteIndexedConfigEntityWithFileHistory, saveIndexedConfigEntityWithFi
 import { buildFactionIndexRow, stripSchemaInternalFields } from '@/domain/config/config-entities';
 import { loadImageDataUrl } from '@/services/assets.service';
 import { deepClone } from '@/shared/lib/starsector';
-import { formatError } from '@/shared/lib/errors';
 import type { JsonValue, RowData } from '@/shared/types';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { useCoreSchema } from '@/app/composables/use-core-schema';
 import { aggregateSchemaSources, splitSchemaSources } from '@/domain/schema/schema-registry';
-import { createAppFeedback } from '@/app/app-feedback';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 
 const props = defineProps<{ factionId: string }>();
 const emit = defineEmits<{ saved: [factionId: string] }>();
@@ -65,10 +52,9 @@ loadCoreFields();
 
 const schema = computed(() => getMergedSchema('faction'));
 
-const { message } = createAppFeedback(['message']);
+const feedback = useAppFeedback();
 
 const saving = ref(false);
-const showDeleteDialog = ref(false);
 const local = ref<RowData>({});
 const factionFile = computed<RowData>(() => {
   const file = local.value.file;
@@ -171,16 +157,23 @@ async function save() {
     };
 
     emit('saved', newId);
-    message.success(`${newId}.faction 已保存`);
+    feedback.success(`势力 "${newId}" 已保存`);
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '保存势力失败');
   } finally {
     saving.value = false;
   }
 }
 
 function confirmDeleteFaction() {
-  showDeleteDialog.value = true;
+  feedback.confirmDanger({
+    title: '删除势力',
+    content: `确定要删除势力 "${props.factionId}" 吗？`,
+    actionText: '删除',
+    onConfirm: async () => {
+      await deleteCurrentFaction();
+    },
+  });
 }
 
 async function deleteCurrentFaction() {
@@ -190,11 +183,10 @@ async function deleteCurrentFaction() {
     await deleteIndexedConfigEntityWithFileHistory(modData.modRoot, 'faction', props.factionId, true);
     delete modData.factionFiles[props.factionId];
     delete modData.factionMeta[props.factionId];
-    showDeleteDialog.value = false;
     emit('saved', '');
-    message.success(`势力 "${props.factionId}" 已删除`);
+    feedback.success(`势力 "${props.factionId}" 已删除`);
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '删除势力失败');
     return false;
   }
   return true;

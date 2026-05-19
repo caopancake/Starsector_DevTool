@@ -46,6 +46,7 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 
 ## 规范
 
+- 视觉大于一切；任何性能、实现便利或临时交互调整都不得牺牲既有视觉一致性、密度和专业感。
 - 前端不能把磁盘写入当成普通状态变更，所有写盘必须经过 shared API 到 Rust command。
 - Rust 是磁盘路径、删除语义、文件写入、parser 和 changeset 回放的权威。
 - Tauri command 层只调用明确的 service 边界，不承载实现细节。

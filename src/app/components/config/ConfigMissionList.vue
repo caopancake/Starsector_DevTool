@@ -45,30 +45,17 @@
     >
       <n-input v-model:value="newMissionId" placeholder="输入战役 ID（英文目录名）" autofocus />
     </n-modal>
-
-    <n-modal
-      v-model:show="showDeleteDialog"
-      preset="dialog"
-      title="确认删除"
-      positive-text="删除"
-      negative-text="取消"
-      type="error"
-      @positive-click="confirmDeleteSelectedMission"
-    >
-      <p>确定要从战役列表中删除 "{{ pendingDeleteMission }}" 吗？</p>
-      <n-checkbox v-model:checked="deleteMissionDirectory">同时删除战役目录</n-checkbox>
-    </n-modal>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, h, onMounted, ref, watch } from 'vue';
+import { NCheckbox } from 'naive-ui';
 import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import { loadImageDataUrl } from '@/services/assets.service';
-import { formatError } from '@/shared/lib/errors';
 import type { JsonValue, RowData } from '@/shared/types';
-import { createAppFeedback } from '@/app/app-feedback';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { loadMission, loadMissionList, scanMissionListFiles } from '@/services/config.service';
 import { buildMissionIndexRow } from '@/domain/config/config-entities';
 import {
@@ -81,7 +68,7 @@ const emit = defineEmits<{ select: [missionId: string] }>();
 
 const project = useProjectStore();
 const settings = useSettingsStore();
-const { message } = createAppFeedback(['message']);
+const feedback = useAppFeedback();
 
 const DEFAULT_MISSION_LIST_PATH = 'data/missions/mission_list.csv';
 
@@ -90,7 +77,6 @@ const missionRows = ref<RowData[]>([]);
 const missionIcons = ref<Record<string, string>>({});
 const showCreateDialog = ref(false);
 const newMissionId = ref('');
-const showDeleteDialog = ref(false);
 const deleteMissionDirectory = ref(false);
 const pendingDeleteMission = ref('');
 
@@ -136,7 +122,7 @@ async function loadFileList() {
     if (!props.selectedId && missions.value[0]) emit('select', missions.value[0].id);
     if (props.selectedId && !missions.value.some((mission) => mission.id === props.selectedId)) emit('select', missions.value[0]?.id ?? '');
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '加载战役列表失败');
     missionRows.value = [];
   }
 }
@@ -171,15 +157,15 @@ function createMission() {
 async function doCreateMission() {
   const id = newMissionId.value.trim();
   if (!id) {
-    message.warning('战役 ID 不能为空');
+    feedback.warning('战役 ID 不能为空');
     return false;
   }
   if (!isValidMissionId(id)) {
-    message.error('战役 ID 不能包含路径分隔符或 ..');
+    feedback.error('战役 ID 不能包含路径分隔符或 ..');
     return false;
   }
   if (missions.value.some((mission) => mission.id === id)) {
-    message.warning(`战役 "${id}" 已存在`);
+    feedback.warning(`战役 "${id}" 已存在`);
     return false;
   }
   if (!modRoot.value) return false;
@@ -193,12 +179,12 @@ async function doCreateMission() {
     });
     missionRows.value = result.indexRows;
     syncMissionCount();
-    message.success(`战役 "${id}" 已创建`);
+    feedback.success(`战役 "${id}" 已创建`);
     showCreateDialog.value = false;
     await loadMissionIcons();
     emit('select', id);
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '创建战役失败');
     return false;
   }
   return true;
@@ -207,31 +193,42 @@ async function doCreateMission() {
 function confirmDeleteMission(id: string) {
   pendingDeleteMission.value = id;
   deleteMissionDirectory.value = false;
-  showDeleteDialog.value = true;
+  feedback.confirmDanger({
+    title: '删除战役',
+    content: () =>
+      h('div', { class: 'associated-save-dialog' }, [
+        h('p', `确定要从战役列表中删除 "${id}" 吗？`),
+        h(
+          NCheckbox,
+          {
+            checked: deleteMissionDirectory.value,
+            'onUpdate:checked': (checked: boolean) => {
+              deleteMissionDirectory.value = checked;
+            },
+          },
+          { default: () => '同时删除战役目录' },
+        ),
+      ]),
+    actionText: '删除',
+    onConfirm: deletePendingMission,
+  });
 }
 
-async function confirmDeleteSelectedMission() {
-  if (!pendingDeleteMission.value || !modRoot.value) return false;
+async function deletePendingMission() {
+  if (!pendingDeleteMission.value || !modRoot.value) return;
   try {
-    const result = await deleteIndexedConfigEntityWithFileHistory(
-      modRoot.value,
-      'mission',
-      pendingDeleteMission.value,
-      deleteMissionDirectory.value,
-    );
+    const deleted = pendingDeleteMission.value;
+    const result = await deleteIndexedConfigEntityWithFileHistory(modRoot.value, 'mission', deleted, deleteMissionDirectory.value);
     missionRows.value = result.indexRows;
     syncMissionCount();
-    delete missionIcons.value[pendingDeleteMission.value];
-    const deleted = pendingDeleteMission.value;
+    delete missionIcons.value[deleted];
     pendingDeleteMission.value = '';
     const nextId = missions.value[0]?.id ?? '';
     if (props.selectedId === deleted) emit('select', nextId);
-    message.success(`战役 "${deleted}" 已从列表删除`);
+    feedback.success(`战役 "${deleted}" 已删除`);
   } catch (error) {
-    message.error(formatError(error));
-    return false;
+    feedback.error(error, '删除战役失败');
   }
-  return true;
 }
 
 function syncMissionCount() {

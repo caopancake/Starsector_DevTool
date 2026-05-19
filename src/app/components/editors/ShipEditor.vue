@@ -209,14 +209,13 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { useDialog, useMessage } from 'naive-ui';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import EditorInspector from '@/app/components/editors/common/EditorInspector.vue';
 import { saveShipSpec } from '@/services/editor.service';
 import type { RowData } from '@/shared/types';
 import { arr, deepClone, num, str } from '@/shared/lib/starsector';
-import { formatError } from '@/shared/lib/errors';
 import type { FileChangeRecord } from '@/shared/api/files-api';
 import { normalizeShipSpec } from '@/domain/editors/lib/normalize';
 import { useHistory } from '@/app/composables/use-history';
@@ -229,8 +228,7 @@ import { drawBoundsVisual, drawEngineVisual, drawRadiusField, drawWeaponSlotVisu
 
 const props = defineProps<{ modRoot: string; hullId: string; ship: RowData; spriteData?: string }>();
 const emit = defineEmits<{ close: []; saved: [id: string, ship: RowData, changes: FileChangeRecord[]] }>();
-const message = useMessage();
-const dialog = useDialog();
+const feedback = useAppFeedback();
 const editorWindowRef = ref<HTMLElement>();
 const stageRef = ref<HTMLElement>();
 const canvasRef = ref<HTMLCanvasElement>();
@@ -1362,13 +1360,13 @@ function applyBuiltInWeapons() {
   try {
     localShip.value.builtInWeapons = JSON.parse(builtInWeaponsText.value);
   } catch {
-    message.error('builtInWeapons JSON 无效');
+    feedback.error('builtInWeapons JSON 无效');
   }
 }
 async function uploadShipSprite(event: Event) {
   try {
     await uploadSpriteFile(event, {
-      dialog,
+      feedback,
       modRoot: props.modRoot,
       subfolder: 'ships',
       onUploaded: (result, dataUrl) => {
@@ -1378,11 +1376,11 @@ async function uploadShipSprite(event: Event) {
           updateSpriteSize();
           draw();
         };
-        message.success('贴图已上传');
+        feedback.success('贴图已上传');
       },
     });
   } catch (error) {
-    message.error(`上传贴图失败：${formatError(error)}`);
+    feedback.error(error, '上传贴图失败');
   }
 }
 async function save() {
@@ -1390,7 +1388,7 @@ async function save() {
     const changes = await saveShipSpec(props.modRoot, props.hullId, localShip.value);
     emit('saved', props.hullId, localShip.value, changes);
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '保存舰船失败');
   }
 }
 watch(

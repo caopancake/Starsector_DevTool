@@ -1,0 +1,11 @@
+[
+  { "key": "name", "label": "名称", "control": "text" },
+  { "key": "id", "label": "ID", "control": "text" },
+  { "key": "type", "label": "类型", "control": "enum", "options": ["campaign", "combat"] },
+  { "key": "tags", "label": "标签", "control": "tags", "source": "csv:abilities.tags" },
+  { "key": "icon", "label": "图标", "control": "path-image" },
+  { "key": "desc", "label": "描述", "control": "text" },
+  { "key": "sortOrder", "label": "排序", "control": "number", "step": 1 },
+  { "key": "unlockedAtStart", "label": "初始解锁", "control": "boolean" },
+  { "key": "defaultForAIFleet", "label": "AI 默认", "control": "boolean" }
+]

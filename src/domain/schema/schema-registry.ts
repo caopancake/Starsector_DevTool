@@ -119,8 +119,8 @@ export function resolveSource(source: string | undefined | null, appData: AppDat
     const table = dotIdx > 0 ? rest.slice(0, dotIdx) : rest;
     const col = dotIdx > 0 ? rest.slice(dotIdx + 1) : 'id';
 
-    const modRows = table === 'ships' ? hullReferenceRows(appData, 'mod') : rowsForTable(appData, table);
-    const coreRows = table === 'ships' ? hullReferenceRows(appData, 'core') : coreRowsForTable(appData.coreReferences, table);
+    const modRows = referenceRowsForTable(appData, table, 'mod');
+    const coreRows = referenceRowsForTable(appData, table, 'core');
     if (modRows.length === 0 && coreRows.length === 0) return [];
 
     if (col === 'tags') {
@@ -139,6 +139,19 @@ export function resolveSource(source: string | undefined | null, appData: AppDat
   }
 
   return [];
+}
+
+function referenceRowsForTable(appData: AppData, table: string, origin: 'mod' | 'core'): RowData[] {
+  if (table === 'ships') return hullReferenceRows(appData, origin);
+  if (table === 'variants') {
+    const variants = origin === 'mod' ? appData.variantFiles : appData.coreReferences.variantFiles;
+    return variants.map((variant) => ({
+      variantId: variant.variantId,
+      hullId: variant.hullId,
+      name: variant.variantId,
+    }));
+  }
+  return origin === 'mod' ? rowsForTable(appData, table) : coreRowsForTable(appData.coreReferences, table);
 }
 
 /**

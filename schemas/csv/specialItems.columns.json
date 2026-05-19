@@ -1,0 +1,18 @@
+[
+  { "key": "name", "label": "名称", "control": "text" },
+  { "key": "id", "label": "ID", "control": "text" },
+  { "key": "tags", "label": "标签", "control": "tags", "source": "csv:specialItems.tags" },
+  { "key": "tech/manufacturer", "label": "技术/制造商", "control": "text" },
+  { "key": "rarity", "label": "稀有度", "control": "text" },
+  { "key": "base price", "label": "基础价格", "control": "number", "step": 1 },
+  { "key": "stack size", "label": "堆叠数量", "control": "number", "step": 1 },
+  { "key": "cargo space", "label": "货舱占用", "control": "number", "step": 1 },
+  { "key": "baseRaidDanger", "label": "袭击风险", "control": "text" },
+  { "key": "icon", "label": "图标", "control": "path-image" },
+  { "key": "sound id", "label": "拾取音效", "control": "text" },
+  { "key": "sound id drop", "label": "丢弃音效", "control": "text" },
+  { "key": "plugin", "label": "插件", "control": "text" },
+  { "key": "plugin params", "label": "插件参数", "control": "text" },
+  { "key": "desc", "label": "描述", "control": "text" },
+  { "key": "order", "label": "排序", "control": "number", "step": 1 }
+]

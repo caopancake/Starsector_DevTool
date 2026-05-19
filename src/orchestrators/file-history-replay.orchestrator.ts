@@ -1,7 +1,6 @@
-import type { DialogApiInjection } from 'naive-ui/es/dialog/src/DialogProvider';
-import type { MessageApiInjection } from 'naive-ui/es/message/src/MessageProvider';
 import { h } from 'vue';
 import { emit } from '@tauri-apps/api/event';
+import type { AppFeedback } from '@/shared/types';
 import { applyFileChangeSet, type FileChangeRecord } from '@/shared/api/files-api';
 import { normalizeFsPath, pathStem, relativePathFromRoot } from '@/shared/lib/paths';
 import type { AppData, RowData, SkinFile, TableKey, VariantFile } from '@/shared/types';
@@ -21,41 +20,39 @@ export function replayNextFileHistoryEntry(
   direction: FileHistoryReplayDirection,
   project: ProjectStore,
   tables: TablesStore,
-  message: MessageApiInjection,
-  dialog: DialogApiInjection,
+  feedback: AppFeedback,
 ) {
   const fileHistory = useFileHistoryStore();
   const entry = direction === 'undo' ? fileHistory.peekFileUndo() : fileHistory.peekFileRedo();
   if (!entry) return false;
-  confirmFileHistoryReplay(dialog, entry, direction, async () => {
+  confirmFileHistoryReplay(feedback, entry, direction, async () => {
     try {
       await applyFileSaveHistoryEntry(entry, direction, project, tables);
       const committed = direction === 'undo' ? fileHistory.commitFileUndo(entry.id) : fileHistory.commitFileRedo(entry.id);
       if (!committed) {
-        message.error(`${fileHistoryAction(direction)}文件历史失败：历史栈状态已变化`);
+        feedback.error(`${fileHistoryAction(direction)}文件历史失败：历史栈状态已变化`);
         return;
       }
-      message.success(`已${fileHistoryAction(direction)}`);
+      feedback.success(`文件历史已${fileHistoryAction(direction)}`);
     } catch (error) {
-      message.error(`${fileHistoryAction(direction)}文件历史失败：${error instanceof Error ? error.message : String(error)}`);
+      feedback.error(error, `${fileHistoryAction(direction)}文件历史失败`);
     }
   });
   return true;
 }
 
 function confirmFileHistoryReplay(
-  dialog: DialogApiInjection,
+  feedback: AppFeedback,
   entry: FileSaveHistoryEntry,
   direction: FileHistoryReplayDirection,
   onConfirm: () => Promise<void>,
 ) {
   const action = fileHistoryAction(direction);
-  dialog.warning({
+  feedback.confirmWarning({
     title: `${action}文件历史`,
     content: () => renderConfirmContent(entry, action),
-    positiveText: action,
-    negativeText: '取消',
-    onPositiveClick: () => onConfirm(),
+    actionText: action,
+    onConfirm,
   });
 }
 

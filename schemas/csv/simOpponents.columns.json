@@ -1,0 +1,1 @@
+[{ "key": "variant id", "label": "装配", "control": "reference", "source": "csv:variants.variantId" }]

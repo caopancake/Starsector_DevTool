@@ -60,27 +60,14 @@
         <n-input v-model:value="newSkinHullId" placeholder="skinHullId" />
       </div>
     </n-modal>
-
-    <n-modal
-      v-model:show="showDeleteDialog"
-      preset="dialog"
-      title="确认删除"
-      positive-text="删除"
-      negative-text="取消"
-      type="error"
-      @positive-click="deletePendingSkin"
-    >
-      <p>确定要删除舰船皮肤 "{{ pendingDeleteSkin?.skinHullId }}" 吗？</p>
-    </n-modal>
   </aside>
 </template>
 
 <script setup lang="ts">
 import { computed, h, ref, watch } from 'vue';
-import { createAppFeedback } from '@/app/app-feedback';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useProjectStore } from '@/stores/project.store';
 import type { SkinFile } from '@/shared/types';
-import { formatError } from '@/shared/lib/errors';
 import type { SelectOption } from '@/domain/schema/schema-registry';
 import { resolveSource } from '@/domain/schema/schema-registry';
 import { createSkinWithFileHistory, deleteSkinWithFileHistory } from '@/orchestrators/config-save.orchestrator';
@@ -91,12 +78,11 @@ const props = defineProps<{ selectedId: string }>();
 const emit = defineEmits<{ select: [skinHullId: string] }>();
 
 const project = useProjectStore();
-const { message } = createAppFeedback(['message']);
+const feedback = useAppFeedback();
 
 const showCreateDialog = ref(false);
 const newBaseHullId = ref('');
 const newSkinHullId = ref('');
-const showDeleteDialog = ref(false);
 const pendingDeleteSkin = ref<SkinFile | null>(null);
 
 const modData = computed(() => project.activeModData);
@@ -109,15 +95,15 @@ async function createSkin() {
   const skinHullId = newSkinHullId.value.trim();
   if (!modRoot.value) return false;
   if (!baseHullId || !skinHullId) {
-    message.warning('baseHullId 和 skinHullId 不能为空');
+    feedback.warning('baseHullId 和 skinHullId 不能为空');
     return false;
   }
   if (!isSafeEntityFileStem(skinHullId)) {
-    message.error('skinHullId 不能包含路径分隔符或 ..');
+    feedback.error('skinHullId 不能包含路径分隔符或 ..');
     return false;
   }
   if (skins.value.some((skin) => skin.skinHullId === skinHullId)) {
-    message.warning(`舰船皮肤 "${skinHullId}" 已存在`);
+    feedback.warning(`舰船皮肤 "${skinHullId}" 已存在`);
     return false;
   }
   try {
@@ -127,9 +113,9 @@ async function createSkin() {
     newBaseHullId.value = '';
     newSkinHullId.value = '';
     emit('select', skinHullId);
-    message.success(`舰船皮肤 "${skinHullId}" 已创建`);
+    feedback.success(`舰船皮肤 "${skinHullId}" 已创建`);
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '创建舰船皮肤失败');
     return false;
   }
   return true;
@@ -137,7 +123,14 @@ async function createSkin() {
 
 function confirmDeleteSkin(skin: SkinFile) {
   pendingDeleteSkin.value = skin;
-  showDeleteDialog.value = true;
+  feedback.confirmDanger({
+    title: '删除舰船皮肤',
+    content: `确定要删除舰船皮肤 "${skin.skinHullId}" 吗？`,
+    actionText: '删除',
+    onConfirm: async () => {
+      await deletePendingSkin();
+    },
+  });
 }
 
 async function deletePendingSkin() {
@@ -147,13 +140,12 @@ async function deletePendingSkin() {
     await deleteSkinWithFileHistory(modRoot.value, skin.relPath, skin.skinHullId);
     project.deleteSkinFile(modRoot.value, skin.skinHullId);
     pendingDeleteSkin.value = null;
-    showDeleteDialog.value = false;
     if (props.selectedId === skin.skinHullId) {
       emit('select', skins.value[0]?.skinHullId ?? '');
     }
-    message.success(`舰船皮肤 "${skin.skinHullId}" 已删除`);
+    feedback.success(`舰船皮肤 "${skin.skinHullId}" 已删除`);
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '删除舰船皮肤失败');
     return false;
   }
   return true;

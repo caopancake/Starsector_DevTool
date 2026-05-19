@@ -106,7 +106,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useDialog, useMessage } from 'naive-ui';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
@@ -115,7 +115,6 @@ import { saveProjectileSpec } from '@/services/editor.service';
 import type { RowData } from '@/shared/types';
 import type { FileChangeRecord } from '@/shared/api/files-api';
 import { arr, str } from '@/shared/lib/starsector';
-import { formatError } from '@/shared/lib/errors';
 import { normalizeProjectileSpec } from '@/domain/editors/lib/normalize';
 import { useObjectField } from '@/app/composables/use-object-field';
 import { useSpriteUpload } from '@/app/composables/use-sprite-upload';
@@ -123,8 +122,7 @@ import { editorCollapseTheme, toOptions as opts } from '@/domain/editors/lib/edi
 
 const props = defineProps<{ modRoot: string; projectileId: string; projectile?: RowData }>();
 const emit = defineEmits<{ close: []; saved: [id: string, projectile: RowData, changes: FileChangeRecord[]] }>();
-const message = useMessage();
-const dialog = useDialog();
+const feedback = useAppFeedback();
 const localProjectile = ref<RowData>(normalizeProjectileSpec(props.projectile || { id: props.projectileId, specClass: 'projectile' }));
 const expandedSections = ref(['basic']);
 const { bindObjectField } = useObjectField(localProjectile);
@@ -168,22 +166,22 @@ function applyGeneric() {
   try {
     localProjectile.value = normalizeProjectileSpec(JSON.parse(genericJson.value));
   } catch {
-    message.error('JSON 无效');
+    feedback.error('JSON 无效');
   }
 }
 async function uploadSpriteFile(field: string, event: Event) {
   try {
     await uploadSpriteInput(event, {
-      dialog,
+      feedback,
       modRoot: props.modRoot,
       subfolder: 'missiles',
       onUploaded: (result) => {
         localProjectile.value[field] = result.path;
-        message.success('贴图已上传');
+        feedback.success('贴图已上传');
       },
     });
   } catch (error) {
-    message.error(`上传贴图失败：${formatError(error)}`);
+    feedback.error(error, '上传贴图失败');
   }
 }
 async function save() {
@@ -191,7 +189,7 @@ async function save() {
     const changes = await saveProjectileSpec(props.modRoot, props.projectileId, localProjectile.value);
     emit('saved', props.projectileId, localProjectile.value, changes);
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '保存弹体失败');
   }
 }
 watch(

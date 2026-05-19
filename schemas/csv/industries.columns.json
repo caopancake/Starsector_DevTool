@@ -1,0 +1,10 @@
+[
+  { "key": "name", "label": "名称", "control": "text" },
+  { "key": "id", "label": "ID", "control": "text" },
+  { "key": "build time", "label": "建造时间", "control": "number", "step": 1 },
+  { "key": "upkeep", "label": "维护费", "control": "number", "step": 1 },
+  { "key": "tags", "label": "标签", "control": "tags", "source": "csv:industries.tags" },
+  { "key": "desc", "label": "描述", "control": "text" },
+  { "key": "order", "label": "排序", "control": "number", "step": 1 },
+  { "key": "image", "label": "图标", "control": "path-image" }
+]

@@ -18,16 +18,15 @@ import { useProjectStore } from '@/stores/project.store';
 import { useConfigStore } from '@/stores/config.store';
 import { saveModInfoWithFileHistory } from '@/orchestrators/config-save.orchestrator';
 import { deepClone } from '@/shared/lib/starsector';
-import { formatError } from '@/shared/lib/errors';
 import type { RowData } from '@/shared/types';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { useCoreSchema } from '@/app/composables/use-core-schema';
 import { aggregateSchemaSources, splitSchemaSources } from '@/domain/schema/schema-registry';
-import { createAppFeedback } from '@/app/app-feedback';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 
 const project = useProjectStore();
 const configStore = useConfigStore();
-const { message } = createAppFeedback(['message']);
+const feedback = useAppFeedback();
 
 const { getMergedSchema, loadCoreFields } = useCoreSchema();
 loadCoreFields();
@@ -55,9 +54,9 @@ async function save() {
     await saveModInfoWithFileHistory(modData.modRoot, file);
     modData.modInfo = deepClone(file);
     configStore.updateSnapshot(file);
-    message.success('mod_info.json 已保存');
+    feedback.success('mod_info.json 已保存');
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '保存 mod_info.json 失败');
   } finally {
     saving.value = false;
   }

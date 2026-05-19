@@ -13,18 +13,6 @@
       </div>
       <SchemaFormRenderer :schema="schema" v-model="localMission" :app-data="project.activeModData" />
     </div>
-
-    <n-modal
-      v-model:show="showDeleteDialog"
-      preset="dialog"
-      title="确认删除"
-      positive-text="删除"
-      negative-text="取消"
-      type="error"
-      @positive-click="deleteCurrentMission"
-    >
-      <p>确定要删除战役 "{{ loadedMissionId || missionId }}" 吗？</p>
-    </n-modal>
   </main>
 </template>
 
@@ -33,21 +21,20 @@ import { computed, ref, watch } from 'vue';
 import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import { loadImageDataUrl } from '@/services/assets.service';
-import { formatError } from '@/shared/lib/errors';
 import type { JsonValue, RowData } from '@/shared/types';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { aggregateSchemaSources, getSchema, splitSchemaSources } from '@/domain/schema/schema-registry';
 import { loadMission, loadMissionList, scanMissionListFiles } from '@/services/config.service';
 import { buildMissionIndexRow, stripSchemaInternalFields } from '@/domain/config/config-entities';
 import { deleteIndexedConfigEntityWithFileHistory, saveIndexedConfigEntityWithFileHistory } from '@/orchestrators/config-save.orchestrator';
-import { createAppFeedback } from '@/app/app-feedback';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 
 const props = defineProps<{ missionId: string }>();
 const emit = defineEmits<{ saved: [missionId: string] }>();
 
 const project = useProjectStore();
 const settings = useSettingsStore();
-const { message } = createAppFeedback(['message']);
+const feedback = useAppFeedback();
 
 const DEFAULT_MISSION_LIST_PATH = 'data/missions/mission_list.csv';
 
@@ -57,7 +44,6 @@ const localMission = ref<RowData>({});
 const loadedMissionId = ref('');
 const iconSrc = ref('');
 const saving = ref(false);
-const showDeleteDialog = ref(false);
 
 const modRoot = computed(() => project.activeModData?.modRoot ?? null);
 const schema = computed(() => getSchema('mission'));
@@ -99,7 +85,7 @@ async function loadConfigMissionEditor() {
       iconSrc.value = (await loadImageDataUrl(modRoot.value, data.iconPath, coreRoot)) ?? '';
     }
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '加载战役失败');
   }
 }
 
@@ -111,7 +97,7 @@ async function save() {
   const text = requireTextSource(split.text, 'mission_text.txt 数据无效');
   const nextId = missionIdFromRow(list);
   if (!nextId) {
-    message.warning('mission 不能为空');
+    feedback.warning('mission 不能为空');
     return;
   }
   saving.value = true;
@@ -137,16 +123,24 @@ async function save() {
       text,
     });
     emit('saved', result.entityId);
-    message.success(`${result.entityId} 已保存`);
+    feedback.success(`战役 "${result.entityId}" 已保存`);
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '保存战役失败');
   } finally {
     saving.value = false;
   }
 }
 
 function confirmDeleteMission() {
-  showDeleteDialog.value = true;
+  const id = loadedMissionId.value || props.missionId;
+  feedback.confirmDanger({
+    title: '删除战役',
+    content: `确定要删除战役 "${id}" 吗？`,
+    actionText: '删除',
+    onConfirm: async () => {
+      await deleteCurrentMission();
+    },
+  });
 }
 
 async function deleteCurrentMission() {
@@ -154,14 +148,13 @@ async function deleteCurrentMission() {
   try {
     const deleted = loadedMissionId.value;
     await deleteIndexedConfigEntityWithFileHistory(modRoot.value, 'mission', deleted, true);
-    showDeleteDialog.value = false;
     loadedMissionId.value = '';
     localMission.value = {};
     iconSrc.value = '';
     emit('saved', '');
-    message.success(`战役 "${deleted}" 已删除`);
+    feedback.success(`战役 "${deleted}" 已删除`);
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '删除战役失败');
     return false;
   }
   return true;

@@ -10,18 +10,15 @@
 }
 
 .data-table {
-  width: max-content;
-  min-width: 2400px;
   font-size: 12px;
   border-collapse: collapse;
-  table-layout: auto;
+  table-layout: fixed;
 }
 
 .data-table th,
 .data-table td {
-  max-width: 240px;
-  height: 29px;
-  padding: 4px 9px;
+  height: 24px;
+  padding: 2px 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -44,6 +41,17 @@
   background: var(--color-surface-hover);
 }
 
+.data-table tr.csv-grid-spacer-row,
+.data-table tr.csv-grid-spacer-row:hover td {
+  background: transparent;
+}
+
+.data-table tr.csv-grid-spacer-row td {
+  height: auto;
+  padding: 0;
+  border: 0;
+}
+
 .data-table tr.selected td {
   background: var(--color-primary-soft);
   box-shadow: inset 0 -1px 0 var(--color-primary-border);
@@ -55,15 +63,161 @@
   box-shadow: inset 0 0 0 1px var(--color-warning-border);
 }
 
+.data-table td.csv-cell-active {
+  box-shadow: inset 0 0 0 1px var(--color-primary-border);
+}
+
+.data-table td.csv-cell-active .csv-static-control {
+  visibility: hidden;
+}
+
+.csv-static-control {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 36px;
+  height: 20px;
+  min-height: 20px;
+  padding: 0 8px;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 12px;
+  line-height: 18px;
+  background: var(--color-panel-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.csv-static-select,
+.csv-static-reference,
+.csv-static-boolean,
+.csv-static-enum,
+.csv-static-tags,
+.csv-static-multi {
+  gap: 4px;
+  padding-right: 4px;
+  background: var(--color-panel-muted);
+}
+
+.csv-static-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.csv-static-caret {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.csv-static-thumb {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+.csv-static-tag {
+  max-width: 128px;
+  height: 16px;
+  padding: 0 4px;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 11px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.csv-cell-editor-overlay {
+  position: fixed;
+  z-index: 4;
+  pointer-events: auto;
+}
+
 .cell-input {
   width: 100%;
-  height: 22px;
+  height: 20px;
   color: var(--color-text);
   background: var(--color-panel);
   border: 1px solid var(--color-primary);
   border-radius: var(--radius-sm);
   outline: none;
   box-shadow: 0 0 0 2px var(--color-primary-soft);
+}
+
+.schema-cell-control {
+  width: 100%;
+  min-width: 36px;
+}
+
+.schema-cell-control,
+.schema-cell-control * {
+  min-width: 0;
+}
+
+.schema-cell-control .n-input,
+.schema-cell-control.n-input,
+.schema-cell-control.n-input-number,
+.schema-cell-control .n-base-selection {
+  height: 20px;
+  min-height: 20px;
+  font-size: 12px;
+}
+
+.schema-cell-control .n-input-wrapper,
+.schema-cell-control .n-base-selection-label {
+  height: 20px;
+  min-height: 20px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.schema-cell-control .n-input__input-el,
+.schema-cell-control .n-base-selection-input,
+.schema-cell-control .n-base-selection-placeholder,
+.schema-cell-control .n-base-selection-input-tag {
+  height: 18px;
+  line-height: 18px;
+}
+
+.schema-cell-control .n-base-selection-tags {
+  flex-wrap: nowrap;
+  gap: 2px;
+  height: 18px;
+  overflow: hidden;
+}
+
+.schema-cell-control .n-tag {
+  max-width: 128px;
+  height: 16px;
+  padding: 0 4px;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schema-cell-control .n-tag__content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schema-cell-control .n-base-selection__border,
+.schema-cell-control .n-base-selection__state-border,
+.schema-cell-control .n-input__border,
+.schema-cell-control .n-input__state-border {
+  border-radius: var(--radius-sm);
 }
 
 .table-empty-note {

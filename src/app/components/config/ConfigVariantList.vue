@@ -60,27 +60,14 @@
         <n-input v-model:value="newVariantId" placeholder="variantId" />
       </div>
     </n-modal>
-
-    <n-modal
-      v-model:show="showDeleteDialog"
-      preset="dialog"
-      title="确认删除"
-      positive-text="删除"
-      negative-text="取消"
-      type="error"
-      @positive-click="deletePendingVariant"
-    >
-      <p>确定要删除装配 "{{ pendingDeleteVariant?.variantId }}" 吗？</p>
-    </n-modal>
   </aside>
 </template>
 
 <script setup lang="ts">
 import { computed, h, ref, watch } from 'vue';
-import { createAppFeedback } from '@/app/app-feedback';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useProjectStore } from '@/stores/project.store';
 import type { VariantFile } from '@/shared/types';
-import { formatError } from '@/shared/lib/errors';
 import type { SelectOption } from '@/domain/schema/schema-registry';
 import { resolveSource } from '@/domain/schema/schema-registry';
 import { createVariantWithFileHistory, deleteVariantWithFileHistory } from '@/orchestrators/config-save.orchestrator';
@@ -91,12 +78,11 @@ const props = defineProps<{ selectedId: string }>();
 const emit = defineEmits<{ select: [variantId: string] }>();
 
 const project = useProjectStore();
-const { message } = createAppFeedback(['message']);
+const feedback = useAppFeedback();
 
 const showCreateDialog = ref(false);
 const newHullId = ref('');
 const newVariantId = ref('');
-const showDeleteDialog = ref(false);
 const pendingDeleteVariant = ref<VariantFile | null>(null);
 
 const modData = computed(() => project.activeModData);
@@ -109,15 +95,15 @@ async function createVariant() {
   const variantId = newVariantId.value.trim();
   if (!modRoot.value) return false;
   if (!hullId || !variantId) {
-    message.warning('hullId 和 variantId 不能为空');
+    feedback.warning('hullId 和 variantId 不能为空');
     return false;
   }
   if (!isSafeEntityFileStem(variantId)) {
-    message.error('variantId 不能包含路径分隔符或 ..');
+    feedback.error('variantId 不能包含路径分隔符或 ..');
     return false;
   }
   if (variants.value.some((variant) => variant.variantId === variantId)) {
-    message.warning(`装配 "${variantId}" 已存在`);
+    feedback.warning(`装配 "${variantId}" 已存在`);
     return false;
   }
   try {
@@ -127,9 +113,9 @@ async function createVariant() {
     newHullId.value = '';
     newVariantId.value = '';
     emit('select', variantId);
-    message.success(`装配 "${variantId}" 已创建`);
+    feedback.success(`装配 "${variantId}" 已创建`);
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '创建装配失败');
     return false;
   }
   return true;
@@ -137,7 +123,14 @@ async function createVariant() {
 
 function confirmDeleteVariant(variant: VariantFile) {
   pendingDeleteVariant.value = variant;
-  showDeleteDialog.value = true;
+  feedback.confirmDanger({
+    title: '删除装配',
+    content: `确定要删除装配 "${variant.variantId}" 吗？`,
+    actionText: '删除',
+    onConfirm: async () => {
+      await deletePendingVariant();
+    },
+  });
 }
 
 async function deletePendingVariant() {
@@ -147,13 +140,12 @@ async function deletePendingVariant() {
     await deleteVariantWithFileHistory(modRoot.value, variant.relPath, variant.variantId);
     project.deleteVariantFile(modRoot.value, variant.variantId);
     pendingDeleteVariant.value = null;
-    showDeleteDialog.value = false;
     if (props.selectedId === variant.variantId) {
       emit('select', variants.value[0]?.variantId ?? '');
     }
-    message.success(`装配 "${variant.variantId}" 已删除`);
+    feedback.success(`装配 "${variant.variantId}" 已删除`);
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '删除装配失败');
     return false;
   }
   return true;

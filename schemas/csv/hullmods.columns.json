@@ -1,0 +1,16 @@
+[
+  { "key": "name", "label": "名称", "control": "text" },
+  { "key": "id", "label": "ID", "control": "text" },
+  { "key": "tier", "label": "等级", "control": "number", "step": 1 },
+  { "key": "tags", "label": "标签", "control": "tags", "source": "csv:hullmods.tags" },
+  { "key": "uiTags", "label": "UI 标签", "control": "tags" },
+  { "key": "cost_frigate", "label": "护卫舰 OP", "control": "number", "step": 1 },
+  { "key": "cost_dest", "label": "驱逐舰 OP", "control": "number", "step": 1 },
+  { "key": "cost_cruiser", "label": "巡洋舰 OP", "control": "number", "step": 1 },
+  { "key": "cost_capital", "label": "主力舰 OP", "control": "number", "step": 1 },
+  { "key": "script", "label": "脚本", "control": "text" },
+  { "key": "desc", "label": "描述", "control": "text" },
+  { "key": "short", "label": "短描述", "control": "text" },
+  { "key": "sModDesc", "label": "内置描述", "control": "text" },
+  { "key": "sprite", "label": "图标", "control": "path-image" }
+]

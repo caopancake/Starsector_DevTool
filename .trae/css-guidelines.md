@@ -4,6 +4,7 @@
 
 ## 视觉总则
 
+- 视觉大于一切；任何性能、实现便利或临时交互调整都不得牺牲既有视觉一致性、密度和专业感。
 - 项目视觉是高密度桌面数据工具，不使用营销页 hero、装饰插图、装饰渐变、装饰光斑。
 - 主结构必须保持 IDE 布局：标题栏、左侧导航、中间工作区、右侧详情或检查器。
 - 信息密度优先于留白装饰；页面 section 不包成嵌套大卡片。
@@ -227,15 +228,17 @@
 ## Tables
 
 - `.table-panel` position absolute，inset 固定 `0 280px 0 0`，overflow auto，背景 `--color-panel`。
-- `.data-table` width 固定 `max-content`，min-width 固定 2400px，字号 12px，border-collapse collapse，table-layout auto。
-- `.data-table th` 和 `td` max-width 固定 240px，高度固定 29px，padding 固定 `4px 9px`。
+- `.data-table` width 固定 `max-content`，min-width 固定 1400px，字号 12px，border-collapse collapse，table-layout fixed。
+- `.data-table th` 和 `td` min-width 固定 36px，max-width 固定 180px，高度固定 24px，padding 固定 `2px 6px`。
+- `.data-table col` 默认宽度固定 96px；number 和 boolean 列固定 74px；enum 列固定 118px；reference、tags、multi 和 path-image 列固定 150px。
 - `.data-table th` 和 `td` 必须 overflow hidden、ellipsis、nowrap。
 - `.data-table th` 和 `td` 右边框和底边框固定 `1px solid var(--color-border)`。
 - `.data-table th` sticky top 0，z-index 1，背景 `--color-panel`，文字色 `--color-text-soft`，字重 650，底部内阴影 `inset 0 -1px 0 var(--color-border-strong)`。
 - `.data-table tr:hover td` 背景 `--color-surface-hover`。
 - `.data-table tr.selected td` 背景 `--color-primary-soft`，内阴影 `inset 0 -1px 0 var(--color-primary-border)`。
 - `.data-table td.dirty` 文字 `--color-warning`，背景 `--color-warning-bg`，内阴影 `inset 0 0 0 1px var(--color-warning-border)`。
-- `.cell-input` width 100%，height 22px，背景 `--color-panel`，border `1px solid var(--color-primary)`，圆角 `--radius-sm`，outline none，box-shadow `0 0 0 2px var(--color-primary-soft)`。
+- `.cell-input` width 100%，height 20px，背景 `--color-panel`，border `1px solid var(--color-primary)`，圆角 `--radius-sm`，outline none，box-shadow `0 0 0 2px var(--color-primary-soft)`。
+- `.schema-cell-control` 在 CSV 表格内必须保持单行紧凑，高度固定 20px，多选 tag 不得换行撑高行高。
 - `.table-empty-note` padding 18px，字号 13px，颜色 `--color-warning`。
 
 ## Detail Pane

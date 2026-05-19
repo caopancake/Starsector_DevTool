@@ -59,50 +59,57 @@
 
 ## Phase 8: CSV 列 Schema 试点
 
-- [ ] 明确本阶段只做主 CSV 表格的列级编辑控件，不迁移 `.ship`、`.wpn`、`.proj` 专用编辑器，也不改变 `.skin`、`.variant`、配置 schema 表单。
-- [ ] 定义 CSV 列 Schema 格式，覆盖列名、显示名、控件类型、source/options、默认值、只读、数字范围和显示优先级。
-- [ ] 新增 CSV 列 Schema 注册入口，使已注册 CSV 表可按 table key 查找列 schema；未注册列继续按原 header 文本编辑。
-- [ ] 扩展主表格单元格渲染，使列 schema 可驱动文本、数字、布尔、枚举、引用下拉、tag、多值、图片路径和颜色输入。
-- [ ] CSV 引用下拉沿用当前 Mod + 原版分组来源，继续过滤 `#` 开头 ID，并允许保留当前已有但不在来源中的值。
-- [ ] 全量支持项目内已注册 CSV 表的列 schema：`ships`、`weapons`、`wings`、`hullmods`、`shipSystems`、`industries`、`skills`、`abilities`、`commodities`、`specialItems`、`submarkets`、`marketConditions`、`simOpponents`。
-- [ ] 为上述每个已注册 CSV 表编写列 schema；确定类型和确定引用的列使用专用控件，未知或高风险列保持文本编辑。
-- [ ] 保持 CSV 读取、dirty、草稿 undo/redo、保存、文件历史和 AppData 同步链路不变；本阶段只改变单元格展示和输入约束。
-- [ ] 增加最小测试或静态检查，确认 table key、CSV 列 schema 注册和前端列控件覆盖不会漂移。
-- [ ] 手动验收新增生涯 CSV、舰船、武器、联队、插件和战术系统表格的 schema 控件、普通文本回退、保存和撤销重做。
+- [x] 明确本阶段只做主 CSV 表格的列级编辑控件，不迁移 `.ship`、`.wpn`、`.proj` 专用编辑器，也不改变 `.skin`、`.variant`、配置 schema 表单。
+- [x] 定义 CSV 列 Schema 格式，覆盖列名、显示名、控件类型、source/options、默认值、只读、数字范围和显示优先级。
+- [x] 新增 CSV 列 Schema 注册入口，使已注册 CSV 表可按 table key 查找列 schema；未注册列继续按原 header 文本编辑。
+- [x] 扩展主表格单元格渲染，使列 schema 可驱动文本、数字、布尔、枚举、引用下拉、tag、多值、图片路径和颜色输入。
+- [x] CSV 引用下拉沿用当前 Mod + 原版分组来源，继续过滤 `#` 开头 ID，并允许保留当前已有但不在来源中的值。
+- [x] 全量支持项目内已注册 CSV 表的列 schema：`ships`、`weapons`、`wings`、`hullmods`、`shipSystems`、`industries`、`skills`、`abilities`、`commodities`、`specialItems`、`submarkets`、`marketConditions`、`simOpponents`。
+- [x] 为上述每个已注册 CSV 表编写列 schema；确定类型和确定引用的列使用专用控件，未知或高风险列保持文本编辑。
+- [x] 保持 CSV 读取、dirty、草稿 undo/redo、保存、文件历史和 AppData 同步链路不变；本阶段只改变单元格展示和输入约束。
+- [x] 增加最小测试或静态检查，确认 table key、CSV 列 schema 注册和前端列控件覆盖不会漂移。
+- [x] 手动验收新增生涯 CSV、舰船、武器、联队、插件和战术系统表格的 schema 控件、普通文本回退、保存和撤销重做。
 
 ## Phase 8.1: 右侧只读 Schema 速览
 
-- [ ] 在 Phase 8 的 CSV 列 schema 稳定后，为右侧详情区接入只读 schema 速览。
-- [ ] 右侧详情区只读取当前行和列 schema，不写入单元格、不修改 dirty、不触发保存。
-- [ ] 按列 schema 展示字段标签、类型化值、引用 label、来源分组、缩略图、tag、多值、颜色和图片路径。
-- [ ] 未被列 schema 覆盖的列继续进入普通字段速览或其它字段区。
-- [ ] 保留现有缩略图预览、操作按钮和文件/专用编辑器入口，不改变右侧详情动作链路。
-- [ ] 明确主表格仍是 CSV 行编辑入口，右侧 schema 速览只负责上下文阅读。
+- [x] 在 Phase 8 的 CSV 列 schema 稳定后，为右侧详情区接入只读 schema 速览。
+- [x] 右侧详情区只读取当前行和列 schema，不写入单元格、不修改 dirty、不触发保存。
+- [x] 按列 schema 展示字段标签、类型化值、引用 label、来源分组、缩略图、tag、多值、颜色和图片路径。
+- [x] 未被列 schema 覆盖的列继续进入普通字段速览或其它字段区。
+- [x] 保留现有缩略图预览、操作按钮和文件/专用编辑器入口，不改变右侧详情动作链路。
+- [x] 明确主表格仍是 CSV 行编辑入口，右侧 schema 速览只负责上下文阅读。
 
 ## Phase 9: 自动数据校验和警示
 
-- [ ] 建立统一数据校验入口，覆盖 CSV 表格、`.ship`、`.wpn`、`.proj` 和贴图资源。
-- [ ] 对贴图宽度或高度为奇数的资源给出警示。
-- [ ] 对贴图高度不为 4 的倍数的 hardpoint 武器贴图资源给出警示。
-- [ ] 对坐标类字段含小数点的情况给出警示，包括武器位置、甲板位置、引擎位置、边界点、舰船中心、护盾位置、炮口位置等。
-- [ ] 对缺失舰船中心或护盾位置的舰船给出警示。
-- [ ] 对没有炮口/barrel offset 的武器给出警示。
-- [ ] 对 `collisionRadius` 小于 `shieldRadius` 的舰船给出警示。
-- [ ] 对 `collisionRadius` 未覆盖所有武器位置、甲板位置、引擎位置、边界点的舰船给出警示。
-- [ ] 对只能填数值的 CSV 表格列填入非数值的情况给出警示。
-- [ ] 设计校验结果展示位置：总览页、表格行级标记、右侧详情提示、编辑器内字段提示和保存前汇总。
-- [ ] 明确警示与阻止保存的边界；默认先警示，不轻易阻止保存。
-- [ ] 为典型离谱数据样例补最小测试或手动验收清单。
+- [ ] 建立统一诊断模型，至少包含 severity、source kind、entity id、field/path、message 和可定位目标；诊断只描述问题，不负责写盘。
+- [ ] 建立统一校验入口，读取当前 `AppData`、CSV 草稿状态、schema 资产和资源索引后产出诊断；不得让组件、store 或保存函数各自散落校验逻辑。
+- [ ] 设计诊断展示位置：表格行/单元格标记、右侧字段速览提示、配置 schema 字段提示、舰船/武器/弹体编辑器字段提示、资源预览提示、保存前汇总和工作区级汇总。
+- [ ] 明确 severity 行为：warning 默认允许保存；error 只用于确定会破坏写入边界、解析边界或唯一 ID 边界的问题；是否阻止保存由统一策略决定。
+- [ ] CSV 列校验适用范围固定为已注册主表格：`ships`、`weapons`、`wings`、`hullmods`、`shipSystems`、`industries`、`skills`、`abilities`、`commodities`、`specialItems`、`submarkets`、`marketConditions`、`simOpponents`。
+- [ ] CSV 列校验只依据 `schemas/csv/*.columns.json` 和当前表 header；未被列 schema 覆盖的列不做类型校验，只保留通用空值/显示能力。
+- [ ] CSV 数值列校验：`control: number` 的非空值必须能解析为有限数值，并校验 schema 中的 min、max 和 step。
+- [ ] CSV 布尔列校验：`control: boolean` 的非空值必须是当前项目允许的布尔文本。
+- [ ] CSV 枚举列校验：`control: enum` 的非空值必须在 schema options 中。
+- [ ] CSV 引用列校验：`control: reference` 的非空值必须能在当前 Mod 或原版引用源中解析；`#` 开头行不得作为合法引用；当前 Mod 覆盖原版重复 ID 的规则保持不变。
+- [ ] CSV tag / multi 列校验：按逗号拆分后检查空项、重复项和 source 引用合法性；无 source 的 tag 只做格式级检查。
+- [ ] CSV path-image / color 列校验：图片路径非空时检查资源索引可解析；颜色列按既定格式检查，未定义格式前只做非阻塞 warning。
+- [ ] CSV 行级校验：业务 ID 为空、重复 ID、`#` 开头禁用行被其它字段引用、关联 spec 候选路径冲突时给出诊断。
+- [ ] CSV 展示与交互：诊断必须能映射到具体表、行和列；右侧字段速览显示当前行诊断；保存 CSV 前汇总本表诊断。
+- [ ] 非 CSV 校验适用范围包括 `.ship`、`.wpn`、`.proj`、`.variant`、`.skin`、Faction `.faction`、Mission descriptor/mission_text 和贴图资源；不覆盖 Java、rules.csv、本地化文件和社区库文件，后续阶段另行接入。
+- [ ] `.ship` 校验：中心、护盾中心、护盾半径、碰撞半径、武器槽、甲板、引擎、边界点等坐标字段应为整数；缺失关键中心/护盾字段给出诊断。
+- [ ] `.ship` 几何校验：`collisionRadius` 小于 `shieldRadius`、碰撞半径未覆盖武器槽、甲板、引擎、边界点或护盾圆时给出诊断。
+- [ ] `.ship` 引用校验：内置武器、内置联队、内置插件、战术系统、装配和皮肤相关 hull 引用必须走当前 Mod + 原版引用源；`skinHullId` 必须被视作合法 hull 引用。
+- [ ] `.wpn` 校验：炮口/barrel offset 缺失、炮口坐标含小数、当前视图贴图路径缺失、武器 CSV 行与 `.wpn` 关键引用不一致时给出诊断。
+- [ ] `.proj` 校验：弹体贴图路径、碰撞/尺寸/速度等确定数值字段、武器引用弹体缺失或弹体文件孤立时给出诊断。
+- [ ] `.variant` 校验：`variantId`、`hullId`、武器槽位引用、武器 ID、插件 ID、联队 ID、模块/内置装配引用必须可解析；重复或缺必填字段沿用读取阶段 error 语义。
+- [ ] `.skin` 校验：`skinHullId`、`baseHullId`、内置武器、内置联队、内置插件、战术系统、slot change 和 engine change 引用必须可解析；`skinHullId` 参与所有 hull 引用解析。
+- [ ] Faction / Mission 校验：CSV index 与额外文件或目录之间的 ID、路径和必填字段必须一致；Mission 改名后 descriptor、mission_text 和目录资源必须保持可定位。
+- [ ] 贴图资源校验：被 spec、CSV 或 schema 引用的 PNG 资源缺失时给出诊断；贴图宽度或高度为奇数时给出 warning；hardpoint 武器贴图高度不为 4 的倍数时给出 warning。
+- [ ] 贴图资源校验不扫描未被引用的所有图片作为首期必做项；如需要全资源扫描，作为后续性能可控的独立扩展。
+- [ ] 文件历史 replay 和保存后同步必须刷新受影响实体的诊断结果；二进制贴图变化只刷新资源相关诊断，不尝试解析为文本。
+- [ ] 补最小测试或静态检查：CSV schema 控件类型对应校验器、引用源过滤 `#` 行、hull 引用包含 skin、典型 `.ship/.wpn/.variant/.skin` 异常、贴图尺寸异常和保存前汇总。
 
-## Phase 10: 重新梳理主界面快捷键
-
-- [ ] 为主界面定义搜索、模块切换、记录选择、保存 CSV、删除、新建等快捷键。
-- [ ] 明确主界面快捷键与多 Mod 导航、总览页、设置页之间的切换规则。
-- [ ] 统一主界面的撤销、重做、保存、关闭等通用行为，并接入全局修改链路。
-- [ ] 避免主界面快捷键和输入框、文本域、系统快捷键冲突。
-- [ ] 在合适位置提供主界面快捷键提示或设置入口。
-
-## Phase 11: 定义右键行为
+## Phase 10: 定义右键行为
 
 - [ ] 定义主表格右键菜单：复制 ID、打开编辑器、删除、定位资源等。
 - [ ] 定义舰船画布右键行为：添加点、删除点、切换模式、复制坐标等。
@@ -110,6 +117,14 @@
 - [ ] 定义弹体编辑器右键行为：复制字段、重置字段、定位贴图等。
 - [ ] 确保右键菜单不会破坏画布右键拖动平移体验。
 - [ ] 为右键菜单行为补手动验收清单。
+
+## Phase 11: 重新梳理主界面快捷键
+
+- [ ] 为主界面定义搜索、模块切换、记录选择、保存 CSV、删除、新建等快捷键。
+- [ ] 明确主界面快捷键与多 Mod 导航、总览页、设置页之间的切换规则。
+- [ ] 统一主界面的撤销、重做、保存、关闭等通用行为，并接入全局修改链路。
+- [ ] 避免主界面快捷键和输入框、文本域、系统快捷键冲突。
+- [ ] 在合适位置提供主界面快捷键提示或设置入口。
 
 ## Phase 12: 角色与本地化
 

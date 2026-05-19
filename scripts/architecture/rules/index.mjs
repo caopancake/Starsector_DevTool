@@ -1,7 +1,9 @@
 import { appDataSyncBoundaryRule } from './app-data-sync-boundary.mjs';
 import { componentApiBoundaryRule } from './component-api-boundary.mjs';
 import { configEntityBoundaryRule } from './config-entity-boundary.mjs';
+import { csvColumnSchemaBoundaryRule } from './csv-column-schema-boundary.mjs';
 import { featureBoundaryRule } from './feature-boundary.mjs';
+import { feedbackBoundaryRule } from './feedback-boundary.mjs';
 import { fileHistoryBoundaryRule } from './file-history-boundary.mjs';
 import { frontendApiBoundaryRule } from './frontend-api-boundary.mjs';
 import { hullReferenceBoundaryRule } from './hull-reference-boundary.mjs';
@@ -21,6 +23,7 @@ export const rules = [
   featureBoundaryRule,
   namingBoundaryRule,
   orchestratorDomainNameBoundaryRule,
+  feedbackBoundaryRule,
   hullReferenceBoundaryRule,
   frontendApiBoundaryRule,
   componentApiBoundaryRule,
@@ -28,6 +31,7 @@ export const rules = [
   saveApiBoundaryRule,
   fileHistoryBoundaryRule,
   configEntityBoundaryRule,
+  csvColumnSchemaBoundaryRule,
   schemaRegistryBoundaryRule,
   rustCommandServiceBoundaryRule,
   rustCommandRegistrationBoundaryRule,

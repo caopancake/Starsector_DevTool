@@ -46,10 +46,24 @@
       </section>
       <section class="panel-card detail-card">
         <div class="panel-section-title">字段速览</div>
-        <div class="kv-list">
-          <div v-for="col in summaryColumns" :key="col" class="kv-row">
-            <span>{{ col }}</span>
-            <strong>{{ cell(tables.selectedRow[col]) }}</strong>
+        <div class="schema-preview-list">
+          <div v-for="item in summaryItems" :key="item.key" class="schema-preview-row">
+            <span class="schema-preview-label">{{ item.label }}</span>
+            <div class="schema-preview-value">
+              <template v-if="item.kind === 'tags' || item.kind === 'multi'">
+                <span v-for="tag in item.values" :key="tag" class="schema-preview-tag">{{ tag }}</span>
+                <span v-if="item.values.length === 0" class="schema-preview-empty">-</span>
+              </template>
+              <template v-else-if="item.kind === 'color'">
+                <span class="schema-preview-swatch" :style="{ background: item.value }"></span>
+                <strong>{{ item.value || '-' }}</strong>
+              </template>
+              <template v-else>
+                <img v-if="item.sprite" class="schema-preview-sprite" :src="item.sprite" :alt="item.display" />
+                <strong>{{ item.display || '-' }}</strong>
+                <small v-if="item.meta">{{ item.meta }}</small>
+              </template>
+            </div>
           </div>
         </div>
       </section>
@@ -68,6 +82,9 @@ import { useProjectStore } from '@/stores/project.store';
 import { cell, MODULE_LABELS, rowDisplayId, rowSpecId, str } from '@/shared/lib/starsector';
 import { resolveHullSprite } from '@/shared/lib/hull-references';
 import { fileEditorActionForRow, type TableDetailAction } from '@/domain/tables/table-detail-actions';
+import { csvColumnSchemasForTable, type CsvColumnSchema } from '@/domain/tables/csv-column-schema';
+import { createCsvSourceIndex, sourceValue } from '@/domain/tables/csv-source-options';
+import type { SelectOption } from '@/domain/schema/schema-registry';
 import type { RowData, TableKey } from '@/shared/types';
 
 defineEmits<{
@@ -87,12 +104,37 @@ const selectedSpecId = computed(() => (tables.selectedRow ? rowSpecId(tables.sel
 const canOpenShipEditor = computed(() => tables.currentTab === 'ships' && Boolean(selectedSpecId.value));
 const canOpenWeaponEditor = computed(() => tables.currentTab === 'weapons' && Boolean(selectedSpecId.value));
 const hasActions = computed(() => Boolean(fileEditorAction.value || canOpenShipEditor.value || canOpenWeaponEditor.value));
-const summaryColumns = computed(() => tables.visibleColumns.slice(0, 8));
+const schemaColumns = computed(() => csvColumnSchemasForTable(tables.currentTab));
+const sourceIndex = computed(() =>
+  createCsvSourceIndex(
+    project.activeModData,
+    schemaColumns.value.map((schema) => schema.source),
+  ),
+);
+const summaryItems = computed<SchemaPreviewItem[]>(() => {
+  const row = tables.selectedRow;
+  if (!row) return [];
+  return tables.visibleColumns.slice(0, 8).map((column) => {
+    const schema = schemaColumns.value.find((item) => item.key === column);
+    return schema ? schemaPreviewItem(schema, row) : plainPreviewItem(column, row);
+  });
+});
 const fileEditorAction = computed<TableDetailAction | null>(() => {
   const row = tables.selectedRow;
   const data = project.activeModData;
   return data ? fileEditorActionForRow(data.modRoot, tables.currentTab, row) : null;
 });
+
+interface SchemaPreviewItem {
+  display: string;
+  key: string;
+  kind: CsvColumnSchema['control'];
+  label: string;
+  meta: string;
+  sprite: string;
+  value: string;
+  values: string[];
+}
 
 interface PreviewState {
   alt: string;
@@ -228,5 +270,109 @@ function weaponPreviewSprite(sprites: Record<string, string> | undefined): strin
     sprites.turretGlowSprite ||
     sprites.hardpointGlowSprite
   );
+}
+
+function schemaPreviewItem(schema: CsvColumnSchema, row: RowData): SchemaPreviewItem {
+  const value = cell(row[schema.key]);
+  const base: SchemaPreviewItem = {
+    display: value,
+    key: schema.key,
+    kind: schema.control,
+    label: schema.label ?? schema.key,
+    meta: controlLabel(schema.control),
+    sprite: '',
+    value,
+    values: [],
+  };
+
+  if (schema.control === 'reference') {
+    const match = findSourceOption(schema.source, value);
+    if (match.option) {
+      base.display = match.option.label;
+      base.meta = match.group ? `${controlLabel(schema.control)} · ${match.group}` : controlLabel(schema.control);
+      base.sprite = match.option.sprite ?? '';
+    }
+    return base;
+  }
+
+  if (schema.control === 'tags' || schema.control === 'multi') {
+    base.values = splitListValue(value);
+    return base;
+  }
+
+  if (schema.control === 'enum') {
+    base.meta = '枚举';
+    return base;
+  }
+
+  if (schema.control === 'path-image') {
+    base.meta = '图片路径';
+    return base;
+  }
+
+  if (schema.control === 'boolean') {
+    base.display = booleanLabel(value);
+    return base;
+  }
+
+  return base;
+}
+
+function plainPreviewItem(column: string, row: RowData): SchemaPreviewItem {
+  const value = cell(row[column]);
+  return {
+    display: value,
+    key: column,
+    kind: 'text',
+    label: column,
+    meta: '',
+    sprite: '',
+    value,
+    values: [],
+  };
+}
+
+function findSourceOption(source: string | undefined, value: string): { group: string; option: SelectOption | null } {
+  if (!value) return { group: '', option: null };
+  if (!source) return { group: '', option: null };
+  return sourceValue(sourceIndex.value, source, value) ?? { group: '', option: null };
+}
+
+function splitListValue(value: string): string[] {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function booleanLabel(value: string): string {
+  if (!value) return '-';
+  const normalized = value.toLowerCase();
+  if (normalized === 'true') return 'true';
+  if (normalized === 'false') return 'false';
+  return value;
+}
+
+function controlLabel(control: CsvColumnSchema['control']): string {
+  switch (control) {
+    case 'number':
+      return '数值';
+    case 'boolean':
+      return '布尔';
+    case 'enum':
+      return '枚举';
+    case 'reference':
+      return '引用';
+    case 'tags':
+      return '标签';
+    case 'multi':
+      return '多值';
+    case 'path-image':
+      return '图片路径';
+    case 'color':
+      return '颜色';
+    default:
+      return '文本';
+  }
 }
 </script>

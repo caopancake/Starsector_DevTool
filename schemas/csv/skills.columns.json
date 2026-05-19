@@ -1,0 +1,9 @@
+[
+  { "key": "id", "label": "ID", "control": "text" },
+  { "key": "name", "label": "名称", "control": "text" },
+  { "key": "icon", "label": "图标", "control": "path-image" },
+  { "key": "description", "label": "描述", "control": "text" },
+  { "key": "aptitude", "label": "分类", "control": "text" },
+  { "key": "tier", "label": "层级", "control": "number", "step": 1 },
+  { "key": "tags", "label": "标签", "control": "tags", "source": "csv:skills.tags" }
+]

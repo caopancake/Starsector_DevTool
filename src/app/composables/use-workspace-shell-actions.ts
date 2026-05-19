@@ -1,10 +1,8 @@
 import { h, onMounted, onUnmounted, ref, watch } from 'vue';
-import { NButton, NCheckbox, NSpace, NText } from 'naive-ui';
-import type { DialogApiInjection } from 'naive-ui/es/dialog/src/DialogProvider';
-import type { MessageApiInjection } from 'naive-ui/es/message/src/MessageProvider';
+import { NCheckbox } from 'naive-ui';
+import type { AppFeedback } from '@/shared/types';
 import { useSettingsStore } from '@/stores/settings.store';
 import { cell } from '@/shared/lib/starsector';
-import { extractFileReferenceFromError, formatError } from '@/shared/lib/errors';
 import { useEditorsStore } from '@/stores/editors.store';
 import { openShipEditorWindow, openWeaponEditorWindow, openWeaponPreviewWindow, type EditorSpecSavedEvent } from '@/windows/editor.window';
 import { useFileHistoryStore } from '@/stores/file-history.store';
@@ -26,7 +24,7 @@ import {
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { useCoreSchema } from '@/app/composables/use-core-schema';
 
-export function useWorkspaceShellActions(message: MessageApiInjection, dialog: DialogApiInjection) {
+export function useWorkspaceShellActions(feedback: AppFeedback) {
   const project = useProjectStore();
   const tables = useTablesStore();
   const editors = useEditorsStore();
@@ -54,7 +52,7 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
     workspacePersistence = watchWorkspacePersistence();
     stopWindowSaveEvents = await listenWindowSaveEvents({
       onEditorSpecSaved: (payload) => {
-        message.success(`${payload.id}.${editorExtension(payload.kind)} 已保存`);
+        feedback.success(`${payload.id}.${editorExtension(payload.kind)} 已保存`);
       },
     });
     try {
@@ -64,7 +62,7 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
         loadCoreFields,
         onModRestoreError: (modRoot, displayName, error) => {
           removeMod(modRoot, false);
-          showError(`恢复 ${displayName} 失败: ${formatError(error)}`, error);
+          feedback.error(error, `恢复 ${displayName} 失败`);
         },
       });
     } catch {
@@ -88,7 +86,7 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
       const outcome = await openDetectedDirectory(selected, settings.starsectorRoot || null);
       handleOpenOutcome(outcome);
     } catch (err) {
-      showError(formatError(err), err);
+      feedback.error(err);
     }
   }
 
@@ -97,7 +95,7 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
       const outcome = await loadModFromOverview(modRoot);
       handleOpenOutcome(outcome);
     } catch (err) {
-      showError(formatError(err), err);
+      feedback.error(err);
     }
   }
 
@@ -108,31 +106,29 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
       const overview = await scanWorkspaceOverview(root);
       workspace.setGameOverview(overview);
       settings.setStarsectorRoot(overview.starsectorRoot);
-      message.success(`已刷新工作区: ${overview.mods.length} 个 Mod`);
+      feedback.success(`工作区已刷新：${overview.mods.length} 个 Mod`);
     } catch (err) {
-      showError(formatError(err), err);
+      feedback.error(err, '刷新工作区失败');
     }
   }
 
   function confirmCloseWorkspace() {
     const hasDirtyMods = workspace.loadedModList.some((mod) => tables.hasModDirtyChanges(mod.modRoot));
-    dialog.warning({
+    feedback.confirmWarning({
       title: '关闭工作区',
       content: hasDirtyMods ? '当前工作区有未保存的 CSV 修改，关闭后这些修改将丢失。确认关闭？' : '确认关闭当前工作区？',
-      positiveText: '关闭',
-      negativeText: '取消',
-      onPositiveClick: closeWorkspace,
+      actionText: '关闭',
+      onConfirm: closeWorkspace,
     });
   }
 
   function confirmRemoveMod(modRoot: string) {
     if (tables.hasModDirtyChanges(modRoot)) {
-      dialog.warning({
+      feedback.confirmWarning({
         title: '移除 Mod',
         content: '该 Mod 有未保存修改，移除后修改将丢失。确认移除？',
-        positiveText: '移除',
-        negativeText: '取消',
-        onPositiveClick: () => removeMod(modRoot),
+        actionText: '移除',
+        onConfirm: () => removeMod(modRoot),
       });
     } else {
       removeMod(modRoot);
@@ -145,12 +141,11 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
       const candidates = selectActiveTableAssociatedFileCandidates(project.activeModData);
       if (candidates.length > 0) {
         selectedAssociatedFileKeys.value = new Set(candidates.map((candidate) => candidate.key));
-        dialog.warning({
+        feedback.confirmWarning({
           title: '保存 CSV',
           content: () => renderAssociatedFileDialog(candidates),
-          positiveText: '保存',
-          negativeText: '取消',
-          onPositiveClick: async () => {
+          actionText: '保存',
+          onConfirm: async () => {
             try {
               const selected = candidates
                 .filter((candidate) => selectedAssociatedFileKeys.value.has(candidate.key))
@@ -158,7 +153,7 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
               const result = await saveActiveTableChanges(project.activeModData, selected);
               showSaveResult(result);
             } catch (err) {
-              showError(formatError(err), err);
+              feedback.error(err, '保存 CSV 失败');
             }
           },
         });
@@ -167,22 +162,20 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
       const result = await saveActiveTableChanges(project.activeModData);
       showSaveResult(result);
     } catch (err) {
-      showError(formatError(err), err);
+      feedback.error(err, '保存 CSV 失败');
     }
   }
 
   function revertChanges() {
     tables.revertChanges();
-    message.success('已撤销未保存修改');
   }
 
   async function addNewRow() {
     if (!project.activeModData) return;
     try {
       await tables.addNewRow(project.activeModData);
-      message.success('已新建行');
     } catch (err) {
-      showError(formatError(err), err);
+      feedback.error(err, '新建 CSV 行失败');
     }
   }
 
@@ -190,9 +183,8 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
     if (!project.activeModData || !tables.selectedRowKey) return;
     try {
       await tables.deleteSelected();
-      message.success('已删除');
     } catch (err) {
-      showError(formatError(err), err);
+      feedback.error(err, '删除 CSV 行失败');
     }
   }
 
@@ -215,14 +207,14 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
   function handleOpenOutcome(outcome: { type: string; modName?: string; availableModCount?: number; message?: string }) {
     if (outcome.type === 'game-overview') {
       if (workspace.gameOverview?.starsectorRoot) settings.setStarsectorRoot(workspace.gameOverview.starsectorRoot);
-      message.success(`已扫描游戏目录: ${outcome.availableModCount ?? 0} 个 Mod`);
+      feedback.success(`游戏目录已扫描：${outcome.availableModCount ?? 0} 个 Mod`);
     } else if (outcome.type === 'mod-loaded') {
       if (workspace.gameOverview?.starsectorRoot) settings.setStarsectorRoot(workspace.gameOverview.starsectorRoot);
-      message.success(`已导入: ${outcome.modName ?? 'Mod'}`);
+      feedback.success(`Mod 已导入：${outcome.modName ?? 'Mod'}`);
     } else if (outcome.type === 'already-loaded') {
-      message.info('该 Mod 已在工作区中');
+      feedback.info('该 Mod 已在工作区中');
     } else {
-      message.error(outcome.message ?? '未识别该目录');
+      feedback.error(outcome.message ?? '未识别该目录');
     }
   }
 
@@ -233,7 +225,7 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
     fileHistory.removeModState(modRoot);
     csvEditHistory.clearForMod(modRoot);
     project.removeModData(modRoot);
-    if (showMessage) message.success('已从工作区移除');
+    if (showMessage) feedback.success('Mod 已从工作区移除');
   }
 
   function closeWorkspace() {
@@ -246,11 +238,12 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
     tables.activateFor('', null);
     editors.activateFor('');
     fileHistory.activateFor('');
-    message.success('已关闭工作区');
+    feedback.success('工作区已关闭');
   }
 
   function showSaveResult(result: 'saved' | 'noop') {
-    message[result === 'saved' ? 'success' : 'info'](result === 'saved' ? '已保存 CSV 修改' : '没有需要保存的修改');
+    if (result === 'saved') feedback.success('CSV 修改已保存');
+    else feedback.info('没有需要保存的修改');
   }
 
   function renderAssociatedFileDialog(candidates: AssociatedFileCandidate[]) {
@@ -280,7 +273,7 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
 
   function openShip(id: string) {
     if (!project.activeModData?.shipFiles[id]) {
-      message.error(`找不到 ${id}.ship`);
+      feedback.error(`找不到 ${id}.ship`);
       return;
     }
     void openShipEditorWindow(editorRequest(id));
@@ -289,7 +282,7 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
   function openWeapon(id: string) {
     if (!project.activeModData) return;
     if (!project.activeModData.wpnFiles[id] && !project.activeModData.weapons.some((weapon) => cell(weapon.id) === id)) {
-      message.error(`找不到 ${id}.wpn`);
+      feedback.error(`找不到 ${id}.wpn`);
       return;
     }
     void openWeaponEditorWindow(editorRequest(id));
@@ -313,44 +306,6 @@ export function useWorkspaceShellActions(message: MessageApiInjection, dialog: D
     if (kind === 'ship') return 'ship';
     if (kind === 'weapon') return 'wpn';
     return 'proj';
-  }
-
-  function showError(text: string, error: unknown = text) {
-    const reference = extractFileReferenceFromError(error) ?? extractFileReferenceFromError(text);
-    if (!reference) {
-      message.error(text);
-      return;
-    }
-    message.error(
-      () =>
-        h(
-          NSpace,
-          { align: 'center', wrap: false },
-          {
-            default: () => [
-              h(NText, { type: 'error', style: { maxWidth: '680px', overflowWrap: 'anywhere' } }, { default: () => text }),
-              h(
-                NButton,
-                {
-                  size: 'tiny',
-                  type: 'error',
-                  secondary: true,
-                  onClick: () =>
-                    void openFileEditorWindow({
-                      path: reference.path,
-                      line: reference.line,
-                      title: '文件编辑器',
-                      contextLabel: '错误',
-                      message: reference.message,
-                    }),
-                },
-                { default: () => '打开错误文件' },
-              ),
-            ],
-          },
-        ),
-      { duration: 10000, closable: true },
-    );
   }
 
   return {

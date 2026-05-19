@@ -2,15 +2,20 @@
 
 ## 定义
 
-CSV 表格系统负责展示和编辑 Starsector CSV 表，包括 ships、weapons、wings、hullmods、shipSystems、industries、skills 和 abilities。
+CSV 表格系统负责展示和编辑已注册的 Starsector CSV 表，并按 CSV 列 schema 资产渲染确定类型、引用和多值字段。
 
 ## 边界
 
-- `src/app/DataTable.vue` 渲染表格网格和单元格输入。
-- `src/app/DetailPane.vue` 根据当前表和当前行显示右侧详情，并只发出语义化详情动作。
+- `src/app/DataTable.vue` 连接表格 store、active Mod 数据和 CSV Grid。
+- `src/app/components/tables/` 承载 CSV Grid、虚拟 body、行和单元格控件。
+- `src/app/DetailPane.vue` 根据当前表、当前行和 CSV 列 schema 显示右侧字段速览，并只发出语义化详情动作。
 - `src/stores/tables.store.ts` 持有每个 Mod 的表格、原始表格、dirty、选择和编辑状态。
+- `src/domain/tables/csv-grid-model.ts` 生成 CSV Grid 的列、行和 source 索引。
+- `src/domain/tables/csv-source-options.ts` 统一解析 CSV schema source、引用选项和引用索引。
 - `src/domain/tables/table-row-key.ts` 负责 CSV 行身份。
 - `src/domain/tables/table-detail-actions.ts` 定义详情面板可发出的文件编辑器、spec 编辑器和预览动作。
+- `src/domain/tables/csv-column-schema.ts` 加载 CSV 列 schema 资产并提供列控件查询。
+- `schemas/csv/*.columns.json` 存放 CSV 列 schema 资产。
 - `src/services/table.service.ts` 调用 CSV 保存和局部加载 API。
 - `src/shared/types/` 定义 `TableKey`、`RowData` 和 `ModTableState`。
 - `src-tauri/src/models/project.rs` 中 `CSV_TABLES` 定义表名到 CSV 路径的映射。
@@ -22,18 +27,24 @@ CSV 表格系统负责展示和编辑 Starsector CSV 表，包括 ships、weapon
 - 业务 ID 只能通过 `rowSpecId()` 或对应表字段计算，不能把 `_rowKey` 当业务 ID。
 - 空行、全逗号空行和 `#` 开头行都必须保留为可编辑、可删除的行。
 - `#` 开头行不得作为其它字段、schema source、关联文件或编辑器入口的合法引用。
+- CSV 列 schema 是文件资产，不得把字段 schema 内联在组件、store 或 domain 代码常量中。
+- CSV 列 schema 只覆盖确定类型、确定引用和确定多值语义；未覆盖列继续作为普通文本单元格编辑。
+- CSV Grid 使用虚拟化渲染可视行，但不得改变表格行高、列宽、控件外观、选中态或 dirty 态。
+- CSV Grid 的业务编辑、选择和 dirty 状态必须以 row key 为索引。
+- 右侧字段速览可以读取 CSV 列 schema 增强展示，但不得修改单元格、dirty 或保存状态。
 - 没有业务 ID 的行不能显示 spec 文件编辑入口。
 - `tables.store.ts` 只管理草稿、dirty、选择和编辑状态。
 - 写盘、副作用、文件级 history 和关联 spec 创建删除由表格保存 orchestrator 处理。
 
 ## 链路：编辑 CSV 单元格
 
-1. 用户在 `DataTable.vue` 中开始编辑单元格。
-2. `tables.store` 记录 editing 状态。
-3. 用户提交编辑。
-4. `tables.store.finishCellEdit()` 写入当前表格行。
-5. `tables.store` 根据 original table 更新 dirty。
-6. `tables.store` 推入 CSV 草稿历史事件。
+1. 用户在 CSV Grid 中开始编辑单元格。
+2. Grid cell 根据 CSV 列 schema 选择结构化控件或普通文本编辑。
+3. 普通文本编辑由 `tables.store` 记录 editing 状态。
+4. 用户提交编辑。
+5. `tables.store.finishCellEdit()` 或结构化控件更新当前表格行。
+6. `tables.store` 根据 original table 更新 dirty。
+7. `tables.store` 推入 CSV 草稿历史事件。
 
 ## 链路：新增 CSV 行
 

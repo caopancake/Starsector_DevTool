@@ -46,24 +46,12 @@
     >
       <n-input v-model:value="newFactionId" placeholder="输入势力 ID（英文标识）" autofocus />
     </n-modal>
-
-    <n-modal
-      v-model:show="showDeleteDialog"
-      preset="dialog"
-      title="确认删除"
-      positive-text="删除"
-      negative-text="取消"
-      type="error"
-      @positive-click="confirmDeleteSelectedFaction"
-    >
-      <p>确定要从 factions.csv 中删除 "{{ pendingDeleteFaction }}" 吗？</p>
-      <n-checkbox v-model:checked="deleteFactionDataFile">同时删除势力文件</n-checkbox>
-    </n-modal>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, h, ref, watch } from 'vue';
+import { NCheckbox } from 'naive-ui';
 import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import {
@@ -72,21 +60,19 @@ import {
 } from '@/orchestrators/config-save.orchestrator';
 import { buildFactionIndexRow, createDefaultFaction } from '@/domain/config/config-entities';
 import { loadImageDataUrl } from '@/services/assets.service';
-import { formatError } from '@/shared/lib/errors';
 import type { JsonValue } from '@/shared/types';
-import { createAppFeedback } from '@/app/app-feedback';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 
 const props = defineProps<{ selectedId: string }>();
 const emit = defineEmits<{ select: [factionId: string] }>();
 
 const project = useProjectStore();
 const settings = useSettingsStore();
-const { message } = createAppFeedback(['message']);
+const feedback = useAppFeedback();
 
 const showCreateDialog = ref(false);
 const newFactionId = ref('');
 const factionCrests = ref<Record<string, string>>({});
-const showDeleteDialog = ref(false);
 const deleteFactionDataFile = ref(false);
 const pendingDeleteFaction = ref('');
 
@@ -170,11 +156,11 @@ async function doCreate() {
 
   const trimmedId = newFactionId.value.trim();
   if (!trimmedId) {
-    message.warning('ID 不能为空');
+    feedback.warning('ID 不能为空');
     return;
   }
   if (modData.factionFiles[trimmedId]) {
-    message.warning(`势力 "${trimmedId}" 已存在`);
+    feedback.warning(`势力 "${trimmedId}" 已存在`);
     return;
   }
   try {
@@ -195,26 +181,40 @@ async function doCreate() {
       name: String(data.displayName ?? trimmedId),
       color: rgbaToCss(data.color),
     };
-    message.success(`势力 "${trimmedId}" 已创建`);
+    feedback.success(`势力 "${trimmedId}" 已创建`);
     showCreateDialog.value = false;
     await refreshFactionCrests();
     selectFaction(trimmedId);
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '创建势力失败');
   }
 }
 
 function confirmDelete(id: string) {
   pendingDeleteFaction.value = id;
   deleteFactionDataFile.value = false;
-  showDeleteDialog.value = true;
-}
-
-async function confirmDeleteSelectedFaction() {
-  if (!pendingDeleteFaction.value) return false;
-  await doDelete(pendingDeleteFaction.value, deleteFactionDataFile.value);
-  pendingDeleteFaction.value = '';
-  return true;
+  feedback.confirmDanger({
+    title: '删除势力',
+    content: () =>
+      h('div', { class: 'associated-save-dialog' }, [
+        h('p', `确定要从 factions.csv 中删除 "${id}" 吗？`),
+        h(
+          NCheckbox,
+          {
+            checked: deleteFactionDataFile.value,
+            'onUpdate:checked': (checked: boolean) => {
+              deleteFactionDataFile.value = checked;
+            },
+          },
+          { default: () => '同时删除势力文件' },
+        ),
+      ]),
+    actionText: '删除',
+    onConfirm: async () => {
+      await doDelete(pendingDeleteFaction.value, deleteFactionDataFile.value);
+      pendingDeleteFaction.value = '';
+    },
+  });
 }
 
 async function doDelete(id: string, deleteFile: boolean) {
@@ -229,9 +229,9 @@ async function doDelete(id: string, deleteFile: boolean) {
     if (props.selectedId === id) {
       emit('select', '');
     }
-    message.success(`势力 "${id}" 已删除`);
+    feedback.success(`势力 "${id}" 已删除`);
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '删除势力失败');
   }
 }
 

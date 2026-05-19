@@ -81,7 +81,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { createAppFeedback } from '@/app/app-feedback';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import type { FileChangeRecord } from '@/shared/api/files-api';
 import { replayNextFileHistoryEntry } from '@/orchestrators/file-history-replay.orchestrator';
 import { useFileHistoryStore } from '@/stores/file-history.store';
@@ -92,7 +92,7 @@ import { useTablesStore } from '@/stores/tables.store';
 const project = useProjectStore();
 const tables = useTablesStore();
 const fileHistory = useFileHistoryStore();
-const { dialog, message } = createAppFeedback(['dialog', 'message']);
+const feedback = useAppFeedback();
 
 const activeMod = computed(() => project.activeModData);
 const modTitle = computed(() => activeMod.value?.modInfo?.name ?? activeMod.value?.modRoot ?? '未选择 Mod');
@@ -108,24 +108,23 @@ const canRedo = computed(() => Boolean(fileHistory.peekFileRedo()));
 function confirmClear() {
   const modData = activeMod.value;
   if (!modData || historyCount.value === 0) return;
-  dialog.warning({
+  feedback.confirmWarning({
     title: '清空文件历史',
     content: '这会清空当前 Mod 的文件级 undo/redo 栈，不会修改任何磁盘文件。确认清空？',
-    positiveText: '清空',
-    negativeText: '取消',
-    onPositiveClick: () => {
+    actionText: '清空',
+    onConfirm: () => {
       fileHistory.clearForMod(modData.modRoot);
-      message.success('文件历史已清空');
+      feedback.success('文件历史已清空');
     },
   });
 }
 
 function undoOne() {
-  replayNextFileHistoryEntry('undo', project, tables, message, dialog);
+  replayNextFileHistoryEntry('undo', project, tables, feedback);
 }
 
 function redoOne() {
-  replayNextFileHistoryEntry('redo', project, tables, message, dialog);
+  replayNextFileHistoryEntry('redo', project, tables, feedback);
 }
 
 function formatItemKind(item: FileHistoryItem): string {

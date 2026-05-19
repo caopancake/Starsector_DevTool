@@ -226,7 +226,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { useDialog, useMessage } from 'naive-ui';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
@@ -236,7 +236,6 @@ import { saveWeaponSpec } from '@/services/editor.service';
 import type { FileChangeRecord } from '@/shared/api/files-api';
 import type { RowData } from '@/shared/types';
 import { arr, str } from '@/shared/lib/starsector';
-import { formatError } from '@/shared/lib/errors';
 import { normalizeWeaponSpec } from '@/domain/editors/lib/normalize';
 import { useCanvasDrawing } from '@/app/composables/use-canvas-drawing';
 import { useCanvasViewport } from '@/app/composables/use-canvas-viewport';
@@ -283,8 +282,7 @@ const emit = defineEmits<{
   editProjectile: [id: string];
   preview: [id: string];
 }>();
-const message = useMessage();
-const dialog = useDialog();
+const feedback = useAppFeedback();
 const editorWindowRef = ref<HTMLElement>();
 const stageRef = ref<HTMLElement>();
 const canvasRef = ref<HTMLCanvasElement>();
@@ -821,18 +819,18 @@ function deleteSelectedBarrelData(mode: WeaponViewMode) {
 async function uploadSpriteField(field: SpriteField, event: Event) {
   try {
     await uploadSpriteFile(event, {
-      dialog,
+      feedback,
       modRoot: props.modRoot,
       subfolder: 'weapons',
       onUploaded: (result, dataUrl) => {
         localWeapon.value[field] = result.path;
         localSpriteData.value[field] = dataUrl;
         setSpriteImage(field, dataUrl);
-        message.success('贴图已上传');
+        feedback.success('贴图已上传');
       },
     });
   } catch (error) {
-    message.error(`上传贴图失败：${formatError(error)}`);
+    feedback.error(error, '上传贴图失败');
   }
 }
 async function save() {
@@ -840,7 +838,7 @@ async function save() {
     const changes = await saveWeaponSpec(props.modRoot, props.weaponId, localWeapon.value);
     emit('saved', props.weaponId, localWeapon.value, changes);
   } catch (error) {
-    message.error(formatError(error));
+    feedback.error(error, '保存武器失败');
   }
 }
 watch(
