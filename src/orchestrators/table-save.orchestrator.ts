@@ -70,6 +70,7 @@ function assignAppDataTable(appData: AppData, table: TableKey, rows: RowData[]) 
   else if (table === 'skills') appData.skills = next;
   else if (table === 'abilities') appData.abilities = next;
   else if (table === 'commodities') appData.commodities = next;
+  else if (table === 'specialItems') appData.specialItems = next;
   else if (table === 'submarkets') appData.submarkets = next;
   else if (table === 'marketConditions') appData.marketConditions = next;
   else if (table === 'simOpponents') appData.simOpponents = next;

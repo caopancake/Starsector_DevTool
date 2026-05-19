@@ -98,6 +98,8 @@ mod tests {
         assert!(loaded.rows["abilities"].is_empty());
         assert!(loaded.rows.contains_key("commodities"));
         assert!(loaded.rows["commodities"].is_empty());
+        assert!(loaded.rows.contains_key("specialItems"));
+        assert!(loaded.rows["specialItems"].is_empty());
         assert!(loaded.rows.contains_key("submarkets"));
         assert!(loaded.rows["submarkets"].is_empty());
         assert!(loaded.rows.contains_key("marketConditions"));
@@ -139,6 +141,23 @@ mod tests {
         let _ = fs::remove_dir_all(root);
         assert_eq!(loaded.csv_headers["commodities"], ["name", "id", "icon"]);
         assert_eq!(loaded.rows["commodities"][0]["id"], "supplies");
+    }
+
+    #[test]
+    fn loads_special_items_csv_when_present() {
+        let root = temp_dir("load_special_items_csv");
+        fs::create_dir_all(root.join("data/campaign")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/campaign/special_items.csv"),
+            "name,id,icon\r\nCorrupted Nanoforge,corrupted_nanoforge,graphics/icons/cargo/nanoforge_corrupted.png\r\n",
+        )
+        .unwrap();
+
+        let loaded = load_csv_tables(&root, &HashMap::new()).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(loaded.csv_headers["specialItems"], ["name", "id", "icon"]);
+        assert_eq!(loaded.rows["specialItems"][0]["id"], "corrupted_nanoforge");
     }
 
     #[test]

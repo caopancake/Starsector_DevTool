@@ -27,6 +27,7 @@ export interface AppData {
   skills: RowData[];
   abilities: RowData[];
   commodities: RowData[];
+  specialItems: RowData[];
   submarkets: RowData[];
   marketConditions: RowData[];
   simOpponents: RowData[];
@@ -48,6 +49,7 @@ export interface AppData {
   skillSprites: Record<string, string>;
   abilitySprites: Record<string, string>;
   commoditySprites: Record<string, string>;
+  specialItemSprites: Record<string, string>;
   submarketSprites: Record<string, string>;
   marketConditionSprites: Record<string, string>;
   coreReferences: CoreReferences;
@@ -68,6 +70,7 @@ export interface CoreReferences {
   skillSprites: Record<string, string>;
   abilitySprites: Record<string, string>;
   commoditySprites: Record<string, string>;
+  specialItemSprites: Record<string, string>;
   submarketSprites: Record<string, string>;
   marketConditionSprites: Record<string, string>;
 }
@@ -138,6 +141,7 @@ export type TableKey =
   | 'skills'
   | 'abilities'
   | 'commodities'
+  | 'specialItems'
   | 'submarkets'
   | 'marketConditions'
   | 'simOpponents';

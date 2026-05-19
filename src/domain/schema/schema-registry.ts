@@ -165,6 +165,8 @@ function getSpriteMap(appData: AppData, table: string): Record<string, string> |
       return appData.abilitySprites;
     case 'commodities':
       return appData.commoditySprites;
+    case 'specialItems':
+      return appData.specialItemSprites;
     case 'submarkets':
       return appData.submarketSprites;
     case 'marketConditions':
@@ -195,6 +197,8 @@ function getCoreSpriteMap(appData: AppData, table: string): Record<string, strin
       return core.abilitySprites;
     case 'commodities':
       return core.commoditySprites;
+    case 'specialItems':
+      return core.specialItemSprites;
     case 'submarkets':
       return core.submarketSprites;
     case 'marketConditions':

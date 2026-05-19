@@ -114,6 +114,14 @@ pub(super) fn load_commodity_sprite_data(
     load_table_sprite_data(mod_root, core_dir, commodities, "icon")
 }
 
+pub(super) fn load_special_item_sprite_data(
+    mod_root: &Path,
+    core_dir: Option<&Path>,
+    special_items: &[Map<String, Value>],
+) -> BTreeMap<String, String> {
+    load_table_sprite_data(mod_root, core_dir, special_items, "icon")
+}
+
 pub(super) fn load_submarket_sprite_data(
     mod_root: &Path,
     core_dir: Option<&Path>,

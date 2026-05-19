@@ -42,6 +42,7 @@ struct SpriteBundle {
     skill_sprites: BTreeMap<String, String>,
     ability_sprites: BTreeMap<String, String>,
     commodity_sprites: BTreeMap<String, String>,
+    special_item_sprites: BTreeMap<String, String>,
     submarket_sprites: BTreeMap<String, String>,
     market_condition_sprites: BTreeMap<String, String>,
 }
@@ -53,6 +54,7 @@ struct SpriteTableRows<'a> {
     skills: &'a [Map<String, Value>],
     abilities: &'a [Map<String, Value>],
     commodities: &'a [Map<String, Value>],
+    special_items: &'a [Map<String, Value>],
     submarkets: &'a [Map<String, Value>],
     market_conditions: &'a [Map<String, Value>],
 }
@@ -123,6 +125,11 @@ pub fn load_mod_data_with_root(
         .get("commodities")
         .cloned()
         .unwrap_or_default();
+    let special_items = loaded_tables
+        .rows
+        .get("specialItems")
+        .cloned()
+        .unwrap_or_default();
     let submarkets = loaded_tables
         .rows
         .get("submarkets")
@@ -146,6 +153,7 @@ pub fn load_mod_data_with_root(
             skills: &skills,
             abilities: &abilities,
             commodities: &commodities,
+            special_items: &special_items,
             submarkets: &submarkets,
             market_conditions: &market_conditions,
         },
@@ -171,6 +179,10 @@ pub fn load_mod_data_with_root(
         skills: loaded_tables.rows.remove("skills").unwrap_or_default(),
         abilities: loaded_tables.rows.remove("abilities").unwrap_or_default(),
         commodities: loaded_tables.rows.remove("commodities").unwrap_or_default(),
+        special_items: loaded_tables
+            .rows
+            .remove("specialItems")
+            .unwrap_or_default(),
         submarkets: loaded_tables.rows.remove("submarkets").unwrap_or_default(),
         market_conditions: loaded_tables
             .rows
@@ -198,6 +210,7 @@ pub fn load_mod_data_with_root(
         skill_sprites: sprite_bundle.skill_sprites,
         ability_sprites: sprite_bundle.ability_sprites,
         commodity_sprites: sprite_bundle.commodity_sprites,
+        special_item_sprites: sprite_bundle.special_item_sprites,
         submarket_sprites: sprite_bundle.submarket_sprites,
         market_condition_sprites: sprite_bundle.market_condition_sprites,
         core_references,
@@ -272,6 +285,11 @@ fn load_sprite_bundle(
             core_dir,
             table_rows.commodities,
         ),
+        special_item_sprites: sprites::load_special_item_sprite_data(
+            mod_root,
+            core_dir,
+            table_rows.special_items,
+        ),
         submarket_sprites: sprites::load_submarket_sprite_data(
             mod_root,
             core_dir,
@@ -308,6 +326,10 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
         .get("commodities")
         .map(Vec::as_slice)
         .unwrap_or(empty);
+    let special_items = tables
+        .get("specialItems")
+        .map(Vec::as_slice)
+        .unwrap_or(empty);
     let submarkets = tables.get("submarkets").map(Vec::as_slice).unwrap_or(empty);
     let market_conditions = tables
         .get("marketConditions")
@@ -324,6 +346,8 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
     let skill_sprites = sprites::load_skill_sprite_data(core_dir, None, skills);
     let ability_sprites = sprites::load_ability_sprite_data(core_dir, None, abilities);
     let commodity_sprites = sprites::load_commodity_sprite_data(core_dir, None, commodities);
+    let special_item_sprites =
+        sprites::load_special_item_sprite_data(core_dir, None, special_items);
     let submarket_sprites = sprites::load_submarket_sprite_data(core_dir, None, submarkets);
     let market_condition_sprites =
         sprites::load_market_condition_sprite_data(core_dir, None, market_conditions);
@@ -343,6 +367,7 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
         skill_sprites,
         ability_sprites,
         commodity_sprites,
+        special_item_sprites,
         submarket_sprites,
         market_condition_sprites,
     })
