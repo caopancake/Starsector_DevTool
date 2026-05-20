@@ -12,18 +12,9 @@ export interface AccentTone {
   hex: string;
 }
 
-const STORAGE_KEY = 'starsector-devtool.theme';
-const ACCENT_KEY = 'starsector-devtool.accent';
-const CUSTOM_ACCENT_KEY = 'starsector-devtool.customAccent';
-const HISTORY_LIMIT_KEY = 'starsector-devtool.historyLimit';
-const EDIT_MODE_KEY = 'starsector-devtool.editMode';
-const STARSECTOR_ROOT_KEY = 'starsector-devtool.starsectorRoot';
-export const DEFAULT_HISTORY_LIMIT = 20;
 export const MAX_HISTORY_LIMIT = 100;
-export const DEFAULT_EDIT_MODE: EditMode = 'smart';
-const DEFAULT_ACCENT: AccentPreset = 'blue';
-const DEFAULT_CUSTOM_ACCENT = '#2563eb';
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+let initialSettings: SettingsState | null = null;
 
 export const ACCENT_PRESETS: AccentTone[] = [
   { name: '蓝', value: 'blue', hex: '#2563eb' },
@@ -35,11 +26,6 @@ export const ACCENT_PRESETS: AccentTone[] = [
   { name: '灰', value: 'gray', hex: '#64748b' },
 ];
 
-function readStoredTheme(): AppTheme {
-  if (typeof window === 'undefined') return 'light';
-  return window.localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'light';
-}
-
 function isAccentPreset(value: string | null): value is AccentPreset {
   return value === 'custom' || ACCENT_PRESETS.some((preset) => preset.value === value);
 }
@@ -49,49 +35,58 @@ function normalizeHex(value: string): string | null {
   return HEX_COLOR_RE.test(trimmed) ? trimmed.toLowerCase() : null;
 }
 
-function readStoredAccent(): AccentPreset {
-  if (typeof window === 'undefined') return DEFAULT_ACCENT;
-  const stored = window.localStorage.getItem(ACCENT_KEY);
-  return isAccentPreset(stored) ? stored : DEFAULT_ACCENT;
+export interface SettingsState {
+  theme: AppTheme;
+  accent: AccentPreset;
+  customAccent: string;
+  historyLimit: number;
+  editMode: EditMode;
+  starsectorRoot: string;
 }
 
-function readStoredCustomAccent(): string {
-  if (typeof window === 'undefined') return DEFAULT_CUSTOM_ACCENT;
-  return normalizeHex(window.localStorage.getItem(CUSTOM_ACCENT_KEY) ?? '') ?? DEFAULT_CUSTOM_ACCENT;
-}
-
-function readStoredHistoryLimit(): number {
-  if (typeof window === 'undefined') return DEFAULT_HISTORY_LIMIT;
-  const stored = window.localStorage.getItem(HISTORY_LIMIT_KEY);
-  if (!stored) return DEFAULT_HISTORY_LIMIT;
-  const parsed = parseInt(stored, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_HISTORY_LIMIT;
-}
-
-function readStoredEditMode(): EditMode {
-  if (typeof window === 'undefined') return DEFAULT_EDIT_MODE;
-  const stored = window.localStorage.getItem(EDIT_MODE_KEY);
-  return stored === 'plain' ? 'plain' : DEFAULT_EDIT_MODE;
-}
-
-function readStoredStarsectorRoot(): string {
-  if (typeof window === 'undefined') return '';
-  return window.localStorage.getItem(STARSECTOR_ROOT_KEY) || '';
+export function initializeSettingsStore(settings: {
+  theme: string;
+  accent: string;
+  customAccent: string;
+  historyLimit: number;
+  editMode: string;
+  starsectorRoot: string;
+}): void {
+  const accent = settings.accent;
+  const customAccent = normalizeHex(settings.customAccent);
+  if (settings.theme !== 'light' && settings.theme !== 'dark') throw new Error(`Invalid app theme: ${settings.theme}`);
+  if (!isAccentPreset(accent)) throw new Error(`Invalid app accent: ${settings.accent}`);
+  if (!customAccent) throw new Error(`Invalid custom accent: ${settings.customAccent}`);
+  if (!Number.isFinite(settings.historyLimit) || settings.historyLimit < 1 || settings.historyLimit > MAX_HISTORY_LIMIT) {
+    throw new Error(`Invalid history limit: ${settings.historyLimit}`);
+  }
+  if (settings.editMode !== 'plain' && settings.editMode !== 'smart') throw new Error(`Invalid edit mode: ${settings.editMode}`);
+  initialSettings = {
+    theme: settings.theme,
+    accent,
+    customAccent,
+    historyLimit: Math.round(settings.historyLimit),
+    editMode: settings.editMode,
+    starsectorRoot: settings.starsectorRoot,
+  };
 }
 
 export const useSettingsStore = defineStore('settings', () => {
-  const theme = ref<AppTheme>(readStoredTheme());
-  const accent = ref<AccentPreset>(readStoredAccent());
-  const customAccent = ref(readStoredCustomAccent());
-  const historyLimit = ref(readStoredHistoryLimit());
-  const editMode = ref<EditMode>(readStoredEditMode());
-  const starsectorRoot = ref(readStoredStarsectorRoot());
+  if (!initialSettings) throw new Error('Settings store used before initialization');
+  const theme = ref<AppTheme>(initialSettings.theme);
+  const accent = ref<AccentPreset>(initialSettings.accent);
+  const customAccent = ref(initialSettings.customAccent);
+  const historyLimit = ref(initialSettings.historyLimit);
+  const editMode = ref<EditMode>(initialSettings.editMode);
+  const starsectorRoot = ref(initialSettings.starsectorRoot);
   const naiveTheme = computed(() => (theme.value === 'dark' ? darkTheme : lightTheme));
   const isDark = computed(() => theme.value === 'dark');
   const isPlainEditMode = computed(() => editMode.value === 'plain');
   const activeAccentHex = computed(() => {
     if (accent.value === 'custom') return customAccent.value;
-    return ACCENT_PRESETS.find((preset) => preset.value === accent.value)?.hex ?? DEFAULT_CUSTOM_ACCENT;
+    const preset = ACCENT_PRESETS.find((item) => item.value === accent.value);
+    if (!preset) throw new Error(`Invalid app accent: ${accent.value}`);
+    return preset.hex;
   });
 
   function setTheme(nextTheme: AppTheme) {
@@ -126,6 +121,17 @@ export const useSettingsStore = defineStore('settings', () => {
     starsectorRoot.value = path;
   }
 
+  function settingsSnapshot() {
+    return {
+      theme: theme.value,
+      accent: accent.value,
+      customAccent: customAccent.value,
+      historyLimit: historyLimit.value,
+      editMode: editMode.value,
+      starsectorRoot: starsectorRoot.value,
+    };
+  }
+
   watch(
     [theme, activeAccentHex],
     ([themeValue, accentHex]) => {
@@ -133,18 +139,9 @@ export const useSettingsStore = defineStore('settings', () => {
         document.documentElement.dataset.theme = themeValue;
         applyAccentTokens(accentHex, themeValue);
       }
-      if (typeof window !== 'undefined') window.localStorage.setItem(STORAGE_KEY, themeValue);
     },
     { immediate: true },
   );
-
-  watch(accent, (value) => {
-    if (typeof window !== 'undefined') window.localStorage.setItem(ACCENT_KEY, value);
-  });
-
-  watch(customAccent, (value) => {
-    if (typeof window !== 'undefined') window.localStorage.setItem(CUSTOM_ACCENT_KEY, value);
-  });
 
   function applyAccentTokens(hex: string, themeValue: AppTheme) {
     if (typeof document === 'undefined') return;
@@ -292,18 +289,6 @@ export const useSettingsStore = defineStore('settings', () => {
     return `#${[r, g, b].map((value) => value.toString(16).padStart(2, '0')).join('')}`;
   }
 
-  watch(historyLimit, (value) => {
-    if (typeof window !== 'undefined') window.localStorage.setItem(HISTORY_LIMIT_KEY, String(value));
-  });
-
-  watch(editMode, (value) => {
-    if (typeof window !== 'undefined') window.localStorage.setItem(EDIT_MODE_KEY, value);
-  });
-
-  watch(starsectorRoot, (value) => {
-    if (typeof window !== 'undefined') window.localStorage.setItem(STARSECTOR_ROOT_KEY, value);
-  });
-
   return {
     accent,
     activeAccentHex,
@@ -322,5 +307,6 @@ export const useSettingsStore = defineStore('settings', () => {
     setStarsectorRoot,
     setTheme,
     toggleTheme,
+    settingsSnapshot,
   };
 });

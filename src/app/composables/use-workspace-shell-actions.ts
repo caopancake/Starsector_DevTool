@@ -23,6 +23,7 @@ import {
 } from '@/orchestrators/workspace-persistence.orchestrator';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { useCoreSchema } from '@/app/composables/use-core-schema';
+import { recordLogSilently } from '@/services/app-config.service';
 
 export function useWorkspaceShellActions(feedback: AppFeedback) {
   const project = useProjectStore();
@@ -49,6 +50,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   );
 
   onMounted(async () => {
+    recordLogSilently({ level: 'info', message: '程序启动' });
     workspacePersistence = watchWorkspacePersistence();
     stopWindowSaveEvents = await listenWindowSaveEvents({
       onEditorSpecSaved: (payload) => {
@@ -78,6 +80,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   });
 
   onUnmounted(() => {
+    recordLogSilently({ level: 'info', message: '程序关闭' });
     stopWindowSaveEvents?.();
     stopWindowSaveEvents = null;
     workspacePersistence?.stop();
@@ -88,6 +91,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     try {
       const selected = await pickDirectory();
       if (!selected) return;
+      recordLogSilently({ level: 'info', message: `打开目录：${selected}` });
       const outcome = await openDetectedDirectory(selected, settings.starsectorRoot || null);
       handleOpenOutcome(outcome);
     } catch (err) {
@@ -111,6 +115,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
       const overview = await scanWorkspaceOverview(root);
       workspace.setGameOverview(overview);
       settings.setStarsectorRoot(overview.starsectorRoot);
+      recordLogSilently({ level: 'info', message: `刷新工作区：${overview.starsectorRoot}` });
       feedback.success(`工作区已刷新：${overview.mods.length} 个 Mod`);
     } catch (err) {
       feedback.error(err, '刷新工作区失败');
@@ -213,9 +218,11 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     if (outcome.type === 'game-overview') {
       if (workspace.gameOverview?.starsectorRoot) settings.setStarsectorRoot(workspace.gameOverview.starsectorRoot);
       feedback.success(`游戏目录已扫描：${outcome.availableModCount ?? 0} 个 Mod`);
+      recordLogSilently({ level: 'info', message: `游戏目录已扫描：${outcome.availableModCount ?? 0} 个 Mod` });
     } else if (outcome.type === 'mod-loaded') {
       if (workspace.gameOverview?.starsectorRoot) settings.setStarsectorRoot(workspace.gameOverview.starsectorRoot);
       feedback.success(`Mod 已导入：${outcome.modName ?? 'Mod'}`);
+      recordLogSilently({ level: 'info', message: `Mod 已导入：${outcome.modName ?? 'Mod'}` });
       for (const warning of outcome.warnings ?? []) {
         feedback.warning(warning);
       }
@@ -246,6 +253,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     tables.activateFor('', null);
     editors.activateFor('');
     fileHistory.activateFor('');
+    recordLogSilently({ level: 'info', message: '关闭工作区' });
     feedback.success('工作区已关闭');
   }
 

@@ -17,6 +17,9 @@ export const frontendApiBoundaryRule = {
       if (!file.rel.startsWith('src/shared/api/') && /\binvoke\s*\(/.test(file.text)) {
         failures.push(`${file.rel}: Tauri invoke belongs to shared/api wire adapters`);
       }
+      if (/\b(?:localStorage|sessionStorage|indexedDB)\b/.test(file.text)) {
+        failures.push(`${file.rel}: browser storage is forbidden; persist app state through the app data config service`);
+      }
     }
     return failures;
   },

@@ -2,20 +2,23 @@
 
 ## 定义
 
-设置、主题与反馈入口机制负责全局主题、持久设置、消息提示、错误反馈和确认框入口。
+设置、主题与反馈入口机制负责全局主题、持久设置、消息提示、错误反馈、确认框入口和应用 log。
 
 ## 边界
 
-- `src/stores/settings.store.ts` 持有主题、历史限制、Starsector root 等设置。
+- `src/stores/settings.store.ts` 持有主题、历史限制、Starsector root 等内存设置。
 - `src/stores/settings.store.ts` 也持有全局编辑模式；编辑模式影响 CSV 表格、schema 表单和引用型编辑入口的呈现。
+- `src/orchestrators/settings-persistence.orchestrator.ts` 负责把设置加载和保存到 app data 配置目录。
 - `src/app/app-feedback.ts` 提供唯一的 `AppFeedback` 入口。
 - `src/app/App.vue` 提供 Naive UI provider 和 theme overrides。
 - `src/app/components/SettingsPage.vue` 渲染设置页面。
+- `src/services/app-config.service.ts` 提供设置、log 和配置目录操作。
 - 业务组件、composable 和 orchestrator 通过 `AppFeedback` 发出消息和确认请求。
 
 ## 规范
 
 - 业务代码不得直接使用 Naive UI 的 message、dialog 或 discrete api。
+- 浏览器 storage 不得用于持久化设置；设置必须走 app data 配置目录。
 - 组件内反馈必须通过 `useAppFeedback()` 获取。
 - 非组件流程必须接收 `AppFeedback` 参数，不得分别传递 message 和 dialog。
 - 危险确认、覆盖确认、关闭确认和文件历史回放确认必须走 `AppFeedback` 的 confirm 方法。
@@ -23,6 +26,8 @@
 - 成功 toast 只用于写盘或关键动作；纯内存草稿动作不得弹成功 toast。
 - `error` 用于失败、不可继续、写盘、解析和路径边界问题；`warning` 用于可修正输入、重复项、危险确认和非阻断风险。
 - 带文件路径或行号的错误必须通过统一错误反馈提供打开文件动作。
+- 所有 `warning` 和 `error` 弹窗都必须写入 app data 目录下的 log 文件；log 手动清除，不自动轮转。
+- 设置页必须提供打开配置目录、打开 log 文件、清空配置文件和清除 log 文件入口；清空配置文件删除设置文件但不得删除 log 文件。
 - 主题状态必须通过 settings store 和 app 根节点 data theme 驱动。
 - 业务 service 不应自行创建消息、弹窗或不受主题控制的反馈 UI。
 - history limit 由 settings store 提供，CSV 草稿历史和文件级 history 裁剪都读取该设置。

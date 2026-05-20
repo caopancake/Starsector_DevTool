@@ -1,3 +1,4 @@
+mod app_config;
 mod assets;
 mod config;
 mod files;
@@ -5,6 +6,7 @@ mod project;
 mod tables;
 mod workspace;
 
+pub use app_config::*;
 pub use assets::*;
 pub use config::*;
 pub use files::*;

@@ -26,3 +26,7 @@ export async function startCurrentWindowDrag(): Promise<void> {
 export async function closeCurrentWebviewWindow(): Promise<void> {
   await getCurrentWebviewWindow().close();
 }
+
+export async function reloadCurrentWebviewWindow(): Promise<void> {
+  window.location.reload();
+}

@@ -40,6 +40,7 @@
 - Orchestrator 导出函数不得和 domain 纯函数同名；带 store、副作用或当前选择状态的函数名必须体现状态来源。
 - API adapter 只封装 Tauri command/event 的调用形状，不包含业务决策。
 - `shared` 工具不得反向依赖任何上层应用目录。
+- 持久化应用设置必须走 app data 配置服务，禁止使用浏览器 storage。
 
 ## 工作区与状态
 

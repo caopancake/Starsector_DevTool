@@ -5,12 +5,16 @@ import type { MessageApiInjection } from 'naive-ui/es/message/src/MessageProvide
 import { extractFileReferenceFromError, formatError } from '@/shared/lib/errors';
 import type { AppFeedback, ConfirmOptions } from '@/shared/types/feedback.types';
 import { openFileEditorWindow } from '@/windows/file-editor.window';
+import { recordLogSilently } from '@/services/app-config.service';
 
 export function createAppFeedback(message: MessageApiInjection, dialog: DialogApiInjection): AppFeedback {
   return {
     success: (text) => message.success(text),
     info: (text) => message.info(text),
-    warning: (text) => message.warning(text),
+    warning: (text) => {
+      recordLogSilently({ level: 'warning', message: text });
+      message.warning(text);
+    },
     error: (error, fallback) => showError(message, error, fallback),
     confirmDanger: (options) => showConfirm(dialog, 'error', options),
     confirmWarning: (options) => showConfirm(dialog, 'warning', options),
@@ -30,6 +34,12 @@ function showConfirm(dialog: DialogApiInjection, type: 'error' | 'warning', opti
 function showError(message: MessageApiInjection, error: unknown, fallback?: string) {
   const text = fallback ? `${fallback}：${formatError(error)}` : formatError(error);
   const reference = extractFileReferenceFromError(error) ?? extractFileReferenceFromError(text);
+  recordLogSilently({
+    level: 'error',
+    message: text,
+    path: reference?.path,
+    line: reference?.line,
+  });
   if (!reference) {
     message.error(text);
     return;
