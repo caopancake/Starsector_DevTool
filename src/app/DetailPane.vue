@@ -42,7 +42,8 @@
             发射预览
           </n-button>
         </div>
-        <div v-if="!hasActions" class="muted">当前模块没有专用编辑器。</div>
+        <div v-if="isCommentRow" class="muted">注释行只允许编辑 CSV 内容。</div>
+        <div v-else-if="!hasActions" class="muted">当前模块没有专用编辑器。</div>
       </section>
       <section class="panel-card detail-card">
         <div class="panel-section-title">字段速览</div>
@@ -83,6 +84,7 @@ import { useSettingsStore } from '@/stores/settings.store';
 import { cell, MODULE_LABELS, rowDisplayId, rowSpecId, str } from '@/shared/lib/starsector';
 import { resolveHullSprite } from '@/shared/lib/hull-references';
 import { fileEditorActionForRow, type TableDetailAction } from '@/domain/tables/table-detail-actions';
+import { isCsvCommentRow } from '@/domain/tables/csv-comment-row';
 import { csvColumnSchemasForTable, type CsvColumnSchema } from '@/domain/tables/csv-column-schema';
 import { createCsvSourceIndex, sourceValue } from '@/domain/tables/csv-source-options';
 import type { SelectOption } from '@/domain/schema/schema-registry';
@@ -104,8 +106,9 @@ const displayName = computed(() => {
 
 const selectedDisplayId = computed(() => (tables.selectedRow ? rowDisplayId(tables.selectedRow) : ''));
 const selectedSpecId = computed(() => (tables.selectedRow ? rowSpecId(tables.selectedRow, tables.currentTab) : ''));
-const canOpenShipEditor = computed(() => tables.currentTab === 'ships' && Boolean(selectedSpecId.value));
-const canOpenWeaponEditor = computed(() => tables.currentTab === 'weapons' && Boolean(selectedSpecId.value));
+const isCommentRow = computed(() => isCsvCommentRow(tables.selectedRow, tables.currentTab));
+const canOpenShipEditor = computed(() => !isCommentRow.value && tables.currentTab === 'ships' && Boolean(selectedSpecId.value));
+const canOpenWeaponEditor = computed(() => !isCommentRow.value && tables.currentTab === 'weapons' && Boolean(selectedSpecId.value));
 const hasActions = computed(() => Boolean(fileEditorAction.value || canOpenShipEditor.value || canOpenWeaponEditor.value));
 const schemaColumns = computed(() => csvColumnSchemasForTable(tables.currentTab));
 const sourceIndex = computed(() =>
@@ -150,6 +153,7 @@ const previewState = computed<PreviewState>(() => {
   const row = tables.selectedRow;
   const data = project.activeModData;
   if (!row || !data) return noPreview(tables.currentTab);
+  if (isCommentRow.value) return commentPreview();
 
   const id = rowSpecId(row, tables.currentTab) || rowDisplayId(row);
   if (tables.currentTab === 'ships') {
@@ -217,6 +221,15 @@ function noPreview(tab: TableKey): PreviewState {
     detail: `${MODULE_LABELS[tab]}当前没有可用缩略图。`,
     src: '',
     title: '无预览',
+  };
+}
+
+function commentPreview(): PreviewState {
+  return {
+    alt: '注释行',
+    detail: '该行不参与引用、预览或专用编辑器。',
+    src: '',
+    title: '注释行',
   };
 }
 

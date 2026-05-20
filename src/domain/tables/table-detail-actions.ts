@@ -1,5 +1,6 @@
 import { rowSpecId } from '@/shared/lib/starsector';
 import type { RowData, TableKey } from '@/shared/types';
+import { isCsvCommentRow } from '@/domain/tables/csv-comment-row';
 
 export type TableDetailAction =
   | { type: 'file-editor'; path: string; title: string; contextLabel: string; message: string }
@@ -8,8 +9,9 @@ export type TableDetailAction =
   | { type: 'weapon-preview'; id: string };
 
 export function fileEditorActionForRow(modRoot: string, table: TableKey, row: RowData | null | undefined): TableDetailAction | null {
-  if (!row) return null;
-  const id = rowSpecId(row, table);
+    if (!row) return null;
+    if (isCsvCommentRow(row, table)) return null;
+    const id = rowSpecId(row, table);
   if (!id) return null;
   if (table === 'ships') return specFileAction(modRoot, ['data', 'hulls', `${id}.ship`], `${id}.ship`);
   if (table === 'weapons') return specFileAction(modRoot, ['data', 'weapons', `${id}.wpn`], `${id}.wpn`);

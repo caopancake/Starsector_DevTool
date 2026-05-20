@@ -6,6 +6,8 @@
         <n-input
           v-if="field.type === 'string'"
           :value="strVal"
+          type="textarea"
+          :autosize="stringTextareaAutosize"
           size="small"
           :disabled="field.editable === false"
           @update:value="emitStringOrObject($event)"
@@ -78,6 +80,8 @@
         <n-input
           v-if="field.type === 'string'"
           :value="strVal"
+          :type="stringInputType"
+          :autosize="stringInputAutosize"
           size="small"
           :disabled="field.editable === false"
           @update:value="emitStringOrObject($event)"
@@ -356,6 +360,9 @@ const strVal = computed(() => {
   if (typeof props.value === 'object') return JSON.stringify(props.value);
   return String(props.value);
 });
+const stringTextareaAutosize = { minRows: 1, maxRows: 6 };
+const stringInputType = computed(() => (strVal.value.includes('\n') || strVal.value.includes('\r') ? 'textarea' : 'text'));
+const stringInputAutosize = computed(() => (stringInputType.value === 'textarea' ? stringTextareaAutosize : undefined));
 
 const numVal = computed(() => (typeof props.value === 'number' ? props.value : parseFloat(String(props.value)) || 0));
 const plainNumberText = computed(() => (props.value === null || props.value === undefined ? '' : String(props.value)));
