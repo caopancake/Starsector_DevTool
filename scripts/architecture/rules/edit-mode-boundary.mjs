@@ -9,12 +9,20 @@ export const editModeBoundaryRule = {
     const schemaTypes = requiredStringUnionMembers(schemaTypesFile, 'FieldType');
     const csvControls = requiredStringUnionMembers(csvColumnSchemaFile, 'CsvColumnControl');
     const schemaRenderers = files.filter(isSchemaFieldRenderer);
+    const csvCellFrames = files.filter(isCsvCellFrame);
     const csvStaticCells = files.filter(isCsvStaticRenderer);
-    const csvEditorOverlays = files.filter(isCsvEditorOverlay);
+    const csvCellEditors = files.filter(isCsvCellEditor);
 
     if (schemaRenderers.length === 0) failures.push(`schema field renderer: schema edit mode boundary has no renderer host`);
+    if (csvCellFrames.length === 0) failures.push(`CSV cell frame: CSV edit mode boundary has no shared visual frame`);
     if (csvStaticCells.length === 0) failures.push(`CSV static renderer: CSV edit mode boundary has no static renderer host`);
-    if (csvEditorOverlays.length === 0) failures.push(`CSV editor overlay: CSV edit mode boundary has no editor overlay host`);
+    if (csvCellEditors.length === 0) failures.push(`CSV cell editor: CSV edit mode boundary has no cell editor host`);
+
+    for (const csvCellFrame of csvCellFrames) {
+      if (!csvCellFrame.text.includes('csv-cell-frame') || !csvCellFrame.text.includes('control: CsvColumnControl')) {
+        failures.push(`${csvCellFrame.rel}: CSV cell frame must own the shared CSV cell visual boundary`);
+      }
+    }
 
     for (const schemaRenderer of schemaRenderers) {
       for (const type of schemaTypes) {
@@ -33,29 +41,34 @@ export const editModeBoundaryRule = {
     }
 
     for (const csvStaticCell of csvStaticCells) {
-      if (!csvStaticCell.text.includes('csv-static-${control}')) {
-        failures.push(`${csvStaticCell.rel}: CSV static renderer must derive display class from CSV control`);
-      }
       const plainBranch = templateBranch(csvStaticCell.text, 'v-if="plainMode"', '<template v-else-if=');
       if (containsReferenceDisplayMarkup(plainBranch)) {
         failures.push(`${csvStaticCell.rel}: plain edit mode branch must not render reference decorations`);
       }
     }
 
-    for (const csvEditorOverlay of csvEditorOverlays) {
+    for (const csvCellEditor of csvCellEditors) {
+      if (csvCellEditor.text.includes('<n-select')) {
+        failures.push(`${csvCellEditor.rel}: CSV cell editor must use CsvCellPicker instead of n-select`);
+      }
+      if (!csvCellEditor.text.includes('CsvCellPicker')) {
+        failures.push(`${csvCellEditor.rel}: CSV cell editor must route smart select controls through CsvCellPicker`);
+      }
       for (const control of csvControls) {
         if (control === 'text') continue;
-        if (!csvEditorOverlay.text.includes(`column.schema?.control === '${control}'`)) {
-          failures.push(`${csvEditorOverlay.rel}: CSV editor overlay does not cover CSV control '${control}'`);
+        if (control === 'number' || control === 'path-image' || control === 'color') {
+          if (!csvCellEditor.text.includes(`'${control}'`)) {
+            failures.push(`${csvCellEditor.rel}: CSV cell editor native input branch does not cover CSV control '${control}'`);
+          }
+          continue;
+        }
+        if (!csvCellEditor.text.includes(`column.schema?.control === '${control}'`)) {
+          failures.push(`${csvCellEditor.rel}: CSV cell editor does not cover CSV control '${control}'`);
         }
       }
-      const plainBranch = templateBranch(csvEditorOverlay.text, 'v-if="plainMode"', '<template v-else>');
-      const smartBranch = templateBranch(csvEditorOverlay.text, '<template v-else>', '</template>');
+      const plainBranch = templateBranch(csvCellEditor.text, 'v-if="plainMode"', '<template v-else>');
       if (containsEnhancedControlMarkup(plainBranch)) {
-        failures.push(`${csvEditorOverlay.rel}: plain edit mode branch must not render enhanced widgets`);
-      }
-      if (!containsEnhancedControlMarkup(smartBranch)) {
-        failures.push(`${csvEditorOverlay.rel}: smart edit mode branch must retain enhanced widgets`);
+        failures.push(`${csvCellEditor.rel}: plain edit mode branch must not render enhanced widgets`);
       }
     }
 
@@ -89,17 +102,21 @@ function isCsvColumnSchemaModule(file) {
   return file.rel.startsWith('src/domain/tables/') && file.rel.endsWith('.ts') && file.text.includes('export type CsvColumnControl');
 }
 
+function isCsvCellFrame(file) {
+  return file.rel.endsWith('.vue') && file.text.includes('csv-cell-frame') && file.text.includes('CsvColumnControl');
+}
+
 function isCsvStaticRenderer(file) {
   return (
     file.rel.endsWith('.vue') &&
-    file.text.includes('csv-static-control') &&
+    file.text.includes('csv-cell-value') &&
     file.text.includes('column: CsvGridColumn') &&
-    file.text.includes('staticClass')
+    file.text.includes('plainMode')
   );
 }
 
-function isCsvEditorOverlay(file) {
-  return file.rel.endsWith('.vue') && file.text.includes('csv-cell-editor-overlay') && file.text.includes('column: CsvGridColumn');
+function isCsvCellEditor(file) {
+  return file.rel.endsWith('.vue') && file.text.includes('csv-cell-editor') && file.text.includes('column: CsvGridColumn');
 }
 
 function requiredStringUnionMembers(file, typeName) {
@@ -117,11 +134,11 @@ function templateBranch(text, startNeedle, endNeedle) {
 }
 
 function containsEnhancedControlMarkup(text) {
-  return /<n-select\b|<ColorPicker\b|renderSelectLabel|renderGraphicsLabel|schema-select-option/.test(text);
+  return /<n-select\b|<CsvCellPicker\b|<ColorPicker\b|renderSelectLabel|renderGraphicsLabel|schema-select-option/.test(text);
 }
 
 function containsReferenceDisplayMarkup(text) {
-  return /csv-static-tag|csv-static-thumb|schema-select-option|renderSelectLabel/.test(text);
+  return /csv-cell-tag|csv-cell-thumb|schema-select-option|renderSelectLabel/.test(text);
 }
 
 function isSettingsStore(file) {

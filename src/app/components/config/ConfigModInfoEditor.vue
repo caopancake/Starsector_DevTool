@@ -7,7 +7,7 @@
     <SchemaFormRenderer v-if="schema" :schema="schema" v-model="local" :app-data="project.activeModData" />
 
     <footer class="settings-footer">
-      <n-button type="primary" :loading="saving" @click="save">保存 mod_info.json</n-button>
+      <n-button type="primary" :loading="saving" @click="save">保存</n-button>
     </footer>
   </div>
 </template>

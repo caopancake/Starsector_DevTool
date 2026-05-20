@@ -24,7 +24,7 @@
 ## 链路：主窗口 Ctrl+Z
 
 1. `use-main-window-shortcuts.ts` 捕获 Ctrl+Z。
-2. composable 调用 `undoMainWindowAction()`。
+2. composable 调用 `undoMainWindow()`。
 3. undo service 获取当前 Mod 和当前表。
 4. undo service 尝试回放 CSV 草稿撤销。
 5. CSV 草稿撤销成功时流程结束。
@@ -35,7 +35,7 @@
 ## 链路：主窗口 Ctrl+Shift+Z
 
 1. `use-main-window-shortcuts.ts` 捕获 Ctrl+Shift+Z。
-2. composable 调用 `redoMainWindowAction()`。
+2. composable 调用 `redoMainWindow()`。
 3. redo service 获取当前 Mod 和当前表。
 4. redo service 尝试回放 CSV 草稿重做。
 5. CSV 草稿重做成功时流程结束。

@@ -6,13 +6,13 @@ import { useTablesStore } from '@/stores/tables.store';
 
 export async function undoMainWindow(feedback: AppFeedback) {
   const tables = useTablesStore();
-  const csvEditHistory = useTablesEditHistoryStore();
+  const currentTableCsvHistory = useTablesEditHistoryStore();
   const project = useProjectStore();
   const modRoot = project.activeModRoot ?? '';
-  const table = tables.currentTab;
+  const currentTable = tables.currentTab;
 
-  if (csvEditHistory.canUndoCsvEdit(modRoot, table)) {
-    if (!csvEditHistory.undoCsvEdit(modRoot, table, tables.getActiveModTableState())) {
+  if (currentTableCsvHistory.canUndoCsvEdit(modRoot, currentTable)) {
+    if (!currentTableCsvHistory.undoCsvEdit(modRoot, currentTable, tables.getActiveModTableState())) {
       feedback.error('撤销 CSV 编辑失败');
     }
     return;
@@ -23,13 +23,13 @@ export async function undoMainWindow(feedback: AppFeedback) {
 
 export async function redoMainWindow(feedback: AppFeedback) {
   const tables = useTablesStore();
-  const csvEditHistory = useTablesEditHistoryStore();
+  const currentTableCsvHistory = useTablesEditHistoryStore();
   const project = useProjectStore();
   const modRoot = project.activeModRoot ?? '';
-  const table = tables.currentTab;
+  const currentTable = tables.currentTab;
 
-  if (csvEditHistory.canRedoCsvEdit(modRoot, table)) {
-    if (!csvEditHistory.redoCsvEdit(modRoot, table, tables.getActiveModTableState())) {
+  if (currentTableCsvHistory.canRedoCsvEdit(modRoot, currentTable)) {
+    if (!currentTableCsvHistory.redoCsvEdit(modRoot, currentTable, tables.getActiveModTableState())) {
       feedback.error('重做 CSV 编辑失败');
     }
     return;

@@ -4,13 +4,27 @@
     :data-column-key="column.key"
     @click.stop="$emit('activate-cell', row, column, $event)"
   >
-    <CsvGridStaticCell :column="column" :row="row" :source-index="sourceIndex" />
+    <CsvCellFrame ref="frameRef" :active="active" :control="column.schema?.control ?? 'text'">
+      <CsvGridCellEditor
+        v-if="active"
+        :anchor-element="frameElement"
+        :column="column"
+        :row="row"
+        :source-index="sourceIndex"
+        @close="$emit('close-active-cell')"
+        @update-cell="forwardUpdateCell"
+      />
+      <CsvGridStaticCell v-else :column="column" :row="row" :source-index="sourceIndex" />
+    </CsvCellFrame>
   </td>
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue';
 import type { CsvGridColumn, CsvGridRow } from '@/domain/tables/csv-grid-model';
 import type { CsvSourceIndex } from '@/domain/tables/csv-source-options';
+import CsvCellFrame from '@/app/components/tables/CsvCellFrame.vue';
+import CsvGridCellEditor from '@/app/components/tables/CsvGridCellEditor.vue';
 import CsvGridStaticCell from '@/app/components/tables/CsvGridStaticCell.vue';
 
 defineProps<{
@@ -21,7 +35,16 @@ defineProps<{
   sourceIndex: CsvSourceIndex;
 }>();
 
-defineEmits<{
+const frameRef = ref<{ frameRef: HTMLElement | null } | null>(null);
+const frameElement = computed(() => frameRef.value?.frameRef ?? null);
+
+const emit = defineEmits<{
   'activate-cell': [row: CsvGridRow, column: CsvGridColumn, event: MouseEvent];
+  'close-active-cell': [];
+  'update-cell': [rowKey: string, column: string, value: string];
 }>();
+
+function forwardUpdateCell(rowKey: string, column: string, value: string) {
+  emit('update-cell', rowKey, column, value);
+}
 </script>

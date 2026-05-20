@@ -23,12 +23,12 @@
 - 保存成功后才能更新 original tables、清空 dirty、清空 CSV 草稿 history 和记录文件级 history。
 - 后端必须拒绝绝对路径和 `..` 关联文件路径。
 
-## 链路：保存 CSV
+## 链路：保存当前表
 
 1. 用户触发保存当前表。
 2. `table-save.orchestrator.ts` 结束当前单元格编辑。
-3. orchestrator 收集当前 dirty 表。
-4. 需要创建或删除关联 spec 文件时，前端弹出确认并要求用户勾选对应文件操作。
+3. orchestrator 检查当前表 dirty，并只收集当前表的关联文件候选。
+4. 需要创建或删除当前表关联 spec 文件时，前端弹出确认并要求用户勾选对应文件操作。
 5. orchestrator 传入用户确认的 associated files。
 6. `table.service.ts` 调用 `saveCsvWithHistory()`。
 7. Rust tables service 渲染 CSV 文本。

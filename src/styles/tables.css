@@ -67,11 +67,7 @@
   box-shadow: inset 0 0 0 1px var(--color-primary-border);
 }
 
-.data-table td.csv-cell-active .csv-static-control {
-  opacity: 0;
-}
-
-.csv-static-control {
+.csv-cell-frame {
   display: flex;
   align-items: center;
   box-sizing: border-box;
@@ -89,32 +85,37 @@
   border-radius: var(--radius-sm);
 }
 
-.csv-static-select,
-.csv-static-reference,
-.csv-static-boolean,
-.csv-static-enum,
-.csv-static-tags,
-.csv-static-multi {
+.csv-cell-frame-active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary-soft);
+}
+
+.csv-cell-frame-select,
+.csv-cell-frame-reference,
+.csv-cell-frame-boolean,
+.csv-cell-frame-enum,
+.csv-cell-frame-tags,
+.csv-cell-frame-multi {
   gap: 4px;
   padding-right: 4px;
   background: var(--color-panel-muted);
 }
 
-.csv-static-value {
+.csv-cell-value {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.csv-static-caret {
+.csv-cell-caret {
   flex: 0 0 auto;
   margin-left: auto;
   color: var(--color-muted);
   font-size: 11px;
 }
 
-.csv-static-thumb {
+.csv-cell-thumb {
   flex: 0 0 auto;
   width: 16px;
   height: 16px;
@@ -123,7 +124,7 @@
   image-rendering: pixelated;
 }
 
-.csv-static-tag {
+.csv-cell-tag {
   max-width: 128px;
   height: 16px;
   padding: 0 4px;
@@ -138,123 +139,121 @@
   border-radius: var(--radius-sm);
 }
 
-.csv-cell-editor-overlay {
-  position: absolute;
-  z-index: 4;
+.csv-cell-editor {
+  display: contents;
+}
+
+.csv-cell-input {
   box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
   padding: 0;
-  pointer-events: auto;
-}
-
-.cell-input {
-  width: 100%;
-  height: 20px;
+  overflow: hidden;
   color: var(--color-text);
-  background: var(--color-panel);
-  border: 1px solid var(--color-primary);
-  border-radius: var(--radius-sm);
+  font: inherit;
+  line-height: inherit;
+  text-overflow: clip;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
   outline: none;
-  box-shadow: 0 0 0 2px var(--color-primary-soft);
-}
-
-.schema-cell-control {
-  width: 100%;
-  min-width: 36px;
-  height: 100%;
-  display: block;
-}
-
-.schema-cell-control,
-.schema-cell-control .n-input,
-.schema-cell-control.n-input,
-.schema-cell-control.n-input-number,
-.schema-cell-control .n-base-selection,
-.schema-cell-control .n-base-selection-label {
-  box-sizing: border-box;
-}
-
-.schema-cell-control,
-.schema-cell-control * {
-  min-width: 0;
-}
-
-.schema-cell-control .n-input,
-.schema-cell-control.n-input,
-.schema-cell-control.n-input-number,
-.schema-cell-control .n-base-selection {
-  width: 100%;
-  height: 100%;
-  min-height: 100%;
-  font-size: 12px;
-}
-
-.schema-cell-control .n-input-wrapper,
-.schema-cell-control .n-base-selection-label {
-  height: 100%;
-  min-height: 100%;
-  padding-right: 8px !important;
-  padding-left: 8px !important;
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-.schema-cell-control .n-input__input-el,
-.schema-cell-control .n-base-selection-input,
-.schema-cell-control .n-base-selection-placeholder,
-.schema-cell-control .n-base-selection-input-tag {
-  width: 100%;
-  height: 18px;
-  line-height: 18px;
-}
-
-.schema-cell-control .n-input__input,
-.schema-cell-control .n-input__input-el {
-  min-width: 0;
-}
-
-.schema-cell-control .n-base-selection-tags {
-  flex-wrap: nowrap;
-  gap: 2px;
-  height: 18px;
-  min-height: 18px;
-  padding: 1px 4px !important;
-  overflow: hidden;
-}
-
-.schema-cell-control .n-base-selection-tags .n-base-selection-input-tag {
-  height: 16px;
-  min-height: 16px;
-  margin-left: 0 !important;
-  line-height: 16px;
-}
-
-.schema-cell-control .n-tag {
-  max-width: 128px;
-  height: 16px;
-  min-height: 16px;
-  padding: 0 4px;
-  overflow: hidden;
-  font-size: 11px;
-  line-height: 16px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.schema-cell-control .n-tag__content {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.schema-cell-control .n-base-selection__border,
-.schema-cell-control .n-base-selection__state-border,
-.schema-cell-control .n-input__border,
-.schema-cell-control .n-input__state-border {
-  border-radius: var(--radius-sm);
 }
 
 .table-empty-note {
   padding: 18px;
   color: var(--color-warning);
   font-size: 13px;
+}
+
+.csv-cell-picker {
+  position: fixed;
+  z-index: 80;
+  box-sizing: border-box;
+  max-height: 320px;
+  overflow: hidden;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+}
+
+.csv-cell-picker-search {
+  box-sizing: border-box;
+  width: 100%;
+  height: 26px;
+  padding: 0 8px;
+  color: var(--color-text);
+  font-size: 12px;
+  background: var(--color-panel-muted);
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  outline: none;
+}
+
+.csv-cell-picker-list {
+  max-height: 292px;
+  overflow: auto;
+  padding: 4px;
+}
+
+.csv-cell-picker-group {
+  padding: 5px 6px 3px;
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.csv-cell-picker-option {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 24px;
+  gap: 6px;
+  padding: 0 6px;
+  color: var(--color-text);
+  font-size: 12px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+.csv-cell-picker-option:hover,
+.csv-cell-picker-option.selected {
+  background: var(--color-primary-soft);
+}
+
+.csv-cell-picker-check {
+  flex: 0 0 12px;
+  color: var(--color-primary);
+  font-size: 11px;
+}
+
+.csv-cell-picker-thumb {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+.csv-cell-picker-label,
+.csv-cell-picker-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.csv-cell-picker-label {
+  flex: 1 1 auto;
+}
+
+.csv-cell-picker-value {
+  flex: 0 1 42%;
+  color: var(--color-muted);
+  font-size: 11px;
 }

@@ -76,6 +76,7 @@ function createModTableState(): ModTableState {
 }
 
 export const useTablesStore = defineStore('tables', () => {
+  const csvEditHistory = useTablesEditHistoryStore();
   const stateMap = reactive<Map<string, ModTableState>>(new Map());
   const activeRoot = ref('');
   const saving = ref(false);
@@ -152,8 +153,15 @@ export const useTablesStore = defineStore('tables', () => {
   });
   const selectedRow = computed(() => rows.value.find((row, index) => tableRowKey(row, index) === selectedRowKey.value));
   const tableInfo = computed(() => `显示 ${filteredRows.value.length} / ${rows.value.length} 行`);
-  const hasDirtyChanges = computed(() => TABLE_KEYS.some((key) => Object.keys(dirty.value[key]).length > 0));
-  const hasChanges = computed(() => hasDirtyChanges.value || editing.value !== null);
+  const hasAnyTableDirtyChanges = computed(() => TABLE_KEYS.some((key) => Object.keys(dirty.value[key]).length > 0));
+  const hasCurrentTableChanges = computed(() => {
+    const state = getActiveState();
+    if (!state) return false;
+    return Object.keys(state.dirty[state.currentTab]).length > 0 || state.editing?.tab === state.currentTab;
+  });
+  const canUndoCurrentTableEdit = computed(() => csvEditHistory.canUndoCsvEdit(activeRoot.value, currentTab.value));
+  const canRedoCurrentTableEdit = computed(() => csvEditHistory.canRedoCsvEdit(activeRoot.value, currentTab.value));
+  const hasAnyTableChanges = computed(() => hasAnyTableDirtyChanges.value || editing.value !== null);
   const activeModRoot = computed(() => activeRoot.value);
 
   // --- Per-Mod lifecycle ---
@@ -265,9 +273,7 @@ export const useTablesStore = defineStore('tables', () => {
     }
     state.editing = null;
 
-    // Push to global history if value actually changed
     if (value !== previousValue) {
-      const csvEditHistory = useTablesEditHistoryStore();
       csvEditHistory.pushCsvEditEvent(
         activeRoot.value,
         tab,
@@ -281,14 +287,12 @@ export const useTablesStore = defineStore('tables', () => {
     editing.value = null;
   }
 
-  function revertChanges() {
-    const state = getActiveState();
-    if (!state) return;
-    state.editing = null;
-    for (const key of TABLE_KEYS) {
-      state.tables[key] = deepClone(state.originalTables[key]);
-      state.dirty[key] = {};
-    }
+  function undoCurrentTableEdit(): boolean {
+    return csvEditHistory.undoCsvEdit(activeRoot.value, currentTab.value, getActiveState());
+  }
+
+  function redoCurrentTableEdit(): boolean {
+    return csvEditHistory.redoCsvEdit(activeRoot.value, currentTab.value, getActiveState());
   }
 
   async function addNewRow(appData: AppData) {
@@ -309,7 +313,6 @@ export const useTablesStore = defineStore('tables', () => {
     selectedRowKey.value = rowKey;
     markFullRowDirty(state, tab, row);
 
-    const csvEditHistory = useTablesEditHistoryStore();
     csvEditHistory.pushCsvEditEvent(
       activeRoot.value,
       tab,
@@ -344,7 +347,6 @@ export const useTablesStore = defineStore('tables', () => {
     }
     state.selectedRowKey = '';
 
-    const csvEditHistory = useTablesEditHistoryStore();
     csvEditHistory.pushCsvEditEvent(
       activeRoot.value,
       tab,
@@ -393,11 +395,14 @@ export const useTablesStore = defineStore('tables', () => {
     currentFaction,
     currentTab,
     activeModRoot,
+    canRedoCurrentTableEdit,
+    canUndoCurrentTableEdit,
     dirty,
     editing,
     filteredRows,
-    hasChanges,
-    hasDirtyChanges,
+    hasCurrentTableChanges,
+    hasAnyTableChanges,
+    hasAnyTableDirtyChanges,
     isDirty,
     rows,
     saving,
@@ -419,7 +424,7 @@ export const useTablesStore = defineStore('tables', () => {
     markTableSaved,
     removeModState,
     replaceTableForMod,
-    revertChanges,
+    redoCurrentTableEdit,
     rowsFor,
     selectRowByKey,
     setSaving,
@@ -427,6 +432,7 @@ export const useTablesStore = defineStore('tables', () => {
     setEditingValue,
     switchTab,
     tableRowKey,
+    undoCurrentTableEdit,
     updateCellValueByKey,
   };
 });

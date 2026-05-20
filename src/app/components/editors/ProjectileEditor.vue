@@ -97,7 +97,7 @@
       <EditorFooter note="结构化 JSON 写回，内部字段会被后端剔除。">
         <template #actions>
           <n-button @click="$emit('close')">关闭</n-button>
-          <n-button type="primary" @click="save">保存 .proj</n-button>
+          <n-button type="primary" @click="save">保存</n-button>
         </template>
       </EditorFooter>
     </div>

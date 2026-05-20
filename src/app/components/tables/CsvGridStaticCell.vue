@@ -1,24 +1,22 @@
 <template>
-  <div :class="['csv-static-control', staticClass]">
-    <template v-if="plainMode">
-      <span class="csv-static-value">{{ rawValue }}</span>
-    </template>
-    <template v-else-if="column.schema?.control === 'tags' || column.schema?.control === 'multi'">
-      <span v-for="value in listValues" :key="value" class="csv-static-tag">{{ value }}</span>
-    </template>
-    <template v-else-if="column.schema?.control === 'reference'">
-      <img v-if="referenceMatch?.option.sprite" class="csv-static-thumb" :src="referenceMatch.option.sprite" :alt="displayValue" />
-      <span class="csv-static-value">{{ displayValue }}</span>
-      <span class="csv-static-caret">⌄</span>
-    </template>
-    <template v-else-if="isSelectLike">
-      <span class="csv-static-value">{{ displayValue }}</span>
-      <span class="csv-static-caret">⌄</span>
-    </template>
-    <template v-else>
-      <span class="csv-static-value">{{ rawValue }}</span>
-    </template>
-  </div>
+  <template v-if="plainMode">
+    <span class="csv-cell-value">{{ rawValue }}</span>
+  </template>
+  <template v-else-if="column.schema?.control === 'tags' || column.schema?.control === 'multi'">
+    <span v-for="value in listValues" :key="value" class="csv-cell-tag">{{ value }}</span>
+  </template>
+  <template v-else-if="column.schema?.control === 'reference'">
+    <img v-if="referenceMatch?.option.sprite" class="csv-cell-thumb" :src="referenceMatch.option.sprite" :alt="displayValue" />
+    <span class="csv-cell-value">{{ displayValue }}</span>
+    <span class="csv-cell-caret">⌄</span>
+  </template>
+  <template v-else-if="isSelectLike">
+    <span class="csv-cell-value">{{ displayValue }}</span>
+    <span class="csv-cell-caret">⌄</span>
+  </template>
+  <template v-else>
+    <span class="csv-cell-value">{{ rawValue }}</span>
+  </template>
 </template>
 
 <script setup lang="ts">
@@ -46,9 +44,5 @@ const listValues = computed(() =>
 );
 const referenceMatch = computed(() => sourceValue(props.sourceIndex, props.column.schema?.source, rawValue.value));
 const isSelectLike = computed(() => ['boolean', 'enum', 'reference'].includes(props.column.schema?.control ?? ''));
-const staticClass = computed(() => {
-  const control = props.column.schema?.control ?? 'text';
-  return `csv-static-${control}`;
-});
 const displayValue = computed(() => referenceMatch.value?.option.label ?? rawValue.value);
 </script>

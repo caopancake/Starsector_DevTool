@@ -237,11 +237,11 @@
 - `.data-table tr:hover td` 背景 `--color-surface-hover`。
 - `.data-table tr.selected td` 背景 `--color-primary-soft`，内阴影 `inset 0 -1px 0 var(--color-primary-border)`。
 - `.data-table td.dirty` 文字 `--color-warning`，背景 `--color-warning-bg`，内阴影 `inset 0 0 0 1px var(--color-warning-border)`。
-- `.cell-input` width 100%，height 20px，背景 `--color-panel`，border `1px solid var(--color-primary)`，圆角 `--radius-sm`，outline none，box-shadow `0 0 0 2px var(--color-primary-soft)`。
-- `.schema-cell-control` 在 CSV 表格内必须保持单行紧凑，高度固定 20px，多选 tag 不得换行撑高行高。
-- CSV 静态单元格和激活编辑 overlay 必须共用同一套几何规则：高度、padding、border、圆角、line-height 和 box-sizing 必须一致。
-- CSV 激活编辑 overlay 必须对齐单元格内部控件框，不能对齐 `td` 外框；选中、聚焦和编辑状态不得造成内容位移。
-- CSV 表格内的 Naive UI input、select、multi select、tag 必须由 `tables.css` 统一压缩到表格几何，不能继承导致行高、基线或控件位置变化的全局默认。
+- `.csv-cell-frame` 是 CSV 单元格内部唯一视觉外壳，固定高度 20px，并统一 padding、border、圆角、字体、line-height、overflow 和 box-sizing。
+- CSV 静态单元格和激活编辑器必须挂载在同一个 `.csv-cell-frame` 内，只允许替换内部内容，不允许各自定义盒模型。
+- CSV 激活编辑器禁止使用绝对定位覆盖表格；选中、聚焦和编辑状态不得造成内容位移。
+- CSV 文本类编辑必须使用继承 `.csv-cell-frame` 几何的原生 input；CSV 单元格内禁止使用 Naive UI select、multi select 和 tag。
+- CSV 智能选择只能通过 `CsvCellPicker` 弹层完成；弹层样式使用 `csv-cell-picker-*`，不得影响 `.csv-cell-frame` 的尺寸和内容布局。
 - `.table-empty-note` padding 18px，字号 13px，颜色 `--color-warning`。
 
 ## Detail Pane

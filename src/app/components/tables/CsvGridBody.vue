@@ -12,7 +12,9 @@
       :row="row"
       :source-index="sourceIndex"
       @activate-cell="forwardActivateCell"
+      @close-active-cell="$emit('close-active-cell')"
       @select-row="selectRow"
+      @update-cell="forwardUpdateCell"
     />
     <tr v-if="afterHeight > 0" class="csv-grid-spacer-row" :style="{ height: `${afterHeight}px` }">
       <td :colspan="columns.length"></td>
@@ -40,7 +42,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'activate-cell': [row: CsvGridRowData, column: CsvGridColumn, event: MouseEvent];
+  'close-active-cell': [];
   'select-row': [rowKey: string, event: MouseEvent];
+  'update-cell': [rowKey: string, column: string, value: string];
 }>();
 
 const bodyRef = ref<{
@@ -54,5 +58,9 @@ function selectRow(rowKey: string, event: MouseEvent) {
 
 function forwardActivateCell(row: CsvGridRowData, column: CsvGridColumn, event: MouseEvent) {
   emit('activate-cell', row, column, event);
+}
+
+function forwardUpdateCell(rowKey: string, column: string, value: string) {
+  emit('update-cell', rowKey, column, value);
 }
 </script>

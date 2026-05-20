@@ -8,7 +8,7 @@ import {
   isAssociatedFileForTable,
 } from '@/domain/tables/associated-file-candidates';
 import { saveTableRows } from '@/services/table.service';
-import { TABLE_KEYS, useTablesStore } from '@/stores/tables.store';
+import { useTablesStore } from '@/stores/tables.store';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { resolveTableRowKey } from '@/domain/tables/table-row-key';
 
@@ -16,7 +16,7 @@ export type TableSaveResult = 'saved' | 'noop';
 
 export function selectActiveTableAssociatedFileCandidates(appData: AppData | null) {
   const tables = useTablesStore();
-  return collectAssociatedFileCandidates(tables.getActiveModTableState(), appData, resolveTableRowKey);
+  return collectAssociatedFileCandidates(tables.getActiveModTableState(), appData, tables.currentTab, resolveTableRowKey);
 }
 
 export async function saveActiveTableChanges(
@@ -31,27 +31,19 @@ export async function saveActiveTableChanges(
   tables.setSaving(true);
   try {
     tables.finishCellEdit();
-    if (!tables.hasDirtyChanges) return 'noop';
+    const table = tables.currentTab;
+    if (Object.keys(state.dirty[table]).length === 0) return 'noop';
 
-    const savedChanges = [];
-    const savedLabels = [];
     const csvEditHistory = useTablesEditHistoryStore();
-    for (const key of TABLE_KEYS) {
-      if (Object.keys(state.dirty[key]).length === 0) continue;
-      const tableAssociatedFiles = associatedFiles.filter((file) => isAssociatedFileForTable(key, file.relPath));
-      const changes = await saveTableRows(capturedModRoot, key, appData.csvHeaders[key], state.tables[key], tableAssociatedFiles);
-      assignAppDataTable(appData, key, state.tables[key]);
-      applyAssociatedFileCache(appData, tableAssociatedFiles);
-      tables.markTableSaved(key);
-      if (changes.length > 0) {
-        savedChanges.push(...changes);
-        savedLabels.push(`${key} CSV`);
-        csvEditHistory.clearCsvEditHistory(capturedModRoot, key);
-      }
-    }
+    const tableAssociatedFiles = associatedFiles.filter((file) => isAssociatedFileForTable(table, file.relPath));
+    const changes = await saveTableRows(capturedModRoot, table, appData.csvHeaders[table], state.tables[table], tableAssociatedFiles);
+    assignAppDataTable(appData, table, state.tables[table]);
+    applyAssociatedFileCache(appData, tableAssociatedFiles);
+    tables.markTableSaved(table);
 
-    if (savedChanges.length > 0) {
-      recordFileSave(capturedModRoot, savedChanges, `保存 ${savedLabels.join('、')}`);
+    if (changes.length > 0) {
+      csvEditHistory.clearCsvEditHistory(capturedModRoot, table);
+      recordFileSave(capturedModRoot, changes, `保存 ${table} CSV`);
     }
     return 'saved';
   } finally {

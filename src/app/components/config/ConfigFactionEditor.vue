@@ -4,9 +4,7 @@
       <h2>{{ displayName }}</h2>
       <div class="config-editor-actions">
         <n-button size="small" secondary type="error" @click="confirmDeleteFaction">删除</n-button>
-        <n-button type="primary" size="small" :loading="saving" @click="save">
-          保存 {{ str(factionFile.id) || factionId }}.faction
-        </n-button>
+        <n-button type="primary" size="small" :loading="saving" @click="save">保存</n-button>
       </div>
     </header>
 

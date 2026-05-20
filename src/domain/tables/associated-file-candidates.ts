@@ -13,8 +13,6 @@ export interface AssociatedFileCandidate {
   afterDataBase64?: string | null;
 }
 
-const TABLES_WITH_ASSOCIATED_FILES: TableKey[] = ['ships', 'weapons', 'shipSystems', 'skills'];
-
 export function associatedRelPath(table: TableKey, id: string): string | null {
   if (!id) return null;
   if (table === 'ships') return `data/hulls/${id}.ship`;
@@ -31,46 +29,46 @@ export function isAssociatedFileForTable(table: TableKey, relPath: string): bool
 export function getAssociatedFileCandidates(
   state: ModTableState | undefined,
   appData: AppData | null,
+  table: TableKey,
   rowKeyForTab: (table: TableKey, row: RowData, index: number) => string,
 ): AssociatedFileCandidate[] {
   if (!state || !appData) return [];
   const result: AssociatedFileCandidate[] = [];
-  for (const table of TABLES_WITH_ASSOCIATED_FILES) {
-    for (const [rowKey, dirtyRow] of Object.entries(state.dirty[table])) {
-      if (dirtyRow._deleted === 'true') {
-        const originalIndex = state.originalTables[table].findIndex((row, index) => rowKeyForTab(table, row, index) === rowKey);
-        const original = originalIndex >= 0 ? state.originalTables[table][originalIndex] : null;
-        const id = original ? rowSpecId(original, table) : '';
-        const relPath = associatedRelPath(table, id);
-        if (!id || !relPath || !hasAssociatedFile(appData, table, id)) continue;
-        result.push({
-          key: `${table}:delete:${id}`,
-          table,
-          action: 'delete',
-          id,
-          relPath,
-          afterText: null,
-          label: `删除 ${relPath}`,
-        });
-        continue;
-      }
-
-      const originalExists = state.originalTables[table].some((row, index) => rowKeyForTab(table, row, index) === rowKey);
-      if (originalExists) continue;
-      const row = state.tables[table].find((candidate, index) => rowKeyForTab(table, candidate, index) === rowKey);
-      const id = row ? rowSpecId(row, table) : '';
+  if (!tableSupportsAssociatedFiles(table)) return result;
+  for (const [rowKey, dirtyRow] of Object.entries(state.dirty[table])) {
+    if (dirtyRow._deleted === 'true') {
+      const originalIndex = state.originalTables[table].findIndex((row, index) => rowKeyForTab(table, row, index) === rowKey);
+      const original = originalIndex >= 0 ? state.originalTables[table][originalIndex] : null;
+      const id = original ? rowSpecId(original, table) : '';
       const relPath = associatedRelPath(table, id);
-      if (!row || !id || !relPath || hasAssociatedFile(appData, table, id)) continue;
+      if (!id || !relPath || !hasAssociatedFile(appData, table, id)) continue;
       result.push({
-        key: `${table}:create:${id}`,
+        key: `${table}:delete:${id}`,
         table,
-        action: 'create',
+        action: 'delete',
         id,
         relPath,
-        afterText: associatedCreateText(table, id, row),
-        label: `创建 ${relPath}`,
+        afterText: null,
+        label: `删除 ${relPath}`,
       });
+      continue;
     }
+
+    const originalExists = state.originalTables[table].some((row, index) => rowKeyForTab(table, row, index) === rowKey);
+    if (originalExists) continue;
+    const row = state.tables[table].find((candidate, index) => rowKeyForTab(table, candidate, index) === rowKey);
+    const id = row ? rowSpecId(row, table) : '';
+    const relPath = associatedRelPath(table, id);
+    if (!row || !id || !relPath || hasAssociatedFile(appData, table, id)) continue;
+    result.push({
+      key: `${table}:create:${id}`,
+      table,
+      action: 'create',
+      id,
+      relPath,
+      afterText: associatedCreateText(table, id, row),
+      label: `创建 ${relPath}`,
+    });
   }
   return result;
 }
@@ -79,6 +77,10 @@ function associatedCreateText(table: TableKey, id: string, row: RowData): string
   if (table === 'ships') return JSON.stringify(defaultShip(id), null, 2);
   if (table === 'weapons') return JSON.stringify(defaultWeapon(id, row), null, 2);
   return JSON.stringify({ id }, null, 2);
+}
+
+function tableSupportsAssociatedFiles(table: TableKey): boolean {
+  return table === 'ships' || table === 'weapons' || table === 'shipSystems' || table === 'skills';
 }
 
 function hasAssociatedFile(appData: AppData, table: TableKey, id: string): boolean {

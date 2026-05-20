@@ -4,7 +4,7 @@
       <h3>{{ editingMissionId || missionId }}</h3>
       <div class="config-editor-actions">
         <n-button size="small" secondary type="error" @click="confirmDeleteMission">删除</n-button>
-        <n-button type="primary" size="small" :loading="saving" @click="save">保存战役</n-button>
+        <n-button type="primary" size="small" :loading="saving" @click="save">保存</n-button>
       </div>
     </header>
     <div class="mission-editor-body">

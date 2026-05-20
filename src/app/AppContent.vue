@@ -16,8 +16,9 @@
         v-else-if="workspace.currentView === 'table' && project.activeModData"
         @add-row="actions.addNewRow"
         @delete-row="actions.deleteSelectedRow"
-        @revert="actions.revertChanges"
+        @redo="actions.redoCurrentTableEdit"
         @save="actions.saveChanges"
+        @undo="actions.undoCurrentTableEdit"
         @detail-action="actions.handleDetailAction"
       />
       <ConfigWorkspace v-else-if="workspace.currentView === 'config' && project.activeModData" />

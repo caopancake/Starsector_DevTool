@@ -7,7 +7,7 @@
       </div>
       <div class="skin-editor-actions">
         <n-button size="small" secondary type="error" @click="confirmDeleteSkin">删除</n-button>
-        <n-button type="primary" size="small" :loading="saving" @click="save">保存舰船皮肤</n-button>
+        <n-button type="primary" size="small" :loading="saving" @click="save">保存</n-button>
       </div>
     </header>
     <div class="skin-editor-body">

@@ -15,15 +15,16 @@
           <n-button type="error" ghost :disabled="!tables.selectedRowKey" @click="$emit('delete-row')">删除</n-button>
         </div>
         <div class="top-action-group">
-          <n-button :disabled="!tables.hasChanges" @click="$emit('revert')">撤销修改</n-button>
+          <n-button :disabled="!tables.canUndoCurrentTableEdit" @click="$emit('undo')">撤销</n-button>
+          <n-button :disabled="!tables.canRedoCurrentTableEdit" @click="$emit('redo')">重做</n-button>
           <n-button
             type="primary"
             :loading="tables.saving"
-            :disabled="!tables.hasChanges"
+            :disabled="!tables.hasCurrentTableChanges"
             @pointerdown.prevent="$emit('save')"
             @click.prevent
           >
-            保存 CSV
+            保存
           </n-button>
         </div>
       </div>
@@ -47,8 +48,9 @@ import type { TableDetailAction } from '@/domain/tables/table-detail-actions';
 defineEmits<{
   'add-row': [];
   'delete-row': [];
-  revert: [];
+  redo: [];
   save: [];
+  undo: [];
   'detail-action': [request: TableDetailAction];
 }>();
 

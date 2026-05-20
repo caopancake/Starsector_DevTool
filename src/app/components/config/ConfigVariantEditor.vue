@@ -7,7 +7,7 @@
       </div>
       <div class="variant-editor-actions">
         <n-button size="small" secondary type="error" @click="confirmDeleteVariant">删除</n-button>
-        <n-button type="primary" size="small" :loading="saving" @click="save">保存装配</n-button>
+        <n-button type="primary" size="small" :loading="saving" @click="save">保存</n-button>
       </div>
     </header>
     <div class="variant-editor-body">

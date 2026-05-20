@@ -9,6 +9,8 @@
       :row="row"
       :source-index="sourceIndex"
       @activate-cell="forwardActivateCell"
+      @close-active-cell="$emit('close-active-cell')"
+      @update-cell="forwardUpdateCell"
     />
   </tr>
 </template>
@@ -28,10 +30,16 @@ defineProps<{
 
 const emit = defineEmits<{
   'activate-cell': [row: CsvGridRow, column: CsvGridColumn, event: MouseEvent];
+  'close-active-cell': [];
   'select-row': [rowKey: string, event: MouseEvent];
+  'update-cell': [rowKey: string, column: string, value: string];
 }>();
 
 function forwardActivateCell(row: CsvGridRow, column: CsvGridColumn, event: MouseEvent) {
   emit('activate-cell', row, column, event);
+}
+
+function forwardUpdateCell(rowKey: string, column: string, value: string) {
+  emit('update-cell', rowKey, column, value);
 }
 </script>

@@ -12,18 +12,11 @@
         :source-index="model.sourceIndex"
         :visible-rows="visibleRows"
         @activate-cell="activateCell"
+        @close-active-cell="clearActiveCell"
         @select-row="forwardSelectRow"
+        @update-cell="forwardUpdateCell"
       />
     </table>
-    <CsvGridCellEditorOverlay
-      v-if="activeCell"
-      :bounds="activeCell.bounds"
-      :column="activeCell.column"
-      :row="activeCell.row"
-      :source-index="model.sourceIndex"
-      @close="clearActiveCell"
-      @update-cell="forwardUpdateCell"
-    />
   </div>
 </template>
 
@@ -33,25 +26,11 @@ import type { ModTableState } from '@/shared/types/workspace.types';
 import type { CsvGridColumn, CsvGridModel, CsvGridRow } from '@/domain/tables/csv-grid-model';
 import { useCsvGridViewport } from '@/app/composables/use-csv-grid-viewport';
 import CsvGridBody from '@/app/components/tables/CsvGridBody.vue';
-import CsvGridCellEditorOverlay from '@/app/components/tables/CsvGridCellEditorOverlay.vue';
 import CsvGridHeader from '@/app/components/tables/CsvGridHeader.vue';
 
 interface ActiveCell {
-  bounds: { height: number; left: number; top: number; width: number };
   column: CsvGridColumn;
   row: CsvGridRow;
-}
-
-interface ElementRect {
-  height: number;
-  left: number;
-  top: number;
-  width: number;
-}
-
-interface CellTargetElement {
-  getBoundingClientRect?: () => ElementRect;
-  querySelector?: (selector: string) => { getBoundingClientRect: () => ElementRect } | null;
 }
 
 const props = defineProps<{
@@ -66,7 +45,7 @@ const emit = defineEmits<{
   'update-cell': [rowKey: string, column: string, value: string];
 }>();
 
-const panelRef = ref<{ getBoundingClientRect: () => ElementRect; scrollLeft: number; scrollTop: number } | null>(null);
+const panelRef = ref<{ clientHeight?: number; scrollTop?: number } | null>(null);
 const activeCell = ref<ActiveCell | null>(null);
 const activeCellKey = computed(() =>
   activeCell.value ? { columnKey: activeCell.value.column.key, rowKey: activeCell.value.row.rowKey } : null,
@@ -83,7 +62,7 @@ const beforeHeight = computed(() => viewport.beforeHeight.value);
 const visibleRows = computed(() => viewport.visibleItems.value);
 
 watch(
-  () => [props.model, props.selectedRowKey],
+  () => props.model,
   () => {
     clearActiveCell();
     nextTick(syncViewportMetrics);
@@ -96,55 +75,19 @@ onMounted(() => {
 
 function handleScroll(event: Event) {
   viewport.onScroll(event);
-  repositionActiveCell();
+  clearActiveCell();
 }
 
-function activateCell(row: CsvGridRow, column: CsvGridColumn, event: MouseEvent) {
+function activateCell(row: CsvGridRow, column: CsvGridColumn) {
   forwardSelectRow(row.rowKey);
-  const panel = panelRef.value;
-  const target = event.currentTarget as CellTargetElement | null;
-  const rect = target?.querySelector?.('.csv-static-control')?.getBoundingClientRect() ?? target?.getBoundingClientRect?.();
-  const panelRect = panel?.getBoundingClientRect();
-  if (!panel || !rect || !panelRect) return;
   activeCell.value = {
-    bounds: {
-      height: rect.height,
-      left: rect.left - panelRect.left + panel.scrollLeft,
-      top: rect.top - panelRect.top + panel.scrollTop,
-      width: rect.width,
-    },
     column,
     row,
   };
 }
 
-function repositionActiveCell() {
-  const active = activeCell.value;
-  if (!active) return;
-  const panel = panelRef.value;
-  const panelRect = panel?.getBoundingClientRect();
-  if (!panel || !panelRect) return;
-  const rowKey = active.row.rowKey.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  const columnKey = active.column.key.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  const selector = `tr[data-row-key="${rowKey}"] td[data-column-key="${columnKey}"] .csv-static-control`;
-  const target = (panel as { querySelector?: (selector: string) => { getBoundingClientRect: () => ElementRect } | null }).querySelector?.(
-    selector,
-  );
-  const rect = target?.getBoundingClientRect();
-  if (!rect) return;
-  activeCell.value = {
-    ...active,
-    bounds: {
-      height: rect.height,
-      left: rect.left - panelRect.left + panel.scrollLeft,
-      top: rect.top - panelRect.top + panel.scrollTop,
-      width: rect.width,
-    },
-  };
-}
-
 function syncViewportMetrics() {
-  const panel = panelRef.value as { clientHeight?: number; scrollTop?: number } | null;
+  const panel = panelRef.value;
   viewport.setViewportMetrics({ clientHeight: panel?.clientHeight ?? 0, scrollTop: panel?.scrollTop ?? 0 });
 }
 

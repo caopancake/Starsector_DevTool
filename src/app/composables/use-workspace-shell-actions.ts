@@ -176,8 +176,12 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     }
   }
 
-  function revertChanges() {
-    tables.revertChanges();
+  function undoCurrentTableEdit() {
+    if (!tables.undoCurrentTableEdit()) feedback.error('撤销 CSV 编辑失败');
+  }
+
+  function redoCurrentTableEdit() {
+    if (!tables.redoCurrentTableEdit()) feedback.error('重做 CSV 编辑失败');
   }
 
   async function addNewRow() {
@@ -264,7 +268,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   }
 
   function showSaveResult(result: 'saved' | 'noop') {
-    if (result === 'saved') feedback.success('CSV 修改已保存');
+    if (result === 'saved') feedback.success('当前 CSV 表已保存');
     else feedback.info('没有需要保存的修改');
   }
 
@@ -339,8 +343,9 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     handleDetailAction,
     loadOverviewMod,
     openDirectory,
+    redoCurrentTableEdit,
     refreshWorkspace,
-    revertChanges,
     saveChanges,
+    undoCurrentTableEdit,
   };
 }
