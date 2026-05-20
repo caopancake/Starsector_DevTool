@@ -33,8 +33,9 @@
         },
         {
           "key": "descriptionId",
-          "type": "string",
-          "label": "descriptionId"
+          "type": "enum",
+          "label": "descriptionId",
+          "source": "csv:descriptions.id"
         },
         {
           "key": "descriptionPrefix",

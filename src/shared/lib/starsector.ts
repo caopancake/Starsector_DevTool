@@ -120,6 +120,7 @@ export const TABLE_COLUMNS: Record<TableKey, string[]> = {
   submarkets: ['id', 'name', 'faction', 'desc', 'script', 'icon', 'order'],
   marketConditions: ['name', 'id', 'tags', 'planetary', 'decivRemove', 'script', 'desc', 'icon', 'order'],
   simOpponents: ['variant id'],
+  descriptions: ['id', 'type', 'text1', 'text2', 'text3', 'text4', 'text5', 'notes'],
 };
 
 export const MODULE_LABELS: Record<TableKey, string> = {
@@ -136,6 +137,7 @@ export const MODULE_LABELS: Record<TableKey, string> = {
   submarkets: '市场类型',
   marketConditions: '市场条件',
   simOpponents: '模拟对手',
+  descriptions: '描述文本',
 };
 
 export const WEAPON_COLORS: Record<string, string> = {

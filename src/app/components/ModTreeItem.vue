@@ -74,6 +74,14 @@
         <span>{{ MODULE_LABELS.simOpponents }}</span>
         <span class="mod-tree-module-count">{{ getRowCount('simOpponents') }}</span>
       </button>
+      <button
+        class="mod-tree-module-btn"
+        :class="{ 'module-active': isActive && workspace.currentView === 'table' && tables.currentTab === 'descriptions' }"
+        @click="$emit('switch-tab', mod.modRoot, 'descriptions')"
+      >
+        <span>{{ MODULE_LABELS.descriptions }}</span>
+        <span class="mod-tree-module-count">{{ getRowCount('descriptions') }}</span>
+      </button>
 
       <div class="mod-tree-separator" />
 

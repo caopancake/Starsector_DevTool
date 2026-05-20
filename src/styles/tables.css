@@ -68,12 +68,13 @@
 }
 
 .data-table td.csv-cell-active .csv-static-control {
-  visibility: hidden;
+  opacity: 0;
 }
 
 .csv-static-control {
   display: flex;
   align-items: center;
+  box-sizing: border-box;
   width: 100%;
   min-width: 36px;
   height: 20px;
@@ -138,8 +139,10 @@
 }
 
 .csv-cell-editor-overlay {
-  position: fixed;
+  position: absolute;
   z-index: 4;
+  box-sizing: border-box;
+  padding: 0;
   pointer-events: auto;
 }
 
@@ -157,6 +160,17 @@
 .schema-cell-control {
   width: 100%;
   min-width: 36px;
+  height: 100%;
+  display: block;
+}
+
+.schema-cell-control,
+.schema-cell-control .n-input,
+.schema-cell-control.n-input,
+.schema-cell-control.n-input-number,
+.schema-cell-control .n-base-selection,
+.schema-cell-control .n-base-selection-label {
+  box-sizing: border-box;
 }
 
 .schema-cell-control,
@@ -168,15 +182,18 @@
 .schema-cell-control.n-input,
 .schema-cell-control.n-input-number,
 .schema-cell-control .n-base-selection {
-  height: 20px;
-  min-height: 20px;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
   font-size: 12px;
 }
 
 .schema-cell-control .n-input-wrapper,
 .schema-cell-control .n-base-selection-label {
-  height: 20px;
-  min-height: 20px;
+  height: 100%;
+  min-height: 100%;
+  padding-right: 8px !important;
+  padding-left: 8px !important;
   padding-top: 0;
   padding-bottom: 0;
 }
@@ -185,20 +202,36 @@
 .schema-cell-control .n-base-selection-input,
 .schema-cell-control .n-base-selection-placeholder,
 .schema-cell-control .n-base-selection-input-tag {
+  width: 100%;
   height: 18px;
   line-height: 18px;
+}
+
+.schema-cell-control .n-input__input,
+.schema-cell-control .n-input__input-el {
+  min-width: 0;
 }
 
 .schema-cell-control .n-base-selection-tags {
   flex-wrap: nowrap;
   gap: 2px;
   height: 18px;
+  min-height: 18px;
+  padding: 1px 4px !important;
   overflow: hidden;
+}
+
+.schema-cell-control .n-base-selection-tags .n-base-selection-input-tag {
+  height: 16px;
+  min-height: 16px;
+  margin-left: 0 !important;
+  line-height: 16px;
 }
 
 .schema-cell-control .n-tag {
   max-width: 128px;
   height: 16px;
+  min-height: 16px;
   padding: 0 4px;
   overflow: hidden;
   font-size: 11px;

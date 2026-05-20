@@ -192,6 +192,10 @@ pub fn load_mod_data_with_root(
             .rows
             .remove("simOpponents")
             .unwrap_or_default(),
+        descriptions: loaded_tables
+            .rows
+            .remove("descriptions")
+            .unwrap_or_default(),
         ship_files: spec_bundle.ship_files,
         variants: spec_bundle.variants,
         variant_files: spec_bundle.variant_files,
@@ -973,6 +977,8 @@ mod tests {
             "core_weapon"
         );
         assert_eq!(data.core_references.tables["hullmods"][0]["id"], "core_mod");
+        assert!(data.core_references.tables.contains_key("descriptions"));
+        assert!(data.core_references.tables["descriptions"].is_empty());
         assert!(
             data.core_references.ship_sprites["core_ship"].starts_with("data:image/png;base64,")
         );

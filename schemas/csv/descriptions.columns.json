@@ -1,0 +1,55 @@
+[
+  {
+    "key": "id",
+    "label": "ID",
+    "control": "text"
+  },
+  {
+    "key": "type",
+    "label": "类型",
+    "control": "enum",
+    "options": [
+      "ACTION_TOOLTIP",
+      "ASTEROID",
+      "CUSTOM",
+      "FACTION",
+      "GALLERY",
+      "PLANET",
+      "RESOURCE",
+      "SHIP",
+      "SHIP_SYSTEM",
+      "TERRAIN",
+      "WEAPON"
+    ]
+  },
+  {
+    "key": "text1",
+    "label": "文本 1",
+    "control": "text"
+  },
+  {
+    "key": "text2",
+    "label": "文本 2",
+    "control": "text"
+  },
+  {
+    "key": "text3",
+    "label": "文本 3",
+    "control": "text"
+  },
+  {
+    "key": "text4",
+    "label": "文本 4",
+    "control": "text"
+  },
+  {
+    "key": "text5",
+    "label": "文本 5",
+    "control": "text"
+  },
+  {
+    "key": "notes",
+    "label": "备注",
+    "control": "text"
+  }
+]

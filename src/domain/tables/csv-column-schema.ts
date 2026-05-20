@@ -2,6 +2,7 @@ import type { TableKey } from '@/shared/types';
 
 import abilitiesColumnsRaw from '../../../schemas/csv/abilities.columns.json';
 import commoditiesColumnsRaw from '../../../schemas/csv/commodities.columns.json';
+import descriptionsColumnsRaw from '../../../schemas/csv/descriptions.columns.json';
 import hullmodsColumnsRaw from '../../../schemas/csv/hullmods.columns.json';
 import industriesColumnsRaw from '../../../schemas/csv/industries.columns.json';
 import marketConditionsColumnsRaw from '../../../schemas/csv/marketConditions.columns.json';
@@ -35,6 +36,7 @@ type TableColumnSchemas = Record<TableKey, CsvColumnSchema[]>;
 export const CSV_COLUMN_SCHEMAS: TableColumnSchemas = {
   abilities: abilitiesColumnsRaw as CsvColumnSchema[],
   commodities: commoditiesColumnsRaw as CsvColumnSchema[],
+  descriptions: descriptionsColumnsRaw as CsvColumnSchema[],
   hullmods: hullmodsColumnsRaw as CsvColumnSchema[],
   industries: industriesColumnsRaw as CsvColumnSchema[],
   marketConditions: marketConditionsColumnsRaw as CsvColumnSchema[],

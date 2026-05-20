@@ -109,8 +109,8 @@ function activateCell(row: CsvGridRow, column: CsvGridColumn, event: MouseEvent)
   activeCell.value = {
     bounds: {
       height: rect.height,
-      left: rect.left,
-      top: rect.top,
+      left: rect.left - panelRect.left + panel.scrollLeft,
+      top: rect.top - panelRect.top + panel.scrollTop,
       width: rect.width,
     },
     column,
@@ -136,8 +136,8 @@ function repositionActiveCell() {
     ...active,
     bounds: {
       height: rect.height,
-      left: rect.left,
-      top: rect.top,
+      left: rect.left - panelRect.left + panel.scrollLeft,
+      top: rect.top - panelRect.top + panel.scrollTop,
       width: rect.width,
     },
   };

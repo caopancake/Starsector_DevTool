@@ -4,16 +4,8 @@ use crate::{
 };
 use serde_json::{Map, Value};
 
-pub fn parse_csv_text(path_label: &str, text: &str) -> AppResult<CsvTable> {
-    let normalized = normalize_visible_empty_rows(text);
-    let mut rdr = csv::ReaderBuilder::new()
-        .has_headers(false)
-        .flexible(true)
-        .from_reader(normalized.as_bytes());
-    let records: Vec<csv::StringRecord> =
-        rdr.records().collect::<Result<_, _>>().map_err(|error| {
-            AppError::context(format!("解析 CSV 失败 ({path_label})"), error.into())
-        })?;
+pub fn parse_csv_bytes(path_label: &str, bytes: &[u8]) -> AppResult<CsvTable> {
+    let records = parse_loose_records(path_label, bytes)?;
     if records.is_empty() {
         return Ok(CsvTable {
             header: vec![],
@@ -21,16 +13,27 @@ pub fn parse_csv_text(path_label: &str, text: &str) -> AppResult<CsvTable> {
             path: path_label.to_string(),
         });
     }
-    let header: Vec<String> = records[0].iter().map(ToString::to_string).collect();
+    let Some(header_index) = records
+        .iter()
+        .position(|record| !is_blank_visible_empty_record(record))
+    else {
+        return Ok(CsvTable {
+            header: vec![],
+            rows: vec![],
+            path: path_label.to_string(),
+        });
+    };
+    let header = records[header_index].clone();
     let header_width = header.len();
     let mut rows = Vec::new();
-    for (index, record) in records.iter().skip(1).enumerate() {
-        validate_record_width(path_label, record, header_width, index + 2)?;
+    for (index, record) in records.iter().skip(header_index + 1).enumerate() {
+        let record =
+            normalize_record_width(path_label, record, header_width, index + header_index + 2)?;
         let mut row = Map::new();
         for (idx, h) in header.iter().enumerate() {
             row.insert(
                 h.clone(),
-                Value::String(record.get(idx).unwrap_or("").to_string()),
+                Value::String(record.get(idx).cloned().unwrap_or_default()),
             );
         }
         rows.push(row);
@@ -68,17 +71,22 @@ pub fn value_to_cell(value: &Value) -> String {
     }
 }
 
-fn validate_record_width(
+fn normalize_record_width(
     path_label: &str,
-    record: &csv::StringRecord,
+    record: &[String],
     header_width: usize,
     line_number: usize,
-) -> AppResult<()> {
-    if record.len() == header_width {
-        return Ok(());
+) -> AppResult<Vec<String>> {
+    if is_blank_visible_empty_record(record) {
+        return Ok(vec![String::new(); header_width]);
     }
-    if record.len() < header_width && record.get(0).is_some_and(|cell| cell.starts_with('#')) {
-        return Ok(());
+    if record.len() == header_width {
+        return Ok(record.to_vec());
+    }
+    if record.len() < header_width && record.first().is_some_and(|cell| cell.starts_with('#')) {
+        let mut padded = record.to_vec();
+        padded.resize(header_width, String::new());
+        return Ok(padded);
     }
     Err(AppError::context(
         format!("解析 CSV 失败 ({path_label})"),
@@ -91,81 +99,151 @@ fn validate_record_width(
     ))
 }
 
-fn normalize_visible_empty_rows(text: &str) -> String {
-    let lines: Vec<&str> = text.lines().collect();
-    let Some((header_index, header)) = lines
-        .iter()
-        .enumerate()
-        .find(|(_, line)| !is_blank_visible_empty_line(line))
-    else {
-        return text.to_string();
-    };
-    let header_width = record_width(header).unwrap_or(0);
-    if header_width == 0 {
-        return text.to_string();
-    }
-    let empty_record = ",".repeat(header_width.saturating_sub(1));
-    let mut normalized = Vec::with_capacity(lines.len());
-    let mut in_quoted_record = false;
-    for (index, line) in lines.iter().enumerate() {
-        if index > header_index && !in_quoted_record && is_blank_visible_empty_line(line) {
-            normalized.push(empty_record.clone());
-        } else if index > header_index && !in_quoted_record && is_hash_single_cell_row(line) {
-            normalized.push(render_single_cell_row(line.trim(), header_width));
+fn parse_loose_records(path_label: &str, bytes: &[u8]) -> AppResult<Vec<Vec<String>>> {
+    let mut records = Vec::new();
+    let mut record = Vec::new();
+    let mut field = String::new();
+    let mut index = 0;
+    let mut in_quotes = false;
+    let mut at_field_start = true;
+    let mut record_has_content = false;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if in_quotes {
+            if byte == b'"' {
+                if bytes.get(index + 1) == Some(&b'"') {
+                    index += 2;
+                    field.push('"');
+                    continue;
+                } else if quote_closes_field(bytes.get(index + 1).copied()) {
+                    index += 1;
+                    in_quotes = false;
+                    continue;
+                } else {
+                    field.push('"');
+                    index += 1;
+                    continue;
+                }
+            } else if byte == b'\r' {
+                if bytes.get(index + 1) == Some(&b'\n') {
+                    index += 2;
+                    field.push_str("\r\n");
+                } else {
+                    index += 1;
+                    field.push('\r');
+                }
+            } else {
+                let ch = read_csv_text_char(path_label, bytes, &mut index)?;
+                field.push(ch);
+            }
+            continue;
+        }
+
+        if byte == b'"' && at_field_start {
+            index += 1;
+            in_quotes = true;
+            at_field_start = false;
+            record_has_content = true;
+        } else if byte == b',' {
+            index += 1;
+            record.push(std::mem::take(&mut field));
+            at_field_start = true;
+            record_has_content = true;
+        } else if byte == b'\r' {
+            index += 1;
+            if bytes.get(index) == Some(&b'\n') {
+                index += 1;
+            }
+            finish_record(
+                &mut records,
+                &mut record,
+                &mut field,
+                &mut at_field_start,
+                &mut record_has_content,
+            );
+        } else if byte == b'\n' {
+            index += 1;
+            finish_record(
+                &mut records,
+                &mut record,
+                &mut field,
+                &mut at_field_start,
+                &mut record_has_content,
+            );
         } else {
-            normalized.push((*line).to_string());
+            let ch = read_csv_text_char(path_label, bytes, &mut index)?;
+            field.push(ch);
+            at_field_start = false;
+            record_has_content = true;
         }
-        in_quoted_record = update_csv_quote_state(line, in_quoted_record);
     }
-    normalized.join("\r\n")
-}
-
-fn is_blank_visible_empty_line(line: &str) -> bool {
-    let trimmed = line.trim();
-    trimmed.is_empty() || trimmed.chars().all(|ch| ch == ',')
-}
-
-fn is_hash_single_cell_row(line: &str) -> bool {
-    let trimmed = line.trim();
-    trimmed.starts_with('#') && !trimmed.contains(',')
-}
-
-fn render_single_cell_row(first_cell: &str, header_width: usize) -> String {
-    let mut row = Vec::with_capacity(header_width);
-    row.push(first_cell.to_string());
-    row.resize(header_width, String::new());
-    row.join(",")
-}
-
-fn record_width(line: &str) -> Option<usize> {
-    let mut rdr = csv::ReaderBuilder::new()
-        .has_headers(false)
-        .flexible(true)
-        .from_reader(line.as_bytes());
-    rdr.records()
-        .next()
-        .and_then(Result::ok)
-        .map(|record| record.len())
-}
-
-fn update_csv_quote_state(line: &str, mut in_quotes: bool) -> bool {
-    let mut chars = line.chars().peekable();
-    while let Some(ch) = chars.next() {
-        if ch != '"' {
-            continue;
-        }
-        if in_quotes && chars.peek() == Some(&'"') {
-            chars.next();
-            continue;
-        }
-        in_quotes = !in_quotes;
+    if record_has_content || !field.is_empty() || !record.is_empty() {
+        record.push(field);
+        records.push(record);
     }
-    in_quotes
+    Ok(records)
+}
+
+fn quote_closes_field(byte: Option<u8>) -> bool {
+    matches!(byte, None | Some(b',') | Some(b'\r') | Some(b'\n'))
+}
+
+fn read_csv_text_char(path_label: &str, bytes: &[u8], index: &mut usize) -> AppResult<char> {
+    let byte = bytes[*index];
+    match byte {
+        0x91 | 0x92 => {
+            *index += 1;
+            Ok('\'')
+        }
+        0x93 | 0x94 => {
+            *index += 1;
+            Ok('"')
+        }
+        0x96 => {
+            *index += 1;
+            Ok('-')
+        }
+        0x00..=0x7f => {
+            *index += 1;
+            Ok(byte as char)
+        }
+        _ => {
+            let text = std::str::from_utf8(&bytes[*index..]).map_err(|error| {
+                AppError::message(format!("{path_label} is not valid UTF-8: {error}"))
+            })?;
+            let ch = text.chars().next().ok_or_else(|| {
+                AppError::message(format!("{path_label} is not valid UTF-8: empty sequence"))
+            })?;
+            *index += ch.len_utf8();
+            Ok(ch)
+        }
+    }
+}
+
+fn finish_record(
+    records: &mut Vec<Vec<String>>,
+    record: &mut Vec<String>,
+    field: &mut String,
+    at_field_start: &mut bool,
+    record_has_content: &mut bool,
+) {
+    record.push(std::mem::take(field));
+    records.push(std::mem::take(record));
+    *at_field_start = true;
+    *record_has_content = false;
+}
+
+fn is_blank_visible_empty_record(record: &[String]) -> bool {
+    record.iter().all(|field| field.trim().is_empty())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn parse_csv_text(path_label: &str, text: &str) -> AppResult<CsvTable> {
+        parse_csv_bytes(path_label, text.as_bytes())
+    }
 
     #[test]
     fn save_preserves_visible_empty_rows_from_rows() {
@@ -222,6 +300,26 @@ mod tests {
         assert_eq!(table.rows[0]["desc"], "first line\r\n\r\nthird line");
         assert_eq!(table.rows[1]["id"], "#section");
         assert_eq!(table.rows[2]["id"], "b");
+    }
+
+    #[test]
+    fn read_treats_inner_quotes_in_multiline_fields_as_text() {
+        let table = parse_csv_bytes(
+            "csv_multiline_inner_quotes.csv",
+            b"id,type,text1,text2,text3,text4,text5,notes\r\nmonitor,SHIP,\"An oddity that \x93sometimes\x94 works.\r\n\r\nA unique \x93flux shunt\x94 modification.\",,,,,\r\nheron,SHIP,\"A so-called \x93Cruiser School\x94, the forward-thinking design won.\",,,,,\r\n",
+        )
+        .unwrap();
+
+        assert_eq!(table.rows.len(), 2);
+        assert_eq!(table.rows[0]["id"], "monitor");
+        assert_eq!(
+            table.rows[0]["text1"],
+            "An oddity that \"sometimes\" works.\r\n\r\nA unique \"flux shunt\" modification."
+        );
+        assert_eq!(
+            table.rows[1]["text1"],
+            "A so-called \"Cruiser School\", the forward-thinking design won."
+        );
     }
 
     #[test]

@@ -1,7 +1,7 @@
-use crate::{errors::AppResult, models::CsvTable, parsers::parse_csv_text};
+use crate::{errors::AppResult, models::CsvTable};
 use std::path::Path;
 
-use super::read_utf8_no_bom;
+use super::read_text_bytes_no_bom;
 
 pub fn read_csv_data(path: &Path) -> AppResult<CsvTable> {
     if !path.exists() {
@@ -11,6 +11,6 @@ pub fn read_csv_data(path: &Path) -> AppResult<CsvTable> {
             path: path.to_string_lossy().to_string(),
         });
     }
-    let text = read_utf8_no_bom(path)?;
-    parse_csv_text(&path.to_string_lossy(), &text)
+    let bytes = read_text_bytes_no_bom(path)?;
+    crate::parsers::parse_csv_bytes(&path.to_string_lossy(), &bytes)
 }

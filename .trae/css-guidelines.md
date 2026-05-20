@@ -239,6 +239,9 @@
 - `.data-table td.dirty` 文字 `--color-warning`，背景 `--color-warning-bg`，内阴影 `inset 0 0 0 1px var(--color-warning-border)`。
 - `.cell-input` width 100%，height 20px，背景 `--color-panel`，border `1px solid var(--color-primary)`，圆角 `--radius-sm`，outline none，box-shadow `0 0 0 2px var(--color-primary-soft)`。
 - `.schema-cell-control` 在 CSV 表格内必须保持单行紧凑，高度固定 20px，多选 tag 不得换行撑高行高。
+- CSV 静态单元格和激活编辑 overlay 必须共用同一套几何规则：高度、padding、border、圆角、line-height 和 box-sizing 必须一致。
+- CSV 激活编辑 overlay 必须对齐单元格内部控件框，不能对齐 `td` 外框；选中、聚焦和编辑状态不得造成内容位移。
+- CSV 表格内的 Naive UI input、select、multi select、tag 必须由 `tables.css` 统一压缩到表格几何，不能继承导致行高、基线或控件位置变化的全局默认。
 - `.table-empty-note` padding 18px，字号 13px，颜色 `--color-warning`。
 
 ## Detail Pane

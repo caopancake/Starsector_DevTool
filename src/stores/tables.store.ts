@@ -20,6 +20,7 @@ export const TABLE_KEYS: TableKey[] = [
   'submarkets',
   'marketConditions',
   'simOpponents',
+  'descriptions',
 ];
 
 function emptyDirtyState(): Record<TableKey, Record<string, Record<string, string>>> {
@@ -37,6 +38,7 @@ function emptyDirtyState(): Record<TableKey, Record<string, Record<string, strin
     submarkets: {},
     marketConditions: {},
     simOpponents: {},
+    descriptions: {},
   };
 }
 
@@ -55,6 +57,7 @@ function emptyTablesRecord(): Record<TableKey, RowData[]> {
     submarkets: [],
     marketConditions: [],
     simOpponents: [],
+    descriptions: [],
   };
 }
 
