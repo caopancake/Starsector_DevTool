@@ -211,10 +211,16 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   }
 
   function openRequestedFileEditor(request: FileEditorRequest) {
-    void openFileEditorWindow(request);
+    void openFileEditorWindow({ ...request, settings: settings.settingsSnapshot() });
   }
 
-  function handleOpenOutcome(outcome: { type: string; modName?: string; availableModCount?: number; message?: string; warnings?: string[] }) {
+  function handleOpenOutcome(outcome: {
+    type: string;
+    modName?: string;
+    availableModCount?: number;
+    message?: string;
+    warnings?: string[];
+  }) {
     if (outcome.type === 'game-overview') {
       if (workspace.gameOverview?.starsectorRoot) settings.setStarsectorRoot(workspace.gameOverview.starsectorRoot);
       feedback.success(`游戏目录已扫描：${outcome.availableModCount ?? 0} 个 Mod`);
@@ -314,6 +320,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     return {
       modRoot: data.modRoot,
       id,
+      settings: settings.settingsSnapshot(),
       starsectorRoot: data.starsectorRoot ?? workspace.gameOverview?.starsectorRoot ?? settings.starsectorRoot,
     };
   }

@@ -21,6 +21,7 @@ import { sharedBoundaryRule } from './shared-boundary.mjs';
 import { schemaEditingBoundaryRule } from './schema-editing-boundary.mjs';
 import { userActionBoundaryRule } from './user-action-boundary.mjs';
 import { windowEventsBoundaryRule } from './window-events-boundary.mjs';
+import { structuralShapeBoundaryRule } from './structural-shape-boundary.mjs';
 
 export const rules = [
   sharedBoundaryRule,
@@ -46,4 +47,5 @@ export const rules = [
   rustSaveHistoryBoundaryRule,
   rustLowerLayerBoundaryRule,
   appDataSyncBoundaryRule,
+  structuralShapeBoundaryRule,
 ];

@@ -1,4 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
+import type { AppSettings } from '@/shared/types';
+
+export type { AppSettings };
 
 export interface AppLogEntry {
   level: string;
@@ -10,15 +13,6 @@ export interface AppLogEntry {
 export interface AppLogStatus {
   path: string;
   sizeBytes: number;
-}
-
-export interface AppSettings {
-  theme: string;
-  accent: string;
-  customAccent: string;
-  historyLimit: number;
-  editMode: string;
-  starsectorRoot: string;
 }
 
 export function appendAppLog(entry: AppLogEntry): Promise<void> {

@@ -34,7 +34,7 @@ export const architectureRulesSelfBoundaryRule = {
 };
 
 function usesConcreteSourcePathEquality(text) {
-  return /\b\w+\.rel\s*={2,3}\s*['"]src\/[^'"]+['"]|\brel\s*={2,3}\s*['"]src\/[^'"]+['"]/.test(text);
+  return /\b\w+\.rel\s*!?={1,2}\s*['"]src\/[^'"]+['"]|\brel\s*!?={1,2}\s*['"]src\/[^'"]+['"]/.test(text);
 }
 
 function usesConcretePathIdentity(text) {

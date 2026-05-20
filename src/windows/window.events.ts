@@ -1,5 +1,6 @@
 import type { RowData } from '@/shared/types';
 import type { FileChangeRecord } from '@/shared/api/files-api';
+import type { AppSettings } from '@/shared/types';
 import type { EditorWindowKind } from '@/windows/editor.window';
 
 export const WINDOW_EVENTS = {
@@ -8,6 +9,7 @@ export const WINDOW_EVENTS = {
   fileEditorFocusLine: 'file-editor-focus-line',
   fileEditorSaved: 'file-editor-saved',
   fileEditorTextApplied: 'file-editor-text-applied',
+  appSettingsChanged: 'app-settings-changed',
 } as const;
 
 export interface EditorSpecSavedEvent {
@@ -20,8 +22,11 @@ export interface EditorSpecSavedEvent {
 
 export type EditorSpecAppliedEvent = EditorSpecSavedEvent;
 
+export type FileEditorContextSeverity = 'error' | 'info';
+
 export interface FileEditorFocusLineEvent {
   contextLabel?: string | null;
+  contextSeverity?: FileEditorContextSeverity | null;
   line?: number | null;
   message?: string | null;
 }
@@ -35,3 +40,5 @@ export interface FileEditorTextAppliedEvent {
   path: string;
   text: string;
 }
+
+export type AppSettingsChangedEvent = AppSettings;

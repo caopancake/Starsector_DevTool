@@ -1,15 +1,21 @@
 import { openManagedWindow } from '@/windows/managed.window';
 import { WINDOW_EVENTS, type FileEditorFocusLineEvent } from '@/windows/window.events';
+import type { AppSettings } from '@/shared/types';
 
 export interface FileEditorRequest {
   path: string;
   title?: string;
   contextLabel?: string;
+  contextSeverity?: FileEditorFocusLineEvent['contextSeverity'];
   message?: string;
   line?: number;
 }
 
-export function openFileEditorWindow(request: FileEditorRequest): Promise<void> {
+export type OpenFileEditorWindowRequest = FileEditorRequest & {
+  settings: AppSettings;
+};
+
+export function openFileEditorWindow(request: OpenFileEditorWindowRequest): Promise<void> {
   return openManagedWindow({
     labelPrefix: 'file-editor',
     singletonKey: request.path,
@@ -19,8 +25,10 @@ export function openFileEditorWindow(request: FileEditorRequest): Promise<void> 
       file: request.path,
       title: request.title,
       contextLabel: request.contextLabel,
+      contextSeverity: request.contextSeverity,
       message: request.message,
       line: request.line,
+      settings: JSON.stringify(request.settings),
     },
     size: {
       width: 1040,
@@ -34,6 +42,7 @@ export function openFileEditorWindow(request: FileEditorRequest): Promise<void> 
         line: request.line ?? null,
         message: request.message ?? null,
         contextLabel: request.contextLabel ?? null,
+        contextSeverity: request.contextSeverity ?? null,
       } satisfies FileEditorFocusLineEvent,
     },
   });

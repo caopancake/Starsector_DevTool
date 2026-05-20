@@ -105,13 +105,16 @@ pub struct IndexedConfigEntityResult {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct VariantEntityPayload {
+pub struct ConfigFileEntityPayload {
     pub mod_root: String,
     pub previous_id: Option<String>,
     pub previous_rel_path: Option<String>,
     pub next_id: String,
     pub data: Value,
 }
+
+pub type VariantEntityPayload = ConfigFileEntityPayload;
+pub type SkinEntityPayload = ConfigFileEntityPayload;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -126,16 +129,6 @@ pub struct DeleteVariantEntityPayload {
 pub struct VariantEntityResult {
     pub changes: Vec<FileChangeRecord>,
     pub variant_file: crate::models::VariantFile,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SkinEntityPayload {
-    pub mod_root: String,
-    pub previous_id: Option<String>,
-    pub previous_rel_path: Option<String>,
-    pub next_id: String,
-    pub data: Value,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

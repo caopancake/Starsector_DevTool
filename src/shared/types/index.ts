@@ -8,6 +8,29 @@ export interface FactionMeta {
   color: string;
 }
 
+export interface AppSettings {
+  theme: string;
+  accent: string;
+  customAccent: string;
+  historyLimit: number;
+  editMode: string;
+  starsectorRoot: string;
+}
+
+export interface ConfigFileEntityPayload {
+  modRoot: string;
+  previousId?: string | null;
+  previousRelPath?: string | null;
+  nextId: string;
+  data: RowData;
+}
+
+export interface DiscoveredField {
+  key: string;
+  type: string;
+  origin: string;
+}
+
 export interface AppData {
   modRoot: string;
   starsectorRoot?: string;

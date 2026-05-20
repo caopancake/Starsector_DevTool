@@ -1,6 +1,7 @@
 import { computed, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
 import { darkTheme, lightTheme } from 'naive-ui';
+import type { AppSettings } from '@/shared/types';
 
 export type AppTheme = 'light' | 'dark';
 export type AccentPreset = 'blue' | 'orange' | 'green' | 'cyan' | 'pink' | 'purple' | 'gray' | 'custom';
@@ -14,7 +15,7 @@ export interface AccentTone {
 
 export const MAX_HISTORY_LIMIT = 100;
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
-let initialSettings: SettingsState | null = null;
+let initialSettings: AppSettings | null = null;
 
 export const ACCENT_PRESETS: AccentTone[] = [
   { name: '蓝', value: 'blue', hex: '#2563eb' },
@@ -35,49 +36,52 @@ function normalizeHex(value: string): string | null {
   return HEX_COLOR_RE.test(trimmed) ? trimmed.toLowerCase() : null;
 }
 
-export interface SettingsState {
-  theme: AppTheme;
-  accent: AccentPreset;
-  customAccent: string;
-  historyLimit: number;
-  editMode: EditMode;
-  starsectorRoot: string;
+export function initializeSettingsStore(settings: AppSettings): void {
+  assertValidSettings(settings);
+  initialSettings = settings;
 }
 
-export function initializeSettingsStore(settings: {
-  theme: string;
-  accent: string;
-  customAccent: string;
-  historyLimit: number;
-  editMode: string;
-  starsectorRoot: string;
-}): void {
-  const accent = settings.accent;
-  const customAccent = normalizeHex(settings.customAccent);
-  if (settings.theme !== 'light' && settings.theme !== 'dark') throw new Error(`Invalid app theme: ${settings.theme}`);
-  if (!isAccentPreset(accent)) throw new Error(`Invalid app accent: ${settings.accent}`);
-  if (!customAccent) throw new Error(`Invalid custom accent: ${settings.customAccent}`);
-  if (!Number.isFinite(settings.historyLimit) || settings.historyLimit < 1 || settings.historyLimit > MAX_HISTORY_LIMIT) {
-    throw new Error(`Invalid history limit: ${settings.historyLimit}`);
-  }
-  if (settings.editMode !== 'plain' && settings.editMode !== 'smart') throw new Error(`Invalid edit mode: ${settings.editMode}`);
-  initialSettings = {
-    theme: settings.theme,
-    accent,
-    customAccent,
-    historyLimit: Math.round(settings.historyLimit),
-    editMode: settings.editMode,
-    starsectorRoot: settings.starsectorRoot,
-  };
+function assertValidSettings(settings: AppSettings): void {
+  readTheme(settings.theme);
+  readAccent(settings.accent);
+  readCustomAccent(settings.customAccent);
+  readHistoryLimit(settings.historyLimit);
+  readEditMode(settings.editMode);
+}
+
+function readTheme(value: string): AppTheme {
+  if (value !== 'light' && value !== 'dark') throw new Error(`Invalid app theme: ${value}`);
+  return value;
+}
+
+function readAccent(value: string): AccentPreset {
+  if (!isAccentPreset(value)) throw new Error(`Invalid app accent: ${value}`);
+  return value;
+}
+
+function readCustomAccent(value: string): string {
+  const customAccent = normalizeHex(value);
+  if (!customAccent) throw new Error(`Invalid custom accent: ${value}`);
+  return customAccent;
+}
+
+function readHistoryLimit(value: number): number {
+  if (!Number.isFinite(value) || value < 1 || value > MAX_HISTORY_LIMIT) throw new Error(`Invalid history limit: ${value}`);
+  return Math.round(value);
+}
+
+function readEditMode(value: string): EditMode {
+  if (value !== 'plain' && value !== 'smart') throw new Error(`Invalid edit mode: ${value}`);
+  return value;
 }
 
 export const useSettingsStore = defineStore('settings', () => {
   if (!initialSettings) throw new Error('Settings store used before initialization');
-  const theme = ref<AppTheme>(initialSettings.theme);
-  const accent = ref<AccentPreset>(initialSettings.accent);
-  const customAccent = ref(initialSettings.customAccent);
-  const historyLimit = ref(initialSettings.historyLimit);
-  const editMode = ref<EditMode>(initialSettings.editMode);
+  const theme = ref<AppTheme>(readTheme(initialSettings.theme));
+  const accent = ref<AccentPreset>(readAccent(initialSettings.accent));
+  const customAccent = ref(readCustomAccent(initialSettings.customAccent));
+  const historyLimit = ref(readHistoryLimit(initialSettings.historyLimit));
+  const editMode = ref<EditMode>(readEditMode(initialSettings.editMode));
   const starsectorRoot = ref(initialSettings.starsectorRoot);
   const naiveTheme = computed(() => (theme.value === 'dark' ? darkTheme : lightTheme));
   const isDark = computed(() => theme.value === 'dark');
@@ -130,6 +134,15 @@ export const useSettingsStore = defineStore('settings', () => {
       editMode: editMode.value,
       starsectorRoot: starsectorRoot.value,
     };
+  }
+
+  function replaceSettings(settings: AppSettings) {
+    theme.value = readTheme(settings.theme);
+    accent.value = readAccent(settings.accent);
+    customAccent.value = readCustomAccent(settings.customAccent);
+    historyLimit.value = readHistoryLimit(settings.historyLimit);
+    editMode.value = readEditMode(settings.editMode);
+    starsectorRoot.value = settings.starsectorRoot;
   }
 
   watch(
@@ -307,6 +320,7 @@ export const useSettingsStore = defineStore('settings', () => {
     setStarsectorRoot,
     setTheme,
     toggleTheme,
+    replaceSettings,
     settingsSnapshot,
   };
 });

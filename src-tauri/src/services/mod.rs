@@ -1,8 +1,11 @@
 pub mod app_config;
+pub mod app_log;
 pub mod app_paths;
+pub mod app_settings;
 pub mod config;
 pub mod editor_specs;
 pub mod file_changes;
 pub mod project;
+pub mod system_open;
 pub mod tables;
 pub mod workspace;

@@ -2,7 +2,10 @@ use crate::{
     domain::config::{build_variant_file, validate_config_id, variant_rel_path},
     errors::{AppError, AppResult},
     io::strip_internal_fields,
-    models::{DeleteVariantEntityPayload, VariantEntityPayload, VariantEntityResult},
+    models::{
+        ConfigFileEntityPayload, DeleteVariantEntityPayload, VariantEntityPayload,
+        VariantEntityResult,
+    },
     services::file_changes::FileChangeSetBuilder,
 };
 use std::path::Path;
@@ -47,7 +50,7 @@ pub fn save_variant_entity(input: VariantEntityPayload) -> AppResult<VariantEnti
 }
 
 pub fn create_variant_entity(input: VariantEntityPayload) -> AppResult<VariantEntityResult> {
-    save_variant_entity(VariantEntityPayload {
+    save_variant_entity(ConfigFileEntityPayload {
         previous_id: None,
         previous_rel_path: None,
         ..input
@@ -87,7 +90,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = save_variant_entity(VariantEntityPayload {
+        let result = save_variant_entity(ConfigFileEntityPayload {
             mod_root: root.to_string_lossy().to_string(),
             previous_id: Some("old".to_string()),
             previous_rel_path: Some("data/variants/old.variant".to_string()),

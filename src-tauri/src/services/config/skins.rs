@@ -2,7 +2,9 @@ use crate::{
     domain::config::{build_skin_file, skin_rel_path, validate_config_id},
     errors::{AppError, AppResult},
     io::strip_internal_fields,
-    models::{DeleteSkinEntityPayload, SkinEntityPayload, SkinEntityResult},
+    models::{
+        ConfigFileEntityPayload, DeleteSkinEntityPayload, SkinEntityPayload, SkinEntityResult,
+    },
     services::file_changes::FileChangeSetBuilder,
 };
 use std::path::Path;
@@ -44,7 +46,7 @@ pub fn save_skin_entity(input: SkinEntityPayload) -> AppResult<SkinEntityResult>
 }
 
 pub fn create_skin_entity(input: SkinEntityPayload) -> AppResult<SkinEntityResult> {
-    save_skin_entity(SkinEntityPayload {
+    save_skin_entity(ConfigFileEntityPayload {
         previous_id: None,
         previous_rel_path: None,
         ..input
@@ -84,7 +86,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = save_skin_entity(SkinEntityPayload {
+        let result = save_skin_entity(ConfigFileEntityPayload {
             mod_root: root.to_string_lossy().to_string(),
             previous_id: Some("old".to_string()),
             previous_rel_path: Some("data/hulls/skins/old.skin".to_string()),

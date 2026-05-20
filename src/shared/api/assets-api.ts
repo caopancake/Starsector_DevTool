@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { FileChangeRecord } from '@/shared/api/files-api';
+import type { DiscoveredField } from '@/shared/types';
 
 export interface UploadResult {
   ok: boolean;
@@ -22,12 +23,6 @@ export function uploadSprite(
 
 export function loadImageDataUrl(modRoot: string, relPath: string, starsectorRoot?: string): Promise<string | null> {
   return invoke('load_image_data_url', { modRoot, relPath, starsectorRoot: starsectorRoot ?? null });
-}
-
-export interface DiscoveredField {
-  key: string;
-  type: string;
-  origin: string;
 }
 
 export function scanCoreFields(starsectorRoot: string): Promise<Record<string, DiscoveredField[]>> {

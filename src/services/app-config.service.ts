@@ -55,5 +55,3 @@ export function loadSettings(): Promise<AppSettings> {
 export function saveSettings(settings: AppSettings): Promise<void> {
   return saveAppSettings(settings);
 }
-
-export type PersistedAppSettings = AppSettings;

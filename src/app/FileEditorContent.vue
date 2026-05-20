@@ -11,7 +11,7 @@
       </div>
     </header>
 
-    <section v-if="contextMessage" class="file-editor-message">
+    <section v-if="contextMessage" :class="['file-editor-message', { danger: isErrorContext }]">
       <span>{{ contextLabel }}</span>
       <p>{{ contextMessage }}</p>
     </section>
@@ -61,6 +61,7 @@ const feedback = useAppFeedback();
 const filePath = params.get('file') ?? '';
 const title = ref(params.get('title') ?? '文件编辑器');
 const contextLabel = ref(params.get('contextLabel') ?? '信息');
+const contextSeverity = ref(params.get('contextSeverity') ?? 'info');
 const contextMessage = ref(params.get('message') ?? '');
 const targetLine = ref(normalizeLine(params.get('line')));
 const text = ref('');
@@ -78,6 +79,7 @@ const dirty = computed(() => text.value !== originalText.value);
 const lineCount = computed(() => Math.max(1, text.value.split(/\r\n|\r|\n/).length));
 const canUndo = computed(() => undoStack.value.length > 0);
 const canRedo = computed(() => redoStack.value.length > 0);
+const isErrorContext = computed(() => contextSeverity.value === 'error');
 
 function normalizeLine(value: string | null): number | undefined {
   if (!value) return undefined;
@@ -207,6 +209,7 @@ onMounted(() => {
   void listenFileEditorFocusLine(async (payload) => {
     if (payload.message) contextMessage.value = payload.message;
     if (payload.contextLabel) contextLabel.value = payload.contextLabel;
+    if (payload.contextSeverity) contextSeverity.value = payload.contextSeverity;
     if (payload.line) targetLine.value = payload.line;
     await nextTick();
     scrollToTargetLine();

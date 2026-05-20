@@ -67,8 +67,4 @@ export interface FileSchema {
   fields?: FieldSchema[];
 }
 
-export interface DiscoveredField {
-  key: string;
-  type: string;
-  origin: string;
-}
+export type { DiscoveredField } from '@/shared/types';

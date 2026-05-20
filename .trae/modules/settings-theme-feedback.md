@@ -9,6 +9,7 @@
 - `src/stores/settings.store.ts` 持有主题、历史限制、Starsector root 等内存设置。
 - `src/stores/settings.store.ts` 也持有全局编辑模式；编辑模式影响 CSV 表格、schema 表单和引用型编辑入口的呈现。
 - `src/orchestrators/settings-persistence.orchestrator.ts` 负责把设置加载和保存到 app data 配置目录。
+- 主窗口是 settings 运行态权威；独立窗口只能从打开参数和主窗口广播接收 settings snapshot。
 - `src/app/app-feedback.ts` 提供唯一的 `AppFeedback` 入口。
 - `src/app/App.vue` 提供 Naive UI provider 和 theme overrides。
 - `src/app/components/SettingsPage.vue` 渲染设置页面。
@@ -19,6 +20,7 @@
 
 - 业务代码不得直接使用 Naive UI 的 message、dialog 或 discrete api。
 - 浏览器 storage 不得用于持久化设置；设置必须走 app data 配置目录。
+- 只有主窗口 bootstrap 可以读取 settings 配置；独立窗口不得读取配置文件、不得自行决定默认值。
 - 组件内反馈必须通过 `useAppFeedback()` 获取。
 - 非组件流程必须接收 `AppFeedback` 参数，不得分别传递 message 和 dialog。
 - 危险确认、覆盖确认、关闭确认和文件历史回放确认必须走 `AppFeedback` 的 confirm 方法。

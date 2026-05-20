@@ -6,6 +6,7 @@ import { extractFileReferenceFromError, formatError } from '@/shared/lib/errors'
 import type { AppFeedback, ConfirmOptions } from '@/shared/types/feedback.types';
 import { openFileEditorWindow } from '@/windows/file-editor.window';
 import { recordLogSilently } from '@/services/app-config.service';
+import { useSettingsStore } from '@/stores/settings.store';
 
 export function createAppFeedback(message: MessageApiInjection, dialog: DialogApiInjection): AppFeedback {
   return {
@@ -62,8 +63,10 @@ function showError(message: MessageApiInjection, error: unknown, fallback?: stri
                   void openFileEditorWindow({
                     path: reference.path,
                     line: reference.line,
+                    settings: useSettingsStore().settingsSnapshot(),
                     title: '文件编辑器',
                     contextLabel: '错误',
+                    contextSeverity: 'error',
                     message: reference.message,
                   }),
               },

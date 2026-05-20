@@ -1,4 +1,5 @@
 import { openManagedWindow, type ManagedWindowSize } from '@/windows/managed.window';
+import type { AppSettings } from '@/shared/types';
 export type { EditorSpecSavedEvent } from '@/windows/window.events';
 
 export type EditorWindowKind = 'ship' | 'weapon' | 'projectile' | 'weapon-preview';
@@ -7,6 +8,7 @@ export interface EditorWindowRequest {
   kind: EditorWindowKind;
   modRoot: string;
   id: string;
+  settings: AppSettings;
   starsectorRoot?: string | null;
   title?: string;
 }
@@ -34,6 +36,7 @@ export async function openEditorWindow(request: EditorWindowRequest): Promise<vo
       kind: request.kind,
       modRoot: request.modRoot,
       id: request.id,
+      settings: JSON.stringify(request.settings),
       starsectorRoot: request.starsectorRoot,
     },
     size: windowSize(request.kind),

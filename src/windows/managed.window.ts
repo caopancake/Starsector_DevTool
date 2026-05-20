@@ -35,6 +35,7 @@ export async function openManagedWindow(request: ManagedWindowRequest): Promise<
   const label = `${request.labelPrefix}-${hashWindowKey(normalizeWindowKey(request.singletonKey))}`;
   const existing = await WebviewWindow.getByLabel(label);
   if (existing) {
+    await existing.show();
     await existing.setFocus();
     if (request.focusEvent) await existing.emit(request.focusEvent.name, request.focusEvent.payload);
     return;
@@ -48,6 +49,7 @@ export async function openManagedWindow(request: ManagedWindowRequest): Promise<
   new WebviewWindow(label, {
     url: `/?${query.toString()}`,
     title: request.title,
+    visible: false,
     ...request.size,
   });
 }

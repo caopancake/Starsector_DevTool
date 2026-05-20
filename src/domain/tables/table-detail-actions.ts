@@ -9,9 +9,9 @@ export type TableDetailAction =
   | { type: 'weapon-preview'; id: string };
 
 export function fileEditorActionForRow(modRoot: string, table: TableKey, row: RowData | null | undefined): TableDetailAction | null {
-    if (!row) return null;
-    if (isCsvCommentRow(row, table)) return null;
-    const id = rowSpecId(row, table);
+  if (!row) return null;
+  if (isCsvCommentRow(row, table)) return null;
+  const id = rowSpecId(row, table);
   if (!id) return null;
   if (table === 'ships') return specFileAction(modRoot, ['data', 'hulls', `${id}.ship`], `${id}.ship`);
   if (table === 'weapons') return specFileAction(modRoot, ['data', 'weapons', `${id}.wpn`], `${id}.wpn`);

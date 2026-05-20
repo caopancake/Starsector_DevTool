@@ -1,14 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { RowData, VariantFile } from '@/shared/types';
+import type { ConfigFileEntityPayload, VariantFile } from '@/shared/types';
 import type { FileChangeRecord } from '@/shared/api/files-api';
 
-export interface VariantEntityPayload {
-  modRoot: string;
-  previousId?: string | null;
-  previousRelPath?: string | null;
-  nextId: string;
-  data: RowData;
-}
+export type VariantEntityPayload = ConfigFileEntityPayload;
 
 export interface DeleteVariantEntityPayload {
   modRoot: string;

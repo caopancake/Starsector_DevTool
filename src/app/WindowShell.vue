@@ -12,9 +12,9 @@
 import { computed } from 'vue';
 import { useSettingsStore } from '@/stores/settings.store';
 import { buildThemeOverrides } from '@/app/theme-overrides';
-import { startSettingsPersistence } from '@/orchestrators/settings-persistence.orchestrator';
+import { startSettingsMirror } from '@/orchestrators/settings-persistence.orchestrator';
 
 const settings = useSettingsStore();
-startSettingsPersistence();
+startSettingsMirror();
 const themeOverrides = computed(() => buildThemeOverrides(settings));
 </script>

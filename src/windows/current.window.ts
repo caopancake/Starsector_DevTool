@@ -30,3 +30,7 @@ export async function closeCurrentWebviewWindow(): Promise<void> {
 export async function reloadCurrentWebviewWindow(): Promise<void> {
   window.location.reload();
 }
+
+export async function showCurrentWindow(): Promise<void> {
+  await appWindow.show();
+}

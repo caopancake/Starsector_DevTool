@@ -10,6 +10,7 @@
 - 以 CRLF 作为换行符。
 - 一切文件编辑只允许 `apply_patch`。
 - 禁止用 Python、PowerShell、shell 重定向、Set-Content 或任何脚本写入、重写、生成或批量改写文件内容。
+- 允许运行项目标准格式化命令 `npm.cmd run format`，因为 Prettier 规范化属于格式验收链路。
 
 ## 改动前
 
@@ -48,6 +49,7 @@
 npm install
 npm.cmd run typecheck
 npm.cmd run lint
+npm.cmd run format
 npm.cmd run format:check
 npm.cmd run encoding:check
 cargo test --manifest-path src-tauri\Cargo.toml
@@ -77,6 +79,7 @@ src-tauri\target\release\starsector-devtool.exe
 3. 后端改动运行 Rust test、clippy、fmt check。
 4. 静态检查脚本改动必须运行 `lint`。
 5. 跨前后端改动运行前端和后端验证。
+6. 忽略实际改动范围，总是全仓验证。
 
 验收目标：
 

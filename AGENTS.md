@@ -9,6 +9,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 - Get-Content 必须带 -Encoding utf8 参数
 - 一切文件编辑只允许 `apply_patch`
 - 禁止用 Python、PowerShell、shell 重定向、Set-Content 或任何脚本写入、重写、生成或批量改写文件内容
+- 允许运行项目标准格式化命令 `npm.cmd run format`，因为 Prettier 规范化属于格式验收链路
 - 本小节不得简化，不得删改，必须严格遵守
 
 ## 读取顺序
@@ -61,6 +62,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 - 安装依赖：`npm install`
 - 前端类型检查：`npm.cmd run typecheck`
 - 前端规范：`npm.cmd run lint`
+- 前端格式化：`npm.cmd run format`
 - 前端格式检查：`npm.cmd run format:check`
 - 编码检查：`npm.cmd run encoding:check`
 - 前端构建：`npm.cmd run build`

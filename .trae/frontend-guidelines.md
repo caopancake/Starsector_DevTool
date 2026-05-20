@@ -41,6 +41,7 @@
 - API adapter 只封装 Tauri command/event 的调用形状，不包含业务决策。
 - `shared` 工具不得反向依赖任何上层应用目录。
 - 持久化应用设置必须走 app data 配置服务，禁止使用浏览器 storage。
+- 主窗口是应用设置运行态权威；独立窗口只能接收主窗口传入和广播的 settings snapshot，不得读取配置或自行补默认值。
 
 ## 工作区与状态
 
