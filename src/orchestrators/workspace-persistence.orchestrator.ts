@@ -4,11 +4,13 @@ import { loadWorkspace, saveWorkspace } from '@/shared/api/workspace-api';
 import { cell, formatModVersion } from '@/shared/lib/starsector';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { restoreWorkspaceMod } from '@/orchestrators/open-directory.orchestrator';
+import { formatLoadWarnings } from '@/domain/project/load-warnings';
 
 interface RestoreWorkspaceOptions {
   fallbackStarsectorRoot: string | null;
   loadCoreFields?: () => void | Promise<void>;
   onModRestoreError: (modRoot: string, displayName: string, error: unknown) => void;
+  onModRestoreWarnings?: (displayName: string, warnings: string[]) => void;
 }
 
 export function watchWorkspacePersistence() {
@@ -55,6 +57,10 @@ export async function restorePersistedWorkspace(options: RestoreWorkspaceOptions
       const version = formatModVersion(loaded.modInfo?.version) || mod.version;
       workspace.updateModInfo(mod.modRoot, name, version);
       workspace.updateModStatus(mod.modRoot, 'ready');
+      const warnings = formatLoadWarnings(loaded);
+      if (warnings.length > 0) {
+        options.onModRestoreWarnings?.(name, warnings);
+      }
     } catch (error) {
       options.onModRestoreError(mod.modRoot, mod.displayName || mod.modRoot, error);
     }

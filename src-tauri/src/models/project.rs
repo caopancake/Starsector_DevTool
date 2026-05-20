@@ -72,6 +72,7 @@ pub struct AppData {
     pub submarket_sprites: BTreeMap<String, String>,
     pub market_condition_sprites: BTreeMap<String, String>,
     pub core_references: CoreReferences,
+    pub warnings: Vec<GameScanWarning>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]

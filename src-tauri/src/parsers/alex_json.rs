@@ -6,6 +6,7 @@ use std::sync::OnceLock;
 static TRAILING_COMMA_RE: OnceLock<Regex> = OnceLock::new();
 static UNQUOTED_KEY_RE: OnceLock<Regex> = OnceLock::new();
 static UNQUOTED_VALUE_RE: OnceLock<Regex> = OnceLock::new();
+static BOOL_LITERAL_RE: OnceLock<Regex> = OnceLock::new();
 static LEADING_DOT_NUMBER_RE: OnceLock<Regex> = OnceLock::new();
 static FLOAT_SUFFIX_RE: OnceLock<Regex> = OnceLock::new();
 
@@ -19,6 +20,9 @@ pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
     // Matches unquoted identifier values (after : or , or [ that are NOT true/false/null/numbers)
     let value_re = UNQUOTED_VALUE_RE.get_or_init(|| {
         Regex::new(r#"(?m)([:,\[]\s*)([A-Z][A-Z0-9_]*)\b"#).expect("valid unquoted value regex")
+    });
+    let bool_literal_re = BOOL_LITERAL_RE.get_or_init(|| {
+        Regex::new(r#"(?m)([:,\[]\s*)(True|TRUE|False|FALSE)\b"#).expect("valid bool literal regex")
     });
 
     // Matches Starsector-style leading-dot decimals after JSON separators: .5, -.5, .0f.
@@ -47,6 +51,15 @@ pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
     // Faction and spec files may omit quotes around object keys, for example `id:"hegemony"`.
     cleaned = replace_outside_strings(&cleaned, |segment| {
         key_re.replace_all(segment, "$1\"$2\":").to_string()
+    });
+
+    // Some weapon specs use Python/Java-like boolean spelling; strict JSON only accepts lowercase.
+    cleaned = replace_outside_strings(&cleaned, |segment| {
+        bool_literal_re
+            .replace_all(segment, |captures: &regex::Captures| {
+                format!("{}{}", &captures[1], captures[2].to_ascii_lowercase())
+            })
+            .to_string()
     });
 
     // Quote unquoted ALL_CAPS identifier values (enum-like values in Starsector)
@@ -335,6 +348,10 @@ mod tests {
         let text = r#"{
             "id": "TEST_WEAPON",
             "enabled": true,
+            "decorative": TRUE,
+            "visible": True,
+            "disabled": FALSE,
+            "hidden": False,
             "count": 42,
             "type": "BALLISTIC",
             "name": "重生[UNGP]",
@@ -344,6 +361,10 @@ mod tests {
         let parsed = parse_starsector_json(text).unwrap();
         assert_eq!(parsed["id"], "TEST_WEAPON");
         assert_eq!(parsed["enabled"], true);
+        assert_eq!(parsed["decorative"], true);
+        assert_eq!(parsed["visible"], true);
+        assert_eq!(parsed["disabled"], false);
+        assert_eq!(parsed["hidden"], false);
         assert_eq!(parsed["count"], 42);
         assert_eq!(parsed["type"], "BALLISTIC");
         assert_eq!(parsed["name"], "重生[UNGP]");
@@ -373,11 +394,13 @@ mod tests {
         let text = r#"{
             "id": "gun",
             "barrelMode": ALTERNATING,
+            "textureType": ROUGH,
             "size": "LARGE"
         }"#;
         let parsed = parse_starsector_json(text).unwrap();
         assert_eq!(parsed["id"], "gun");
         assert_eq!(parsed["barrelMode"], "ALTERNATING");
+        assert_eq!(parsed["textureType"], "ROUGH");
         assert_eq!(parsed["size"], "LARGE");
     }
 

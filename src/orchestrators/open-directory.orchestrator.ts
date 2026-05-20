@@ -8,12 +8,14 @@ import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { useTablesStore } from '@/stores/tables.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { loadProject } from '@/services/project.service';
+import { formatLoadWarnings } from '@/domain/project/load-warnings';
 
 export interface OpenDirectoryOutcome {
   type: 'game-overview' | 'mod-loaded' | 'unknown' | 'already-loaded';
   modName?: string;
   availableModCount?: number;
   message?: string;
+  warnings?: string[];
 }
 
 export async function openDetectedDirectory(path: string, fallbackStarsectorRoot: string | null): Promise<OpenDirectoryOutcome> {
@@ -32,14 +34,14 @@ export async function openDetectedDirectory(path: string, fallbackStarsectorRoot
     const loaded = await loadWorkspaceMod(detected.modRoot, detected.starsectorRoot ?? null, true);
     return loaded.alreadyLoaded
       ? { type: 'already-loaded', modName: loaded.displayName }
-      : { type: 'mod-loaded', modName: loaded.displayName };
+      : { type: 'mod-loaded', modName: loaded.displayName, warnings: loaded.warnings };
   }
 
   if (detected.kind === 'external-mod' && detected.modRoot) {
     const loaded = await loadWorkspaceMod(detected.modRoot, detected.starsectorRoot ?? null, false);
     return loaded.alreadyLoaded
       ? { type: 'already-loaded', modName: loaded.displayName }
-      : { type: 'mod-loaded', modName: loaded.displayName };
+      : { type: 'mod-loaded', modName: loaded.displayName, warnings: loaded.warnings };
   }
 
   return { type: 'unknown', message: detected.warnings[0]?.message ?? '未识别该目录' };
@@ -51,7 +53,7 @@ export async function loadModFromOverview(modRoot: string): Promise<OpenDirector
   const loaded = await loadWorkspaceMod(modRoot, starsectorRoot, true);
   return loaded.alreadyLoaded
     ? { type: 'already-loaded', modName: loaded.displayName }
-    : { type: 'mod-loaded', modName: loaded.displayName };
+    : { type: 'mod-loaded', modName: loaded.displayName, warnings: loaded.warnings };
 }
 
 export async function restoreWorkspaceMod(mod: PersistedMod, starsectorRoot: string | null): Promise<AppData> {
@@ -80,7 +82,7 @@ async function loadWorkspaceMod(modRoot: string, starsectorRoot: string | null, 
     const displayName = updateLoadedEntry(modRoot, loaded);
     hydrateLoadedMod(modRoot, loaded, true);
     if (stayOnOverview) workspace.navigateTo('overview');
-    return { alreadyLoaded: false, displayName };
+    return { alreadyLoaded: false, displayName, warnings: formatLoadWarnings(loaded) };
   } catch (error) {
     rollbackFailedModLoad(modRoot);
     throw error;

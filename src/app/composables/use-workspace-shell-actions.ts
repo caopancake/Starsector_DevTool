@@ -64,6 +64,11 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
           removeMod(modRoot, false);
           feedback.error(error, `恢复 ${displayName} 失败`);
         },
+        onModRestoreWarnings: (displayName, warnings) => {
+          for (const warning of warnings) {
+            feedback.warning(`${displayName}：${warning}`);
+          }
+        },
       });
     } catch {
       // Damaged workspace state is treated as a blank startup.
@@ -204,13 +209,16 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     void openFileEditorWindow(request);
   }
 
-  function handleOpenOutcome(outcome: { type: string; modName?: string; availableModCount?: number; message?: string }) {
+  function handleOpenOutcome(outcome: { type: string; modName?: string; availableModCount?: number; message?: string; warnings?: string[] }) {
     if (outcome.type === 'game-overview') {
       if (workspace.gameOverview?.starsectorRoot) settings.setStarsectorRoot(workspace.gameOverview.starsectorRoot);
       feedback.success(`游戏目录已扫描：${outcome.availableModCount ?? 0} 个 Mod`);
     } else if (outcome.type === 'mod-loaded') {
       if (workspace.gameOverview?.starsectorRoot) settings.setStarsectorRoot(workspace.gameOverview.starsectorRoot);
       feedback.success(`Mod 已导入：${outcome.modName ?? 'Mod'}`);
+      for (const warning of outcome.warnings ?? []) {
+        feedback.warning(warning);
+      }
     } else if (outcome.type === 'already-loaded') {
       feedback.info('该 Mod 已在工作区中');
     } else {

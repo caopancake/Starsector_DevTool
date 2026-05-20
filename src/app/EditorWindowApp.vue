@@ -77,6 +77,8 @@ import WindowShell from '@/app/WindowShell.vue';
 import { closeCurrentWindow } from '@/windows/current.window';
 import { WINDOW_EVENTS } from '@/windows/window.events';
 import { emitWindowEvent, listenWindowEvent, type UnlistenFn } from '@/windows/tauri.events';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
+import { formatLoadWarnings } from '@/domain/project/load-warnings';
 
 const params = new window.URLSearchParams(window.location.search);
 const kind = ref<EditorWindowKind>(parseKind(params.get('kind')));
@@ -87,6 +89,7 @@ const appData = ref<AppData | null>(null);
 const loading = ref(true);
 const errorText = ref('');
 const settings = useSettingsStore();
+const feedback = useAppFeedback();
 let unlistenEditorSpecApplied: UnlistenFn | null = null;
 
 const weaponForEditor = computed<RowData>(() => {
@@ -121,7 +124,11 @@ async function loadEditorData() {
     return;
   }
   try {
-    appData.value = await loadProject(modRoot, starsectorRoot);
+    const loaded = await loadProject(modRoot, starsectorRoot);
+    appData.value = loaded;
+    for (const warning of formatLoadWarnings(loaded)) {
+      feedback.warning(warning);
+    }
   } catch (error) {
     errorText.value = formatError(error);
   } finally {

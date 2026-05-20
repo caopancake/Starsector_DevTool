@@ -28,6 +28,7 @@ struct SpecBundle {
     proj_files: BTreeMap<String, Value>,
     system_files: BTreeMap<String, Value>,
     skill_files: BTreeMap<String, Value>,
+    warnings: Vec<GameScanWarning>,
 }
 
 struct SpriteBundle {
@@ -213,6 +214,7 @@ pub fn load_mod_data_with_root(
         submarket_sprites: sprite_bundle.submarket_sprites,
         market_condition_sprites: sprite_bundle.market_condition_sprites,
         core_references,
+        warnings: spec_bundle.warnings,
     })
 }
 
@@ -229,9 +231,10 @@ pub fn load_mod_data_with_root_for_command(
 fn load_spec_bundle(mod_root: &Path, core_dir: Option<&Path>) -> AppResult<SpecBundle> {
     let ship_files = load_json_dir_by_id(&mod_root.join("data/hulls"), "ship", "hullId")?;
     let wpn_files = load_json_dir_by_id(&mod_root.join("data/weapons"), "wpn", "id")?;
-    let variant_files = load_variant_files(mod_root)?;
+    let (variant_files, variant_warnings) = load_variant_files(mod_root)?;
     let variants = group_variants_by_hull(&variant_files);
-    let skin_files = load_skin_files(mod_root)?;
+    let (skin_files, skin_warnings) = load_skin_files(mod_root)?;
+    let warnings = variant_warnings.into_iter().chain(skin_warnings).collect();
     Ok(SpecBundle {
         ship_files,
         variants,
@@ -241,6 +244,7 @@ fn load_spec_bundle(mod_root: &Path, core_dir: Option<&Path>) -> AppResult<SpecB
         proj_files: projectiles::load_projectile_files(mod_root, core_dir)?,
         system_files: load_json_dir_by_id(&mod_root.join("data/shipsystems"), "system", "id")?,
         skill_files: load_json_dir_by_id(&mod_root.join("data/characters/skills"), "skill", "id")?,
+        warnings,
     })
 }
 
@@ -310,8 +314,8 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
     let tables = load_core_reference_tables(core_dir)?;
     let ship_files = load_json_dir_by_id(&core_dir.join("data/hulls"), "ship", "hullId")?;
     let wpn_files = load_json_dir_by_id(&core_dir.join("data/weapons"), "wpn", "id")?;
-    let variant_files = load_variant_files(core_dir)?;
-    let skin_files = load_skin_files(core_dir)?;
+    let (variant_files, _) = load_variant_files(core_dir)?;
+    let (skin_files, _) = load_skin_files(core_dir)?;
     let empty: &[Map<String, Value>] = &[];
     let hullmods = tables.get("hullmods").map(Vec::as_slice).unwrap_or(empty);
     let industries = tables.get("industries").map(Vec::as_slice).unwrap_or(empty);
@@ -616,13 +620,14 @@ fn count_mission_list_entries(mod_root: &Path) -> usize {
         .unwrap_or(0)
 }
 
-fn load_variant_files(mod_root: &Path) -> AppResult<Vec<VariantFile>> {
+fn load_variant_files(mod_root: &Path) -> AppResult<(Vec<VariantFile>, Vec<GameScanWarning>)> {
     let dir = mod_root.join("data/variants");
     if !dir.exists() {
-        return Ok(vec![]);
+        return Ok((vec![], vec![]));
     }
     let mut seen = HashMap::new();
     let mut files = Vec::new();
+    let mut warnings = Vec::new();
     for entry in walkdir::WalkDir::new(&dir).into_iter() {
         let entry = entry.map_err(|error| {
             crate::errors::AppError::context(
@@ -641,19 +646,14 @@ fn load_variant_files(mod_root: &Path) -> AppResult<Vec<VariantFile>> {
         if let Some(previous) =
             seen.insert(file.variant_id.clone(), path.to_string_lossy().to_string())
         {
-            if is_temporary_core_kite_interceptor_duplicate(
-                mod_root,
-                path,
-                &previous,
-                &file.variant_id,
-            ) {
-                continue;
-            }
-            return Err(crate::errors::AppError::message(format!(
-                "重复 variantId {}: {previous} 和 {}",
-                file.variant_id,
-                path.display()
-            )));
+            warnings.push(GameScanWarning {
+                path: path.to_string_lossy().to_string(),
+                message: format!(
+                    "重复 variantId {}，已保留第一个文件并跳过后续文件：{previous}",
+                    file.variant_id
+                ),
+            });
+            continue;
         }
         files.push(file);
     }
@@ -662,16 +662,17 @@ fn load_variant_files(mod_root: &Path) -> AppResult<Vec<VariantFile>> {
             .cmp(&b.hull_id)
             .then_with(|| a.variant_id.cmp(&b.variant_id))
     });
-    Ok(files)
+    Ok((files, warnings))
 }
 
-fn load_skin_files(mod_root: &Path) -> AppResult<Vec<SkinFile>> {
+fn load_skin_files(mod_root: &Path) -> AppResult<(Vec<SkinFile>, Vec<GameScanWarning>)> {
     let dir = mod_root.join("data/hulls/skins");
     if !dir.exists() {
-        return Ok(vec![]);
+        return Ok((vec![], vec![]));
     }
     let mut seen = HashMap::new();
     let mut files = Vec::new();
+    let mut warnings = Vec::new();
     for entry in walkdir::WalkDir::new(&dir).into_iter() {
         let entry = entry.map_err(|error| {
             crate::errors::AppError::context(
@@ -691,11 +692,14 @@ fn load_skin_files(mod_root: &Path) -> AppResult<Vec<SkinFile>> {
             file.skin_hull_id.clone(),
             path.to_string_lossy().to_string(),
         ) {
-            return Err(crate::errors::AppError::message(format!(
-                "重复 skinHullId {}: {previous} 和 {}",
-                file.skin_hull_id,
-                path.display()
-            )));
+            warnings.push(GameScanWarning {
+                path: path.to_string_lossy().to_string(),
+                message: format!(
+                    "重复 skinHullId {}，已保留第一个文件并跳过后续文件：{previous}",
+                    file.skin_hull_id
+                ),
+            });
+            continue;
         }
         files.push(file);
     }
@@ -704,73 +708,7 @@ fn load_skin_files(mod_root: &Path) -> AppResult<Vec<SkinFile>> {
             .cmp(&b.base_hull_id)
             .then_with(|| a.skin_hull_id.cmp(&b.skin_hull_id))
     });
-    Ok(files)
-}
-
-fn is_temporary_core_kite_interceptor_duplicate(
-    root: &Path,
-    current: &Path,
-    previous: &str,
-    variant_id: &str,
-) -> bool {
-    // Temporary vanilla-core compatibility exception.
-    //
-    if root.file_name().and_then(|name| name.to_str()) != Some("starsector-core") {
-        return false;
-    }
-    let previous_rel = normalize_rel_path(root, Path::new(previous));
-    let current_rel = normalize_rel_path(root, current);
-    temporary_core_duplicate_variant_pairs()
-        .iter()
-        .any(|(known_id, known_paths)| {
-            variant_id == *known_id
-                && known_paths.contains(&previous_rel.as_str())
-                && known_paths.contains(&current_rel.as_str())
-        })
-}
-
-fn temporary_core_duplicate_variant_pairs() -> [(&'static str, [&'static str; 2]); 3] {
-    // Temporary vanilla-core compatibility exceptions.
-    //
-    // Starsector currently ships these known duplicate variantIds in
-    // starsector-core:
-    // - kite_hegemony_Interceptor:
-    //   - data/variants/kite/kite_Interceptor.variant
-    //   - data/variants/kite_hegemony_Interceptor.variant
-    // - kite_original_Stock:
-    //   - data/variants/kite/kite_Stock.variant
-    //   - data/variants/kite_original_Stock.variant
-    // - ziggurat_Experimental:
-    //   - data/variants/ziggurat_Experimental.variant
-    //   - data/variants/ziggurat_HF.variant
-    //
-    // Core references are read-only vanilla data, so these duplicates must not
-    // make Mod loading fail. Editable Mod variant loading remains strict; these
-    // exceptions are intentionally path- and id-exact so they can be removed when
-    // the upstream vanilla data is fixed.
-    [
-        (
-            "kite_hegemony_Interceptor",
-            [
-                "data/variants/kite/kite_Interceptor.variant",
-                "data/variants/kite_hegemony_Interceptor.variant",
-            ],
-        ),
-        (
-            "kite_original_Stock",
-            [
-                "data/variants/kite/kite_Stock.variant",
-                "data/variants/kite_original_Stock.variant",
-            ],
-        ),
-        (
-            "ziggurat_Experimental",
-            [
-                "data/variants/ziggurat_Experimental.variant",
-                "data/variants/ziggurat_HF.variant",
-            ],
-        ),
-    ]
+    Ok((files, warnings))
 }
 
 fn normalize_rel_path(root: &Path, path: &Path) -> String {
@@ -1083,7 +1021,7 @@ mod tests {
     }
 
     #[test]
-    fn load_mod_data_rejects_duplicate_variant_id() {
+    fn load_mod_data_warns_and_keeps_first_duplicate_variant_id() {
         let root = temp_dir("variant_duplicate_id");
         fs::create_dir_all(root.join("data/variants/a")).unwrap();
         fs::create_dir_all(root.join("data/variants/b")).unwrap();
@@ -1098,12 +1036,17 @@ mod tests {
         )
         .unwrap();
 
-        let error = load_mod_data(&root).unwrap_err().to_string();
+        let loaded = load_mod_data(&root).unwrap();
 
         let _ = fs::remove_dir_all(root);
-        assert!(error.contains("重复 variantId dup"));
-        assert!(error.contains("one.variant"));
-        assert!(error.contains("two.variant"));
+        assert_eq!(loaded.variant_files.len(), 1);
+        assert_eq!(loaded.variant_files[0].variant_id, "dup");
+        assert_eq!(loaded.variant_files[0].hull_id, "hull_a");
+        assert!(loaded
+            .warnings
+            .iter()
+            .any(|warning| warning.message.contains("重复 variantId dup")
+                && warning.path.contains("two.variant")));
     }
 
     #[test]
@@ -1124,7 +1067,7 @@ mod tests {
     }
 
     #[test]
-    fn load_mod_data_rejects_duplicate_skin_hull_id() {
+    fn load_mod_data_warns_and_keeps_first_duplicate_skin_hull_id() {
         let root = temp_dir("skin_duplicate_id");
         fs::create_dir_all(root.join("data/hulls/skins/a")).unwrap();
         fs::create_dir_all(root.join("data/hulls/skins/b")).unwrap();
@@ -1139,16 +1082,21 @@ mod tests {
         )
         .unwrap();
 
-        let error = load_mod_data(&root).unwrap_err().to_string();
+        let loaded = load_mod_data(&root).unwrap();
 
         let _ = fs::remove_dir_all(root);
-        assert!(error.contains("重复 skinHullId dup"));
-        assert!(error.contains("one.skin"));
-        assert!(error.contains("two.skin"));
+        assert_eq!(loaded.skin_files.len(), 1);
+        assert_eq!(loaded.skin_files[0].skin_hull_id, "dup");
+        assert_eq!(loaded.skin_files[0].base_hull_id, "hull_a");
+        assert!(loaded
+            .warnings
+            .iter()
+            .any(|warning| warning.message.contains("重复 skinHullId dup")
+                && warning.path.contains("two.skin")));
     }
 
     #[test]
-    fn core_known_duplicate_variant_ids_are_temporary_exceptions() {
+    fn duplicate_variant_ids_keep_first_and_warn() {
         let root = temp_dir("core_kite_duplicate");
         let core_root = root.join("starsector-core");
         fs::create_dir_all(core_root.join("data/variants/kite")).unwrap();
@@ -1183,10 +1131,11 @@ mod tests {
         )
         .unwrap();
 
-        let variants = load_variant_files(&core_root).unwrap();
+        let (variants, warnings) = load_variant_files(&core_root).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(variants.len(), 3);
+        assert_eq!(warnings.len(), 3);
         assert!(variants
             .iter()
             .any(|variant| variant.variant_id == "kite_hegemony_Interceptor"));
@@ -1196,10 +1145,13 @@ mod tests {
         assert!(variants
             .iter()
             .any(|variant| variant.variant_id == "ziggurat_Experimental"));
+        assert!(warnings
+            .iter()
+            .any(|warning| warning.message.contains("kite_hegemony_Interceptor")));
     }
 
     #[test]
-    fn mod_kite_interceptor_duplicate_variant_id_still_fails() {
+    fn duplicate_variant_ids_do_not_fail_mod_loading() {
         let root = temp_dir("mod_kite_duplicate");
         fs::create_dir_all(root.join("data/variants/kite")).unwrap();
         write_utf8_no_bom(
@@ -1213,10 +1165,14 @@ mod tests {
         )
         .unwrap();
 
-        let error = load_variant_files(&root).unwrap_err().to_string();
+        let (variants, warnings) = load_variant_files(&root).unwrap();
 
         let _ = fs::remove_dir_all(root);
-        assert!(error.contains("重复 variantId kite_hegemony_Interceptor"));
+        assert_eq!(variants.len(), 1);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0]
+            .message
+            .contains("重复 variantId kite_hegemony_Interceptor"));
     }
 
     #[test]

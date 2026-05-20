@@ -53,6 +53,7 @@ export interface AppData {
   submarketSprites: Record<string, string>;
   marketConditionSprites: Record<string, string>;
   coreReferences: CoreReferences;
+  warnings: GameScanWarning[];
 }
 
 export interface CoreReferences {
