@@ -8,6 +8,7 @@ pub fn parse_csv_text(path_label: &str, text: &str) -> AppResult<CsvTable> {
     let normalized = normalize_visible_empty_rows(text);
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(false)
+        .flexible(true)
         .from_reader(normalized.as_bytes());
     let records: Vec<csv::StringRecord> =
         rdr.records().collect::<Result<_, _>>().map_err(|error| {
@@ -21,8 +22,10 @@ pub fn parse_csv_text(path_label: &str, text: &str) -> AppResult<CsvTable> {
         });
     }
     let header: Vec<String> = records[0].iter().map(ToString::to_string).collect();
+    let header_width = header.len();
     let mut rows = Vec::new();
-    for record in records.iter().skip(1) {
+    for (index, record) in records.iter().skip(1).enumerate() {
+        validate_record_width(path_label, record, header_width, index + 2)?;
         let mut row = Map::new();
         for (idx, h) in header.iter().enumerate() {
             row.insert(
@@ -63,6 +66,29 @@ pub fn value_to_cell(value: &Value) -> String {
         Value::Bool(b) => b.to_string(),
         other => serde_json::to_string(other).unwrap_or_default(),
     }
+}
+
+fn validate_record_width(
+    path_label: &str,
+    record: &csv::StringRecord,
+    header_width: usize,
+    line_number: usize,
+) -> AppResult<()> {
+    if record.len() == header_width {
+        return Ok(());
+    }
+    if record.len() < header_width && record.get(0).is_some_and(|cell| cell.starts_with('#')) {
+        return Ok(());
+    }
+    Err(AppError::context(
+        format!("解析 CSV 失败 ({path_label})"),
+        AppError::message(format!(
+            "record {} has {} fields, but header has {} fields",
+            line_number,
+            record.len(),
+            header_width
+        )),
+    ))
 }
 
 fn normalize_visible_empty_rows(text: &str) -> String {
@@ -163,7 +189,8 @@ mod tests {
 
         assert!(error.contains("解析 CSV 失败"));
         assert!(error.contains("csv_bad_width.csv"));
-        assert!(error.contains("found record with 1 fields"));
+        assert!(error.contains("record 3 has 1 fields"));
+        assert!(error.contains("header has 2 fields"));
     }
 
     #[test]
@@ -212,6 +239,38 @@ mod tests {
         assert_eq!(table.rows[2]["name"], "#section");
         assert_eq!(table.rows[2]["id"], "");
         assert_eq!(table.rows[3]["id"], "b");
+    }
+
+    #[test]
+    fn read_pads_hash_prefixed_short_rows() {
+        let table = parse_csv_text(
+            "csv_hash_prefixed_short_row.csv",
+            "id,text,text2,text3\r\nid1,hi,hello,wow\r\n#id2,\r\n#id3,\"\"\r\nid4,a,b,c\r\n",
+        )
+        .unwrap();
+
+        assert_eq!(table.rows.len(), 4);
+        assert_eq!(table.rows[1]["id"], "#id2");
+        assert_eq!(table.rows[1]["text"], "");
+        assert_eq!(table.rows[1]["text2"], "");
+        assert_eq!(table.rows[1]["text3"], "");
+        assert_eq!(table.rows[2]["id"], "#id3");
+        assert_eq!(table.rows[2]["text"], "");
+        assert_eq!(table.rows[2]["text2"], "");
+        assert_eq!(table.rows[2]["text3"], "");
+    }
+
+    #[test]
+    fn read_still_rejects_short_non_hash_rows() {
+        let error = parse_csv_text(
+            "csv_short_row.csv",
+            "id,text,text2,text3\r\nid1,hi,hello,wow\r\nid2,\r\n",
+        )
+        .unwrap_err()
+        .to_string();
+
+        assert!(error.contains("解析 CSV 失败"));
+        assert!(error.contains("csv_short_row.csv"));
     }
 
     #[test]
