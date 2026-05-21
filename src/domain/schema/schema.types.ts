@@ -34,6 +34,8 @@ export interface FieldSchema {
   nested?: FieldSchema[] | null;
   item?: FieldSchema | null;
   valueSchema?: FieldSchema | null;
+  /** key-value 底层存储格式：'array-of-entries' 表示 [{k:v}, ...] 数组格式 */
+  format?: 'array-of-entries' | null;
 }
 
 export interface SectionSchema {

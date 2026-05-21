@@ -134,17 +134,8 @@
         {
           "key": "modules",
           "type": "key-value",
+          "format": "array-of-entries",
           "label": "modules",
-          "valueSchema": {
-            "key": "variantId",
-            "type": "string",
-            "label": "variantId"
-          }
-        },
-        {
-          "key": "stationModules",
-          "type": "key-value",
-          "label": "stationModules",
           "valueSchema": {
             "key": "variantId",
             "type": "string",

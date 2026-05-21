@@ -596,6 +596,17 @@ interface KvEntry {
 }
 
 const kvEntries = computed<KvEntry[]>(() => {
+  if (props.field.format === 'array-of-entries' && Array.isArray(props.value)) {
+    return (props.value as Record<string, unknown>[]).map((item) => {
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        const keys = Object.keys(item);
+        if (keys.length > 0) {
+          return { key: keys[0], val: item[keys[0]] };
+        }
+      }
+      return { key: '', val: '' };
+    });
+  }
   if (props.value && typeof props.value === 'object' && !Array.isArray(props.value)) {
     return Object.entries(props.value as Record<string, unknown>).map(([key, val]) => ({ key, val }));
   }
@@ -618,10 +629,22 @@ function rebuildKvObject(entries: KvEntry[]): Record<string, unknown> {
   return result;
 }
 
+function rebuildKvArray(entries: KvEntry[]): Record<string, unknown>[] {
+  return entries.filter((e) => e.key).map((e) => ({ [e.key]: e.val }));
+}
+
+function emitKvUpdate(entries: KvEntry[]) {
+  if (props.field.format === 'array-of-entries') {
+    emit('update', rebuildKvArray(entries));
+  } else {
+    emit('update', rebuildKvObject(entries));
+  }
+}
+
 function updateKvKey(idx: number, newKey: string) {
   const entries = [...kvEntries.value];
   entries[idx] = { ...entries[idx], key: newKey };
-  emit('update', rebuildKvObject(entries));
+  emitKvUpdate(entries);
 }
 
 function updateKvVal(idx: number, newVal: string) {
@@ -636,13 +659,13 @@ function updateKvVal(idx: number, newVal: string) {
     }
   }
   entries[idx] = { ...entries[idx], val: parsed };
-  emit('update', rebuildKvObject(entries));
+  emitKvUpdate(entries);
 }
 
 function updateKvValue(idx: number, newVal: unknown) {
   const entries = [...kvEntries.value];
   entries[idx] = { ...entries[idx], val: newVal };
-  emit('update', rebuildKvObject(entries));
+  emitKvUpdate(entries);
 }
 
 function removeKvEntry(idx: number) {
@@ -655,20 +678,29 @@ function removeKvEntry(idx: number) {
     if (keyIndex > idx) nextOpen[keyIndex - 1] = value;
   }
   kvSelectOpen.value = nextOpen;
-  emit('update', rebuildKvObject(entries));
+  emitKvUpdate(entries);
 }
 
 function addKvEntry() {
-  // Directly add to the object with a placeholder key that won't collide
-  const current =
-    props.value && typeof props.value === 'object' && !Array.isArray(props.value) ? (props.value as Record<string, unknown>) : {};
-  // Find a unique new key name
-  let newKey = 'newField';
-  let i = 1;
-  while (newKey in current) {
-    newKey = `newField${i++}`;
+  if (props.field.format === 'array-of-entries') {
+    const current = Array.isArray(props.value) ? (props.value as Record<string, unknown>[]) : [];
+    let newKey = 'WS 000';
+    let i = 1;
+    const existingKeys = new Set(kvEntries.value.map((e) => e.key));
+    while (existingKeys.has(newKey)) {
+      newKey = `WS ${String(i++).padStart(3, '0')}`;
+    }
+    emit('update', [...current, { [newKey]: '' }]);
+  } else {
+    const current =
+      props.value && typeof props.value === 'object' && !Array.isArray(props.value) ? (props.value as Record<string, unknown>) : {};
+    let newKey = 'newField';
+    let i = 1;
+    while (newKey in current) {
+      newKey = `newField${i++}`;
+    }
+    emit('update', { ...current, [newKey]: '' });
   }
-  emit('update', { ...current, [newKey]: '' });
 }
 
 // ─── Generic array helpers ────────────────────────────────────────────
