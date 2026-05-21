@@ -9,6 +9,7 @@ static UNQUOTED_VALUE_RE: OnceLock<Regex> = OnceLock::new();
 static BOOL_LITERAL_RE: OnceLock<Regex> = OnceLock::new();
 static LEADING_DOT_NUMBER_RE: OnceLock<Regex> = OnceLock::new();
 static FLOAT_SUFFIX_RE: OnceLock<Regex> = OnceLock::new();
+static LEADING_ZERO_INT_RE: OnceLock<Regex> = OnceLock::new();
 
 pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
     let trailing_re = TRAILING_COMMA_RE
@@ -33,6 +34,11 @@ pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
     // Matches Java-style float suffix: 1f, 0.5f, 1.0f → strip the trailing 'f'
     let float_suffix_re = FLOAT_SUFFIX_RE
         .get_or_init(|| Regex::new(r"(\d+\.?\d*)f\b").expect("valid float suffix regex"));
+
+    // Matches leading-zero integers (000, 007, 01) that Java/Starsector parsers accept.
+    let leading_zero_int_re = LEADING_ZERO_INT_RE.get_or_init(|| {
+        Regex::new(r"(^|[:,\[]\s*)(-?)0+(\d+)").expect("valid leading-zero int regex")
+    });
 
     // Starsector data files commonly use shell-style `#` comments; strip from `#` to line end, but only outside quoted strings.
     let mut cleaned = strip_hash_comments(text);
@@ -77,6 +83,13 @@ pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
     // Strip Java float suffixes (1f → 1, 0.5f → 0.5)
     cleaned = replace_outside_strings(&cleaned, |segment| {
         float_suffix_re.replace_all(segment, "$1").to_string()
+    });
+
+    // Normalize leading-zero integers (000 → 0, 007 → 7) that Java parsers accept.
+    cleaned = replace_outside_strings(&cleaned, |segment| {
+        leading_zero_int_re
+            .replace_all(segment, "$1${2}$3")
+            .to_string()
     });
 
     let end = first_json_object_end(&cleaned).unwrap_or(cleaned.len());
@@ -472,6 +485,26 @@ mod tests {
     }
 
     #[test]
+    fn normalizes_leading_zero_integers() {
+        let text = r#"{
+            "id": "test",
+            "fringeColor": [255, 0, 000, 100],
+            "coreColor": [007, 01, 0, 255],
+            "value": 00042,
+            "zero": 0,
+            "decimal": 0.5
+        }"#;
+        let parsed = parse_starsector_json(text).unwrap();
+        assert_eq!(parsed["fringeColor"][2], 0);
+        assert_eq!(parsed["coreColor"][0], 7);
+        assert_eq!(parsed["coreColor"][1], 1);
+        assert_eq!(parsed["coreColor"][2], 0);
+        assert_eq!(parsed["value"], 42);
+        assert_eq!(parsed["zero"], 0);
+        assert_eq!(parsed["decimal"], 0.5);
+    }
+
+    #[test]
     fn rejects_overly_loose_json_forms() {
         let invalid_cases = [
             (
@@ -561,6 +594,22 @@ mod integration_tests {
             );
             let parsed = result.unwrap();
             assert_eq!(parsed["id"], "tritachyon");
+        }
+    }
+
+    #[test]
+    fn parse_real_armaa_proj_if_available() {
+        let path =
+            "J:/Starsector/mods/ArmaArmatura_V3.2.5/data/weapons/proj/armaa_flamer_shot2.proj";
+        if let Ok(content) = fs::read_to_string(path) {
+            let result = parse_starsector_json(&content);
+            assert!(
+                result.is_ok(),
+                "Failed to parse armaa_flamer_shot2.proj: {:?}",
+                result.err()
+            );
+            let parsed = result.unwrap();
+            assert_eq!(parsed["id"], "armaa_flamer_shot2");
         }
     }
 }
