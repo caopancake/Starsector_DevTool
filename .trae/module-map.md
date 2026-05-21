@@ -46,3 +46,4 @@
 - [Rust 文件 IO、路径校验与目录 changeset](modules/rust-file-io-changeset.md)：说明 Rust 文本 IO、路径安全、目录 changeset 和失败回滚。
 - [主窗口撤销 / 重做快捷键机制](modules/main-undo-redo.md)：说明主窗口 Ctrl+Z / Ctrl+Shift+Z 在 CSV 草稿和文件历史之间的分派。
 - [设置、主题与反馈入口机制](modules/settings-theme-feedback.md)：说明设置、主题、message 和 dialog 的入口边界。
+- [About 页面](modules/about-page.md)：说明 About 页面的 markdown 读取和渲染机制。

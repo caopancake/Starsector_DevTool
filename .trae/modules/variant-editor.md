@@ -30,6 +30,7 @@
 - `ConfigVariantView.vue` 只维护选中 ID；列表和编辑器分别负责自己的 UI 状态。
 - 装配详情页不显示额外总览统计块，只显示顶部当前文件信息和 schema 表单。
 - `wings` 必须按逐项数组编辑，不能使用去重的多选控件。
+- `modules` 字段的游戏格式是 `[{slotId: variantId}, ...]` 数组包裹单键对象；schema 使用 `type: "key-value"` + `format: "array-of-entries"` 声明此格式，SchemaFieldRenderer 在读写时做数组与扁平 key-value 之间的转换。
 
 ## 链路：读取装配
 

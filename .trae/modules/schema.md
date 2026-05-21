@@ -27,6 +27,7 @@ Schema 系统为配置页面和 CSV 表格提供字段定义、分组、枚举�
 - `csv:ships.id` 表示 hull 引用源，必须同时包含舰船 CSV ID 和舰船皮肤 `skinHullId`。
 - hull 引用选项、hull 缩略图和联队经装配得到的 hull 缩略图都必须通过 `hull-references.ts` 派生。
 - `csv:*` source 必须过滤 `#` 开头 ID；这类 CSV 行可在表格中编辑，但不能作为合法引用。
+- `key-value` 类型支持 `format: "array-of-entries"` 属性，声明底层数据为 `[{k:v}, ...]` 数组格式；SchemaFieldRenderer 在读写时自动转换为扁平 key-value 编辑视图。
 
 ## 链路：渲染 Schema 表单
 
