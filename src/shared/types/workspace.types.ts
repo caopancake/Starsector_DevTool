@@ -23,7 +23,7 @@ export interface ModTableState {
 }
 
 /** Which main-content view is shown */
-export type WorkspaceView = 'overview' | 'table' | 'settings' | 'config';
+export type WorkspaceView = 'overview' | 'table' | 'settings' | 'config' | 'about';
 
 /** Which config sub-view is shown when currentView === 'config' */
 export type ConfigView = 'mod-overview' | 'file-history' | 'mod-info' | 'factions' | 'skins' | 'variants' | 'mission';

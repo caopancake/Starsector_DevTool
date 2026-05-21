@@ -12,6 +12,7 @@
         @load-mod="actions.loadOverviewMod"
       />
       <SettingsPage v-else-if="workspace.currentView === 'settings'" />
+      <AboutPage v-else-if="workspace.currentView === 'about'" />
       <TableWorkspace
         v-else-if="workspace.currentView === 'table' && project.activeModData"
         @add-row="actions.addNewRow"
@@ -38,6 +39,7 @@ import TitleBar from '@/app/TitleBar.vue';
 import NavSidebar from '@/app/components/NavSidebar.vue';
 import OverviewPage from '@/app/components/OverviewPage.vue';
 import SettingsPage from '@/app/components/SettingsPage.vue';
+import AboutPage from '@/app/components/AboutPage.vue';
 import TableWorkspace from '@/app/components/TableWorkspace.vue';
 import ConfigWorkspace from '@/app/components/config/ConfigWorkspace.vue';
 import { useSettingsStore } from '@/stores/settings.store';
