@@ -17,14 +17,6 @@
       >
         <span class="nav-text">设置</span>
       </button>
-      <button
-        type="button"
-        class="nav-button"
-        :class="{ active: workspace.currentView === 'about' }"
-        @click="workspace.navigateTo('about')"
-      >
-        <span class="nav-text">About</span>
-      </button>
     </div>
 
     <div v-if="workspace.hasLoadedMods" class="nav-label">已读取 Mod ({{ workspace.loadedModCount }})</div>
