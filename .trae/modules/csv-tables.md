@@ -42,15 +42,17 @@ CSV 表格系统负责展示和编辑已注册的 Starsector CSV 表，并按 CS
 - 没有业务 ID 的行不能显示 spec 文件编辑入口。
 - `tables.store.ts` 只管理草稿、dirty、选择和编辑状态。
 - 写盘、副作用、文件级 history 和关联 spec 创建删除由表格保存 orchestrator 处理。
+- 当本地 CSV 文件不存在时，`load_csv_tables` 从 starsector-core 同名 CSV 读取表头作为回退，保证空 Mod 也能创建和保存行。
+- 单元格编辑器在输入期间使用本地缓冲，只在提交时（blur / Enter）写入 store，避免响应式级联导致编辑器卸载。
 
 ## 链路：编辑 CSV 单元格
 
-1. 用户在 CSV Grid 中开始编辑单元格。
+1. 用户在 CSV Grid 中点击单元格激活编辑。
 2. Grid cell 根据 CSV 列 schema 选择结构化控件或普通文本编辑。
-3. 普通文本编辑由 `tables.store` 记录 editing 状态。
-4. 用户提交编辑。
-5. `tables.store.finishCellEdit()` 或结构化控件更新当前表格行。
-6. `tables.store` 根据 original table 更新 dirty。
+3. 普通文本编辑在 `CsvGridCellEditor` 内使用本地 ref 缓冲输入值，不触发 store 更新。
+4. 用户提交编辑（blur 或 Enter）。
+5. `CsvGridCellEditor` 将最终值通过 `update-cell` 事件提交到 `tables.store`。
+6. `tables.store.applyCellValue()` 更新行数据和 dirty 状态。
 7. `tables.store` 推入 CSV 草稿历史事件。
 8. Grid 的虚拟化层只负责裁剪渲染范围，不改变已编辑值或行身份。
 
