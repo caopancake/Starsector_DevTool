@@ -199,6 +199,9 @@ fn load_sprite_data_url(
     sprite: &str,
 ) -> AppResult<Option<String>> {
     let rel = sprite.replace('\\', "/");
+    if rel.is_empty() {
+        return Ok(None);
+    }
     // Try mod directory first
     let mod_path = mod_root.join(&rel);
     if mod_path.exists() {
