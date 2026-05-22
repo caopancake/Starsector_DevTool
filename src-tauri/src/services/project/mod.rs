@@ -93,7 +93,7 @@ pub fn load_mod_data_with_root(
     let faction_files = factions::load_faction_files(mod_root)?;
     let mission_count = count_mission_list_entries(mod_root);
 
-    let mut loaded_tables = tables::load_csv_tables(mod_root, &tag_map)?;
+    let mut loaded_tables = tables::load_csv_tables(mod_root, core_dir.as_deref(), &tag_map)?;
     let spec_bundle = load_spec_bundle(mod_root, core_dir.as_deref())?;
     let hullmods = loaded_tables
         .rows

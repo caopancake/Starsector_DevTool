@@ -18,6 +18,7 @@ pub(super) struct LoadedTables {
 
 pub(super) fn load_csv_tables(
     mod_root: &Path,
+    core_dir: Option<&Path>,
     tag_map: &HashMap<String, String>,
 ) -> AppResult<LoadedTables> {
     let mut csv_headers = BTreeMap::new();
@@ -34,7 +35,19 @@ pub(super) fn load_csv_tables(
                 Value::String(factions::detect_faction(&id, &tags, tag_map)),
             );
         }
-        csv_headers.insert(key.to_string(), table.header);
+        // When the local CSV does not exist (empty header), fall back to
+        // starsector-core headers so the frontend can still create rows.
+        let header = if table.header.is_empty() {
+            if let Some(core) = core_dir {
+                let core_table = read_csv_data(&core.join(rel))?;
+                core_table.header
+            } else {
+                vec![]
+            }
+        } else {
+            table.header
+        };
+        csv_headers.insert(key.to_string(), header);
         csv_paths.insert(key.to_string(), rel.to_string());
         rows_by_key.insert(key.to_string(), rows);
     }
@@ -88,7 +101,7 @@ mod tests {
         let mut tag_map = HashMap::new();
         tag_map.insert("demo_bp".to_string(), "demo".to_string());
 
-        let loaded = load_csv_tables(&root, &tag_map).unwrap();
+        let loaded = load_csv_tables(&root, None, &tag_map).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(loaded.csv_headers["ships"], ["id", "name", "tags"]);
@@ -121,7 +134,7 @@ mod tests {
         )
         .unwrap();
 
-        let loaded = load_csv_tables(&root, &HashMap::new()).unwrap();
+        let loaded = load_csv_tables(&root, None, &HashMap::new()).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(loaded.csv_headers["abilities"], ["name", "id", "icon"]);
@@ -138,7 +151,7 @@ mod tests {
         )
         .unwrap();
 
-        let loaded = load_csv_tables(&root, &HashMap::new()).unwrap();
+        let loaded = load_csv_tables(&root, None, &HashMap::new()).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(loaded.csv_headers["commodities"], ["name", "id", "icon"]);
@@ -155,7 +168,7 @@ mod tests {
         )
         .unwrap();
 
-        let loaded = load_csv_tables(&root, &HashMap::new()).unwrap();
+        let loaded = load_csv_tables(&root, None, &HashMap::new()).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(loaded.csv_headers["specialItems"], ["name", "id", "icon"]);
@@ -172,7 +185,7 @@ mod tests {
         )
         .unwrap();
 
-        let loaded = load_csv_tables(&root, &HashMap::new()).unwrap();
+        let loaded = load_csv_tables(&root, None, &HashMap::new()).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(loaded.csv_headers["submarkets"], ["id", "name", "icon"]);
@@ -189,7 +202,7 @@ mod tests {
         )
         .unwrap();
 
-        let loaded = load_csv_tables(&root, &HashMap::new()).unwrap();
+        let loaded = load_csv_tables(&root, None, &HashMap::new()).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(
@@ -209,7 +222,7 @@ mod tests {
         )
         .unwrap();
 
-        let loaded = load_csv_tables(&root, &HashMap::new()).unwrap();
+        let loaded = load_csv_tables(&root, None, &HashMap::new()).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(loaded.csv_headers["simOpponents"], ["variant id"]);
@@ -229,7 +242,7 @@ mod tests {
         )
         .unwrap();
 
-        let loaded = load_csv_tables(&root, &HashMap::new()).unwrap();
+        let loaded = load_csv_tables(&root, None, &HashMap::new()).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(
