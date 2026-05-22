@@ -4,9 +4,10 @@
       v-if="usesNativeInput"
       ref="inputRef"
       class="csv-cell-input"
-      :value="rawValue"
-      @blur="$emit('close')"
+      :value="localInputValue"
+      @blur="commitAndClose"
       @input="handleNativeInput"
+      @keydown.enter.prevent="commitAndClose"
     />
     <template v-else>
       <template v-if="isMultiControl">
@@ -59,6 +60,9 @@ const plainMode = computed(() => settings.isPlainEditMode);
 const inputRef = ref<HTMLInputElement | null>(null);
 const pickerAnchor = ref<{ height: number; left: number; top: number; width: number } | null>(null);
 
+// Local buffer for native input — only commits on blur/Enter, avoids reactive cascade during typing.
+const localInputValue = ref('');
+
 const booleanOptions = [
   { label: 'TRUE', value: 'TRUE' },
   { label: 'FALSE', value: 'FALSE' },
@@ -89,6 +93,7 @@ const referenceMatch = computed(() => sourceValue(props.sourceIndex, props.colum
 const displayValue = computed(() => referenceMatch.value?.option.label ?? rawValue.value);
 
 onMounted(() => {
+  localInputValue.value = rawValue.value;
   nextTick(() => {
     if (usesNativeInput.value) {
       inputRef.value?.focus();
@@ -103,7 +108,14 @@ onMounted(() => {
 
 function handleNativeInput(event: Event) {
   const target = event.target as HTMLInputElement | null;
-  emit('update-cell', props.row.rowKey, props.column.key, target?.value ?? '');
+  localInputValue.value = target?.value ?? '';
+}
+
+function commitAndClose() {
+  if (localInputValue.value !== rawValue.value) {
+    emit('update-cell', props.row.rowKey, props.column.key, localInputValue.value);
+  }
+  emit('close');
 }
 
 function handlePickerUpdate(values: string[]) {

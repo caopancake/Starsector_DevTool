@@ -3,6 +3,7 @@
 **版本**: 0.1.0
 
 **作者**: cake、<strong><em>AnyIDElse</em></strong>
+
 ## 简介
 
 Starsector Mod 开发桌面工具，支持在原位读取、编辑和保存 Mod 文件。
