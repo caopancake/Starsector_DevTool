@@ -260,8 +260,8 @@ fn load_sprite_bundle(
     wpn_files: &BTreeMap<String, Value>,
     table_rows: SpriteTableRows<'_>,
 ) -> AppResult<SpriteBundle> {
-    let mut ship_sprites = sprites::load_ship_sprite_data(mod_root, core_dir, ship_files)?;
-    sprites::merge_skin_sprite_data(&mut ship_sprites, mod_root, core_dir, skin_files)?;
+    let mut ship_sprites = sprites::load_ship_sprite_data(mod_root, core_dir, ship_files);
+    sprites::merge_skin_sprite_data(&mut ship_sprites, mod_root, core_dir, skin_files);
     Ok(SpriteBundle {
         ship_sprites,
         available_sprites: list_sprites(mod_root, &["graphics/ships"]),
@@ -343,8 +343,8 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
         .map(Vec::as_slice)
         .unwrap_or(empty);
     let wings = tables.get("wings").map(Vec::as_slice).unwrap_or(empty);
-    let mut ship_sprites = sprites::load_ship_sprite_data(core_dir, None, &ship_files)?;
-    sprites::merge_skin_sprite_data(&mut ship_sprites, core_dir, None, &skin_files)?;
+    let mut ship_sprites = sprites::load_ship_sprite_data(core_dir, None, &ship_files);
+    sprites::merge_skin_sprite_data(&mut ship_sprites, core_dir, None, &skin_files);
     let wing_sprites = sprites::load_wing_sprite_data(&ship_sprites, &variant_files, wings);
     let weapon_sprites_data = sprites::load_weapon_sprite_data(core_dir, None, &wpn_files);
     let hullmod_sprites = sprites::load_hullmod_sprite_data(core_dir, None, hullmods);

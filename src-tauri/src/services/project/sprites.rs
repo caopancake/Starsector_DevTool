@@ -7,16 +7,16 @@ pub(super) fn load_ship_sprite_data(
     mod_root: &Path,
     core_dir: Option<&Path>,
     ship_files: &BTreeMap<String, Value>,
-) -> AppResult<BTreeMap<String, String>> {
+) -> BTreeMap<String, String> {
     let mut sprites = BTreeMap::new();
     for (id, value) in ship_files {
         if let Some(sprite) = value.get("spriteName").and_then(Value::as_str) {
-            if let Some(data_url) = load_sprite_data_url(mod_root, core_dir, sprite)? {
+            if let Ok(Some(data_url)) = load_sprite_data_url(mod_root, core_dir, sprite) {
                 sprites.insert(id.clone(), data_url);
             }
         }
     }
-    Ok(sprites)
+    sprites
 }
 
 pub(super) fn load_weapon_sprite_data(
@@ -79,15 +79,14 @@ pub(super) fn merge_skin_sprite_data(
     mod_root: &Path,
     core_dir: Option<&Path>,
     skin_files: &[crate::models::SkinFile],
-) -> AppResult<()> {
+) {
     for skin in skin_files {
         if let Some(sprite) = skin.data.get("spriteName").and_then(Value::as_str) {
-            if let Some(data_url) = load_sprite_data_url(mod_root, core_dir, sprite)? {
+            if let Ok(Some(data_url)) = load_sprite_data_url(mod_root, core_dir, sprite) {
                 sprites.insert(skin.skin_hull_id.clone(), data_url);
             }
         }
     }
-    Ok(())
 }
 
 pub(super) fn load_skill_sprite_data(
@@ -198,13 +197,13 @@ fn load_sprite_data_url(
     core_dir: Option<&Path>,
     sprite: &str,
 ) -> AppResult<Option<String>> {
-    let rel = sprite.replace('\\', "/");
+    let rel = sprite.replace('\\', "/").trim().to_string();
     if rel.is_empty() {
         return Ok(None);
     }
     // Try mod directory first
     let mod_path = mod_root.join(&rel);
-    if mod_path.exists() {
+    if mod_path.is_file() {
         let bytes = fs::read(&mod_path).map_err(|error| {
             AppError::context(
                 format!("读取贴图文件失败 ({})", mod_path.display()),
@@ -219,7 +218,7 @@ fn load_sprite_data_url(
     // Fallback: try starsector-core directory
     if let Some(core) = core_dir {
         let core_path = core.join(&rel);
-        if core_path.exists() {
+        if core_path.is_file() {
             let bytes = fs::read(&core_path).map_err(|error| {
                 AppError::context(
                     format!("读取原版贴图文件失败 ({})", core_path.display()),
@@ -260,7 +259,7 @@ mod tests {
             serde_json::json!({"hullId":"demo","spriteName":"graphics/ships/missing.png"}),
         );
 
-        let loaded = load_ship_sprite_data(&root, None, &ships).unwrap();
+        let loaded = load_ship_sprite_data(&root, None, &ships);
 
         let _ = fs::remove_dir_all(root);
         assert!(loaded.is_empty());
