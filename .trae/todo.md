@@ -1,75 +1,78 @@
 # Todo
 
-## Phase 1: 加载、派生数据与交互性能重构
+## Phase 1: ProjectSession 查询式加载架构重构
 
-### Phase 1.1: 性能审计与预算
+### Phase 1.1: Session Manifest 与兼容边界
 
-- [x] 为完整读取 Mod 建立分段计时，覆盖目录识别、CSV 读取、spec 读取、variant/skin 读取、coreReferences 读取、资源索引、缩略图、IPC 返回和前端 hydrate。
-- [x] 为前端交互建立分段计时，覆盖恢复工作区、切换表格、创建 CSV Grid 模型、解析 source/options、计算列宽、选择行、编辑单元格和右侧详情刷新。
-- [x] 建立性能基线样本文档，记录当前大 Mod 样本；普通 Mod、无原版引用和有原版引用样本待后续补充。
-- [ ] 定义性能预算：打开项目、恢复工作区、切换宽表、点击行、编辑单元格、滚动跳变都必须有可验收的目标耗时。
-- [ ] 审计结果必须定位到具体链路和具体模块；不得只给总耗时。
-- [ ] CSV 读取计时必须细分到单表、`alex_csv` 解析、行列规范化和表格结果组装。
-- [ ] 完整读取计时必须覆盖 `AppData` 序列化、IPC 传输和前端接收后的反序列化耗时。
+- [ ] 废弃完整 `AppData` 作为跨进程数据包的模型，改为打开 Mod 后返回轻量 `ProjectManifest`。
+- [ ] 新增 `ProjectSessionId` 和 `ProjectManifest`，包含 sessionId、modRoot、starsectorRoot、coreAvailable、modInfo、tableSummaries、entitySummaries 和 warnings。
+- [ ] Rust 建立 `ProjectSession`，session 内持有当前 Mod 的 CSV 索引、spec 索引、variant/skin 索引、资源索引、warning 和 core cache 引用。
+- [ ] `load_mod_data` / `load_mod_data_with_root` 语义升级为打开 session 并返回 manifest，不再返回全量表、spec、coreReferences 或图片 data URL。
+- [ ] 保留读取失败、warning、重复 variant/skin 跳过、路径安全和保存边界现有语义。
 
-### Phase 1.2: 后端完整读取分层
+### Phase 1.2: 查询式数据 API
 
-- [ ] 将完整读取拆成当前 Mod 数据、原版只读引用、资源索引、缩略图引用和警告结果几个明确阶段。
-- [ ] 当前 Mod 数据保持写盘权威语义，继续返回可编辑 CSV、spec、配置 entity 和必要路径信息。
-- [ ] `AppData` 必须审计体积来源，区分可编辑权威数据、派生引用数据、资源引用和前端显示缓存。
-- [ ] `AppData` 返回结构必须压缩跨进程传输体积，避免把可按需读取、可缓存或可派生的数据放进完整读取结果。
-- [ ] 前端接收 `AppData` 后的反序列化和数据落库必须纳入性能预算，不能只优化后端读取耗时。
-- [ ] 原版只读引用不得混入当前 Mod 可编辑数据，也不得进入保存链路。
-- [ ] 资源索引只描述资源是否存在、规范化路径和归属来源；不得默认把所有图片编码进 `AppData`。
-- [ ] 完整读取失败、warning、重复 ID 跳过和路径安全规则必须保持现有语义。
+- [ ] 新增 session query API：关闭 session、查询 CSV 表窗口、查询 CSV source options、查询实体、查询资源 data URL、失效 session。
+- [ ] CSV 表窗口 query 返回 header、totalRows、rowKey、rows 和窗口范围；不得要求前端一次接收整表。
+- [ ] 实体 query 覆盖 ship、weapon、projectile、variant、skin、faction、mission 和现有详情/编辑器需要的数据。
+- [ ] `csv:*` source query 在后端返回“当前 Mod / 原版”分组选项，并保持 Mod 覆盖原版重复 ID、`#` 行不可引用。
+- [ ] 独立编辑器窗口通过 sessionId 和 entity id 查询所需数据，不再自己完整读取 Mod。
 
-### Phase 1.3: CoreReferences 只读缓存
+### Phase 1.3: CSV 表格服务化与 Patch 保存
 
-- [ ] 以 Starsector root 为 key 缓存 `starsector-core` 的只读 CSV、`.ship`、`.wpn`、`.variant`、`.skin` 和引用索引。
-- [ ] 同一 Starsector root 下完整读取多个 Mod 时不得重复全量解析原版引用。
-- [ ] 缓存必须有明确失效入口；刷新工作区或切换 root 时不得复用错误 root 的原版引用。
-- [ ] CoreReferences 缓存不得持有当前 Mod 状态，不得参与文件 history、dirty、保存或 undo/redo。
+- [ ] CSV Grid 按当前表请求窗口 rows，滚动时按 row window 查询或命中前端窗口缓存。
+- [ ] `tables.store` 改为 query-backed 状态，只维护当前表窗口缓存、dirty patch、选择、编辑和草稿 history。
+- [ ] 新建、删除、撤销、重做继续按 `modRoot + table + rowKey` 隔离。
+- [ ] 保存当前表时前端提交当前表 patch，Rust 用 session baseline + patch 渲染 CSV 并进入现有 changeset / file history。
+- [ ] 保存成功后只刷新当前表 baseline、清空当前表 dirty 和当前表草稿 history，不影响其它表。
+
+### Phase 1.4: CoreReferences 服务端缓存
+
+- [ ] 以 Starsector root 为 key 建立进程内 core cache。
+- [ ] core CSV、`.ship`、`.wpn`、`.variant`、`.skin`、引用索引和资源索引只保存在 Rust 进程内。
+- [ ] 前端只通过 source query 获取当前需要的原版引用选项，不接收整套 coreReferences。
+- [ ] 切换 root、刷新工作区或关闭工作区时按 root / session 失效。
 - [ ] 无 `starsector-core` 时继续返回空只读引用，不阻断外部 Mod 加载。
 
-### Phase 1.4: 缩略图与图片资源按需化
+### Phase 1.5: 资源按需化
 
-- [ ] 完整读取只返回缩略图资源 key、规范化路径和来源，不再默认返回大批 data URL。
-- [ ] 新增统一资源读取链路，按资源 key 加载图片 data URL，并按 Mod root / Starsector root / rel path 缓存。
-- [ ] 表格、详情、schema 下拉、配置列表和编辑器预览必须共用同一资源缓存，不得各自读取图片。
-- [ ] 图片缓存失效必须接入贴图上传、文件历史 replay、配置保存和工作区关闭。
-- [ ] 资源按需化不得改变缺图占位、原版 fallback、Mod 覆盖原版和皮肤 hull 缩略图规则。
+- [ ] 新增 `ResourceRef`，表达 source、relPath、ownerKind、ownerId 和 key。
+- [ ] 完整打开 Mod 和 manifest 不返回任何图片 data URL。
+- [ ] 表格、详情、schema 下拉、配置列表、舰船编辑器、武器编辑器和发射预览统一通过资源服务按需加载图片。
+- [ ] 前端图片缓存按 sessionId / modRoot / starsectorRoot / relPath / source 隔离；首屏先显示占位，data URL 返回后原位补图。
+- [ ] 贴图上传、文件 history replay、配置保存和关闭工作区必须按变更路径精确失效资源缓存。
 
-### Phase 1.5: CSV Source 与 Grid 模型缓存
+### Phase 1.6: alex_csv 热点重构
 
-- [ ] `csv:*` source/options 按 `modRoot + source + editMode` 建立缓存，供 CSV Grid、右侧详情和 schema 表单共用。
-- [ ] source 缓存必须保留当前 Mod 在上、原版在下、Mod 覆盖原版重复 ID、`#` 行不可引用的规则。
-- [ ] CSV Grid 列模型按 `modRoot + table + header + schema + editMode` 缓存。
-- [ ] 列宽按表级固定计算并缓存；只有 header、schema、当前表数据或编辑模式变化时才失效。
-- [ ] 编辑单元格、新建行、删除行和保存当前表只能局部失效相关表缓存，不得重建所有表的模型。
+- [ ] 使用统一字节状态机重写 `alex_csv` records 阶段，降低大文本、多行字段和长字段 CSV 的解析成本。
+- [ ] 保留当前宽松 CSV 语义：可见空行、`#` 行、短 `#` 行补齐、CP1252 兼容字符、多行字段和错误路径。
+- [ ] 不允许 descriptions 专用解析分支；性能提升必须属于统一 parser 模型。
+- [ ] 更新 CSV parser 模块文档，移除过时的 csv crate 读取链路描述。
 
-### Phase 1.6: 表格状态 Patch 化
+### Phase 1.7: 前端状态与派生缓存重排
 
-- [ ] 重新设计表格草稿状态，用 baseline rows + dirty patch 表达当前表状态，替代整表双份 deep clone。
-- [ ] dirty、CSV 草稿 history、当前表撤销/重做、保存当前表和删除行必须继续按 `modRoot + table + rowKey` 隔离。
-- [ ] 当前显示行由 baseline 和 patch 派生；保存时只提交当前表的最终 rows。
-- [ ] 保存成功后只替换当前表 baseline，清空当前表 dirty 和当前表草稿 history，不影响其它表。
-- [ ] 文件 history replay 后只刷新受影响表或实体，不得强制重建所有表状态。
-
-### Phase 1.7: 后端并行与前端非阻塞
-
-- [ ] 后端读取 CSV、spec、variant、skin、coreReferences 和资源索引时按职责并行，最终统一合并结果。
-- [ ] `alex_csv` 必须针对大文本、多行字段和长字段 CSV 进行 parser 热点重构，避免逐字符通用路径成为主耗时。
-- [ ] 并行读取必须保持错误路径、warning 顺序可理解和最终 `AppData` 结构稳定。
+- [ ] `project.store` 改为保存 session manifest 和活动 session，不保存完整 `AppData`。
+- [ ] schema source、右侧详情、配置页和编辑器入口改为通过 session query / selector 获取数据。
+- [ ] CSV source / Grid model 缓存按 `sessionId + table/source + editMode` 失效。
+- [ ] 文件 history replay 后只通知 session 中受影响目标失效，不重建整个项目状态。
 - [ ] 前端大型派生计算必须可缓存、可分帧或可延后，不得阻塞点击、滚动和输入。
-- [ ] 工作区恢复、完整 Mod 读取和文件 history 大回放使用 blocker 加载界面；切表、点击行和普通编辑不得靠加载界面遮盖卡顿。
-- [ ] 异步化不得改变保存边界、文件 history 语义、诊断语义、多 Mod 隔离和编辑模式语义。
 
-### Phase 1.8: 验收与回归
+### Phase 1.8: 静态检查与模块文档收口
 
-- [ ] 验收打开大 Mod、恢复工作区、切换宽表、点击行、编辑单元格、滚动跳变、保存当前表和回放文件 history 的耗时。
+- [ ] 补充 ProjectSession 架构相关静态检查。
+- [ ] 修改不再适用于查询式加载架构的旧静态检查。
+- [ ] 静态检查必须按严格工程规范编写，优先封死边界，完全不关心误伤。
+- [ ] 禁止用业务白名单、临时例外、兼容放行绕过新架构边界。
+- [ ] 更新模块文档，记录 session、query、CSV window、resource、core cache、history invalidation 的长期边界。
+
+### Phase 1.9: 性能验收与回归
+
+- [ ] `Kratogen_TA` 打开 Mod 目标小于 1 秒。
+- [ ] `ProjectManifest` 体积必须显著低于当前约 42MB。
+- [ ] 切换宽表目标小于 50ms；点击行、激活编辑和滚动跳变接近无感。
+- [ ] descriptions.csv 不再在打开 Mod 时阻塞首屏；进入描述文本表时解析或查询成本必须可定位。
 - [ ] 验收纯文本和增强控件两种编辑模式下 CSV Grid 视觉不偏移、不闪烁、不丢编辑值。
-- [ ] 验收原版引用、缩略图 fallback、皮肤 hull 引用、联队预览和 schema 下拉仍保持现有语义。
-- [ ] 验收关闭工作区、刷新工作区、贴图上传和文件 history replay 后缓存正确失效。
+- [ ] 验收原版引用、缩略图 fallback、皮肤 hull 引用、联队预览、schema 下拉、保存、file history replay、贴图上传和关闭工作区语义不变。
 - [ ] 跑前端格式、类型、lint、编码检查和 Rust test、fmt、clippy。
 
 ## Phase 2: 外置文本 JSON 支持
