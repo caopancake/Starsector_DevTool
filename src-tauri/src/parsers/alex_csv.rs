@@ -3,9 +3,20 @@ use crate::{
     models::CsvTable,
 };
 use serde_json::{Map, Value};
+use std::time::Instant;
 
 pub fn parse_csv_bytes(path_label: &str, bytes: &[u8]) -> AppResult<CsvTable> {
+    parse_csv_bytes_with_metrics(path_label, bytes, |_, _| {})
+}
+
+pub fn parse_csv_bytes_with_metrics(
+    path_label: &str,
+    bytes: &[u8],
+    mut record_metric: impl FnMut(&str, u128),
+) -> AppResult<CsvTable> {
+    let timer = Instant::now();
     let records = parse_loose_records(path_label, bytes)?;
+    record_metric("alex_csv.records", timer.elapsed().as_millis());
     if records.is_empty() {
         return Ok(CsvTable {
             header: vec![],
@@ -25,10 +36,20 @@ pub fn parse_csv_bytes(path_label: &str, bytes: &[u8]) -> AppResult<CsvTable> {
     };
     let header = records[header_index].clone();
     let header_width = header.len();
-    let mut rows = Vec::new();
+    let timer = Instant::now();
+    let mut normalized_records = Vec::new();
     for (index, record) in records.iter().skip(header_index + 1).enumerate() {
-        let record =
-            normalize_record_width(path_label, record, header_width, index + header_index + 2)?;
+        normalized_records.push(normalize_record_width(
+            path_label,
+            record,
+            header_width,
+            index + header_index + 2,
+        )?);
+    }
+    record_metric("alex_csv.normalize_rows", timer.elapsed().as_millis());
+    let timer = Instant::now();
+    let mut rows = Vec::new();
+    for record in normalized_records {
         let mut row = Map::new();
         for (idx, h) in header.iter().enumerate() {
             row.insert(
@@ -38,6 +59,7 @@ pub fn parse_csv_bytes(path_label: &str, bytes: &[u8]) -> AppResult<CsvTable> {
         }
         rows.push(row);
     }
+    record_metric("alex_csv.assemble_rows", timer.elapsed().as_millis());
     Ok(CsvTable {
         header,
         rows,

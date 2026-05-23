@@ -1,11 +1,76 @@
 # Todo
 
-## Phase 1: 描述文本 CSV 支持
+## Phase 1: 加载、派生数据与交互性能重构
 
-- [x] 将 `data/strings/descriptions.csv` 接入现有 CSV 表格体系，缺文件时返回空表。
-- [x] 左侧模块加入描述文本入口，使用普通 CSV 表格编辑、保存、dirty、CSV 草稿历史和文件级 history 链路。
-- [x] 为描述文本 CSV 提供最小列 schema；不确定语义的列保持文本编辑。
-- [x] 验收纯文本模式和增强控件模式下的展示、编辑、保存和撤销重做。
+### Phase 1.1: 性能审计与预算
+
+- [x] 为完整读取 Mod 建立分段计时，覆盖目录识别、CSV 读取、spec 读取、variant/skin 读取、coreReferences 读取、资源索引、缩略图、IPC 返回和前端 hydrate。
+- [x] 为前端交互建立分段计时，覆盖恢复工作区、切换表格、创建 CSV Grid 模型、解析 source/options、计算列宽、选择行、编辑单元格和右侧详情刷新。
+- [x] 建立性能基线样本文档，记录当前大 Mod 样本；普通 Mod、无原版引用和有原版引用样本待后续补充。
+- [ ] 定义性能预算：打开项目、恢复工作区、切换宽表、点击行、编辑单元格、滚动跳变都必须有可验收的目标耗时。
+- [ ] 审计结果必须定位到具体链路和具体模块；不得只给总耗时。
+- [ ] CSV 读取计时必须细分到单表、`alex_csv` 解析、行列规范化和表格结果组装。
+- [ ] 完整读取计时必须覆盖 `AppData` 序列化、IPC 传输和前端接收后的反序列化耗时。
+
+### Phase 1.2: 后端完整读取分层
+
+- [ ] 将完整读取拆成当前 Mod 数据、原版只读引用、资源索引、缩略图引用和警告结果几个明确阶段。
+- [ ] 当前 Mod 数据保持写盘权威语义，继续返回可编辑 CSV、spec、配置 entity 和必要路径信息。
+- [ ] `AppData` 必须审计体积来源，区分可编辑权威数据、派生引用数据、资源引用和前端显示缓存。
+- [ ] `AppData` 返回结构必须压缩跨进程传输体积，避免把可按需读取、可缓存或可派生的数据放进完整读取结果。
+- [ ] 前端接收 `AppData` 后的反序列化和数据落库必须纳入性能预算，不能只优化后端读取耗时。
+- [ ] 原版只读引用不得混入当前 Mod 可编辑数据，也不得进入保存链路。
+- [ ] 资源索引只描述资源是否存在、规范化路径和归属来源；不得默认把所有图片编码进 `AppData`。
+- [ ] 完整读取失败、warning、重复 ID 跳过和路径安全规则必须保持现有语义。
+
+### Phase 1.3: CoreReferences 只读缓存
+
+- [ ] 以 Starsector root 为 key 缓存 `starsector-core` 的只读 CSV、`.ship`、`.wpn`、`.variant`、`.skin` 和引用索引。
+- [ ] 同一 Starsector root 下完整读取多个 Mod 时不得重复全量解析原版引用。
+- [ ] 缓存必须有明确失效入口；刷新工作区或切换 root 时不得复用错误 root 的原版引用。
+- [ ] CoreReferences 缓存不得持有当前 Mod 状态，不得参与文件 history、dirty、保存或 undo/redo。
+- [ ] 无 `starsector-core` 时继续返回空只读引用，不阻断外部 Mod 加载。
+
+### Phase 1.4: 缩略图与图片资源按需化
+
+- [ ] 完整读取只返回缩略图资源 key、规范化路径和来源，不再默认返回大批 data URL。
+- [ ] 新增统一资源读取链路，按资源 key 加载图片 data URL，并按 Mod root / Starsector root / rel path 缓存。
+- [ ] 表格、详情、schema 下拉、配置列表和编辑器预览必须共用同一资源缓存，不得各自读取图片。
+- [ ] 图片缓存失效必须接入贴图上传、文件历史 replay、配置保存和工作区关闭。
+- [ ] 资源按需化不得改变缺图占位、原版 fallback、Mod 覆盖原版和皮肤 hull 缩略图规则。
+
+### Phase 1.5: CSV Source 与 Grid 模型缓存
+
+- [ ] `csv:*` source/options 按 `modRoot + source + editMode` 建立缓存，供 CSV Grid、右侧详情和 schema 表单共用。
+- [ ] source 缓存必须保留当前 Mod 在上、原版在下、Mod 覆盖原版重复 ID、`#` 行不可引用的规则。
+- [ ] CSV Grid 列模型按 `modRoot + table + header + schema + editMode` 缓存。
+- [ ] 列宽按表级固定计算并缓存；只有 header、schema、当前表数据或编辑模式变化时才失效。
+- [ ] 编辑单元格、新建行、删除行和保存当前表只能局部失效相关表缓存，不得重建所有表的模型。
+
+### Phase 1.6: 表格状态 Patch 化
+
+- [ ] 重新设计表格草稿状态，用 baseline rows + dirty patch 表达当前表状态，替代整表双份 deep clone。
+- [ ] dirty、CSV 草稿 history、当前表撤销/重做、保存当前表和删除行必须继续按 `modRoot + table + rowKey` 隔离。
+- [ ] 当前显示行由 baseline 和 patch 派生；保存时只提交当前表的最终 rows。
+- [ ] 保存成功后只替换当前表 baseline，清空当前表 dirty 和当前表草稿 history，不影响其它表。
+- [ ] 文件 history replay 后只刷新受影响表或实体，不得强制重建所有表状态。
+
+### Phase 1.7: 后端并行与前端非阻塞
+
+- [ ] 后端读取 CSV、spec、variant、skin、coreReferences 和资源索引时按职责并行，最终统一合并结果。
+- [ ] `alex_csv` 必须针对大文本、多行字段和长字段 CSV 进行 parser 热点重构，避免逐字符通用路径成为主耗时。
+- [ ] 并行读取必须保持错误路径、warning 顺序可理解和最终 `AppData` 结构稳定。
+- [ ] 前端大型派生计算必须可缓存、可分帧或可延后，不得阻塞点击、滚动和输入。
+- [ ] 工作区恢复、完整 Mod 读取和文件 history 大回放使用 blocker 加载界面；切表、点击行和普通编辑不得靠加载界面遮盖卡顿。
+- [ ] 异步化不得改变保存边界、文件 history 语义、诊断语义、多 Mod 隔离和编辑模式语义。
+
+### Phase 1.8: 验收与回归
+
+- [ ] 验收打开大 Mod、恢复工作区、切换宽表、点击行、编辑单元格、滚动跳变、保存当前表和回放文件 history 的耗时。
+- [ ] 验收纯文本和增强控件两种编辑模式下 CSV Grid 视觉不偏移、不闪烁、不丢编辑值。
+- [ ] 验收原版引用、缩略图 fallback、皮肤 hull 引用、联队预览和 schema 下拉仍保持现有语义。
+- [ ] 验收关闭工作区、刷新工作区、贴图上传和文件 history replay 后缓存正确失效。
+- [ ] 跑前端格式、类型、lint、编码检查和 Rust test、fmt、clippy。
 
 ## Phase 2: 外置文本 JSON 支持
 
@@ -150,17 +215,6 @@
 - [ ] 添加 `data/config/sounds.json` 编辑支持。
 - [ ] 使用 schema 表单编辑声音定义；路径字段保持文本或既有路径控件。
 - [ ] 保存走配置保存和文件级 history 链路。
-
-## Phase 9: 加载与 IO 异步化
-
-- [ ] 梳理完整读取 Mod 的耗时链路，区分当前 Mod 数据、原版引用、资源索引、缩略图和 schema/source 构建。
-- [ ] 后端完整读取按职责并行化：CSV 表、spec 文件、variant、skin、coreReferences 和资源索引分别读取，最终统一合并为 `AppData`。
-- [ ] 原版 coreReferences 改为可缓存的只读加载结果；同一 Starsector root 下重复打开 Mod 不应重复全量解析原版数据。
-- [ ] 图片和缩略图读取改为批量或受控并发接口，减少列表页逐项请求造成的等待。
-- [ ] 前端表格 source/options 和 schema 相关派生数据改为可复用缓存，避免切表时重复构建大引用集合。
-- [ ] 文件历史回放、目录级操作和大文件读写必须保持 UI 非阻塞；需要等待时只使用已定义的 blocker 加载界面。
-- [ ] 异步化不得改变保存边界、文件 history 语义、诊断语义和多 Mod 隔离语义。
-- [ ] 验收打开大 Mod、切换 Mod、恢复工作区、打开配置实体列表和回放文件历史时无长时间主线程卡顿。
 
 ## Phase 10: 禁止项：可视化逻辑编辑器（蓝图系统）
 

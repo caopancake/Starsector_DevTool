@@ -9,6 +9,7 @@ import { useTablesStore } from '@/stores/tables.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { loadProject } from '@/services/project.service';
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
+import { measurePerformance } from '@/services/performance.service';
 
 export interface OpenDirectoryOutcome {
   type: 'game-overview' | 'mod-loaded' | 'unknown' | 'already-loaded';
@@ -58,7 +59,9 @@ export async function loadModFromOverview(modRoot: string): Promise<OpenDirector
 
 export async function restoreWorkspaceMod(mod: PersistedMod, starsectorRoot: string | null): Promise<AppData> {
   const loaded = await loadProjectData(mod.modRoot, starsectorRoot);
-  hydrateLoadedMod(mod.modRoot, loaded, false);
+  measurePerformance('frontend.hydrateLoadedMod', { modRoot: mod.modRoot, activate: false }, () =>
+    hydrateLoadedMod(mod.modRoot, loaded, false),
+  );
   return loaded;
 }
 
@@ -80,7 +83,7 @@ async function loadWorkspaceMod(modRoot: string, starsectorRoot: string | null, 
   try {
     const loaded = await loadProjectData(modRoot, starsectorRoot);
     const displayName = updateLoadedEntry(modRoot, loaded);
-    hydrateLoadedMod(modRoot, loaded, true);
+    measurePerformance('frontend.hydrateLoadedMod', { modRoot, activate: true }, () => hydrateLoadedMod(modRoot, loaded, true));
     if (stayOnOverview) workspace.navigateTo('overview');
     return { alreadyLoaded: false, displayName, warnings: formatLoadWarnings(loaded) };
   } catch (error) {
@@ -94,7 +97,7 @@ async function loadProjectData(modRoot: string, starsectorRoot: string | null): 
   project.setLoading(true);
   try {
     const loaded = await loadProject(modRoot, starsectorRoot);
-    project.setLoadedModData(modRoot, loaded);
+    measurePerformance('frontend.project.setLoadedModData', { modRoot }, () => project.setLoadedModData(modRoot, loaded));
     return loaded;
   } finally {
     project.setLoading(false);

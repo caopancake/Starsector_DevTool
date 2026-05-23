@@ -1,59 +1,99 @@
 <template>
   <div class="settings-page">
-    <!-- eslint-disable-next-line vue/no-v-html -- content from bundled static .md file, not user input -->
-    <div class="about-content" v-html="htmlContent" />
+    <section class="settings-section about-summary">
+      <h3>Starsector DevTool</h3>
+      <div class="about-meta">
+        <div>
+          <span>当前版本</span>
+          <strong>0.1.0</strong>
+        </div>
+        <div>
+          <span>作者</span>
+          <strong>cake、AnyIDElse</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="settings-section about-changelog">
+      <h3>更新内容</h3>
+      <!-- eslint-disable-next-line vue/no-v-html -- content from bundled static .md file, not user input -->
+      <div class="about-content" v-html="changelogHtml" />
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
 import { marked } from 'marked';
-import aboutRaw from '../../../ABOUT.md?raw';
+import changelogRaw from '../../../CHANGELOG.md?raw';
 
-const htmlContent = computed(() => marked(aboutRaw) as string);
+const changelogHtml = computed(() => marked(changelogRaw) as string);
 </script>
 
 <style scoped>
+.about-summary,
+.about-changelog {
+  width: min(760px, 100%);
+}
+
+.about-meta {
+  display: grid;
+  gap: 8px;
+}
+
+.about-meta > div {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 12px;
+  font-size: 13px;
+}
+
+.about-meta span {
+  color: var(--color-muted);
+}
+
+.about-meta strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
 .about-content {
-  padding: 1.5rem;
+  padding-top: 4px;
   line-height: 1.7;
-  color: var(--text-color-1);
+  color: var(--color-text);
 }
 
 .about-content :deep(h1) {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
+  display: none;
 }
 
 .about-content :deep(h2) {
-  font-size: 1.2rem;
-  margin-top: 1.5rem;
-  margin-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 0.3rem;
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .about-content :deep(h3) {
-  font-size: 1rem;
-  margin-top: 1.2rem;
-  margin-bottom: 0.3rem;
+  margin: 10px 0 4px;
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .about-content :deep(p) {
-  margin: 0.5rem 0;
+  margin: 6px 0;
 }
 
 .about-content :deep(ul) {
-  padding-left: 1.5rem;
-  margin: 0.5rem 0;
+  padding-left: 18px;
+  margin: 6px 0 0;
 }
 
 .about-content :deep(li) {
-  margin: 0.25rem 0;
+  margin: 3px 0;
 }
 
 .about-content :deep(a) {
-  color: var(--primary-color);
+  color: var(--color-primary);
   text-decoration: none;
 }
 
@@ -62,11 +102,11 @@ const htmlContent = computed(() => marked(aboutRaw) as string);
 }
 
 .about-content :deep(strong) {
-  color: var(--text-color-1);
+  color: var(--color-text);
 }
 
 .about-content :deep(code) {
-  background: var(--code-color);
+  background: var(--color-surface);
   padding: 0.15rem 0.4rem;
   border-radius: 3px;
   font-size: 0.9em;

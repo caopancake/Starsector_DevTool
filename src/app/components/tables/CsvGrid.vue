@@ -27,6 +27,7 @@ import type { CsvGridColumn, CsvGridModel, CsvGridRow } from '@/domain/tables/cs
 import { useCsvGridViewport } from '@/app/composables/use-csv-grid-viewport';
 import CsvGridBody from '@/app/components/tables/CsvGridBody.vue';
 import CsvGridHeader from '@/app/components/tables/CsvGridHeader.vue';
+import { measurePerformance } from '@/services/performance.service';
 
 interface ActiveCell {
   column: CsvGridColumn;
@@ -79,11 +80,13 @@ function handleScroll(event: Event) {
 }
 
 function activateCell(row: CsvGridRow, column: CsvGridColumn) {
-  forwardSelectRow(row.rowKey);
-  activeCell.value = {
-    column,
-    row,
-  };
+  measurePerformance('frontend.csvGrid.activateCell', { column: column.key, rowKey: row.rowKey }, () => {
+    forwardSelectRow(row.rowKey);
+    activeCell.value = {
+      column,
+      row,
+    };
+  });
 }
 
 function syncViewportMetrics() {
@@ -96,10 +99,10 @@ function clearActiveCell() {
 }
 
 function forwardSelectRow(rowKey: string) {
-  emit('select-row', rowKey);
+  measurePerformance('frontend.csvGrid.selectRow', { rowKey }, () => emit('select-row', rowKey));
 }
 
 function forwardUpdateCell(rowKey: string, column: string, value: string) {
-  emit('update-cell', rowKey, column, value);
+  measurePerformance('frontend.csvGrid.updateCell', { column, rowKey }, () => emit('update-cell', rowKey, column, value));
 }
 </script>

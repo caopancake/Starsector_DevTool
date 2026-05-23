@@ -20,9 +20,19 @@ export interface CsvGridRow {
 
 export interface CsvGridModel {
   columns: CsvGridColumn[];
+  performanceSample: CsvGridPerformanceSample;
   rows: CsvGridRow[];
   sourceIndex: CsvSourceIndex;
   totalWidthPx: number;
+}
+
+export interface CsvGridPerformanceSample {
+  columns: number;
+  ms: number;
+  rows: number;
+  sourceMs: number;
+  table: TableKey;
+  widthMs: number;
 }
 
 export function createCsvGridModel(
@@ -32,17 +42,30 @@ export function createCsvGridModel(
   appData: AppData | null,
   rowKeyFor: (row: RowData, index: number) => string,
 ): CsvGridModel {
+  const startedAt = performance.now();
   const columns = visibleColumns.map((key) => createCsvGridColumn(table, key));
   const rows = filteredRows.map((row, rowIndex) => ({ row, rowIndex, rowKey: rowKeyFor(row, rowIndex) }));
+  const sourceStartedAt = performance.now();
   const sourceIndex = createCsvSourceIndex(
     appData,
     columns.map((column) => column.schema?.source),
   );
+  const sourceMs = performance.now() - sourceStartedAt;
+  const widthStartedAt = performance.now();
   for (const column of columns) {
     column.widthPx = columnWidthPx(column, rows, sourceIndex);
   }
+  const widthMs = performance.now() - widthStartedAt;
   const totalWidthPx = columns.reduce((sum, column) => sum + column.widthPx, 0);
-  return { columns, rows, sourceIndex, totalWidthPx };
+  const performanceSample = {
+    columns: columns.length,
+    ms: Math.round(performance.now() - startedAt),
+    rows: rows.length,
+    sourceMs: Math.round(sourceMs),
+    table,
+    widthMs: Math.round(widthMs),
+  };
+  return { columns, performanceSample, rows, sourceIndex, totalWidthPx };
 }
 
 function createCsvGridColumn(table: TableKey, key: string): CsvGridColumn {

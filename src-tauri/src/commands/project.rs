@@ -4,16 +4,17 @@ use crate::{
 };
 
 #[tauri::command]
-pub fn load_mod_data(mod_root: String) -> Result<AppData, String> {
-    services::project::load_mod_data_for_command(mod_root).map_err(|e| e.to_string())
+pub fn load_mod_data(app_handle: tauri::AppHandle, mod_root: String) -> Result<AppData, String> {
+    services::project::load_mod_data_for_command(app_handle, mod_root).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn load_mod_data_with_root(
+    app_handle: tauri::AppHandle,
     mod_root: String,
     starsector_root: Option<String>,
 ) -> Result<AppData, String> {
-    services::project::load_mod_data_with_root_for_command(mod_root, starsector_root)
+    services::project::load_mod_data_with_root_for_command(app_handle, mod_root, starsector_root)
         .map_err(|e| e.to_string())
 }
 

@@ -16,16 +16,30 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { useTablesStore } from '@/stores/tables.store';
 import { useProjectStore } from '@/stores/project.store';
 import { createCsvGridModel } from '@/domain/tables/csv-grid-model';
 import CsvGrid from '@/app/components/tables/CsvGrid.vue';
+import { recordPerformance } from '@/services/performance.service';
 
 const tables = useTablesStore();
 const project = useProjectStore();
 
 const gridModel = computed(() =>
   createCsvGridModel(tables.currentTab, tables.visibleColumns, tables.filteredRows, project.activeModData, tables.tableRowKey),
+);
+
+watch(
+  () => gridModel.value.performanceSample,
+  (sample) =>
+    recordPerformance('frontend.csvGridModel', sample.ms, {
+      columns: sample.columns,
+      rows: sample.rows,
+      sourceMs: sample.sourceMs,
+      table: sample.table,
+      widthMs: sample.widthMs,
+    }),
+  { immediate: true },
 );
 </script>

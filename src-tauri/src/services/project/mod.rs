@@ -1,4 +1,5 @@
 mod factions;
+mod performance;
 mod projectiles;
 mod sprites;
 mod tables;
@@ -8,14 +9,17 @@ use crate::{
     errors::AppResult,
     io::{list_sprites, load_json_dir_by_id, read_csv_data, read_json_file},
     models::{
-        AppData, CoreReferences, FactionMeta, GameModSummary, GameOverviewData, GameScanWarning,
-        OpenDirectoryResult, SkinFile, VariantFile,
+        AppData, AppLogEntry, CoreReferences, FactionMeta, GameModSummary, GameOverviewData,
+        GameScanWarning, OpenDirectoryResult, SkinFile, VariantFile,
     },
+    services::app_log,
 };
+use performance::PerformanceTrace;
 use serde_json::{Map, Value};
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
+    hash::BuildHasher,
     path::{Path, PathBuf},
 };
 
@@ -59,12 +63,16 @@ struct SpriteTableRows<'a> {
     market_conditions: &'a [Map<String, Value>],
 }
 
-pub fn load_mod_data(mod_root: &Path) -> AppResult<AppData> {
+#[cfg(test)]
+fn load_mod_data(mod_root: &Path) -> AppResult<AppData> {
     load_mod_data_with_root(mod_root, None)
 }
 
-pub fn load_mod_data_for_command(mod_root: String) -> AppResult<AppData> {
-    load_mod_data(Path::new(&mod_root))
+pub fn load_mod_data_for_command(
+    app_handle: tauri::AppHandle,
+    mod_root: String,
+) -> AppResult<AppData> {
+    load_mod_data_with_root_for_command(app_handle, mod_root, None)
 }
 
 pub fn load_csv_table(mod_root: &Path, table: &str) -> AppResult<crate::models::CsvTable> {
@@ -77,24 +85,70 @@ pub fn load_csv_table_for_command(
     load_csv_table(Path::new(&payload.mod_root), &payload.table)
 }
 
-pub fn load_mod_data_with_root(
+#[cfg(test)]
+fn load_mod_data_with_root(
     mod_root: &Path,
     starsector_root_override: Option<&Path>,
+) -> AppResult<AppData> {
+    let mut trace = PerformanceTrace::new("project.load");
+    load_mod_data_with_root_traced(mod_root, starsector_root_override, &mut trace)
+}
+
+fn load_mod_data_with_root_traced(
+    mod_root: &Path,
+    starsector_root_override: Option<&Path>,
+    trace: &mut PerformanceTrace,
 ) -> AppResult<AppData> {
     let starsector_root = starsector_root_override
         .map(Path::to_path_buf)
         .or_else(|| infer_starsector_root(mod_root));
     let core_dir = starsector_root.as_ref().map(|p| p.join("starsector-core"));
     let core_available = core_dir.as_ref().is_some_and(|p| p.exists());
+    let timer = trace.timer();
     let mod_info = read_mod_info(mod_root);
+    trace.record_stage(
+        "mod_info",
+        timer,
+        [(
+            "path",
+            mod_root.join("mod_info.json").to_string_lossy().to_string(),
+        )],
+    );
 
+    let timer = trace.timer();
     let (mut faction_meta, tag_map) = factions::discover_factions(mod_root)?;
     ensure_other_faction(&mut faction_meta);
     let faction_files = factions::load_faction_files(mod_root)?;
+    trace.record_stage(
+        "factions",
+        timer,
+        [
+            ("factionMeta", faction_meta.len().to_string()),
+            ("factionFiles", faction_files.len().to_string()),
+            ("tags", tag_map.len().to_string()),
+        ],
+    );
+    let timer = trace.timer();
     let mission_count = count_mission_list_entries(mod_root);
+    trace.record_stage(
+        "mission_count",
+        timer,
+        [("missions", mission_count.to_string())],
+    );
 
-    let mut loaded_tables = tables::load_csv_tables(mod_root, core_dir.as_deref(), &tag_map)?;
-    let spec_bundle = load_spec_bundle(mod_root, core_dir.as_deref())?;
+    let timer = trace.timer();
+    let mut loaded_tables =
+        tables::load_csv_tables_with_trace(mod_root, core_dir.as_deref(), &tag_map, Some(trace))?;
+    trace.record_stage(
+        "csv_tables",
+        timer,
+        [
+            ("tables", loaded_tables.rows.len().to_string()),
+            ("rows", total_csv_rows(&loaded_tables.rows).to_string()),
+            ("headers", loaded_tables.csv_headers.len().to_string()),
+        ],
+    );
+    let spec_bundle = load_spec_bundle(mod_root, core_dir.as_deref(), trace)?;
     let hullmods = loaded_tables
         .rows
         .get("hullmods")
@@ -157,10 +211,12 @@ pub fn load_mod_data_with_root(
             submarkets: &submarkets,
             market_conditions: &market_conditions,
         },
+        trace,
     )?;
-    let core_references = load_core_references(core_dir.as_deref())?;
+    let core_references = load_core_references(core_dir.as_deref(), trace)?;
 
-    Ok(AppData {
+    let timer = trace.timer();
+    let data = AppData {
         mod_root: mod_root.to_string_lossy().to_string(),
         starsector_root: starsector_root.map(|p| p.to_string_lossy().to_string()),
         core_available,
@@ -219,37 +275,141 @@ pub fn load_mod_data_with_root(
         market_condition_sprites: sprite_bundle.market_condition_sprites,
         core_references,
         warnings: spec_bundle.warnings,
-    })
+    };
+    trace.record_stage(
+        "app_data_assemble",
+        timer,
+        [
+            ("tables", crate::models::CSV_TABLES.len().to_string()),
+            ("warnings", data.warnings.len().to_string()),
+        ],
+    );
+    let timer = trace.timer();
+    if let Ok(bytes) = serde_json::to_vec(&data) {
+        trace.record_stage(
+            "app_data.serialize_probe",
+            timer,
+            [
+                ("bytes", bytes.len().to_string()),
+                ("warnings", data.warnings.len().to_string()),
+                ("tables", crate::models::CSV_TABLES.len().to_string()),
+            ],
+        );
+    }
+    Ok(data)
 }
 
 pub fn load_mod_data_with_root_for_command(
+    app_handle: tauri::AppHandle,
     mod_root: String,
     starsector_root: Option<String>,
 ) -> AppResult<AppData> {
-    load_mod_data_with_root(
+    let mut trace = PerformanceTrace::new("project.load");
+    let result = load_mod_data_with_root_traced(
         Path::new(&mod_root),
         starsector_root.as_deref().map(Path::new),
-    )
+        &mut trace,
+    );
+    if result.is_ok() {
+        write_performance_trace(app_handle, &trace, &[("modRoot", mod_root)]);
+    }
+    result
 }
 
-fn load_spec_bundle(mod_root: &Path, core_dir: Option<&Path>) -> AppResult<SpecBundle> {
+fn load_spec_bundle(
+    mod_root: &Path,
+    core_dir: Option<&Path>,
+    trace: &mut PerformanceTrace,
+) -> AppResult<SpecBundle> {
+    let total_timer = trace.timer();
+    let timer = trace.timer();
     let ship_files = load_json_dir_by_id(&mod_root.join("data/hulls"), "ship", "hullId")?;
+    trace.record_stage(
+        "spec.ship_files",
+        timer,
+        [("files", ship_files.len().to_string())],
+    );
+    let timer = trace.timer();
     let wpn_files = load_json_dir_by_id(&mod_root.join("data/weapons"), "wpn", "id")?;
+    trace.record_stage(
+        "spec.weapon_files",
+        timer,
+        [("files", wpn_files.len().to_string())],
+    );
+    let timer = trace.timer();
     let (variant_files, variant_warnings) = load_variant_files(mod_root)?;
+    trace.record_stage(
+        "spec.variant_files",
+        timer,
+        [
+            ("files", variant_files.len().to_string()),
+            ("warnings", variant_warnings.len().to_string()),
+        ],
+    );
+    let timer = trace.timer();
     let variants = group_variants_by_hull(&variant_files);
+    trace.record_stage(
+        "spec.variant_grouping",
+        timer,
+        [("hulls", variants.len().to_string())],
+    );
+    let timer = trace.timer();
     let (skin_files, skin_warnings) = load_skin_files(mod_root)?;
+    trace.record_stage(
+        "spec.skin_files",
+        timer,
+        [
+            ("files", skin_files.len().to_string()),
+            ("warnings", skin_warnings.len().to_string()),
+        ],
+    );
     let warnings = variant_warnings.into_iter().chain(skin_warnings).collect();
-    Ok(SpecBundle {
+    let timer = trace.timer();
+    let proj_files = projectiles::load_projectile_files(mod_root, core_dir)?;
+    trace.record_stage(
+        "spec.projectile_files",
+        timer,
+        [("files", proj_files.len().to_string())],
+    );
+    let timer = trace.timer();
+    let system_files = load_json_dir_by_id(&mod_root.join("data/shipsystems"), "system", "id")?;
+    trace.record_stage(
+        "spec.system_files",
+        timer,
+        [("files", system_files.len().to_string())],
+    );
+    let timer = trace.timer();
+    let skill_files = load_json_dir_by_id(&mod_root.join("data/characters/skills"), "skill", "id")?;
+    trace.record_stage(
+        "spec.skill_files",
+        timer,
+        [("files", skill_files.len().to_string())],
+    );
+    let bundle = SpecBundle {
         ship_files,
         variants,
         variant_files,
         skin_files,
         wpn_files,
-        proj_files: projectiles::load_projectile_files(mod_root, core_dir)?,
-        system_files: load_json_dir_by_id(&mod_root.join("data/shipsystems"), "system", "id")?,
-        skill_files: load_json_dir_by_id(&mod_root.join("data/characters/skills"), "skill", "id")?,
+        proj_files,
+        system_files,
+        skill_files,
         warnings,
-    })
+    };
+    trace.record_stage(
+        "spec_bundle",
+        total_timer,
+        [
+            ("shipFiles", bundle.ship_files.len().to_string()),
+            ("weaponFiles", bundle.wpn_files.len().to_string()),
+            ("projectileFiles", bundle.proj_files.len().to_string()),
+            ("systemFiles", bundle.system_files.len().to_string()),
+            ("skillFiles", bundle.skill_files.len().to_string()),
+            ("variantFiles", bundle.variant_files.len().to_string()),
+            ("skinFiles", bundle.skin_files.len().to_string()),
+        ],
+    );
+    Ok(bundle)
 }
 
 fn load_sprite_bundle(
@@ -259,67 +419,197 @@ fn load_sprite_bundle(
     skin_files: &[SkinFile],
     wpn_files: &BTreeMap<String, Value>,
     table_rows: SpriteTableRows<'_>,
+    trace: &mut PerformanceTrace,
 ) -> AppResult<SpriteBundle> {
+    let total_timer = trace.timer();
+    let timer = trace.timer();
     let mut ship_sprites = sprites::load_ship_sprite_data(mod_root, core_dir, ship_files);
     sprites::merge_skin_sprite_data(&mut ship_sprites, mod_root, core_dir, skin_files);
-    Ok(SpriteBundle {
+    trace.record_stage(
+        "sprites.ship_sprites",
+        timer,
+        [("sprites", ship_sprites.len().to_string())],
+    );
+    let timer = trace.timer();
+    let available_sprites = list_sprites(mod_root, &["graphics/ships"]);
+    trace.record_stage(
+        "sprites.available_ship_sprites",
+        timer,
+        [("sprites", available_sprites.len().to_string())],
+    );
+    let timer = trace.timer();
+    let weapon_sprites = list_sprites(
+        mod_root,
+        &["graphics/weapons", "graphics/missiles", "graphics/fx"],
+    );
+    trace.record_stage(
+        "sprites.available_weapon_sprites",
+        timer,
+        [("sprites", weapon_sprites.len().to_string())],
+    );
+    let timer = trace.timer();
+    let weapon_sprites_data = sprites::load_weapon_sprite_data(mod_root, core_dir, wpn_files);
+    trace.record_stage(
+        "sprites.weapon_sprite_data",
+        timer,
+        [("weapons", weapon_sprites_data.len().to_string())],
+    );
+    let timer = trace.timer();
+    let hullmod_sprites =
+        sprites::load_hullmod_sprite_data(mod_root, core_dir, table_rows.hullmods);
+    trace.record_stage(
+        "sprites.hullmod_sprites",
+        timer,
+        [("sprites", hullmod_sprites.len().to_string())],
+    );
+    let timer = trace.timer();
+    let ship_system_sprites =
+        sprites::load_ship_system_sprite_data(mod_root, core_dir, table_rows.ship_systems);
+    trace.record_stage(
+        "sprites.ship_system_sprites",
+        timer,
+        [("sprites", ship_system_sprites.len().to_string())],
+    );
+    let timer = trace.timer();
+    let industry_sprites =
+        sprites::load_industry_sprite_data(mod_root, core_dir, table_rows.industries);
+    trace.record_stage(
+        "sprites.industry_sprites",
+        timer,
+        [("sprites", industry_sprites.len().to_string())],
+    );
+    let timer = trace.timer();
+    let skill_sprites = sprites::load_skill_sprite_data(mod_root, core_dir, table_rows.skills);
+    trace.record_stage(
+        "sprites.skill_sprites",
+        timer,
+        [("sprites", skill_sprites.len().to_string())],
+    );
+    let timer = trace.timer();
+    let ability_sprites =
+        sprites::load_ability_sprite_data(mod_root, core_dir, table_rows.abilities);
+    trace.record_stage(
+        "sprites.ability_sprites",
+        timer,
+        [("sprites", ability_sprites.len().to_string())],
+    );
+    let timer = trace.timer();
+    let commodity_sprites =
+        sprites::load_commodity_sprite_data(mod_root, core_dir, table_rows.commodities);
+    trace.record_stage(
+        "sprites.commodity_sprites",
+        timer,
+        [("sprites", commodity_sprites.len().to_string())],
+    );
+    let timer = trace.timer();
+    let special_item_sprites =
+        sprites::load_special_item_sprite_data(mod_root, core_dir, table_rows.special_items);
+    trace.record_stage(
+        "sprites.special_item_sprites",
+        timer,
+        [("sprites", special_item_sprites.len().to_string())],
+    );
+    let timer = trace.timer();
+    let submarket_sprites =
+        sprites::load_submarket_sprite_data(mod_root, core_dir, table_rows.submarkets);
+    trace.record_stage(
+        "sprites.submarket_sprites",
+        timer,
+        [("sprites", submarket_sprites.len().to_string())],
+    );
+    let timer = trace.timer();
+    let market_condition_sprites = sprites::load_market_condition_sprite_data(
+        mod_root,
+        core_dir,
+        table_rows.market_conditions,
+    );
+    trace.record_stage(
+        "sprites.market_condition_sprites",
+        timer,
+        [("sprites", market_condition_sprites.len().to_string())],
+    );
+    let bundle = SpriteBundle {
         ship_sprites,
-        available_sprites: list_sprites(mod_root, &["graphics/ships"]),
-        weapon_sprites: list_sprites(
-            mod_root,
-            &["graphics/weapons", "graphics/missiles", "graphics/fx"],
-        ),
-        weapon_sprites_data: sprites::load_weapon_sprite_data(mod_root, core_dir, wpn_files),
-        hullmod_sprites: sprites::load_hullmod_sprite_data(mod_root, core_dir, table_rows.hullmods),
-        ship_system_sprites: sprites::load_ship_system_sprite_data(
-            mod_root,
-            core_dir,
-            table_rows.ship_systems,
-        ),
-        industry_sprites: sprites::load_industry_sprite_data(
-            mod_root,
-            core_dir,
-            table_rows.industries,
-        ),
-        skill_sprites: sprites::load_skill_sprite_data(mod_root, core_dir, table_rows.skills),
-        ability_sprites: sprites::load_ability_sprite_data(
-            mod_root,
-            core_dir,
-            table_rows.abilities,
-        ),
-        commodity_sprites: sprites::load_commodity_sprite_data(
-            mod_root,
-            core_dir,
-            table_rows.commodities,
-        ),
-        special_item_sprites: sprites::load_special_item_sprite_data(
-            mod_root,
-            core_dir,
-            table_rows.special_items,
-        ),
-        submarket_sprites: sprites::load_submarket_sprite_data(
-            mod_root,
-            core_dir,
-            table_rows.submarkets,
-        ),
-        market_condition_sprites: sprites::load_market_condition_sprite_data(
-            mod_root,
-            core_dir,
-            table_rows.market_conditions,
-        ),
-    })
+        available_sprites,
+        weapon_sprites,
+        weapon_sprites_data,
+        hullmod_sprites,
+        ship_system_sprites,
+        industry_sprites,
+        skill_sprites,
+        ability_sprites,
+        commodity_sprites,
+        special_item_sprites,
+        submarket_sprites,
+        market_condition_sprites,
+    };
+    trace.record_stage(
+        "sprite_bundle",
+        total_timer,
+        [
+            ("shipSprites", bundle.ship_sprites.len().to_string()),
+            ("weaponSprites", bundle.weapon_sprites.len().to_string()),
+            (
+                "weaponSpriteData",
+                bundle.weapon_sprites_data.len().to_string(),
+            ),
+        ],
+    );
+    Ok(bundle)
 }
 
-fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
+fn load_core_references(
+    core_dir: Option<&Path>,
+    trace: &mut PerformanceTrace,
+) -> AppResult<CoreReferences> {
+    let total_timer = trace.timer();
     let Some(core_dir) = core_dir.filter(|path| path.exists()) else {
+        trace.record_stage(
+            "core_references",
+            total_timer,
+            [("available", "false".to_string())],
+        );
         return Ok(CoreReferences::default());
     };
 
+    let timer = trace.timer();
     let tables = load_core_reference_tables(core_dir)?;
+    trace.record_stage(
+        "core.tables",
+        timer,
+        [
+            ("tables", tables.len().to_string()),
+            ("rows", total_core_csv_rows(&tables).to_string()),
+        ],
+    );
+    let timer = trace.timer();
     let ship_files = load_json_dir_by_id(&core_dir.join("data/hulls"), "ship", "hullId")?;
+    trace.record_stage(
+        "core.ship_files",
+        timer,
+        [("files", ship_files.len().to_string())],
+    );
+    let timer = trace.timer();
     let wpn_files = load_json_dir_by_id(&core_dir.join("data/weapons"), "wpn", "id")?;
+    trace.record_stage(
+        "core.weapon_files",
+        timer,
+        [("files", wpn_files.len().to_string())],
+    );
+    let timer = trace.timer();
     let (variant_files, _) = load_variant_files(core_dir)?;
+    trace.record_stage(
+        "core.variant_files",
+        timer,
+        [("files", variant_files.len().to_string())],
+    );
+    let timer = trace.timer();
     let (skin_files, _) = load_skin_files(core_dir)?;
+    trace.record_stage(
+        "core.skin_files",
+        timer,
+        [("files", skin_files.len().to_string())],
+    );
     let empty: &[Map<String, Value>] = &[];
     let hullmods = tables.get("hullmods").map(Vec::as_slice).unwrap_or(empty);
     let industries = tables.get("industries").map(Vec::as_slice).unwrap_or(empty);
@@ -359,7 +649,7 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
     let market_condition_sprites =
         sprites::load_market_condition_sprite_data(core_dir, None, market_conditions);
 
-    Ok(CoreReferences {
+    let core = CoreReferences {
         tables,
         ship_files,
         wpn_files: wpn_files.clone(),
@@ -377,7 +667,20 @@ fn load_core_references(core_dir: Option<&Path>) -> AppResult<CoreReferences> {
         special_item_sprites,
         submarket_sprites,
         market_condition_sprites,
-    })
+    };
+    trace.record_stage(
+        "core_references",
+        total_timer,
+        [
+            ("available", "true".to_string()),
+            ("tables", core.tables.len().to_string()),
+            ("shipFiles", core.ship_files.len().to_string()),
+            ("weaponFiles", core.wpn_files.len().to_string()),
+            ("variantFiles", core.variant_files.len().to_string()),
+            ("skinFiles", core.skin_files.len().to_string()),
+        ],
+    );
+    Ok(core)
 }
 
 fn load_core_reference_tables(
@@ -388,6 +691,35 @@ fn load_core_reference_tables(
         tables.insert(key.to_string(), read_csv_data(&core_dir.join(rel))?.rows);
     }
     Ok(tables)
+}
+
+fn total_csv_rows<S>(tables: &HashMap<String, Vec<Map<String, Value>>, S>) -> usize
+where
+    S: BuildHasher,
+{
+    tables.values().map(Vec::len).sum()
+}
+
+fn total_core_csv_rows(tables: &BTreeMap<String, Vec<Map<String, Value>>>) -> usize {
+    tables.values().map(Vec::len).sum()
+}
+
+fn write_performance_trace(
+    app_handle: tauri::AppHandle,
+    trace: &PerformanceTrace,
+    root_fields: &[(&str, String)],
+) {
+    for message in trace.log_messages(root_fields) {
+        let _ = app_log::append_log_for_app(
+            app_handle.clone(),
+            AppLogEntry {
+                level: "info".to_string(),
+                message,
+                path: None,
+                line: None,
+            },
+        );
+    }
 }
 
 pub fn detect_directory(

@@ -52,6 +52,7 @@ import { useWorkspaceStore } from '@/stores/workspace.store';
 import { useTablesStore } from '@/stores/tables.store';
 import { useProjectStore } from '@/stores/project.store';
 import type { ConfigView, TableKey } from '@/shared/types';
+import { measurePerformance } from '@/services/performance.service';
 
 defineEmits<{ 'remove-mod': [modRoot: string] }>();
 
@@ -60,9 +61,11 @@ const tables = useTablesStore();
 const project = useProjectStore();
 
 function onSwitchTab(modRoot: string, tab: TableKey) {
-  workspace.setActiveTable(modRoot);
-  const data = project.getModData(modRoot);
-  tables.switchTab(tab, data);
+  measurePerformance('frontend.table.switchTab', { modRoot, table: tab }, () => {
+    workspace.setActiveTable(modRoot);
+    const data = project.getModData(modRoot);
+    tables.switchTab(tab, data);
+  });
 }
 
 function onSwitchConfig(modRoot: string, view: ConfigView) {
