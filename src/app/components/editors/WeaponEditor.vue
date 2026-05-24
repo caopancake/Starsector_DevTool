@@ -275,6 +275,7 @@ const props = defineProps<{
   weapon: RowData;
   spriteData?: Record<string, string>;
   projectiles: Record<string, RowData>;
+  projectileOptions: { label: string; value: string }[];
 }>();
 const emit = defineEmits<{
   close: [];
@@ -332,7 +333,7 @@ const projectileSpecId = computed({
   get: () => str(localWeapon.value.projectileSpecId),
   set: (v) => (localWeapon.value.projectileSpecId = v),
 });
-const projectileOptions = computed(() => Object.keys(props.projectiles).map((value) => ({ label: value, value })));
+const projectileOptions = computed(() => props.projectileOptions);
 const fringeColor = computed({
   get: () => arr(localWeapon.value.fringeColor, [255, 255, 255, 255]),
   set: (v) => (localWeapon.value.fringeColor = v),

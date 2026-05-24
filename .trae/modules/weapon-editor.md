@@ -7,7 +7,7 @@
 ## 边界
 
 - `src/windows/editor.window.ts` 打开 `kind=weapon` 编辑器窗口。
-- `src/app/EditorWindowApp.vue` 在 weapon kind 下加载 AppData 并挂载 `WeaponEditor`。
+- `src/app/EditorWindowApp.vue` 在 weapon kind 下使用主窗口传入的 session 查询武器数据并挂载 `WeaponEditor`。
 - `src/app/components/editors/WeaponEditor.vue` 承载武器画布、检查器、局部历史和保存。
 - `src/services/editor.service.ts` 调用 spec 保存 API。
 - `src-tauri/src/services/editor_specs.rs` 定位并保存 `.wpn` JSON-like spec。
@@ -28,8 +28,8 @@
 2. 前端调用 `openWeaponEditorWindow()`。
 3. 多窗口机制按 `weapon + modRoot + weaponId` 单例化窗口。
 4. 新窗口挂载 `EditorWindowApp`。
-5. `EditorWindowApp` 调用 `loadProject(modRoot, starsectorRoot?)`。
-6. `EditorWindowApp` 从 `appData.wpnFiles[weaponId]` 取 spec。
+5. `EditorWindowApp` 使用 `sessionId + weaponId` 查询 weapon entity。
+6. `EditorWindowApp` 按需查询武器贴图资源。
 7. 缺少 spec 时 `EditorWindowApp` 使用 CSV 行生成默认 weapon 数据。
 8. `EditorWindowApp` 挂载 `WeaponEditor`。
 
@@ -42,4 +42,4 @@
 5. Rust 返回单文件 changeset。
 6. `WeaponEditor.vue` 触发 saved 事件。
 7. `EditorWindowApp` 发送 `editor-spec-saved`。
-8. 主窗口记录文件级 history 并同步 project cache。
+8. 主窗口记录文件级 history 并失效对应 session cache。

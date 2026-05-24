@@ -2,12 +2,11 @@ import { h, onMounted, onUnmounted, ref, watch } from 'vue';
 import { NCheckbox } from 'naive-ui';
 import type { AppFeedback } from '@/shared/types';
 import { useSettingsStore } from '@/stores/settings.store';
-import { cell } from '@/shared/lib/starsector';
 import { useEditorsStore } from '@/stores/editors.store';
 import { openShipEditorWindow, openWeaponEditorWindow, openWeaponPreviewWindow, type EditorSpecSavedEvent } from '@/windows/editor.window';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import { useProjectStore } from '@/stores/project.store';
-import { pickDirectory, scanWorkspaceOverview } from '@/services/project.service';
+import { closeProject, invalidateProjectRootCache, pickDirectory, scanWorkspaceOverview } from '@/services/project.service';
 import { selectActiveTableAssociatedFileCandidates, saveActiveTableChanges } from '@/orchestrators/table-save.orchestrator';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { useTablesStore } from '@/stores/tables.store';
@@ -24,6 +23,7 @@ import {
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { useCoreSchema } from '@/app/composables/use-core-schema';
 import { recordLogSilently } from '@/services/app-config.service';
+import { invalidateResourceCacheForSession } from '@/services/resource-cache.service';
 
 export function useWorkspaceShellActions(feedback: AppFeedback) {
   const project = useProjectStore();
@@ -42,8 +42,8 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     () => workspace.activeModRoot,
     (modRoot) => {
       project.setActiveModRoot(modRoot);
-      const appData = modRoot ? project.getModData(modRoot) : null;
-      tables.activateFor(modRoot ?? '', appData);
+      const manifest = modRoot ? project.getManifest(modRoot) : null;
+      tables.activateFor(modRoot ?? '', manifest);
       editors.activateFor(modRoot ?? '');
       fileHistory.activateFor(modRoot ?? '');
     },
@@ -147,8 +147,8 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
 
   async function saveChanges() {
     try {
-      if (!project.activeModData) return;
-      const candidates = selectActiveTableAssociatedFileCandidates(project.activeModData);
+      if (!project.activeManifest) return;
+      const candidates = selectActiveTableAssociatedFileCandidates();
       if (candidates.length > 0) {
         selectedAssociatedFileKeys.value = new Set(candidates.map((candidate) => candidate.key));
         feedback.confirmWarning({
@@ -160,7 +160,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
               const selected = candidates
                 .filter((candidate) => selectedAssociatedFileKeys.value.has(candidate.key))
                 .map(({ relPath, afterText }) => ({ relPath, afterText }));
-              const result = await saveActiveTableChanges(project.activeModData, selected);
+              const result = await saveActiveTableChanges(project.activeManifest, selected);
               showSaveResult(result);
             } catch (err) {
               feedback.error(err, '保存 CSV 失败');
@@ -169,7 +169,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
         });
         return;
       }
-      const result = await saveActiveTableChanges(project.activeModData);
+      const result = await saveActiveTableChanges(project.activeManifest);
       showSaveResult(result);
     } catch (err) {
       feedback.error(err, '保存 CSV 失败');
@@ -185,16 +185,16 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   }
 
   async function addNewRow() {
-    if (!project.activeModData) return;
+    if (!project.activeManifest) return;
     try {
-      await tables.addNewRow(project.activeModData);
+      await tables.addNewRow();
     } catch (err) {
       feedback.error(err, '新建 CSV 行失败');
     }
   }
 
   async function deleteSelectedRow() {
-    if (!project.activeModData || !tables.selectedRowKey) return;
+    if (!project.activeManifest || !tables.selectedRowKey) return;
     try {
       await tables.deleteSelected();
     } catch (err) {
@@ -244,6 +244,11 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   }
 
   function removeMod(modRoot: string, showMessage = true) {
+    const sessionId = project.getSessionId(modRoot);
+    if (sessionId) {
+      invalidateResourceCacheForSession(sessionId);
+      void closeProject(sessionId);
+    }
     workspace.removeMod(modRoot);
     tables.removeModState(modRoot);
     editors.removeModState(modRoot);
@@ -254,9 +259,11 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   }
 
   function closeWorkspace() {
+    const roots = new Set([...project.manifests.values()].map((manifest) => manifest.starsectorRoot).filter(Boolean));
     for (const mod of [...workspace.loadedModList]) {
       removeMod(mod.modRoot, false);
     }
+    for (const root of roots) void invalidateProjectRootCache(root as string);
     workspace.setGameOverview(null);
     workspace.navigateTo('overview');
     project.setActiveModRoot(null);
@@ -298,32 +305,25 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   }
 
   function openShip(id: string) {
-    if (!project.activeModData?.shipFiles[id]) {
-      feedback.error(`找不到 ${id}.ship`);
-      return;
-    }
     void openShipEditorWindow(editorRequest(id));
   }
 
   function openWeapon(id: string) {
-    if (!project.activeModData) return;
-    if (!project.activeModData.wpnFiles[id] && !project.activeModData.weapons.some((weapon) => cell(weapon.id) === id)) {
-      feedback.error(`找不到 ${id}.wpn`);
-      return;
-    }
+    if (!project.activeManifest) return;
     void openWeaponEditorWindow(editorRequest(id));
   }
 
   function openWeaponPreview(id: string) {
-    if (!project.activeModData) return;
+    if (!project.activeManifest) return;
     void openWeaponPreviewWindow(editorRequest(id));
   }
 
   function editorRequest(id: string) {
-    const data = project.activeModData!;
+    const data = project.activeManifest!;
     return {
       modRoot: data.modRoot,
       id,
+      sessionId: data.sessionId,
       settings: settings.settingsSnapshot(),
       starsectorRoot: data.starsectorRoot ?? workspace.gameOverview?.starsectorRoot ?? settings.starsectorRoot,
     };

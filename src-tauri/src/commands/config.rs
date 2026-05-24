@@ -1,9 +1,8 @@
 use crate::{
     models::{
-        CsvTable, DeleteIndexedConfigEntityPayload, DeleteSkinEntityPayload,
-        DeleteVariantEntityPayload, FileChangeRecord, IndexedConfigEntityPayload,
-        IndexedConfigEntityResult, MissionData, MissionListCsvPayload, MissionPayload,
-        SkinEntityPayload, SkinEntityResult, VariantEntityPayload, VariantEntityResult,
+        DeleteIndexedConfigEntityPayload, DeleteSkinEntityPayload, DeleteVariantEntityPayload,
+        FileChangeRecord, IndexedConfigEntityPayload, IndexedConfigEntityResult, SkinEntityPayload,
+        SkinEntityResult, VariantEntityPayload, VariantEntityResult,
     },
     services,
 };
@@ -69,20 +68,4 @@ pub fn delete_skin_entity_with_history(
     payload: DeleteSkinEntityPayload,
 ) -> Result<Vec<FileChangeRecord>, String> {
     services::config::delete_skin_entity(payload).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn scan_mission_list(mod_root: String) -> Vec<String> {
-    services::config::scan_mission_list_files(&mod_root)
-}
-
-#[tauri::command]
-pub fn load_mission_list_csv(payload: MissionListCsvPayload) -> Result<CsvTable, String> {
-    services::config::load_mission_list_csv(&payload.mod_root, &payload.rel_path)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn load_mission(payload: MissionPayload) -> Result<MissionData, String> {
-    services::config::load_mission(&payload.mod_root, &payload.mission).map_err(|e| e.to_string())
 }

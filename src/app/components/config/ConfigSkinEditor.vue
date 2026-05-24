@@ -11,7 +11,7 @@
       </div>
     </header>
     <div class="skin-editor-body">
-      <SchemaFormRenderer :schema="schema" v-model="localSkin" :app-data="project.activeModData" />
+      <SchemaFormRenderer :schema="schema" v-model="localSkin" :runtime-context="schemaRuntimeContext" />
     </div>
   </main>
 </template>
@@ -20,15 +20,15 @@
 import { computed, ref, watch } from 'vue';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useProjectStore } from '@/stores/project.store';
-import type { RowData } from '@/shared/types';
+import type { RowData, SkinFile } from '@/shared/types';
 import { deepClone } from '@/shared/lib/starsector';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { getSchema } from '@/domain/schema/schema-registry';
 import { deleteSkinWithFileHistory, saveSkinWithFileHistory } from '@/orchestrators/config-save.orchestrator';
 import { isSafeEntityFileStem } from '@/domain/config/config-entities';
 
-const props = defineProps<{ skinHullId: string }>();
-const emit = defineEmits<{ saved: [skinHullId: string] }>();
+const props = defineProps<{ skinHullId: string; skins: SkinFile[] }>();
+const emit = defineEmits<{ saved: [skinHullId: string]; changed: [] }>();
 
 const project = useProjectStore();
 const feedback = useAppFeedback();
@@ -37,9 +37,12 @@ const localSkin = ref<RowData>({});
 const saving = ref(false);
 
 const schema = computed(() => getSchema('skin'));
-const modData = computed(() => project.activeModData);
+const schemaRuntimeContext = computed(() =>
+  project.activeManifest ? { modRoot: project.activeManifest.modRoot, sessionId: project.activeManifest.sessionId } : null,
+);
+const modData = computed(() => project.activeManifest);
 const modRoot = computed(() => modData.value?.modRoot ?? '');
-const skins = computed(() => [...(modData.value?.skinFiles ?? [])]);
+const skins = computed(() => [...props.skins]);
 const selectedSkin = computed(() => skins.value.find((skin) => skin.skinHullId === props.skinHullId) ?? null);
 
 async function save() {
@@ -69,7 +72,7 @@ async function save() {
       renamed ? current.skinHullId : null,
       renamed ? current.relPath : null,
     );
-    project.upsertSkinFile(modRoot.value, result.skinFile, current.skinHullId);
+    emit('changed');
     localSkin.value = deepClone(result.skinFile.data);
     emit('saved', result.skinFile.skinHullId);
     feedback.success(`舰船皮肤 "${result.skinFile.skinHullId}" 已保存`);
@@ -98,7 +101,7 @@ async function deleteCurrentSkin() {
   if (!current || !modRoot.value) return false;
   try {
     await deleteSkinWithFileHistory(modRoot.value, current.relPath, current.skinHullId);
-    project.deleteSkinFile(modRoot.value, current.skinHullId);
+    emit('changed');
     emit('saved', skins.value[0]?.skinHullId ?? '');
     feedback.success(`舰船皮肤 "${current.skinHullId}" 已删除`);
   } catch (error) {

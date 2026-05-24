@@ -3,13 +3,35 @@ use serde_json::{Map, Value};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SaveCsvWithHistoryPayload {
-    pub mod_root: String,
+pub struct SaveCsvPatchWithHistoryPayload {
+    pub session_id: String,
     pub table: String,
-    pub header: Vec<String>,
-    pub rows: Vec<Map<String, Value>>,
+    pub patches: Vec<CsvRowPatchPayload>,
     #[serde(default)]
     pub associated_files: Vec<AssociatedFileChangePayload>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CsvRowPatchPayload {
+    pub row_key: String,
+    pub action: String,
+    #[serde(default)]
+    pub row: Map<String, Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveCsvPatchResult {
+    pub changes: Vec<FileChangeRecord>,
+    pub key_map: Vec<CsvRowKeyMapping>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CsvRowKeyMapping {
+    pub previous_key: String,
+    pub next_key: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -30,43 +52,6 @@ pub struct UploadSpritePayload {
     pub data: String,
     pub overwrite: bool,
     pub subfolder: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MissionListCsvPayload {
-    pub mod_root: String,
-    pub rel_path: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LoadCsvTablePayload {
-    pub mod_root: String,
-    pub table: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MissionPayload {
-    pub mod_root: String,
-    pub mission: String,
-    pub previous_mission_id: Option<String>,
-    pub descriptor: Option<Value>,
-    pub text: Option<String>,
-    pub mission_list_rel_path: Option<String>,
-    pub header: Option<Vec<String>>,
-    pub rows: Option<Vec<Map<String, Value>>>,
-    pub delete_previous_directory: Option<bool>,
-    pub delete_mission_directory: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MissionData {
-    pub descriptor: Value,
-    pub text: String,
-    pub icon_path: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -1,7 +1,5 @@
-import type { AppData, CoreReferences, JsonValue, RowData, TableKey } from '@/shared/types';
+import type { JsonValue, ResourceRef, RowData } from '@/shared/types';
 import type { DiscoveredField, FieldSchema, FileSchema, SectionSchema } from '@/domain/schema/schema.types';
-import { isDisabledCsvReference } from '@/shared/lib/starsector';
-import { hullReferenceRows, hullSpriteMap, wingSpriteMap } from '@/shared/lib/hull-references';
 
 import modInfoSchemaRaw from '../../../schemas/mod-info.schema.json';
 import factionSchemaRaw from '../../../schemas/faction.schema.json';
@@ -97,40 +95,14 @@ export interface SelectOption {
   label: string;
   value: string;
   sprite?: string; // data URL for thumbnail preview
+  resourceRef?: ResourceRef | null;
   type?: 'group';
+  key?: string;
   children?: SelectOption[];
 }
 
-/**
- * Resolve a `source` descriptor to a list of options using appData.
- *
- * Supported formats:
- * - "csv:ships.tags" → extract unique comma-separated tags from ships rows
- * - "csv:weapons.id" → extract unique id values from weapons rows
- * - "enum:A,B,C"     → static enum values
- */
-export function resolveSource(source: string | undefined | null, appData: AppData | null): SelectOption[] {
-  if (!source || !appData) return [];
-
-  // "csv:table.column"
-  if (source.startsWith('csv:')) {
-    const rest = source.slice(4);
-    const dotIdx = rest.indexOf('.');
-    const table = dotIdx > 0 ? rest.slice(0, dotIdx) : rest;
-    const col = dotIdx > 0 ? rest.slice(dotIdx + 1) : 'id';
-
-    const modRows = referenceRowsForTable(appData, table, 'mod');
-    const coreRows = referenceRowsForTable(appData, table, 'core');
-    if (modRows.length === 0 && coreRows.length === 0) return [];
-
-    if (col === 'tags') {
-      return groupedOptions(tagOptions(modRows), tagOptions(coreRows));
-    } else {
-      return groupedOptions(entityOptions(appData, table, col, modRows, 'mod'), entityOptions(appData, table, col, coreRows, 'core'));
-    }
-  }
-
-  // "enum:A,B,C"
+export function resolveEnumSource(source: string | undefined | null): SelectOption[] {
+  if (!source) return [];
   if (source.startsWith('enum:')) {
     return source
       .slice(5)
@@ -139,154 +111,6 @@ export function resolveSource(source: string | undefined | null, appData: AppDat
   }
 
   return [];
-}
-
-function referenceRowsForTable(appData: AppData, table: string, origin: 'mod' | 'core'): RowData[] {
-  if (table === 'ships') return hullReferenceRows(appData, origin);
-  if (table === 'variants') {
-    const variants = origin === 'mod' ? appData.variantFiles : appData.coreReferences.variantFiles;
-    return variants.map((variant) => ({
-      variantId: variant.variantId,
-      hullId: variant.hullId,
-      name: variant.variantId,
-    }));
-  }
-  return origin === 'mod' ? rowsForTable(appData, table) : coreRowsForTable(appData.coreReferences, table);
-}
-
-/**
- * Get the sprite map for a given table from AppData.
- * Returns a map from id → data URL string (or undefined if no sprites for this table).
- */
-function getSpriteMap(appData: AppData, table: string): Record<string, string> | undefined {
-  switch (table) {
-    case 'ships':
-      return hullSpriteMap(appData, 'mod');
-    case 'hullmods':
-      return appData.hullmodSprites;
-    case 'weapons':
-      return flattenWeaponSprites(appData.weaponSpritesData);
-    case 'wings':
-      return wingSpriteMap(appData, appData.wings, appData.variantFiles, 'mod');
-    case 'shipSystems':
-      return appData.shipSystemSprites;
-    case 'industries':
-      return appData.industrySprites;
-    case 'skills':
-      return appData.skillSprites;
-    case 'abilities':
-      return appData.abilitySprites;
-    case 'commodities':
-      return appData.commoditySprites;
-    case 'specialItems':
-      return appData.specialItemSprites;
-    case 'submarkets':
-      return appData.submarketSprites;
-    case 'marketConditions':
-      return appData.marketConditionSprites;
-    default:
-      return undefined;
-  }
-}
-
-function getCoreSpriteMap(appData: AppData, table: string): Record<string, string> | undefined {
-  const core = appData.coreReferences;
-  switch (table) {
-    case 'ships':
-      return hullSpriteMap(appData, 'core');
-    case 'weapons':
-      return flattenWeaponSprites(core.weaponSpritesData);
-    case 'wings':
-      return wingSpriteMap(appData, core.tables.wings ?? [], core.variantFiles, 'core');
-    case 'hullmods':
-      return core.hullmodSprites;
-    case 'shipSystems':
-      return core.shipSystemSprites;
-    case 'industries':
-      return core.industrySprites;
-    case 'skills':
-      return core.skillSprites;
-    case 'abilities':
-      return core.abilitySprites;
-    case 'commodities':
-      return core.commoditySprites;
-    case 'specialItems':
-      return core.specialItemSprites;
-    case 'submarkets':
-      return core.submarketSprites;
-    case 'marketConditions':
-      return core.marketConditionSprites;
-    default:
-      return undefined;
-  }
-}
-
-function rowsForTable(appData: AppData, table: string): RowData[] {
-  const rows = (appData as unknown as Record<string, unknown>)[table];
-  return Array.isArray(rows) ? (rows as RowData[]) : [];
-}
-
-function coreRowsForTable(core: CoreReferences | undefined, table: string): RowData[] {
-  const rows = core?.tables?.[table as TableKey];
-  return Array.isArray(rows) ? rows : [];
-}
-
-function groupedOptions(modOptions: SelectOption[], coreOptions: SelectOption[]): SelectOption[] {
-  const modValues = new Set(modOptions.map((option) => option.value));
-  const coreOnly = coreOptions.filter((option) => !modValues.has(option.value));
-  const groups: SelectOption[] = [];
-  if (modOptions.length > 0) groups.push({ type: 'group', label: '当前 Mod', value: '__mod', children: sortOptions(modOptions) });
-  if (coreOnly.length > 0) groups.push({ type: 'group', label: '原版', value: '__core', children: sortOptions(coreOnly) });
-  return groups;
-}
-
-function sortOptions(options: SelectOption[]): SelectOption[] {
-  return [...options].sort((a, b) => a.label.localeCompare(b.label));
-}
-
-function tagOptions(rows: RowData[]): SelectOption[] {
-  const tagSet = new Set<string>();
-  for (const row of rows) {
-    const raw = String(row.tags ?? '');
-    for (const tag of raw.split(',')) {
-      const t = tag.trim();
-      if (t) tagSet.add(t);
-    }
-  }
-  return [...tagSet].map((tag) => ({ label: tag, value: tag }));
-}
-
-function entityOptions(appData: AppData, table: string, col: string, rows: RowData[], origin: 'mod' | 'core'): SelectOption[] {
-  const spriteMap = origin === 'mod' ? getSpriteMap(appData, table) : getCoreSpriteMap(appData, table);
-  const options: SelectOption[] = [];
-  const seen = new Set<string>();
-  for (const row of rows) {
-    const id = String(row[col] ?? '').trim();
-    if (!id || isDisabledCsvReference(id) || seen.has(id)) continue;
-    seen.add(id);
-    const name = String(row.name ?? row.hullName ?? '').trim();
-    const label = name && name !== id ? `${name} (${id})` : id;
-    const sprite = spriteMap?.[id];
-    options.push({ label, value: id, sprite });
-  }
-  return options;
-}
-
-function flattenWeaponSprites(data: Record<string, Record<string, string>>): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const [id, sprites] of Object.entries(data)) {
-    const sprite =
-      sprites.turretSprite ||
-      sprites.hardpointSprite ||
-      sprites.turretGunSprite ||
-      sprites.hardpointGunSprite ||
-      sprites.turretUnderSprite ||
-      sprites.hardpointUnderSprite ||
-      sprites.turretGlowSprite ||
-      sprites.hardpointGlowSprite;
-    if (sprite) result[id] = sprite;
-  }
-  return result;
 }
 
 /**

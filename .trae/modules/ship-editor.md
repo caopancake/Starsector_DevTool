@@ -7,7 +7,7 @@
 ## 边界
 
 - `src/windows/editor.window.ts` 打开 `kind=ship` 编辑器窗口。
-- `src/app/EditorWindowApp.vue` 在 ship kind 下加载 AppData 并挂载 `ShipEditor`。
+- `src/app/EditorWindowApp.vue` 在 ship kind 下使用主窗口传入的 session 查询舰船数据并挂载 `ShipEditor`。
 - `src/app/components/editors/ShipEditor.vue` 承载舰船画布、检查器、局部历史和保存。
 - `src/services/editor.service.ts` 调用 spec 保存 API。
 - `src/app/composables/use-editor-shortcuts.ts` 承载编辑器通用快捷键辅助。
@@ -20,7 +20,7 @@
 - 舰船编辑器不隐式保存 `ship_data.csv`。
 - 舰船窗口局部 undo/redo 只处理窗口内编辑状态。
 - 保存成功后必须发送 `editor-spec-saved`。
-- 主窗口已加载该 Mod 时同步 project cache 并记录文件级 history。
+- 主窗口已加载该 Mod 时记录文件级 history 并按变更路径失效 session cache。
 - 文件级 history 回放影响同一 `.ship` 时，通过 `editor-spec-applied` 刷新已打开窗口。
 
 ## 链路：打开舰船编辑器
@@ -29,8 +29,8 @@
 2. 前端调用 `openShipEditorWindow()`。
 3. 多窗口机制按 `ship + modRoot + hullId` 单例化窗口。
 4. 新窗口挂载 `EditorWindowApp`。
-5. `EditorWindowApp` 调用 `loadProject(modRoot, starsectorRoot?)`。
-6. `EditorWindowApp` 从 `appData.shipFiles[hullId]` 取 spec。
+5. `EditorWindowApp` 使用 `sessionId + hullId` 查询 ship entity。
+6. `EditorWindowApp` 按需查询舰船贴图资源。
 7. `EditorWindowApp` 挂载 `ShipEditor`。
 
 ## 链路：保存舰船 spec
@@ -42,4 +42,4 @@
 5. Rust 返回单文件 changeset。
 6. `ShipEditor.vue` 触发 saved 事件。
 7. `EditorWindowApp` 发送 `editor-spec-saved`。
-8. 主窗口记录文件级 history 并同步 project cache。
+8. 主窗口记录文件级 history 并失效对应 session cache。

@@ -11,7 +11,7 @@
       </div>
     </header>
     <div class="variant-editor-body">
-      <SchemaFormRenderer :schema="schema" v-model="localVariant" :app-data="project.activeModData" />
+      <SchemaFormRenderer :schema="schema" v-model="localVariant" :runtime-context="schemaRuntimeContext" />
     </div>
   </main>
 </template>
@@ -20,15 +20,15 @@
 import { computed, ref, watch } from 'vue';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useProjectStore } from '@/stores/project.store';
-import type { RowData } from '@/shared/types';
+import type { RowData, VariantFile } from '@/shared/types';
 import { deepClone } from '@/shared/lib/starsector';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { getSchema } from '@/domain/schema/schema-registry';
 import { deleteVariantWithFileHistory, saveVariantWithFileHistory } from '@/orchestrators/config-save.orchestrator';
 import { isSafeEntityFileStem } from '@/domain/config/config-entities';
 
-const props = defineProps<{ variantId: string }>();
-const emit = defineEmits<{ saved: [variantId: string] }>();
+const props = defineProps<{ variantId: string; variants: VariantFile[] }>();
+const emit = defineEmits<{ saved: [variantId: string]; changed: [] }>();
 
 const project = useProjectStore();
 const feedback = useAppFeedback();
@@ -37,9 +37,12 @@ const localVariant = ref<RowData>({});
 const saving = ref(false);
 
 const schema = computed(() => getSchema('variant'));
-const modData = computed(() => project.activeModData);
+const schemaRuntimeContext = computed(() =>
+  project.activeManifest ? { modRoot: project.activeManifest.modRoot, sessionId: project.activeManifest.sessionId } : null,
+);
+const modData = computed(() => project.activeManifest);
 const modRoot = computed(() => modData.value?.modRoot ?? '');
-const variants = computed(() => [...(modData.value?.variantFiles ?? [])]);
+const variants = computed(() => [...props.variants]);
 const selectedVariant = computed(() => variants.value.find((variant) => variant.variantId === props.variantId) ?? null);
 
 async function save() {
@@ -69,7 +72,7 @@ async function save() {
       renamed ? current.variantId : null,
       renamed ? current.relPath : null,
     );
-    project.upsertVariantFile(modRoot.value, result.variantFile, current.variantId);
+    emit('changed');
     localVariant.value = deepClone(result.variantFile.data);
     emit('saved', result.variantFile.variantId);
     feedback.success(`装配 "${result.variantFile.variantId}" 已保存`);
@@ -98,7 +101,7 @@ async function deleteCurrentVariant() {
   if (!current || !modRoot.value) return false;
   try {
     await deleteVariantWithFileHistory(modRoot.value, current.relPath, current.variantId);
-    project.deleteVariantFile(modRoot.value, current.variantId);
+    emit('changed');
     emit('saved', variants.value[0]?.variantId ?? '');
     feedback.success(`装配 "${current.variantId}" 已删除`);
   } catch (error) {

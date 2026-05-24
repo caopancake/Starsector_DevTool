@@ -35,7 +35,7 @@ const workspace = useWorkspaceStore();
 
 const subtitle = computed(() => {
   if (workspace.gameOverview) return `${workspace.gameOverview.mods.length} 个 Mod 可用，当前仅显示游戏目录概览`;
-  if (workspace.hasLoadedMods) return `${workspace.loadedModCount} 个 Mod 已完整读取`;
+  if (workspace.hasLoadedMods) return `${workspace.loadedModCount} 个 Mod 已打开`;
   return '尚未打开工作区';
 });
 </script>

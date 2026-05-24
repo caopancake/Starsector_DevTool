@@ -1,59 +1,61 @@
-import { singleFileByRel } from '../shared/files.mjs';
+import { frontendFile, rustFile, singleFileByRel } from '../shared/files.mjs';
+import { importedProjectPaths } from '../shared/imports.mjs';
 
 export const appDataSyncBoundaryRule = {
   name: 'app-data-sync-boundary',
   check(files) {
     const failures = [];
-    const typeFile = singleFileByRel(files, 'src/shared/types/index.ts');
-    if (!typeFile) return failures;
-    const projectStore = files.find(isProjectCacheStore);
-    const replayService = files.find(isFileHistoryReplayOrchestrator);
-    if (!projectStore || !replayService) return failures;
-
-    const fields = appDataFields(typeFile.text);
-    for (const field of fields) {
-      if (!isFileBackedEntityArray(typeFile.text, field)) continue;
-      if (!new RegExp(`\\b${field}\\b`).test(projectStore.text)) {
-        failures.push(`${projectStore.rel}: AppData field ${field} must be handled by project cache`);
+    const singleResourceApiPattern = new RegExp('\\bqueryResource' + 'DataUrl\\b|\\bquery_resource' + '_data_url\\b');
+    const singleResourceTypePattern = new RegExp('\\bResourceDataUrl' + '(Payload|Result)\\b');
+    const legacyMissionApiPattern = new RegExp(
+      '\\b(scanMissionList|loadMissionListCsv|loadMission|scan_mission_list|load_mission_list_csv|load_mission)\\b',
+    );
+    const resourceCache = singleFileByRel(files, 'src/services/resource-cache.service.ts');
+    for (const file of files) {
+      if (frontendFile(file.rel)) {
+        for (const imported of importedProjectPaths(file)) {
+          if (imported.importedName === 'AppData' || imported.importedName === 'CoreReferences') {
+            failures.push(`${file.rel}: full project data types are forbidden in query-backed ProjectSession architecture`);
+          }
+        }
+        if (/\bAppData\b|\bCoreReferences\b|\bcoreReferences\b|\bloadProject\s*\(/.test(file.text)) {
+          failures.push(`${file.rel}: frontend must use ProjectManifest/session query instead of full project data`);
+        }
+        if (/\bqueryCsvTableWindow\s*\([^)]*count\s*:\s*10000/s.test(file.text)) {
+          failures.push(`${file.rel}: editor candidates must use source/entity query instead of full CSV window queries`);
+        }
+        if (singleResourceApiPattern.test(file.text) || singleResourceTypePattern.test(file.text)) {
+          failures.push(`${file.rel}: resource data URLs must use the batch query boundary`);
+        }
+        if (legacyMissionApiPattern.test(file.text)) {
+          failures.push(`${file.rel}: mission UI/data loading must use ProjectSession entity query`);
+        }
+        if (file !== resourceCache && !file.rel.startsWith('src/shared/api/') && /\bqueryResourceDataUrls\b/.test(file.text)) {
+          failures.push(`${file.rel}: resource data URLs must go through resource-cache service`);
+        }
+        if (/hullOptions\s*=\s*computed[^=]*=>\s*\[\]|variantShipSprite\s*=\s*''|skinSprite\s*=\s*''/.test(file.text)) {
+          failures.push(`${file.rel}: config entity UI must not use empty placeholder implementations`);
+        }
+        if (/\bfunction\s+closeWorkspace\b/.test(file.text)) {
+          if (!/\bcloseProject\b/.test(file.text)) {
+            failures.push(`${file.rel}: removing loaded mods must release ProjectSession explicitly`);
+          }
+          if (!/\binvalidateProjectRootCache\b/.test(file.text)) {
+            failures.push(`${file.rel}: closing or switching workspace root must invalidate core cache explicitly`);
+          }
+        }
       }
-      if (!new RegExp(`\\b${field}\\b`).test(replayService.text)) {
-        failures.push(`${replayService.rel}: AppData field ${field} must be considered by file replay sync`);
+      if (rustFile(file.rel)) {
+        if (
+          /struct\s+AppData\b|struct\s+CoreReferences\b|load_mod_data(?:_with_root)?\b|load_mod_data_with_root_traced\b/.test(file.text)
+        ) {
+          failures.push(`${file.rel}: Rust must not reintroduce full AppData loading or coreReferences payloads`);
+        }
+        if (singleResourceApiPattern.test(file.text) || singleResourceTypePattern.test(file.text)) {
+          failures.push(`${file.rel}: resource data URLs must use the batch query boundary`);
+        }
       }
     }
     return failures;
   },
 };
-
-function isProjectCacheStore(file) {
-  return file.rel.startsWith('src/stores/') && file.rel.endsWith('.store.ts') && /defineStore\(\s*['"]project['"]/.test(file.text);
-}
-
-function isFileHistoryReplayOrchestrator(file) {
-  return (
-    file.rel.startsWith('src/orchestrators/') &&
-    file.rel.endsWith('.orchestrator.ts') &&
-    file.text.includes('applyFileChangeSet') &&
-    file.text.includes('FileHistoryReplayDirection')
-  );
-}
-
-function appDataFields(text) {
-  const match = text.match(/export\s+interface\s+AppData\s+\{([\s\S]*?)\n\}/);
-  if (!match) return [];
-  return [...match[1].matchAll(/^\s*([A-Za-z0-9_]+)[?:]?:/gm)].map((fieldMatch) => fieldMatch[1]);
-}
-
-function isFileBackedEntityArray(text, field) {
-  const appDataMatch = text.match(/export\s+interface\s+AppData\s+\{([\s\S]*?)\n\}/);
-  if (!appDataMatch) return false;
-  const fieldTypeMatch = appDataMatch[1].match(new RegExp(`^\\s*${field}[?:]?:\\s*([A-Za-z0-9_]+)\\[\\];`, 'm'));
-  if (!fieldTypeMatch) return false;
-  return isFileBackedEntityType(text, fieldTypeMatch[1]);
-}
-
-function isFileBackedEntityType(text, typeName) {
-  const match = text.match(new RegExp(`export\\s+interface\\s+${typeName}\\s+\\{([\\s\\S]*?)\\n\\}`));
-  if (!match) return false;
-  const body = match[1];
-  return /\bpath:\s*string;/.test(body) && /\brelPath:\s*string;/.test(body) && /\bdata:\s*RowData;/.test(body);
-}

@@ -15,7 +15,7 @@
           :key="field.key"
           :field="field"
           :value="getNestedValue(modelValue, field.key)"
-          :app-data="appData"
+          :runtime-context="runtimeContext"
           @update="onFieldUpdate(field.key, $event)"
         />
       </div>
@@ -40,7 +40,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
-import type { AppData, RowData } from '@/shared/types';
+import type { RowData, SchemaRuntimeContext } from '@/shared/types';
 import type { FileSchema, SectionSchema } from '@/domain/schema/schema.types';
 import {
   getExtraFieldSource,
@@ -56,7 +56,7 @@ import JsonFieldEditor from '@/shared/ui/JsonFieldEditor.vue';
 const props = defineProps<{
   schema: FileSchema;
   modelValue: RowData;
-  appData: AppData | null;
+  runtimeContext?: SchemaRuntimeContext | null;
 }>();
 
 const emit = defineEmits<{

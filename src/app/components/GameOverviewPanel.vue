@@ -45,7 +45,7 @@
           <n-button v-if="workspace.isModImported(mod.modRoot)" size="small" @click="workspace.setActiveMod(mod.modRoot)"
             >进入编辑</n-button
           >
-          <n-button v-else size="small" type="primary" @click="$emit('load-mod', mod.modRoot)">完整读取</n-button>
+          <n-button v-else size="small" type="primary" @click="$emit('load-mod', mod.modRoot)">打开</n-button>
         </div>
       </div>
     </div>

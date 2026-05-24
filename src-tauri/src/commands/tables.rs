@@ -1,23 +1,11 @@
 use crate::{
-    models::{CsvTable, FileChangeRecord, LoadCsvTablePayload, SaveCsvWithHistoryPayload},
+    models::{SaveCsvPatchResult, SaveCsvPatchWithHistoryPayload},
     services,
 };
 
 #[tauri::command]
-pub fn save_csv_with_history(
-    payload: SaveCsvWithHistoryPayload,
-) -> Result<Vec<FileChangeRecord>, String> {
-    services::tables::save_csv(
-        &payload.mod_root,
-        &payload.table,
-        &payload.header,
-        &payload.rows,
-        payload.associated_files,
-    )
-    .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn load_csv_table(payload: LoadCsvTablePayload) -> Result<CsvTable, String> {
-    services::project::load_csv_table_for_command(payload).map_err(|e| e.to_string())
+pub fn save_csv_patch_with_history(
+    payload: SaveCsvPatchWithHistoryPayload,
+) -> Result<SaveCsvPatchResult, String> {
+    services::project::save_csv_patch_for_command(payload).map_err(|e| e.to_string())
 }

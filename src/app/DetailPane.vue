@@ -77,16 +77,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useTablesStore } from '@/stores/tables.store';
 import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
-import { cell, MODULE_LABELS, rowDisplayId, rowSpecId, str } from '@/shared/lib/starsector';
-import { resolveHullSprite } from '@/shared/lib/hull-references';
+import { cell, MODULE_LABELS, rowDisplayId, rowSpecId } from '@/shared/lib/starsector';
 import { fileEditorActionForRow, type TableDetailAction } from '@/domain/tables/table-detail-actions';
 import { isCsvCommentRow } from '@/domain/tables/csv-comment-row';
 import { csvColumnSchemasForTable, type CsvColumnSchema } from '@/domain/tables/csv-column-schema';
 import { createCsvSourceIndex, sourceValue } from '@/domain/tables/csv-source-options';
+import { queryTableRowPreviewDataUrl } from '@/services/table.service';
 import type { SelectOption } from '@/domain/schema/schema-registry';
 import type { RowData, TableKey } from '@/shared/types';
 
@@ -111,12 +111,8 @@ const canOpenShipEditor = computed(() => !isCommentRow.value && tables.currentTa
 const canOpenWeaponEditor = computed(() => !isCommentRow.value && tables.currentTab === 'weapons' && Boolean(selectedSpecId.value));
 const hasActions = computed(() => Boolean(fileEditorAction.value || canOpenShipEditor.value || canOpenWeaponEditor.value));
 const schemaColumns = computed(() => csvColumnSchemasForTable(tables.currentTab));
-const sourceIndex = computed(() =>
-  createCsvSourceIndex(
-    project.activeModData,
-    schemaColumns.value.map((schema) => schema.source),
-  ),
-);
+const sourceIndex = computed(() => createCsvSourceIndex(schemaColumns.value.map((schema) => schema.source)));
+const previewSrc = ref('');
 const summaryItems = computed<SchemaPreviewItem[]>(() => {
   const row = tables.selectedRow;
   if (!row) return [];
@@ -127,7 +123,7 @@ const summaryItems = computed<SchemaPreviewItem[]>(() => {
 });
 const fileEditorAction = computed<TableDetailAction | null>(() => {
   const row = tables.selectedRow;
-  const data = project.activeModData;
+  const data = project.activeManifest;
   return data ? fileEditorActionForRow(data.modRoot, tables.currentTab, row) : null;
 });
 
@@ -151,69 +147,26 @@ interface PreviewState {
 
 const previewState = computed<PreviewState>(() => {
   const row = tables.selectedRow;
-  const data = project.activeModData;
-  if (!row || !data) return noPreview(tables.currentTab);
+  if (!row) return noPreview(tables.currentTab);
   if (isCommentRow.value) return commentPreview();
-
-  const id = rowSpecId(row, tables.currentTab) || rowDisplayId(row);
-  if (tables.currentTab === 'ships') {
-    return previewFromMap(resolveHullSprite(data, id), expectedShipSprite(data.shipFiles[id]), id, tables.currentTab);
-  }
-  if (tables.currentTab === 'weapons') {
-    return previewFromMap(weaponPreviewSprite(data.weaponSpritesData[id]), expectedWeaponSprite(data.wpnFiles[id]), id, tables.currentTab);
-  }
-  if (tables.currentTab === 'wings') {
-    const variant = variantForWing(row, data);
-    const hullId = variant?.hullId ?? '';
-    return previewFromMap(resolveHullSprite(data, hullId), expectedShipSprite(data.shipFiles[hullId]), id, tables.currentTab);
-  }
-  if (tables.currentTab === 'hullmods') {
-    return previewFromMap(data.hullmodSprites[id], str(row.sprite), id, tables.currentTab);
-  }
-  if (tables.currentTab === 'industries') {
-    return previewFromMap(data.industrySprites[id], str(row.image), id, tables.currentTab);
-  }
-  if (tables.currentTab === 'shipSystems') {
-    return previewFromMap(data.shipSystemSprites[id], str(row.icon), id, tables.currentTab);
-  }
-  if (tables.currentTab === 'skills') {
-    return previewFromMap(data.skillSprites[id], str(row.icon), id, tables.currentTab);
-  }
-  if (tables.currentTab === 'abilities') {
-    return previewFromMap(data.abilitySprites[id], str(row.icon), id, tables.currentTab);
-  }
-  if (tables.currentTab === 'commodities') {
-    return previewFromMap(data.commoditySprites[id], str(row.icon), id, tables.currentTab);
-  }
-  if (tables.currentTab === 'specialItems') {
-    return previewFromMap(data.specialItemSprites[id], str(row.icon), id, tables.currentTab);
-  }
-  if (tables.currentTab === 'submarkets') {
-    return previewFromMap(data.submarketSprites[id], str(row.icon), id, tables.currentTab);
-  }
-  if (tables.currentTab === 'marketConditions') {
-    return previewFromMap(data.marketConditionSprites[id], str(row.icon), id, tables.currentTab);
-  }
-  if (tables.currentTab === 'simOpponents') {
-    const variant = variantForId(str(row['variant id']), data);
-    const hullId = variant?.hullId ?? '';
-    return previewFromMap(resolveHullSprite(data, hullId), expectedShipSprite(data.shipFiles[hullId]), id, tables.currentTab);
+  if (previewSrc.value) {
+    return {
+      alt: selectedDisplayId.value || MODULE_LABELS[tables.currentTab],
+      detail: '',
+      src: previewSrc.value,
+      title: '',
+    };
   }
   return noPreview(tables.currentTab);
 });
 
-function previewFromMap(src: string | undefined, expectedPath: string, id: string, tab: TableKey): PreviewState {
-  if (src) return { alt: id, detail: '', src, title: '' };
-  if (expectedPath) {
-    return {
-      alt: id,
-      detail: expectedPath,
-      src: '',
-      title: '贴图缺失',
-    };
-  }
-  return noPreview(tab);
-}
+watch(
+  () => [project.activeManifest?.sessionId ?? '', tables.currentTab, tables.selectedRowKey],
+  () => {
+    void loadPreviewResource();
+  },
+  { immediate: true },
+);
 
 function noPreview(tab: TableKey): PreviewState {
   return {
@@ -233,59 +186,13 @@ function commentPreview(): PreviewState {
   };
 }
 
-function expectedShipSprite(ship: RowData | undefined): string {
-  return str(ship?.spriteName);
-}
-
-function variantForWing(row: RowData, data: NonNullable<ReturnType<typeof useProjectStore>['activeModData']>) {
-  const raw = str(row.variant);
-  return variantForId(raw, data);
-}
-
-function variantForId(raw: string, data: NonNullable<ReturnType<typeof useProjectStore>['activeModData']>) {
-  if (!raw) return null;
-  const normalized = raw.replace(/\\/g, '/');
-  const stem = normalized
-    .split('/')
-    .filter(Boolean)
-    .pop()
-    ?.replace(/\.variant$/i, '');
-  return (
-    data.variantFiles.find((variant) => variant.variantId === raw) ??
-    data.variantFiles.find((variant) => variant.variantId === stem) ??
-    data.variantFiles.find((variant) => variant.relPath === normalized) ??
-    data.coreReferences.variantFiles.find((variant) => variant.variantId === raw) ??
-    data.coreReferences.variantFiles.find((variant) => variant.variantId === stem) ??
-    data.coreReferences.variantFiles.find((variant) => variant.relPath === normalized) ??
-    null
-  );
-}
-
-function expectedWeaponSprite(weapon: RowData | undefined): string {
-  return (
-    str(weapon?.turretSprite) ||
-    str(weapon?.hardpointSprite) ||
-    str(weapon?.turretGunSprite) ||
-    str(weapon?.hardpointGunSprite) ||
-    str(weapon?.turretUnderSprite) ||
-    str(weapon?.hardpointUnderSprite) ||
-    str(weapon?.turretGlowSprite) ||
-    str(weapon?.hardpointGlowSprite)
-  );
-}
-
-function weaponPreviewSprite(sprites: Record<string, string> | undefined): string | undefined {
-  if (!sprites) return undefined;
-  return (
-    sprites.turretSprite ||
-    sprites.hardpointSprite ||
-    sprites.turretGunSprite ||
-    sprites.hardpointGunSprite ||
-    sprites.turretUnderSprite ||
-    sprites.hardpointUnderSprite ||
-    sprites.turretGlowSprite ||
-    sprites.hardpointGlowSprite
-  );
+async function loadPreviewResource() {
+  previewSrc.value = '';
+  const manifest = project.activeManifest;
+  const row = tables.selectedRow;
+  if (!manifest || !row || isCommentRow.value) return;
+  const dataUrl = await queryTableRowPreviewDataUrl(manifest.sessionId, tables.currentTab, row);
+  if (tables.selectedRow === row) previewSrc.value = dataUrl;
 }
 
 function schemaPreviewItem(schema: CsvColumnSchema, row: RowData): SchemaPreviewItem {

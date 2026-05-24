@@ -7,7 +7,7 @@
 ## 边界
 
 - `src/windows/editor.window.ts` 打开 `kind=weapon-preview` 预览窗口。
-- `src/app/EditorWindowApp.vue` 在 weapon-preview kind 下加载 AppData 并挂载 `WeaponFirePreview`。
+- `src/app/EditorWindowApp.vue` 在 weapon-preview kind 下使用主窗口传入的 session 查询武器和弹体数据并挂载 `WeaponFirePreview`。
 - `src/app/components/editors/WeaponFirePreview.vue` 承载预览画布和模拟状态。
 
 ## 规范
@@ -15,7 +15,7 @@
 - 发射预览不写磁盘。
 - 发射预览不进入文件级 history。
 - 发射预览按 `weapon-preview + modRoot + weaponId` 单例化。
-- 发射预览使用独立加载的 AppData，不依赖主窗口当前表格草稿。
+- 发射预览使用 session query，不依赖主窗口当前表格草稿。
 
 ## 链路：打开发射预览
 
@@ -24,5 +24,5 @@
 3. `EditorWindowApp` 调用 `openWeaponPreviewWindow()`。
 4. 多窗口机制按 `weapon-preview + modRoot + weaponId` 单例化窗口。
 5. 新窗口挂载 `EditorWindowApp`。
-6. `EditorWindowApp` 加载 AppData。
+6. `EditorWindowApp` 使用 `sessionId + weaponId` 查询武器、弹体和贴图资源。
 7. `EditorWindowApp` 挂载 `WeaponFirePreview`。

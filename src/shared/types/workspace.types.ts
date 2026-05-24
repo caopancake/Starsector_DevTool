@@ -13,6 +13,9 @@ export interface ModEntry {
 export interface ModTableState {
   tables: Record<TableKey, RowData[]>;
   originalTables: Record<TableKey, RowData[]>;
+  headers: Record<TableKey, string[]>;
+  totalRows: Record<TableKey, number>;
+  filteredRows: Record<TableKey, number>;
   dirty: Record<TableKey, Record<string, Record<string, string>>>;
   currentTab: TableKey;
   currentFaction: string;

@@ -46,9 +46,9 @@
 ## 工作区与状态
 
 - 多 Mod 状态必须按 `modRoot` 隔离，dirty、选择、CSV 草稿历史、文件级历史和窗口引用不能串 Mod。
-- `project.store` 是已加载 `AppData` 的前端缓存，不是磁盘权威状态。
+- `project.store` 是 `ProjectManifest` 和活动 session 的前端缓存，不是磁盘权威状态。
 - `tables.store` 只管理表格草稿状态、选择状态和 dirty 状态；保存副作用由表格保存 orchestrator 处理。
-- 游戏目录概览只代表轻量扫描结果，不等同于完整读取 Mod。
+- 游戏目录概览只代表轻量扫描结果，不等同于已打开 ProjectSession。
 
 ## 保存与历史
 

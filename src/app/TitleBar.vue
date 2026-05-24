@@ -4,7 +4,7 @@
       <span class="titlebar-mark">SD</span>
       <div class="titlebar-text">
         <strong>Starsector DevTool</strong>
-        <span :title="project.activeModData?.modRoot">{{ workspace.activeMod?.displayName || '尚未打开项目' }}</span>
+        <span :title="project.activeManifest?.modRoot ?? ''">{{ workspace.activeMod?.displayName || '尚未打开项目' }}</span>
       </div>
     </div>
 

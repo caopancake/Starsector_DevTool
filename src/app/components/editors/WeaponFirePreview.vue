@@ -66,7 +66,7 @@ import { num, rgba, str } from '@/shared/lib/starsector';
 
 const props = defineProps<{
   weaponId: string;
-  weapons: RowData[];
+  weaponRow: RowData;
   wpnFiles: Record<string, RowData>;
   projFiles: Record<string, RowData>;
   spriteData?: Record<string, string>;
@@ -128,7 +128,7 @@ interface BarrelState {
 
 let projectiles: ProjectilePreviewState[] = [];
 let beam: BeamPreviewState = { alpha: 0, length: 0, offset: 0, phase: 'idle', timer: 0 };
-const csv = computed(() => props.weapons.find((w) => str(w.id) === props.weaponId) || {});
+const csv = computed(() => props.weaponRow || {});
 const wpn = computed(() => props.wpnFiles[props.weaponId] || {});
 const proj = computed(() => props.projFiles[str(wpn.value.projectileSpecId)] || {});
 const hasWeaponSpec = computed(() => Boolean(props.wpnFiles[props.weaponId]));

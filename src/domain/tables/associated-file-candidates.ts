@@ -1,5 +1,5 @@
 import { normalizeRelPath, pathStem } from '@/shared/lib/paths';
-import type { AppData, ModTableState, RowData, TableKey } from '@/shared/types';
+import type { ModTableState, RowData, TableKey } from '@/shared/types';
 import { defaultShip, defaultWeapon, rowSpecId } from '@/shared/lib/starsector';
 
 export interface AssociatedFileCandidate {
@@ -28,11 +28,10 @@ export function isAssociatedFileForTable(table: TableKey, relPath: string): bool
 
 export function getAssociatedFileCandidates(
   state: ModTableState | undefined,
-  appData: AppData | null,
   table: TableKey,
   rowKeyForTab: (table: TableKey, row: RowData, index: number) => string,
 ): AssociatedFileCandidate[] {
-  if (!state || !appData) return [];
+  if (!state) return [];
   const result: AssociatedFileCandidate[] = [];
   if (!tableSupportsAssociatedFiles(table)) return result;
   for (const [rowKey, dirtyRow] of Object.entries(state.dirty[table])) {
@@ -41,7 +40,7 @@ export function getAssociatedFileCandidates(
       const original = originalIndex >= 0 ? state.originalTables[table][originalIndex] : null;
       const id = original ? rowSpecId(original, table) : '';
       const relPath = associatedRelPath(table, id);
-      if (!id || !relPath || !hasAssociatedFile(appData, table, id)) continue;
+      if (!id || !relPath) continue;
       result.push({
         key: `${table}:delete:${id}`,
         table,
@@ -59,7 +58,7 @@ export function getAssociatedFileCandidates(
     const row = state.tables[table].find((candidate, index) => rowKeyForTab(table, candidate, index) === rowKey);
     const id = row ? rowSpecId(row, table) : '';
     const relPath = associatedRelPath(table, id);
-    if (!row || !id || !relPath || hasAssociatedFile(appData, table, id)) continue;
+    if (!row || !id || !relPath) continue;
     result.push({
       key: `${table}:create:${id}`,
       table,
@@ -81,12 +80,4 @@ function associatedCreateText(table: TableKey, id: string, row: RowData): string
 
 function tableSupportsAssociatedFiles(table: TableKey): boolean {
   return table === 'ships' || table === 'weapons' || table === 'shipSystems' || table === 'skills';
-}
-
-function hasAssociatedFile(appData: AppData, table: TableKey, id: string): boolean {
-  if (table === 'ships') return Boolean(appData.shipFiles[id]);
-  if (table === 'weapons') return Boolean(appData.wpnFiles[id]);
-  if (table === 'shipSystems') return Boolean(appData.systemFiles[id]);
-  if (table === 'skills') return Boolean(appData.skillFiles[id]);
-  return false;
 }

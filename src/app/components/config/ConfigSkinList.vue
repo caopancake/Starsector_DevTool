@@ -13,7 +13,7 @@
         @click="emit('select', skin.skinHullId)"
       >
         <span class="skin-list-preview config-entity-thumb">
-          <img v-if="skinSprite(skin)" :src="skinSprite(skin)" alt="" />
+          <img v-if="skinSprites[skin.skinHullId]" :src="skinSprites[skin.skinHullId]" alt="" />
           <svg v-else class="skin-list-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 3 5 18l7 3 7-3-7-15z" />
             <path d="M8 16h8M9 12h6" />
@@ -72,13 +72,12 @@ import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import type { SkinFile } from '@/shared/types';
 import type { SelectOption } from '@/domain/schema/schema-registry';
-import { resolveSource } from '@/domain/schema/schema-registry';
 import { createSkinWithFileHistory, deleteSkinWithFileHistory } from '@/orchestrators/config-save.orchestrator';
 import { isSafeEntityFileStem } from '@/domain/config/config-entities';
-import { resolveHullSprite } from '@/shared/lib/hull-references';
+import { queryHullReferenceOptions, querySkinPreviewSprites } from '@/services/config.service';
 
-const props = defineProps<{ selectedId: string }>();
-const emit = defineEmits<{ select: [skinHullId: string] }>();
+const props = defineProps<{ selectedId: string; skins: SkinFile[] }>();
+const emit = defineEmits<{ select: [skinHullId: string]; changed: [] }>();
 
 const project = useProjectStore();
 const feedback = useAppFeedback();
@@ -88,11 +87,13 @@ const showCreateDialog = ref(false);
 const newBaseHullId = ref('');
 const newSkinHullId = ref('');
 const pendingDeleteSkin = ref<SkinFile | null>(null);
+const hullOptions = ref<SelectOption[]>([]);
+const skinSprites = ref<Record<string, string>>({});
 
-const modData = computed(() => project.activeModData);
+const modData = computed(() => project.activeManifest);
 const modRoot = computed(() => modData.value?.modRoot ?? '');
-const skins = computed(() => [...(modData.value?.skinFiles ?? [])].sort(compareSkins));
-const hullOptions = computed(() => resolveSource('csv:ships.id', modData.value ?? null));
+const sessionId = computed(() => modData.value?.sessionId ?? '');
+const skins = computed(() => [...props.skins].sort(compareSkins));
 
 async function createSkin() {
   const baseHullId = newBaseHullId.value.trim();
@@ -111,8 +112,8 @@ async function createSkin() {
     return false;
   }
   try {
-    const result = await createSkinWithFileHistory(modRoot.value, baseHullId, skinHullId);
-    project.upsertSkinFile(modRoot.value, result.skinFile);
+    await createSkinWithFileHistory(modRoot.value, baseHullId, skinHullId);
+    emit('changed');
     showCreateDialog.value = false;
     newBaseHullId.value = '';
     newSkinHullId.value = '';
@@ -142,7 +143,7 @@ async function deletePendingSkin() {
   if (!skin || !modRoot.value) return false;
   try {
     await deleteSkinWithFileHistory(modRoot.value, skin.relPath, skin.skinHullId);
-    project.deleteSkinFile(modRoot.value, skin.skinHullId);
+    emit('changed');
     pendingDeleteSkin.value = null;
     if (props.selectedId === skin.skinHullId) {
       emit('select', skins.value[0]?.skinHullId ?? '');
@@ -159,11 +160,8 @@ function compareSkins(a: SkinFile, b: SkinFile): number {
   return a.baseHullId.localeCompare(b.baseHullId) || a.skinHullId.localeCompare(b.skinHullId);
 }
 
-function skinSprite(skin: SkinFile): string {
-  return resolveHullSprite(modData.value, skin.skinHullId) || resolveHullSprite(modData.value, skin.baseHullId);
-}
-
-function renderHullOptionLabel(option: SelectOption & { label?: string; value?: string; sprite?: string }) {
+function renderHullOptionLabel(option: SelectOption) {
+  if (option.type === 'group') return option.label;
   if (!option.sprite) return option.label ?? option.value ?? '';
   return h('span', { class: 'schema-select-option' }, [
     h('img', {
@@ -172,6 +170,30 @@ function renderHullOptionLabel(option: SelectOption & { label?: string; value?: 
     }),
     h('span', { class: 'schema-select-option-label' }, option.label ?? option.value ?? ''),
   ]);
+}
+
+async function loadHullOptions() {
+  if (!sessionId.value || settings.isPlainEditMode) {
+    hullOptions.value = [];
+    return;
+  }
+  try {
+    hullOptions.value = await queryHullReferenceOptions(sessionId.value);
+  } catch (error) {
+    feedback.error(error, '读取舰船引用失败');
+  }
+}
+
+async function loadSkinSprites() {
+  if (!sessionId.value || skins.value.length === 0) {
+    skinSprites.value = {};
+    return;
+  }
+  try {
+    skinSprites.value = await querySkinPreviewSprites(sessionId.value, skins.value);
+  } catch (error) {
+    feedback.error(error, '读取舰船皮肤缩略图失败');
+  }
 }
 
 watch(
@@ -187,4 +209,7 @@ watch(
   },
   { immediate: true },
 );
+
+watch([showCreateDialog, sessionId, () => settings.isPlainEditMode], () => void loadHullOptions(), { immediate: true });
+watch([skins, sessionId], () => void loadSkinSprites(), { immediate: true });
 </script>

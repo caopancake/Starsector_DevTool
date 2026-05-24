@@ -1,5 +1,4 @@
-import type { AppData } from '@/shared/types';
-import { resolveSource, type SelectOption } from '@/domain/schema/schema-registry';
+import type { SelectOption } from '@/domain/schema/schema-registry';
 
 export interface CsvSourceIndex {
   optionsBySource: Map<string, SelectOption[]>;
@@ -10,16 +9,17 @@ export interface CsvSourceIndex {
 const EMPTY_OPTIONS: SelectOption[] = [];
 const EMPTY_VALUE_SET = new Set<string>();
 
-export function createCsvSourceIndex(appData: AppData | null, sources: Iterable<string | undefined | null>): CsvSourceIndex {
+export function createCsvSourceIndex(
+  sources: Iterable<string | undefined | null>,
+  loadedOptions: Map<string, SelectOption[]> = new Map(),
+): CsvSourceIndex {
   const optionsBySource = new Map<string, SelectOption[]>();
   const valueIndexBySource = new Map<string, Map<string, { group: string; option: SelectOption }>>();
   const valueSetsBySource = new Map<string, Set<string>>();
 
-  if (!appData) return { optionsBySource, valueIndexBySource, valueSetsBySource };
-
   for (const source of sources) {
     if (!source || optionsBySource.has(source)) continue;
-    const options = resolveSource(source, appData);
+    const options: SelectOption[] = loadedOptions.get(source) ?? [];
     optionsBySource.set(source, options);
     valueIndexBySource.set(source, createValueIndex(options));
     valueSetsBySource.set(source, createValueSet(options));

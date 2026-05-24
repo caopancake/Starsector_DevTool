@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia';
 import { computed, reactive, ref } from 'vue';
-import type { AppData, ModTableState, RowData, TableKey } from '@/shared/types';
+import type { CsvTableWindow, ModTableState, ProjectManifest, RowData, TableKey } from '@/shared/types';
 import { cell, deepClone, getColumns, MODULE_LABELS, rowDisplayId } from '@/shared/lib/starsector';
 import { getNextActiveKeyAfterRemoval } from '@/shared/lib/store-utils';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
-import { assignTableRowKey, assignTableRowKeys, resolveTableRowKey } from '@/domain/tables/table-row-key';
+import { TABLE_ROW_KEY_FIELD, resolveTableRowKey } from '@/domain/tables/table-row-key';
 
 export const TABLE_KEYS: TableKey[] = [
   'ships',
@@ -61,10 +61,51 @@ function emptyTablesRecord(): Record<TableKey, RowData[]> {
   };
 }
 
+function emptyHeadersRecord(): Record<TableKey, string[]> {
+  return {
+    ships: [],
+    weapons: [],
+    wings: [],
+    hullmods: [],
+    shipSystems: [],
+    industries: [],
+    skills: [],
+    abilities: [],
+    commodities: [],
+    specialItems: [],
+    submarkets: [],
+    marketConditions: [],
+    simOpponents: [],
+    descriptions: [],
+  };
+}
+
+function emptyCountRecord(): Record<TableKey, number> {
+  return {
+    ships: 0,
+    weapons: 0,
+    wings: 0,
+    hullmods: 0,
+    shipSystems: 0,
+    industries: 0,
+    skills: 0,
+    abilities: 0,
+    commodities: 0,
+    specialItems: 0,
+    submarkets: 0,
+    marketConditions: 0,
+    simOpponents: 0,
+    descriptions: 0,
+  };
+}
+
 function createModTableState(): ModTableState {
   return {
     tables: emptyTablesRecord(),
     originalTables: emptyTablesRecord(),
+    headers: emptyHeadersRecord(),
+    totalRows: emptyCountRecord(),
+    filteredRows: emptyCountRecord(),
     dirty: emptyDirtyState(),
     currentTab: 'ships',
     currentFaction: 'all',
@@ -75,12 +116,31 @@ function createModTableState(): ModTableState {
   };
 }
 
+function applyManifestSummaries(state: ModTableState, manifest: ProjectManifest) {
+  for (const key of TABLE_KEYS) {
+    const summary = manifest.tableSummaries[key];
+    state.headers[key] = summary?.header ?? [];
+    state.totalRows[key] = summary?.totalRows ?? 0;
+    state.filteredRows[key] = summary?.totalRows ?? 0;
+  }
+}
+
+function mergeWindowRows(currentRows: RowData[], windowRows: RowData[], start: number): RowData[] {
+  const nextRows = Array.from({ length: Math.max(currentRows.length, start + windowRows.length) }, (_, index) => {
+    const existing = currentRows[index];
+    return existing ?? { [TABLE_ROW_KEY_FIELD]: `__placeholder:${index}` };
+  });
+  for (let index = 0; index < windowRows.length; index += 1) {
+    nextRows[start + index] = windowRows[index];
+  }
+  return nextRows;
+}
+
 export const useTablesStore = defineStore('tables', () => {
   const csvEditHistory = useTablesEditHistoryStore();
   const stateMap = reactive<Map<string, ModTableState>>(new Map());
   const activeRoot = ref('');
   const saving = ref(false);
-  const currentHeaders = ref<string[]>([]);
 
   function getActiveState(): ModTableState | undefined {
     return stateMap.get(activeRoot.value);
@@ -126,7 +186,7 @@ export const useTablesStore = defineStore('tables', () => {
 
   const rows = computed(() => rowsFor(currentTab.value));
   const visibleColumns = computed(() => {
-    const headerColumns = getColumns(currentTab.value, currentHeaders.value);
+    const headerColumns = getColumns(currentTab.value, getActiveState()?.headers[currentTab.value] ?? []);
     if (headerColumns.length > 0) return headerColumns;
     const seen = new Set<string>();
     const inferred: string[] = [];
@@ -140,19 +200,13 @@ export const useTablesStore = defineStore('tables', () => {
     }
     return inferred;
   });
-  const filteredRows = computed(() => {
-    const q = searchText.value.trim().toLowerCase();
-    let list = [...rows.value];
-    if (currentFaction.value !== 'all' && (currentTab.value === 'ships' || currentTab.value === 'weapons')) {
-      list = list.filter((row) => cell(row._faction) === currentFaction.value);
-    }
-    if (q) {
-      list = list.filter((row) => `${cell(row.id)} ${cell(row.name)}`.toLowerCase().includes(q));
-    }
-    return list;
-  });
+  const filteredRows = computed(() => rows.value);
   const selectedRow = computed(() => rows.value.find((row, index) => tableRowKey(row, index) === selectedRowKey.value));
-  const tableInfo = computed(() => `显示 ${filteredRows.value.length} / ${rows.value.length} 行`);
+  const tableInfo = computed(() => {
+    const state = getActiveState();
+    if (!state) return '显示 0 / 0 行';
+    return `显示 ${state.filteredRows[state.currentTab]} / ${state.totalRows[state.currentTab]} 行`;
+  });
   const hasAnyTableDirtyChanges = computed(() => TABLE_KEYS.some((key) => Object.keys(dirty.value[key]).length > 0));
   const hasCurrentTableChanges = computed(() => {
     const state = getActiveState();
@@ -166,30 +220,23 @@ export const useTablesStore = defineStore('tables', () => {
 
   // --- Per-Mod lifecycle ---
 
-  function hydrate(modRoot: string, appData: AppData) {
+  function hydrate(modRoot: string, manifest: ProjectManifest) {
     const state = createModTableState();
-    for (const key of TABLE_KEYS) {
-      state.tables[key] = deepClone(appData[key] as RowData[]);
-      assignTableRowKeys(state, key, state.tables[key]);
-      state.originalTables[key] = deepClone(state.tables[key]);
-    }
+    applyManifestSummaries(state, manifest);
     stateMap.set(modRoot, state);
-    activateFor(modRoot, appData);
+    activateFor(modRoot, manifest);
   }
 
-  function hydrateWithoutActivate(modRoot: string, appData: AppData) {
+  function hydrateWithoutActivate(modRoot: string, manifest: ProjectManifest) {
     const state = createModTableState();
-    for (const key of TABLE_KEYS) {
-      state.tables[key] = deepClone(appData[key] as RowData[]);
-      assignTableRowKeys(state, key, state.tables[key]);
-      state.originalTables[key] = deepClone(state.tables[key]);
-    }
+    applyManifestSummaries(state, manifest);
     stateMap.set(modRoot, state);
   }
 
-  function activateFor(modRoot: string, appData?: AppData | null) {
+  function activateFor(modRoot: string, manifest?: ProjectManifest | null) {
     activeRoot.value = modRoot;
-    syncCurrentHeaders(appData ?? null);
+    const state = getActiveState();
+    if (state && manifest) applyManifestSummaries(state, manifest);
   }
 
   function removeModState(modRoot: string) {
@@ -205,21 +252,32 @@ export const useTablesStore = defineStore('tables', () => {
 
   // --- Existing API ---
 
-  function syncCurrentHeaders(appData: AppData | null) {
-    currentHeaders.value = appData?.csvHeaders[currentTab.value] || [];
-  }
-
   function rowsFor(tab: TableKey): RowData[] {
     return getActiveState()?.tables[tab] ?? [];
   }
 
-  function switchTab(tab: TableKey, appData: AppData | null) {
+  function switchTab(tab: TableKey) {
     finishCellEdit();
     currentTab.value = tab;
     selectedRowKey.value = '';
     searchText.value = '';
     currentFaction.value = 'all';
-    syncCurrentHeaders(appData);
+  }
+
+  function applyTableWindow(window: CsvTableWindow) {
+    const state = getActiveState();
+    if (!state) return;
+    const table = window.table;
+    state.headers[table] = [...window.header];
+    state.totalRows[table] = window.totalRows;
+    state.filteredRows[table] = window.filteredRows;
+    const rows = window.rows.map((item) => ({
+      ...deepClone(item.row),
+      [TABLE_ROW_KEY_FIELD]: item.rowKey,
+    }));
+    const mergedRows = mergeWindowRows(state.tables[table], rows, window.start);
+    state.tables[table] = mergedRows;
+    state.originalTables[table] = mergeWindowRows(state.originalTables[table], deepClone(rows), window.start);
   }
 
   function tableRowKey(row: RowData, index: number): string {
@@ -295,20 +353,20 @@ export const useTablesStore = defineStore('tables', () => {
     return csvEditHistory.redoCsvEdit(activeRoot.value, currentTab.value, getActiveState());
   }
 
-  async function addNewRow(appData: AppData) {
+  async function addNewRow() {
     const state = getActiveState();
     if (!state) return;
     const tab = state.currentTab;
     const id = `new_${tab}_${Date.now()}`;
-    const header = appData.csvHeaders[tab];
+    const header = state.headers[tab];
     const row: RowData = {};
     for (const col of header) row[col] = '';
     if ('id' in row) row.id = id;
     if ('name' in row) row.name = id;
     row._faction = 'other';
 
+    row[TABLE_ROW_KEY_FIELD] = `${tab}:new:${Date.now()}`;
     state.tables[tab].push(row);
-    assignTableRowKey(state, tab, row);
     const rowKey = tableRowKeyForTab(tab, row, state.tables[tab].length - 1);
     selectedRowKey.value = rowKey;
     markFullRowDirty(state, tab, row);
@@ -375,9 +433,20 @@ export const useTablesStore = defineStore('tables', () => {
     const state = stateMap.get(modRoot);
     if (!state) return;
     state.tables[tab] = deepClone(rows);
-    assignTableRowKeys(state, tab, state.tables[tab]);
     state.originalTables[tab] = deepClone(state.tables[tab]);
     state.dirty[tab] = {};
+  }
+
+  function resetTableWindow(tab: TableKey) {
+    const state = getActiveState();
+    if (!state) return;
+    state.tables[tab] = [];
+    state.originalTables[tab] = [];
+    state.dirty[tab] = {};
+    if (state.currentTab === tab) {
+      state.selectedRowKey = '';
+      state.editing = null;
+    }
   }
 
   function markTableSaved(tab: TableKey) {
@@ -385,6 +454,25 @@ export const useTablesStore = defineStore('tables', () => {
     if (!state) return;
     state.originalTables[tab] = deepClone(state.tables[tab]);
     state.dirty[tab] = {};
+  }
+
+  function applySavedRowKeyMap(tab: TableKey, keyMap: Array<{ previousKey: string; nextKey: string }>) {
+    const state = getActiveState();
+    if (!state || keyMap.length === 0) return;
+    const mapped = new Map(keyMap.map((item) => [item.previousKey, item.nextKey]));
+    for (const row of state.tables[tab]) {
+      const rowKey = cell(row[TABLE_ROW_KEY_FIELD]);
+      const nextKey = mapped.get(rowKey);
+      if (nextKey) row[TABLE_ROW_KEY_FIELD] = nextKey;
+    }
+    for (const row of state.originalTables[tab]) {
+      const rowKey = cell(row[TABLE_ROW_KEY_FIELD]);
+      const nextKey = mapped.get(rowKey);
+      if (nextKey) row[TABLE_ROW_KEY_FIELD] = nextKey;
+    }
+    if (state.selectedRowKey) {
+      state.selectedRowKey = mapped.get(state.selectedRowKey) ?? state.selectedRowKey;
+    }
   }
 
   function setSaving(value: boolean) {
@@ -424,6 +512,7 @@ export const useTablesStore = defineStore('tables', () => {
     markTableSaved,
     removeModState,
     replaceTableForMod,
+    resetTableWindow,
     redoCurrentTableEdit,
     rowsFor,
     selectRowByKey,
@@ -431,6 +520,8 @@ export const useTablesStore = defineStore('tables', () => {
     startCellEditByKey,
     setEditingValue,
     switchTab,
+    applySavedRowKeyMap,
+    applyTableWindow,
     tableRowKey,
     undoCurrentTableEdit,
     updateCellValueByKey,

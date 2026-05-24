@@ -13,7 +13,7 @@
         @click="emit('select', variant.variantId)"
       >
         <span class="variant-list-preview config-entity-thumb">
-          <img v-if="variantShipSprite(variant)" :src="variantShipSprite(variant)" alt="" />
+          <img v-if="variantSprites[variant.variantId]" :src="variantSprites[variant.variantId]" alt="" />
           <svg v-else class="variant-list-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 3 5 18l7 3 7-3-7-15z" />
             <path d="M12 3v18M7 15l5 2 5-2" />
@@ -72,13 +72,12 @@ import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import type { VariantFile } from '@/shared/types';
 import type { SelectOption } from '@/domain/schema/schema-registry';
-import { resolveSource } from '@/domain/schema/schema-registry';
 import { createVariantWithFileHistory, deleteVariantWithFileHistory } from '@/orchestrators/config-save.orchestrator';
 import { isSafeEntityFileStem } from '@/domain/config/config-entities';
-import { resolveHullSprite } from '@/shared/lib/hull-references';
+import { queryHullPreviewSprites, queryHullReferenceOptions } from '@/services/config.service';
 
-const props = defineProps<{ selectedId: string }>();
-const emit = defineEmits<{ select: [variantId: string] }>();
+const props = defineProps<{ selectedId: string; variants: VariantFile[] }>();
+const emit = defineEmits<{ select: [variantId: string]; changed: [] }>();
 
 const project = useProjectStore();
 const feedback = useAppFeedback();
@@ -88,11 +87,13 @@ const showCreateDialog = ref(false);
 const newHullId = ref('');
 const newVariantId = ref('');
 const pendingDeleteVariant = ref<VariantFile | null>(null);
+const hullOptions = ref<SelectOption[]>([]);
+const variantSprites = ref<Record<string, string>>({});
 
-const modData = computed(() => project.activeModData);
+const modData = computed(() => project.activeManifest);
 const modRoot = computed(() => modData.value?.modRoot ?? '');
-const variants = computed(() => [...(modData.value?.variantFiles ?? [])].sort(compareVariants));
-const hullOptions = computed(() => resolveSource('csv:ships.id', modData.value ?? null));
+const sessionId = computed(() => modData.value?.sessionId ?? '');
+const variants = computed(() => [...props.variants].sort(compareVariants));
 
 async function createVariant() {
   const hullId = newHullId.value.trim();
@@ -111,8 +112,8 @@ async function createVariant() {
     return false;
   }
   try {
-    const result = await createVariantWithFileHistory(modRoot.value, hullId, variantId);
-    project.upsertVariantFile(modRoot.value, result.variantFile);
+    await createVariantWithFileHistory(modRoot.value, hullId, variantId);
+    emit('changed');
     showCreateDialog.value = false;
     newHullId.value = '';
     newVariantId.value = '';
@@ -142,7 +143,7 @@ async function deletePendingVariant() {
   if (!variant || !modRoot.value) return false;
   try {
     await deleteVariantWithFileHistory(modRoot.value, variant.relPath, variant.variantId);
-    project.deleteVariantFile(modRoot.value, variant.variantId);
+    emit('changed');
     pendingDeleteVariant.value = null;
     if (props.selectedId === variant.variantId) {
       emit('select', variants.value[0]?.variantId ?? '');
@@ -159,11 +160,8 @@ function compareVariants(a: VariantFile, b: VariantFile): number {
   return a.hullId.localeCompare(b.hullId) || a.variantId.localeCompare(b.variantId);
 }
 
-function variantShipSprite(variant: VariantFile): string {
-  return resolveHullSprite(modData.value, variant.hullId);
-}
-
-function renderHullOptionLabel(option: SelectOption & { label?: string; value?: string; sprite?: string }) {
+function renderHullOptionLabel(option: SelectOption) {
+  if (option.type === 'group') return option.label;
   if (!option.sprite) return option.label ?? option.value ?? '';
   return h('span', { class: 'schema-select-option' }, [
     h('img', {
@@ -172,6 +170,34 @@ function renderHullOptionLabel(option: SelectOption & { label?: string; value?: 
     }),
     h('span', { class: 'schema-select-option-label' }, option.label ?? option.value ?? ''),
   ]);
+}
+
+async function loadHullOptions() {
+  if (!sessionId.value || settings.isPlainEditMode) {
+    hullOptions.value = [];
+    return;
+  }
+  try {
+    hullOptions.value = await queryHullReferenceOptions(sessionId.value);
+  } catch (error) {
+    feedback.error(error, '读取舰船引用失败');
+  }
+}
+
+async function loadVariantSprites() {
+  if (!sessionId.value || variants.value.length === 0) {
+    variantSprites.value = {};
+    return;
+  }
+  try {
+    const spritesByHull = await queryHullPreviewSprites(
+      sessionId.value,
+      variants.value.map((variant) => variant.hullId),
+    );
+    variantSprites.value = Object.fromEntries(variants.value.map((variant) => [variant.variantId, spritesByHull[variant.hullId] ?? '']));
+  } catch (error) {
+    feedback.error(error, '读取装配缩略图失败');
+  }
 }
 
 watch(
@@ -187,4 +213,7 @@ watch(
   },
   { immediate: true },
 );
+
+watch([showCreateDialog, sessionId, () => settings.isPlainEditMode], () => void loadHullOptions(), { immediate: true });
+watch([variants, sessionId], () => void loadVariantSprites(), { immediate: true });
 </script>

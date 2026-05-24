@@ -11,7 +11,7 @@
       <div v-if="iconSrc" class="mission-icon-preview">
         <img :src="iconSrc" alt="" />
       </div>
-      <SchemaFormRenderer :schema="schema" v-model="localMission" :app-data="project.activeModData" />
+      <SchemaFormRenderer :schema="schema" v-model="localMission" :runtime-context="schemaRuntimeContext" />
     </div>
   </main>
 </template>
@@ -19,12 +19,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useProjectStore } from '@/stores/project.store';
-import { useSettingsStore } from '@/stores/settings.store';
-import { loadImageDataUrl } from '@/services/assets.service';
 import type { JsonValue, RowData } from '@/shared/types';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { aggregateSchemaSources, getSchema, splitSchemaSources } from '@/domain/schema/schema-registry';
-import { loadMission, loadMissionList, scanMissionListFiles } from '@/services/config.service';
+import { getMissionEntity } from '@/services/config.service';
+import { queryResourceDataUrlBatch } from '@/services/resource-cache.service';
 import { buildMissionIndexRow, stripSchemaInternalFields } from '@/domain/config/config-entities';
 import { deleteIndexedConfigEntityWithFileHistory, saveIndexedConfigEntityWithFileHistory } from '@/orchestrators/config-save.orchestrator';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
@@ -33,20 +32,20 @@ const props = defineProps<{ missionId: string }>();
 const emit = defineEmits<{ saved: [missionId: string] }>();
 
 const project = useProjectStore();
-const settings = useSettingsStore();
 const feedback = useAppFeedback();
 
-const DEFAULT_MISSION_LIST_PATH = 'data/missions/mission_list.csv';
-
-const missionListPath = ref(DEFAULT_MISSION_LIST_PATH);
 const indexHeader = ref<string[]>(['mission']);
 const localMission = ref<RowData>({});
 const loadedMissionId = ref('');
 const iconSrc = ref('');
 const saving = ref(false);
 
-const modRoot = computed(() => project.activeModData?.modRoot ?? null);
+const modRoot = computed(() => project.activeManifest?.modRoot ?? null);
+const sessionId = computed(() => project.activeManifest?.sessionId ?? null);
 const schema = computed(() => getSchema('mission'));
+const schemaRuntimeContext = computed(() =>
+  project.activeManifest ? { modRoot: project.activeManifest.modRoot, sessionId: project.activeManifest.sessionId } : null,
+);
 const editingMissionId = computed(() => {
   const list = localMission.value.list;
   return list && typeof list === 'object' && !Array.isArray(list) ? missionIdFromRow(list as RowData) : '';
@@ -64,26 +63,17 @@ async function loadConfigMissionEditor() {
   localMission.value = {};
   loadedMissionId.value = '';
   iconSrc.value = '';
-  if (!modRoot.value || !props.missionId) return;
+  if (!modRoot.value || !sessionId.value || !props.missionId) return;
   try {
-    const files = await scanMissionListFiles(modRoot.value);
-    missionListPath.value = files[0] ?? DEFAULT_MISSION_LIST_PATH;
-    const table = files[0]
-      ? await loadMissionList(modRoot.value, missionListPath.value)
-      : { header: ['mission'], path: DEFAULT_MISSION_LIST_PATH, rows: [] };
-    indexHeader.value = table.header.length ? table.header : ['mission'];
-    const row = table.rows.find((item) => missionIdFromRow(item) === props.missionId) ?? { mission: props.missionId };
-    const data = await loadMission(modRoot.value, props.missionId);
+    const data = await getMissionEntity(sessionId.value, props.missionId);
+    indexHeader.value = Object.keys(data.list).length ? Object.keys(data.list) : ['mission'];
     loadedMissionId.value = props.missionId;
     localMission.value = aggregateSchemaSources({
-      list: row,
+      list: data.list,
       descriptor: data.descriptor,
       text: data.text,
     });
-    if (data.iconPath) {
-      const coreRoot = settings.starsectorRoot || project.activeModData?.starsectorRoot || undefined;
-      iconSrc.value = (await loadImageDataUrl(modRoot.value, data.iconPath, coreRoot)) ?? '';
-    }
+    iconSrc.value = data.iconResourceRef ? ((await queryResourceDataUrlBatch(sessionId.value, [data.iconResourceRef]))[0] ?? '') : '';
   } catch (error) {
     feedback.error(error, '加载战役失败');
   }

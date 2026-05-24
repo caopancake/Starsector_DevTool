@@ -5,7 +5,6 @@ import {
   type IndexedConfigEntityKind,
   type IndexedConfigEntityResult,
 } from '@/shared/api/indexed-api';
-import { loadMission as loadMissionApi, loadMissionListCsv, scanMissionList, type MissionData } from '@/shared/api/missions-api';
 import {
   createSkinEntity as createSkinEntityApi,
   deleteSkinEntity as deleteSkinEntityApi,
@@ -19,10 +18,12 @@ import {
   type VariantEntityResult,
 } from '@/shared/api/variants-api';
 import { saveModFiles, type FileChangeRecord } from '@/shared/api/files-api';
-import type { CsvTable } from '@/shared/api/tables-api';
+import { queryEntity, queryEntityList as queryEntityListApi, queryHullReferences } from '@/shared/api/project-api';
 import { createDefaultSkin, createDefaultVariant, isSafeEntityFileStem, stripSchemaInternalFields } from '@/domain/config/config-entities';
 import { AppError, withCause } from '@/shared/lib/errors';
-import type { RowData } from '@/shared/types';
+import { queryResourceDataUrlBatch } from '@/services/resource-cache.service';
+import type { SelectOption } from '@/domain/schema/schema-registry';
+import type { EntityData, HullReferenceOption, ProjectSessionId, ResourceRef, RowData, SkinFile, VariantFile } from '@/shared/types';
 
 export async function saveModInfo(modRoot: string, data: RowData): Promise<FileChangeRecord[]> {
   if (!modRoot) {
@@ -32,33 +33,6 @@ export async function saveModInfo(modRoot: string, data: RowData): Promise<FileC
     return await saveModFiles(modRoot, [{ relPath: 'mod_info.json', afterText: JSON.stringify(stripSchemaInternalFields(data), null, 2) }]);
   } catch (error) {
     throw withCause('保存 mod_info.json 失败', error, 'save-mod-info');
-  }
-}
-
-export async function scanMissionListFiles(modRoot: string): Promise<string[]> {
-  if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'scan-mission-list' });
-  try {
-    return await scanMissionList(modRoot);
-  } catch (error) {
-    throw withCause('扫描战役列表失败', error, 'scan-mission-list');
-  }
-}
-
-export async function loadMissionList(modRoot: string, relPath: string): Promise<CsvTable> {
-  if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'load-mission-list' });
-  try {
-    return await loadMissionListCsv(modRoot, relPath);
-  } catch (error) {
-    throw withCause('读取 mission_list.csv 失败', error, 'load-mission-list');
-  }
-}
-
-export async function loadMission(modRoot: string, mission: string): Promise<MissionData> {
-  if (!modRoot) throw new AppError('缺少 mod 根目录', { action: 'load-mission' });
-  try {
-    return await loadMissionApi(modRoot, mission);
-  } catch (error) {
-    throw withCause(`读取战役 ${mission} 失败`, error, 'load-mission');
   }
 }
 
@@ -186,7 +160,111 @@ export async function deleteSkinEntity(modRoot: string, relPath: string, skinHul
   }
 }
 
+export async function listFactionEntities(sessionId: ProjectSessionId): Promise<Record<string, RowData>> {
+  return Object.fromEntries((await queryEntityListApi({ sessionId, kind: 'faction' })).map((item) => [item.id, item.data as RowData]));
+}
+
+export async function listVariantEntities(sessionId: ProjectSessionId): Promise<VariantFile[]> {
+  return (await queryEntityListApi({ sessionId, kind: 'variant' })).map((item) => item.data as unknown as VariantFile);
+}
+
+export async function listSkinEntities(sessionId: ProjectSessionId): Promise<SkinFile[]> {
+  return (await queryEntityListApi({ sessionId, kind: 'skin' })).map((item) => item.data as unknown as SkinFile);
+}
+
+export async function listMissionEntities(sessionId: ProjectSessionId): Promise<MissionEntity[]> {
+  return (await queryEntityListApi({ sessionId, kind: 'mission' })).map(missionEntityFromQuery);
+}
+
+export async function getMissionEntity(sessionId: ProjectSessionId, missionId: string): Promise<MissionEntity> {
+  const entity = await queryEntity({ sessionId, kind: 'mission', id: missionId });
+  if (!entity) throw new AppError(`战役 ${missionId} 不存在`, { action: 'query-mission-entity' });
+  return missionEntityFromQuery(entity);
+}
+
+export async function queryHullReferenceOptions(sessionId: ProjectSessionId): Promise<SelectOption[]> {
+  const references = await queryHullReferences({ sessionId, hullIds: [] });
+  const options = references.groups.map((group) => ({
+    type: 'group' as const,
+    label: group.label,
+    value: `__${group.label}`,
+    children: group.options.map(hullOptionToSelectOption),
+  }));
+  await hydrateSelectOptionSprites(sessionId, options);
+  return options;
+}
+
+export async function queryHullPreviewSprites(sessionId: ProjectSessionId, hullIds: string[]): Promise<Record<string, string>> {
+  const references = await queryHullReferences({ sessionId, hullIds: [...new Set(hullIds.filter(Boolean))] });
+  return hydrateReferenceSprites(sessionId, references.sprites);
+}
+
+export async function querySkinPreviewSprites(sessionId: ProjectSessionId, skins: SkinFile[]): Promise<Record<string, string>> {
+  const references = await queryHullReferences({
+    sessionId,
+    hullIds: skins.map((skin) => skin.skinHullId),
+  });
+  return hydrateReferenceSprites(sessionId, references.sprites);
+}
+
 function stringField(data: RowData, key: string): string {
   const value = data[key];
   return typeof value === 'string' ? value.trim() : '';
+}
+
+async function hydrateReferenceSprites(sessionId: ProjectSessionId, sprites: Record<string, ResourceRef>): Promise<Record<string, string>> {
+  const owners = Object.keys(sprites);
+  const resources = owners.map((owner) => sprites[owner]).filter(Boolean);
+  if (resources.length === 0) return {};
+  const dataUrls = await queryResourceDataUrlBatch(sessionId, resources);
+  return Object.fromEntries(dataUrls.map((dataUrl, index) => [owners[index], dataUrl]));
+}
+
+async function hydrateSelectOptionSprites(sessionId: ProjectSessionId, options: SelectOption[]) {
+  const leafOptions = options.flatMap((option) => option.children ?? [option]).filter((option) => option.resourceRef);
+  const resources = leafOptions.map((option) => option.resourceRef as ResourceRef);
+  if (resources.length === 0) return;
+  const dataUrls = await queryResourceDataUrlBatch(sessionId, resources);
+  dataUrls.forEach((dataUrl, index) => {
+    leafOptions[index].sprite = dataUrl;
+  });
+}
+
+function hullOptionToSelectOption(option: HullReferenceOption): SelectOption {
+  return {
+    label: option.label,
+    value: option.value,
+    sprite: option.sprite ?? '',
+    resourceRef: option.resourceRef ?? null,
+  };
+}
+
+export interface MissionEntity {
+  id: string;
+  list: RowData;
+  descriptor: RowData;
+  text: string;
+  iconResourceRef?: ResourceRef | null;
+  relPath?: string;
+}
+
+function missionEntityFromQuery(entity: EntityData): MissionEntity {
+  const data = entity.data && typeof entity.data === 'object' && !Array.isArray(entity.data) ? (entity.data as RowData) : {};
+  return {
+    id: entity.id,
+    list: objectField(data.list),
+    descriptor: objectField(data.descriptor),
+    text: typeof data.text === 'string' ? data.text : '',
+    iconResourceRef: resourceRefField(data.iconResourceRef),
+    relPath: typeof data.relPath === 'string' ? data.relPath : undefined,
+  };
+}
+
+function objectField(value: unknown): RowData {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as RowData) : {};
+}
+
+function resourceRefField(value: unknown): ResourceRef | null {
+  const data = objectField(value);
+  return typeof data.source === 'string' && typeof data.relPath === 'string' ? (data as unknown as ResourceRef) : null;
 }

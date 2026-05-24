@@ -42,6 +42,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  'request-window': [start: number, count: number];
   'select-row': [rowKey: string];
   'update-cell': [rowKey: string, column: string, value: string];
 }>();
@@ -76,6 +77,7 @@ onMounted(() => {
 
 function handleScroll(event: Event) {
   viewport.onScroll(event);
+  emit('request-window', viewport.startIndex.value, Math.max(0, viewport.endIndex.value - viewport.startIndex.value));
   clearActiveCell();
 }
 
@@ -92,6 +94,7 @@ function activateCell(row: CsvGridRow, column: CsvGridColumn) {
 function syncViewportMetrics() {
   const panel = panelRef.value;
   viewport.setViewportMetrics({ clientHeight: panel?.clientHeight ?? 0, scrollTop: panel?.scrollTop ?? 0 });
+  emit('request-window', viewport.startIndex.value, Math.max(0, viewport.endIndex.value - viewport.startIndex.value));
 }
 
 function clearActiveCell() {

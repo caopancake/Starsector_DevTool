@@ -1,11 +1,13 @@
 import { openManagedWindow, type ManagedWindowSize } from '@/windows/managed.window';
 import type { AppSettings } from '@/shared/types';
+import type { ProjectSessionId } from '@/shared/types';
 export type { EditorSpecSavedEvent } from '@/windows/window.events';
 
 export type EditorWindowKind = 'ship' | 'weapon' | 'projectile' | 'weapon-preview';
 
 export interface EditorWindowRequest {
   kind: EditorWindowKind;
+  sessionId: ProjectSessionId;
   modRoot: string;
   id: string;
   settings: AppSettings;
@@ -34,6 +36,7 @@ export async function openEditorWindow(request: EditorWindowRequest): Promise<vo
     urlParams: {
       window: 'editor',
       kind: request.kind,
+      sessionId: request.sessionId,
       modRoot: request.modRoot,
       id: request.id,
       settings: JSON.stringify(request.settings),

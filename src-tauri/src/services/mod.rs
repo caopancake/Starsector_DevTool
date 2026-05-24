@@ -7,5 +7,4 @@ pub mod editor_specs;
 pub mod file_changes;
 pub mod project;
 pub mod system_open;
-pub mod tables;
 pub mod workspace;

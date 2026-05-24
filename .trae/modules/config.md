@@ -14,17 +14,17 @@
 - `src/app/components/config/ConfigMissionView.vue` 作为战役完整模块容器，组合列表、编辑器和空状态。
 - `src/app/components/config/ConfigMissionList.vue` 管理 mission 列表、新建和删除。
 - `src/app/components/config/ConfigMissionEditor.vue` 编辑和删除 mission 列表项、descriptor 和文本。
-- `src/services/config.service.ts` 封装配置 API。
+- `src/services/config.service.ts` 封装配置保存 API 和 ProjectSession 配置 entity query。
 - `src/orchestrators/config-save.orchestrator.ts` 统一记录配置保存的文件级 history。
-- `src/shared/api/missions-api.ts` 封装 mission 读取 command；`src/shared/api/indexed-api.ts`、`src/shared/api/variants-api.ts`、`src/shared/api/skins-api.ts` 和 `src/shared/api/files-api.ts` 封装配置保存相关 command。
+- `src/shared/api/project-api.ts` 封装配置 entity query；`src/shared/api/indexed-api.ts`、`src/shared/api/variants-api.ts`、`src/shared/api/skins-api.ts` 和 `src/shared/api/files-api.ts` 封装配置保存相关 command。
 - `src-tauri/src/services/config/indexed_entities.rs` 统一处理 indexed config entity 的 CSV index、target adapter 和 changeset。
-- `src-tauri/src/services/config/missions.rs` 只保留 mission 列表扫描、mission 读取和相关测试。
 
 ## 规范
 
 - 配置组件不能直接记录 file history，必须通过 `config-save.orchestrator.ts`。
 - `mod_info.json` 保存只写 `mod_info.json`。
 - Faction 和 Mission 必须走同一套 indexed config entity 保存入口：`saveIndexedConfigEntityWithFileHistory()`、`createIndexedConfigEntityWithFileHistory()`、`deleteIndexedConfigEntityWithFileHistory()`。
+- Mission 列表和详情读取必须走 ProjectSession entity query，不允许恢复独立 mission 读取 command 或前端 API。
 - 前端只提交 `kind`、`previousId`、`nextId`、`indexRow`、`payload` 和 `deletePreviousTarget`，不能分别调用势力或战役专用保存 command。
 - Rust 只暴露 indexed config entity command；Faction 和 Mission 的差异只存在于 Rust target adapter。
 - Faction adapter 维护 `data/world/factions/factions.csv` 和 `data/world/factions/{id}.faction`。

@@ -12,7 +12,7 @@
 - `schemas/variant.schema.json` 定义 `.variant` 表单字段。
 - `src/domain/schema/` 渲染 schema 表单和复杂字段控件。
 - `src-tauri/src/services/config/variants.rs` 统一处理 `.variant` 新建、保存、重命名和删除 changeset。
-- `src-tauri/src/services/project/mod.rs` 在完整项目读取时扫描并校验 `.variant` 文件。
+- `src-tauri/src/services/project/mod.rs` 在 ProjectSession 中索引并校验 `.variant` 文件。
 - `src/shared/api/variants-api.ts` 封装装配 entity command。
 
 ## 规范
@@ -22,7 +22,7 @@
 - `hullId` 可以指向 `.ship` 的舰船 ID，也可以指向 `.skin` 的 `skinHullId`；任何装配 hull 引用都必须把 `skinHullId` 当作合法 hull ID。
 - `variantId` 必须在当前 Mod 内全局唯一。
 - 装配模块不提供文件编辑器入口。
-- 装配列表必须按 `hullId` 尝试读取对应舰船或舰船皮肤贴图作为缩略图，读取不到时显示装配占位图标。
+- 装配列表和新建 hull 下拉必须通过 ProjectSession hull reference query 解析 ship hull 与 skin hull；缩略图只能使用返回的 `ResourceRef` 再走批量资源 query。
 - 保存允许修改 `variantId`；修改后必须在同一个 changeset 中删除旧文件并创建新文件。
 - 新建路径固定为 `data/variants/{variantId}.variant`。
 - 新建、保存、重命名和删除都必须进入文件级 history。
@@ -34,13 +34,13 @@
 
 ## 链路：读取装配
 
-1. 前端调用完整项目读取。
-2. Rust 扫描 `data/variants/**/*.variant`。
+1. 前端打开 ProjectSession 或查询装配列表。
+2. Rust 索引 `data/variants/**/*.variant`。
 3. Rust 解析 JSON-like 文件。
 4. Rust 校验 `variantId`、`hullId` 和重复 `variantId`。
-5. Rust 返回扁平 `variantFiles` 和按 hull 分组的 `variants`。
-6. 前端 project store 缓存 AppData。
-7. `ConfigVariantView.vue` 从 project cache 渲染左侧列表和右侧 schema 表单。
+5. Rust 通过 session manifest 或 entity query 返回装配摘要与实体数据。
+6. 前端只缓存当前界面需要的装配列表和选中实体。
+7. `ConfigVariantView.vue` 基于 query 结果渲染左侧列表和右侧 schema 表单。
 
 ## 链路：保存装配
 
@@ -54,7 +54,7 @@
 8. Rust 构建单文件修改 changeset；重命名时构建旧 `.variant` 删除和新 `.variant` 写入的同一 changeset。
 9. Rust 写盘并返回 `VariantEntityResult`。
 10. 前端记录文件级 history。
-11. 前端只基于 result 同步 project cache 中的 `variantFiles` 和 `variants`。
+11. 前端只基于 result 同步当前装配列表并失效对应 session cache。
 
 ## 链路：新建装配
 

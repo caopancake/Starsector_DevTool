@@ -52,11 +52,10 @@
 import { computed, h, onMounted, ref, watch } from 'vue';
 import { NCheckbox } from 'naive-ui';
 import { useProjectStore } from '@/stores/project.store';
-import { useSettingsStore } from '@/stores/settings.store';
-import { loadImageDataUrl } from '@/services/assets.service';
 import type { JsonValue, RowData } from '@/shared/types';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
-import { loadMission, loadMissionList, scanMissionListFiles } from '@/services/config.service';
+import { listMissionEntities } from '@/services/config.service';
+import { queryResourceDataUrlBatch } from '@/services/resource-cache.service';
 import { buildMissionIndexRow } from '@/domain/config/config-entities';
 import {
   createIndexedConfigEntityWithFileHistory,
@@ -67,12 +66,8 @@ const props = defineProps<{ selectedId: string; refreshToken: number }>();
 const emit = defineEmits<{ select: [missionId: string] }>();
 
 const project = useProjectStore();
-const settings = useSettingsStore();
 const feedback = useAppFeedback();
 
-const DEFAULT_MISSION_LIST_PATH = 'data/missions/mission_list.csv';
-
-const missionListPath = ref(DEFAULT_MISSION_LIST_PATH);
 const missionRows = ref<RowData[]>([]);
 const missionIcons = ref<Record<string, string>>({});
 const showCreateDialog = ref(false);
@@ -80,7 +75,8 @@ const newMissionId = ref('');
 const deleteMissionDirectory = ref(false);
 const pendingDeleteMission = ref('');
 
-const modRoot = computed(() => project.activeModData?.modRoot ?? null);
+const modRoot = computed(() => project.activeManifest?.modRoot ?? null);
+const sessionId = computed(() => project.activeManifest?.sessionId ?? null);
 const missions = computed(() =>
   missionRows.value
     .map((row) => missionId(row))
@@ -103,22 +99,14 @@ function missionIcon(id: string): string {
 async function loadFileList() {
   if (!modRoot.value) {
     missionRows.value = [];
-    missionListPath.value = DEFAULT_MISSION_LIST_PATH;
     return;
   }
   try {
-    const files = await scanMissionListFiles(modRoot.value);
-    missionListPath.value = files[0] ?? DEFAULT_MISSION_LIST_PATH;
-    const table = files[0]
-      ? await loadMissionList(modRoot.value, missionListPath.value)
-      : {
-          header: ['mission'],
-          path: DEFAULT_MISSION_LIST_PATH,
-          rows: [],
-        };
-    missionRows.value = table.rows;
+    if (!sessionId.value) return;
+    const entities = await listMissionEntities(sessionId.value);
+    missionRows.value = entities.map((entity) => entity.list);
     syncMissionCount();
-    await loadMissionIcons();
+    await loadMissionIcons(entities);
     if (!props.selectedId && missions.value[0]) emit('select', missions.value[0].id);
     if (props.selectedId && !missions.value.some((mission) => mission.id === props.selectedId)) emit('select', missions.value[0]?.id ?? '');
   } catch (error) {
@@ -127,26 +115,17 @@ async function loadFileList() {
   }
 }
 
-async function loadMissionIcons() {
-  const root = modRoot.value;
-  if (!root) {
+async function loadMissionIcons(entities = [] as Awaited<ReturnType<typeof listMissionEntities>>) {
+  if (!sessionId.value) {
     missionIcons.value = {};
     return;
   }
-  const coreRoot = settings.starsectorRoot || project.activeModData?.starsectorRoot || undefined;
-  const icons: Record<string, string> = {};
-  await Promise.all(
-    missions.value.map(async (mission) => {
-      try {
-        const data = await loadMission(root, mission.id);
-        if (!data.iconPath) return;
-        icons[mission.id] = (await loadImageDataUrl(root, data.iconPath, coreRoot)) ?? '';
-      } catch {
-        icons[mission.id] = '';
-      }
-    }),
+  const iconEntities = entities.filter((entity) => entity.iconResourceRef);
+  const dataUrls = await queryResourceDataUrlBatch(
+    sessionId.value,
+    iconEntities.map((entity) => entity.iconResourceRef!),
   );
-  missionIcons.value = icons;
+  missionIcons.value = Object.fromEntries(iconEntities.map((entity, index) => [entity.id, dataUrls[index] ?? '']));
 }
 
 function createMission() {
@@ -181,7 +160,7 @@ async function doCreateMission() {
     syncMissionCount();
     feedback.success(`战役 "${id}" 已创建`);
     showCreateDialog.value = false;
-    await loadMissionIcons();
+    await loadFileList();
     emit('select', id);
   } catch (error) {
     feedback.error(error, '创建战役失败');
@@ -218,9 +197,8 @@ async function deletePendingMission() {
   if (!pendingDeleteMission.value || !modRoot.value) return;
   try {
     const deleted = pendingDeleteMission.value;
-    const result = await deleteIndexedConfigEntityWithFileHistory(modRoot.value, 'mission', deleted, deleteMissionDirectory.value);
-    missionRows.value = result.indexRows;
-    syncMissionCount();
+    await deleteIndexedConfigEntityWithFileHistory(modRoot.value, 'mission', deleted, deleteMissionDirectory.value);
+    await loadFileList();
     delete missionIcons.value[deleted];
     pendingDeleteMission.value = '';
     const nextId = missions.value[0]?.id ?? '';
@@ -232,9 +210,14 @@ async function deletePendingMission() {
 }
 
 function syncMissionCount() {
-  const data = project.activeModData;
-  if (!data) return;
-  data.missionCount = missions.value.length;
+  const manifest = project.activeManifest;
+  if (!manifest) return;
+  project.updateManifest(manifest.modRoot, {
+    entitySummaries: {
+      ...manifest.entitySummaries,
+      missions: missions.value.length,
+    },
+  });
 }
 
 function isValidMissionId(id: string): boolean {

@@ -1,9 +1,10 @@
 import type { FileChangeRecord } from '@/shared/api/files-api';
 import { normalizeFsPath, pathBasename } from '@/shared/lib/paths';
-import type { AppData } from '@/shared/types';
 import type { EditorSpecSavedEvent, FileEditorSavedEvent } from '@/windows/window.events';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import { useProjectStore } from '@/stores/project.store';
+import { invalidateProjectSession } from '@/shared/api/project-api';
+import { invalidateResourceCacheByPaths } from '@/services/resource-cache.service';
 
 export function recordFileSave(modRoot: string, changes: FileChangeRecord[], label: string) {
   if (!modRoot || changes.length === 0) return false;
@@ -18,10 +19,9 @@ export function recordSpriteUploadSaved(modRoot: string, changes: FileChangeReco
 }
 
 export function recordEditorSpecSaved(payload: EditorSpecSavedEvent) {
-  const project = useProjectStore();
-  if (!syncEditorSpecChange(project, payload)) return false;
   if (payload.changes?.length) {
     recordFileSave(payload.modRoot, payload.changes, `保存 ${payload.id}.${editorExtension(payload.kind)}`);
+    void invalidateChangedPaths(payload.modRoot, payload.changes);
   }
   return true;
 }
@@ -29,9 +29,10 @@ export function recordEditorSpecSaved(payload: EditorSpecSavedEvent) {
 export function recordFileEditorSaved(payload: FileEditorSavedEvent) {
   if (!payload.changes.length) return false;
   const project = useProjectStore();
-  const modRoot = resolveLoadedModRootForPath(project.modsData, payload.path);
+  const modRoot = resolveLoadedModRootForPath([...project.manifests.keys()], payload.path);
   if (!modRoot) return false;
   recordFileSave(modRoot, payload.changes, `保存 ${pathBasename(payload.path)}`);
+  void invalidateChangedPaths(modRoot, payload.changes);
   return true;
 }
 
@@ -41,24 +42,25 @@ function editorExtension(kind: EditorSpecSavedEvent['kind']) {
   return 'proj';
 }
 
-function syncEditorSpecChange(project: ReturnType<typeof useProjectStore>, specChange: EditorSpecSavedEvent) {
-  if (!project.getModData(specChange.modRoot)) return false;
-  if (specChange.kind === 'ship') {
-    project.updateShipFile(specChange.modRoot, specChange.id, specChange.spec);
-  } else if (specChange.kind === 'weapon') {
-    project.updateWeaponFile(specChange.modRoot, specChange.id, specChange.spec);
-  } else {
-    project.updateProjectileFile(specChange.modRoot, specChange.id, specChange.spec);
-  }
-  return true;
-}
-
-function resolveLoadedModRootForPath(modsData: Map<string, AppData>, path: string): string | null {
+function resolveLoadedModRootForPath(modRoots: string[], path: string): string | null {
   const normalizedPath = normalizeFsPath(path);
-  const matches = [...modsData.keys()].filter((modRoot) => {
+  const matches = modRoots.filter((modRoot) => {
     const normalizedRoot = normalizeFsPath(modRoot);
     return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`);
   });
   matches.sort((a, b) => normalizeFsPath(b).length - normalizeFsPath(a).length);
   return matches[0] ?? null;
+}
+
+export async function invalidateChangedPathsForMod(modRoot: string, changes: FileChangeRecord[]) {
+  const project = useProjectStore();
+  const sessionId = project.getSessionId(modRoot);
+  if (!sessionId) return;
+  const paths = changes.map((change) => change.path);
+  invalidateResourceCacheByPaths(sessionId, paths);
+  await invalidateProjectSession(sessionId, paths);
+}
+
+async function invalidateChangedPaths(modRoot: string, changes: FileChangeRecord[]) {
+  await invalidateChangedPathsForMod(modRoot, changes);
 }

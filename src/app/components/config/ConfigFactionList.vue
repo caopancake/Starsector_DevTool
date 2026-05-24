@@ -53,21 +53,19 @@
 import { computed, h, ref, watch } from 'vue';
 import { NCheckbox } from 'naive-ui';
 import { useProjectStore } from '@/stores/project.store';
-import { useSettingsStore } from '@/stores/settings.store';
 import {
   createIndexedConfigEntityWithFileHistory,
   deleteIndexedConfigEntityWithFileHistory,
 } from '@/orchestrators/config-save.orchestrator';
 import { buildFactionIndexRow, createDefaultFaction } from '@/domain/config/config-entities';
-import { loadImageDataUrl } from '@/services/assets.service';
-import type { JsonValue } from '@/shared/types';
+import { queryResourceDataUrlBatch } from '@/services/resource-cache.service';
+import type { JsonValue, ResourceRef, RowData } from '@/shared/types';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 
-const props = defineProps<{ selectedId: string }>();
-const emit = defineEmits<{ select: [factionId: string] }>();
+const props = defineProps<{ selectedId: string; factions: Record<string, RowData> }>();
+const emit = defineEmits<{ select: [factionId: string]; changed: [] }>();
 
 const project = useProjectStore();
-const settings = useSettingsStore();
 const feedback = useAppFeedback();
 
 const showCreateDialog = ref(false);
@@ -100,9 +98,7 @@ function str(value: JsonValue | undefined): string {
 }
 
 const factions = computed<ConfigFactionViewItem[]>(() => {
-  const modData = project.activeModData;
-  if (!modData) return [];
-  const files = modData.factionFiles;
+  const files = props.factions;
   return Object.keys(files)
     .sort()
     .map((id) => ({
@@ -117,25 +113,26 @@ function factionCrest(id: string): string {
 }
 
 async function refreshFactionCrests() {
-  const modData = project.activeModData;
+  const modData = project.activeManifest;
   if (!modData) {
     factionCrests.value = {};
     return;
   }
-  const coreRoot = settings.starsectorRoot || modData.starsectorRoot || undefined;
-  const crests: Record<string, string> = {};
-  await Promise.all(
-    Object.entries(modData.factionFiles).map(async ([id, data]) => {
+  const entries = Object.entries(props.factions)
+    .map(([id, data]) => {
       const crest = str(data.crest);
-      if (!crest) return;
-      try {
-        crests[id] = (await loadImageDataUrl(modData.modRoot, crest, coreRoot)) ?? '';
-      } catch {
-        crests[id] = '';
-      }
-    }),
+      return crest ? { id, resource: factionResourceRef(id, crest, 'crest') } : null;
+    })
+    .filter((entry): entry is { id: string; resource: ResourceRef } => Boolean(entry));
+  const dataUrls = await queryResourceDataUrlBatch(
+    modData.sessionId,
+    entries.map((entry) => entry.resource),
   );
-  factionCrests.value = crests;
+  factionCrests.value = Object.fromEntries(entries.map((entry, index) => [entry.id, dataUrls[index] ?? '']));
+}
+
+function factionResourceRef(id: string, relPath: string, key: string): ResourceRef {
+  return { source: 'mod', relPath, ownerKind: 'faction', ownerId: id, key };
 }
 
 function selectFaction(id: string) {
@@ -143,7 +140,7 @@ function selectFaction(id: string) {
 }
 
 async function createFaction() {
-  const modData = project.activeModData;
+  const modData = project.activeManifest;
   if (!modData) return;
 
   newFactionId.value = '';
@@ -151,7 +148,7 @@ async function createFaction() {
 }
 
 async function doCreate() {
-  const modData = project.activeModData;
+  const modData = project.activeManifest;
   if (!modData) return;
 
   const trimmedId = newFactionId.value.trim();
@@ -159,30 +156,21 @@ async function doCreate() {
     feedback.warning('ID 不能为空');
     return;
   }
-  if (modData.factionFiles[trimmedId]) {
+  if (props.factions[trimmedId]) {
     feedback.warning(`势力 "${trimmedId}" 已存在`);
     return;
   }
   try {
-    const result = await createIndexedConfigEntityWithFileHistory({
+    await createIndexedConfigEntityWithFileHistory({
       modRoot: modData.modRoot,
       kind: 'faction',
       nextId: trimmedId,
       indexRow: buildFactionIndexRow(trimmedId),
       payload: { file: createDefaultFaction(trimmedId) },
     });
-    const payload = result.entityPayload;
-    const data =
-      payload && payload.file && typeof payload.file === 'object' && !Array.isArray(payload.file)
-        ? payload.file
-        : createDefaultFaction(trimmedId);
-    modData.factionFiles[trimmedId] = data;
-    modData.factionMeta[trimmedId] = {
-      name: String(data.displayName ?? trimmedId),
-      color: rgbaToCss(data.color),
-    };
     feedback.success(`势力 "${trimmedId}" 已创建`);
     showCreateDialog.value = false;
+    emit('changed');
     await refreshFactionCrests();
     selectFaction(trimmedId);
   } catch (error) {
@@ -218,17 +206,16 @@ function confirmDelete(id: string) {
 }
 
 async function doDelete(id: string, deleteFile: boolean) {
-  const modData = project.activeModData;
+  const modData = project.activeManifest;
   if (!modData) return;
 
   try {
     await deleteIndexedConfigEntityWithFileHistory(modData.modRoot, 'faction', id, deleteFile);
-    delete modData.factionFiles[id];
-    delete modData.factionMeta[id];
     delete factionCrests.value[id];
     if (props.selectedId === id) {
       emit('select', '');
     }
+    emit('changed');
     feedback.success(`势力 "${id}" 已删除`);
   } catch (error) {
     feedback.error(error, '删除势力失败');
@@ -236,7 +223,7 @@ async function doDelete(id: string, deleteFile: boolean) {
 }
 
 watch(
-  () => project.activeModRoot,
+  () => [project.activeModRoot, props.factions],
   () => refreshFactionCrests(),
   { immediate: true },
 );

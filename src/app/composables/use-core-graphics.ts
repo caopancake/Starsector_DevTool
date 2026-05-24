@@ -11,7 +11,7 @@ export function useCoreGraphics() {
   const settings = useSettingsStore();
   const project = useProjectStore();
 
-  const starsectorRoot = computed(() => settings.starsectorRoot || project.activeModData?.starsectorRoot || '');
+  const starsectorRoot = computed(() => settings.starsectorRoot || project.activeManifest?.starsectorRoot || '');
 
   async function loadGraphics() {
     const root = starsectorRoot.value;

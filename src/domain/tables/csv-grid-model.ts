@@ -1,4 +1,4 @@
-import type { AppData, RowData, TableKey } from '@/shared/types';
+import type { CsvWindowRow, RowData, TableKey } from '@/shared/types';
 import { cell } from '@/shared/lib/starsector';
 import { csvColumnSchemaFor, type CsvColumnSchema } from '@/domain/tables/csv-column-schema';
 import { createCsvSourceIndex, sourceOptions, type CsvSourceIndex } from '@/domain/tables/csv-source-options';
@@ -12,11 +12,7 @@ export interface CsvGridColumn {
   widthPx: number;
 }
 
-export interface CsvGridRow {
-  row: RowData;
-  rowIndex: number;
-  rowKey: string;
-}
+export type CsvGridRow = CsvWindowRow;
 
 export interface CsvGridModel {
   columns: CsvGridColumn[];
@@ -39,16 +35,16 @@ export function createCsvGridModel(
   table: TableKey,
   visibleColumns: string[],
   filteredRows: RowData[],
-  appData: AppData | null,
   rowKeyFor: (row: RowData, index: number) => string,
+  loadedSourceOptions: Map<string, SelectOption[]> = new Map(),
 ): CsvGridModel {
   const startedAt = performance.now();
   const columns = visibleColumns.map((key) => createCsvGridColumn(table, key));
   const rows = filteredRows.map((row, rowIndex) => ({ row, rowIndex, rowKey: rowKeyFor(row, rowIndex) }));
   const sourceStartedAt = performance.now();
   const sourceIndex = createCsvSourceIndex(
-    appData,
     columns.map((column) => column.schema?.source),
+    loadedSourceOptions,
   );
   const sourceMs = performance.now() - sourceStartedAt;
   const widthStartedAt = performance.now();

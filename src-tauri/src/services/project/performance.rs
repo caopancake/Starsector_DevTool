@@ -48,22 +48,6 @@ impl PerformanceTrace {
         });
     }
 
-    pub(super) fn record_stage_with_ms(
-        &mut self,
-        name: impl Into<String>,
-        ms: u128,
-        fields: impl IntoIterator<Item = (&'static str, String)>,
-    ) {
-        self.stages.push(PerformanceStage {
-            fields: fields
-                .into_iter()
-                .map(|(key, value)| (key.to_string(), sanitize_value(value)))
-                .collect(),
-            ms,
-            name: name.into(),
-        });
-    }
-
     pub(super) fn log_messages(&self, root_fields: &[(&str, String)]) -> Vec<String> {
         let mut messages = vec![render_message(
             self.name,

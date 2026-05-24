@@ -25,8 +25,8 @@
 - [应用启动与窗口挂载系统](modules/app-window-mounting.md)：说明前端入口如何按窗口类型挂载主窗口、编辑器窗口和文件编辑器窗口。
 - [多窗口机制](modules/windowing.md)：说明 Tauri 多窗口的创建、单例化、聚焦和跨窗口事件边界。
 - [工作区与启动恢复系统](modules/workspace.md)：说明 workspace 状态、启动恢复、自动保存和主窗口编排边界。
-- [目录识别、游戏概览与完整读取系统](modules/directory-project-loading.md)：说明打开游戏目录或 Mod 目录时的识别、轻量扫描和完整读取流程。
-- [Project / AppData 缓存系统](modules/project-cache.md)：说明完整读取后的 AppData 缓存、同步和按 Mod 隔离规则。
+- [目录识别、游戏概览与 ProjectSession 系统](modules/directory-project-loading.md)：说明打开游戏目录或 Mod 目录时的识别、轻量扫描和 session 打开流程。
+- [ProjectSession / Manifest 缓存系统](modules/project-cache.md)：说明 ProjectSession、ProjectManifest 和按需 query 的前端状态边界。
 - [CSV 表格系统](modules/csv-tables.md)：说明 CSV 表格显示、编辑、行身份、dirty 和详情动作边界。
 - [CSV 草稿历史系统](modules/csv-edit-history.md)：说明未保存 CSV 编辑的内存级 undo/redo 栈。
 - [表格保存与关联文件 changeset 系统](modules/table-save-changeset.md)：说明 CSV 保存和关联 spec 创建删除如何组成一次文件级 changeset。

@@ -4,7 +4,7 @@
       <h1>Mod 信息</h1>
     </header>
 
-    <SchemaFormRenderer v-if="schema" :schema="schema" v-model="local" :app-data="project.activeModData" />
+    <SchemaFormRenderer v-if="schema" :schema="schema" v-model="local" :runtime-context="schemaRuntimeContext" />
 
     <footer class="settings-footer">
       <n-button type="primary" :loading="saving" @click="save">保存</n-button>
@@ -31,11 +31,14 @@ const feedback = useAppFeedback();
 const { getMergedSchema, loadCoreFields } = useCoreSchema();
 loadCoreFields();
 const schema = computed(() => getMergedSchema('mod-info'));
+const schemaRuntimeContext = computed(() =>
+  project.activeManifest ? { modRoot: project.activeManifest.modRoot, sessionId: project.activeManifest.sessionId } : null,
+);
 const saving = ref(false);
 const local = ref<RowData>({});
 
 watch(
-  () => project.activeModData?.modInfo,
+  () => project.activeManifest?.modInfo,
   (modInfo) => {
     if (modInfo) local.value = aggregateSchemaSources({ file: deepClone(modInfo) });
   },
@@ -43,7 +46,7 @@ watch(
 );
 
 async function save() {
-  const modData = project.activeModData;
+  const modData = project.activeManifest;
   if (!modData) return;
   const currentSchema = schema.value;
   if (!currentSchema) return;
@@ -52,7 +55,7 @@ async function save() {
     const split = splitSchemaSources(local.value, currentSchema);
     const file = split.file && typeof split.file === 'object' && !Array.isArray(split.file) ? (split.file as RowData) : {};
     await saveModInfoWithFileHistory(modData.modRoot, file);
-    modData.modInfo = deepClone(file);
+    project.updateManifest(modData.modRoot, { ...modData, modInfo: deepClone(file) });
     configStore.updateSnapshot(file);
     feedback.success('mod_info.json 已保存');
   } catch (error) {

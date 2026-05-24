@@ -31,73 +31,113 @@ export interface DiscoveredField {
   origin: string;
 }
 
-export interface AppData {
+export type ProjectSessionId = string;
+
+export interface SchemaRuntimeContext {
   modRoot: string;
-  starsectorRoot?: string;
+  sessionId: ProjectSessionId;
+}
+
+export interface ProjectManifest {
+  sessionId: ProjectSessionId;
+  modRoot: string;
+  starsectorRoot?: string | null;
   coreAvailable: boolean;
   modInfo: RowData;
-  factionMeta: Record<string, FactionMeta>;
-  factionFiles: Record<string, RowData>;
-  missionCount: number;
-  csvHeaders: Record<string, string[]>;
-  csvPaths: Record<string, string>;
-  ships: RowData[];
-  weapons: RowData[];
-  wings: RowData[];
-  hullmods: RowData[];
-  shipSystems: RowData[];
-  industries: RowData[];
-  skills: RowData[];
-  abilities: RowData[];
-  commodities: RowData[];
-  specialItems: RowData[];
-  submarkets: RowData[];
-  marketConditions: RowData[];
-  simOpponents: RowData[];
-  descriptions: RowData[];
-  shipFiles: Record<string, RowData>;
-  variants: Record<string, RowData[]>;
-  variantFiles: VariantFile[];
-  skinFiles: SkinFile[];
-  shipSprites: Record<string, string>;
-  availableSprites: string[];
-  wpnFiles: Record<string, RowData>;
-  projFiles: Record<string, RowData>;
-  systemFiles: Record<string, RowData>;
-  skillFiles: Record<string, RowData>;
-  weaponSprites: string[];
-  weaponSpritesData: Record<string, Record<string, string>>;
-  hullmodSprites: Record<string, string>;
-  shipSystemSprites: Record<string, string>;
-  industrySprites: Record<string, string>;
-  skillSprites: Record<string, string>;
-  abilitySprites: Record<string, string>;
-  commoditySprites: Record<string, string>;
-  specialItemSprites: Record<string, string>;
-  submarketSprites: Record<string, string>;
-  marketConditionSprites: Record<string, string>;
-  coreReferences: CoreReferences;
+  tableSummaries: Partial<Record<TableKey, TableSummary>>;
+  entitySummaries: EntitySummaries;
   warnings: GameScanWarning[];
 }
 
-export interface CoreReferences {
-  tables: Partial<Record<TableKey, RowData[]>>;
-  shipFiles: Record<string, RowData>;
-  wpnFiles: Record<string, RowData>;
-  variantFiles: VariantFile[];
-  skinFiles: SkinFile[];
-  shipSprites: Record<string, string>;
-  weaponSpritesData: Record<string, Record<string, string>>;
-  wingSprites: Record<string, string>;
-  hullmodSprites: Record<string, string>;
-  shipSystemSprites: Record<string, string>;
-  industrySprites: Record<string, string>;
-  skillSprites: Record<string, string>;
-  abilitySprites: Record<string, string>;
-  commoditySprites: Record<string, string>;
-  specialItemSprites: Record<string, string>;
-  submarketSprites: Record<string, string>;
-  marketConditionSprites: Record<string, string>;
+export interface TableSummary {
+  path: string;
+  header: string[];
+  available: boolean;
+  totalRows?: number | null;
+}
+
+export interface EntitySummaries {
+  factions: number;
+  missions: number;
+  ships: number;
+  weapons: number;
+  projectiles: number;
+  variants: number;
+  skins: number;
+  systems: number;
+  skills: number;
+}
+
+export interface CsvTableWindow {
+  table: TableKey;
+  header: string[];
+  totalRows: number;
+  filteredRows: number;
+  start: number;
+  rows: CsvWindowRow[];
+}
+
+export interface CsvWindowRow {
+  rowKey: string;
+  rowIndex: number;
+  row: RowData;
+}
+
+export interface SourceOptionGroup {
+  label: string;
+  options: SourceOption[];
+}
+
+export interface SourceOption {
+  label: string;
+  value: string;
+  sprite?: string | null;
+  resourceRef?: ResourceRef | null;
+  origin: string;
+}
+
+export interface EntityData {
+  kind: string;
+  id: string;
+  data: JsonValue;
+}
+
+export interface ResourceRef {
+  source: 'mod' | 'core';
+  relPath: string;
+  ownerKind: string;
+  ownerId: string;
+  key: string;
+}
+
+export interface ResourceDataUrlBatchEntry {
+  key: string;
+  source: string;
+  relPath: string;
+  dataUrl?: string | null;
+}
+
+export interface ResourceDataUrlBatchResult {
+  entries: ResourceDataUrlBatchEntry[];
+}
+
+export interface HullReferenceOption {
+  label: string;
+  value: string;
+  origin: string;
+  kind: string;
+  resourceRef?: ResourceRef | null;
+  sprite?: string | null;
+}
+
+export interface HullReferenceGroup {
+  label: string;
+  options: HullReferenceOption[];
+}
+
+export interface HullReferencesResult {
+  groups: HullReferenceGroup[];
+  sprites: Record<string, ResourceRef>;
 }
 
 export interface VariantFile {
@@ -176,6 +216,8 @@ export type EditorKind = 'ship' | 'weapon' | 'projectile';
 export interface SelectOption {
   label: string;
   value: string;
+  sprite?: string;
+  resourceRef?: ResourceRef | null;
 }
 
 export type RenderFn = () => VNodeChild;

@@ -152,15 +152,15 @@ const secondaryTableKeys: TableKey[] = [
 
 const hasDirtyChanges = computed(() => tables.hasModDirtyChanges(props.mod.modRoot));
 const factionCount = computed(() => {
-  const data = project.getModData(props.mod.modRoot);
-  return data?.factionFiles ? Object.keys(data.factionFiles).length : 0;
+  const manifest = project.getManifest(props.mod.modRoot);
+  return manifest?.entitySummaries.factions ?? 0;
 });
-const missionCount = computed(() => project.getModData(props.mod.modRoot)?.missionCount ?? 0);
-const skinCount = computed(() => project.getModData(props.mod.modRoot)?.skinFiles.length ?? 0);
-const variantCount = computed(() => project.getModData(props.mod.modRoot)?.variantFiles.length ?? 0);
+const missionCount = computed(() => project.getManifest(props.mod.modRoot)?.entitySummaries.missions ?? 0);
+const skinCount = computed(() => project.getManifest(props.mod.modRoot)?.entitySummaries.skins ?? 0);
+const variantCount = computed(() => project.getManifest(props.mod.modRoot)?.entitySummaries.variants ?? 0);
 
 function getRowCount(key: TableKey): number {
-  return project.getModData(props.mod.modRoot)?.[key]?.length ?? 0;
+  return project.getManifest(props.mod.modRoot)?.tableSummaries[key]?.totalRows ?? 0;
 }
 
 function onRemove() {

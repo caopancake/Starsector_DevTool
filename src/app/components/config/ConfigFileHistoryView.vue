@@ -94,7 +94,7 @@ const tables = useTablesStore();
 const fileHistory = useFileHistoryStore();
 const feedback = useAppFeedback();
 
-const activeMod = computed(() => project.activeModData);
+const activeMod = computed(() => project.activeManifest);
 const modTitle = computed(() => activeMod.value?.modInfo?.name ?? activeMod.value?.modRoot ?? '未选择 Mod');
 const stacks = computed(() => (activeMod.value ? fileHistory.getHistoryStacks(activeMod.value.modRoot) : { undoStack: [], redoStack: [] }));
 const undoStack = computed(() => stacks.value.undoStack);

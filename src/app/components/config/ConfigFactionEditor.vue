@@ -21,34 +21,35 @@
     </div>
 
     <!-- Schema-driven form -->
-    <SchemaFormRenderer v-if="schema" :schema="schema" v-model="local" :app-data="project.activeModData" />
+    <SchemaFormRenderer v-if="schema" :schema="schema" v-model="local" :runtime-context="schemaRuntimeContext" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useProjectStore } from '@/stores/project.store';
-import { useSettingsStore } from '@/stores/settings.store';
 import { deleteIndexedConfigEntityWithFileHistory, saveIndexedConfigEntityWithFileHistory } from '@/orchestrators/config-save.orchestrator';
 import { buildFactionIndexRow, stripSchemaInternalFields } from '@/domain/config/config-entities';
-import { loadImageDataUrl } from '@/services/assets.service';
+import { queryResourceDataUrlBatch } from '@/services/resource-cache.service';
 import { deepClone } from '@/shared/lib/starsector';
-import type { JsonValue, RowData } from '@/shared/types';
+import type { JsonValue, ResourceRef, RowData } from '@/shared/types';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { useCoreSchema } from '@/app/composables/use-core-schema';
 import { aggregateSchemaSources, splitSchemaSources } from '@/domain/schema/schema-registry';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 
-const props = defineProps<{ factionId: string }>();
-const emit = defineEmits<{ saved: [factionId: string] }>();
+const props = defineProps<{ factionId: string; factions: Record<string, RowData> }>();
+const emit = defineEmits<{ saved: [factionId: string]; changed: [] }>();
 
 const project = useProjectStore();
-const settings = useSettingsStore();
 
 const { getMergedSchema, loadCoreFields } = useCoreSchema();
 loadCoreFields();
 
 const schema = computed(() => getMergedSchema('faction'));
+const schemaRuntimeContext = computed(() =>
+  project.activeManifest ? { modRoot: project.activeManifest.modRoot, sessionId: project.activeManifest.sessionId } : null,
+);
 
 const feedback = useAppFeedback();
 
@@ -62,9 +63,8 @@ const factionFile = computed<RowData>(() => {
 watch(
   () => props.factionId,
   (id) => {
-    const modData = project.activeModData;
-    if (modData && modData.factionFiles[id]) {
-      local.value = aggregateSchemaSources({ file: deepClone(modData.factionFiles[id]) });
+    if (props.factions[id]) {
+      local.value = aggregateSchemaSources({ file: deepClone(props.factions[id]) });
     } else {
       local.value = aggregateSchemaSources({ file: { id } });
     }
@@ -85,30 +85,26 @@ const logoSrc = ref('');
 const crestSrc = ref('');
 
 async function refreshImagePreviews() {
-  const modRoot = project.activeModData?.modRoot;
-  const coreRoot = settings.starsectorRoot || project.activeModData?.starsectorRoot || undefined;
+  const manifest = project.activeManifest;
   const logo = str(factionFile.value.logo);
   const crest = str(factionFile.value.crest);
+  const resources = [
+    logo ? factionResourceRef(props.factionId, logo, 'logo') : null,
+    crest ? factionResourceRef(props.factionId, crest, 'crest') : null,
+  ].filter((resource): resource is ResourceRef => Boolean(resource));
 
-  if (logo && modRoot) {
-    try {
-      logoSrc.value = (await loadImageDataUrl(modRoot, logo, coreRoot)) ?? '';
-    } catch {
-      logoSrc.value = '';
-    }
-  } else {
+  if (!manifest || resources.length === 0) {
     logoSrc.value = '';
-  }
-
-  if (crest && modRoot) {
-    try {
-      crestSrc.value = (await loadImageDataUrl(modRoot, crest, coreRoot)) ?? '';
-    } catch {
-      crestSrc.value = '';
-    }
-  } else {
     crestSrc.value = '';
+    return;
   }
+  const dataUrls = await queryResourceDataUrlBatch(manifest.sessionId, resources);
+  logoSrc.value = logo ? (dataUrls.shift() ?? '') : '';
+  crestSrc.value = crest ? (dataUrls.shift() ?? '') : '';
+}
+
+function factionResourceRef(id: string, relPath: string, key: string): ResourceRef {
+  return { source: 'mod', relPath, ownerKind: 'faction', ownerId: id, key };
 }
 
 watch(
@@ -119,7 +115,7 @@ watch(
 
 // --- Save with ID rename support ---
 async function save() {
-  const modData = project.activeModData;
+  const modData = project.activeManifest;
   if (!modData) return;
   const currentSchema = schema.value;
   if (!currentSchema) return;
@@ -140,20 +136,8 @@ async function save() {
       payload: { file: stripSchemaInternalFields(file) as RowData },
       deletePreviousTarget: idChanged,
     });
-    const payload = result.entityPayload;
-    const savedFile = payload && typeof payload.file === 'object' && !Array.isArray(payload.file) ? (payload.file as RowData) : file;
-
-    if (idChanged) {
-      delete modData.factionFiles[previousId];
-      delete modData.factionMeta[previousId];
-    }
-
-    modData.factionFiles[newId] = deepClone(savedFile);
-    modData.factionMeta[newId] = {
-      name: str(savedFile.displayName) || newId,
-      color: rgbaToCss(savedFile.color),
-    };
-
+    void result;
+    emit('changed');
     emit('saved', newId);
     feedback.success(`势力 "${newId}" 已保存`);
   } catch (error) {
@@ -175,12 +159,11 @@ function confirmDeleteFaction() {
 }
 
 async function deleteCurrentFaction() {
-  const modData = project.activeModData;
+  const modData = project.activeManifest;
   if (!modData || !props.factionId) return false;
   try {
     await deleteIndexedConfigEntityWithFileHistory(modData.modRoot, 'faction', props.factionId, true);
-    delete modData.factionFiles[props.factionId];
-    delete modData.factionMeta[props.factionId];
+    emit('changed');
     emit('saved', '');
     feedback.success(`势力 "${props.factionId}" 已删除`);
   } catch (error) {
@@ -188,16 +171,5 @@ async function deleteCurrentFaction() {
     return false;
   }
   return true;
-}
-
-function rgbaToCss(color: JsonValue | undefined): string {
-  if (Array.isArray(color) && color.length >= 3) {
-    const r = Math.round(Number(color[0]) || 0);
-    const g = Math.round(Number(color[1]) || 0);
-    const b = Math.round(Number(color[2]) || 0);
-    const a = Math.round(Number(color[3] ?? 255) || 0) / 255;
-    return `rgba(${r}, ${g}, ${b}, ${a})`;
-  }
-  return 'rgba(128, 128, 128, 1)';
 }
 </script>

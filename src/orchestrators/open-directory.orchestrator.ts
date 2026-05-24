@@ -1,4 +1,4 @@
-import type { AppData, ModEntry, PersistedMod } from '@/shared/types';
+import type { ModEntry, PersistedMod, ProjectManifest } from '@/shared/types';
 import { detectDirectory } from '@/shared/api/project-api';
 import { cell, formatModVersion } from '@/shared/lib/starsector';
 import { useEditorsStore } from '@/stores/editors.store';
@@ -7,7 +7,7 @@ import { useProjectStore } from '@/stores/project.store';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { useTablesStore } from '@/stores/tables.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
-import { loadProject } from '@/services/project.service';
+import { openProject } from '@/services/project.service';
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
 import { measurePerformance } from '@/services/performance.service';
 
@@ -57,7 +57,7 @@ export async function loadModFromOverview(modRoot: string): Promise<OpenDirector
     : { type: 'mod-loaded', modName: loaded.displayName, warnings: loaded.warnings };
 }
 
-export async function restoreWorkspaceMod(mod: PersistedMod, starsectorRoot: string | null): Promise<AppData> {
+export async function restoreWorkspaceMod(mod: PersistedMod, starsectorRoot: string | null): Promise<ProjectManifest> {
   const loaded = await loadProjectData(mod.modRoot, starsectorRoot);
   measurePerformance('frontend.hydrateLoadedMod', { modRoot: mod.modRoot, activate: false }, () =>
     hydrateLoadedMod(mod.modRoot, loaded, false),
@@ -92,19 +92,19 @@ async function loadWorkspaceMod(modRoot: string, starsectorRoot: string | null, 
   }
 }
 
-async function loadProjectData(modRoot: string, starsectorRoot: string | null): Promise<AppData> {
+async function loadProjectData(modRoot: string, starsectorRoot: string | null): Promise<ProjectManifest> {
   const project = useProjectStore();
   project.setLoading(true);
   try {
-    const loaded = await loadProject(modRoot, starsectorRoot);
-    measurePerformance('frontend.project.setLoadedModData', { modRoot }, () => project.setLoadedModData(modRoot, loaded));
+    const loaded = await openProject(modRoot, starsectorRoot);
+    measurePerformance('frontend.project.setProjectManifest', { modRoot }, () => project.setProjectManifest(loaded));
     return loaded;
   } finally {
     project.setLoading(false);
   }
 }
 
-function hydrateLoadedMod(modRoot: string, loaded: AppData, activate: boolean) {
+function hydrateLoadedMod(modRoot: string, loaded: ProjectManifest, activate: boolean) {
   const tables = useTablesStore();
   const editors = useEditorsStore();
   const fileHistory = useFileHistoryStore();
@@ -117,7 +117,7 @@ function hydrateLoadedMod(modRoot: string, loaded: AppData, activate: boolean) {
   }
 }
 
-function updateLoadedEntry(modRoot: string, loaded: AppData): string {
+function updateLoadedEntry(modRoot: string, loaded: ProjectManifest): string {
   const workspace = useWorkspaceStore();
   const displayName = cell(loaded.modInfo?.name) || fallbackName(modRoot);
   const version = formatModVersion(loaded.modInfo?.version) || '';

@@ -8,24 +8,28 @@ export interface AssociatedFileChange {
   afterDataBase64?: string | null;
 }
 
-export function saveCsvWithHistory(
-  modRoot: string,
-  table: TableKey,
-  header: string[],
-  rows: RowData[],
-  associatedFiles: AssociatedFileChange[] = [],
-): Promise<FileChangeRecord[]> {
-  return invoke('save_csv_with_history', { payload: { modRoot, table, header, rows, associatedFiles } });
+export interface CsvRowPatch {
+  rowKey: string;
+  action: 'upsert' | 'delete';
+  row?: RowData;
 }
 
-export const saveCsv = saveCsvWithHistory;
-
-export function loadCsvTable(modRoot: string, table: TableKey): Promise<CsvTable> {
-  return invoke('load_csv_table', { payload: { modRoot, table } });
+export interface SaveCsvPatchResult {
+  changes: FileChangeRecord[];
+  keyMap: Array<{ previousKey: string; nextKey: string }>;
 }
 
 export interface CsvTable {
   header: string[];
   rows: RowData[];
   path: string;
+}
+
+export function saveCsvPatchWithHistory(
+  sessionId: string,
+  table: TableKey,
+  patches: CsvRowPatch[],
+  associatedFiles: AssociatedFileChange[] = [],
+): Promise<SaveCsvPatchResult> {
+  return invoke('save_csv_patch_with_history', { payload: { sessionId, table, patches, associatedFiles } });
 }

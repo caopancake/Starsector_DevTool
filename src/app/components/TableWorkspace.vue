@@ -11,7 +11,7 @@
           <n-select v-model:value="tables.currentFaction" class="top-faction-select" :options="factionOptions" placeholder="势力" />
         </div>
         <div class="top-action-group">
-          <n-button :disabled="!activeData" @click="$emit('add-row')">新建</n-button>
+          <n-button :disabled="!activeManifest" @click="$emit('add-row')">新建</n-button>
           <n-button type="error" ghost :disabled="!tables.selectedRowKey" @click="$emit('delete-row')">删除</n-button>
         </div>
         <div class="top-action-group">
@@ -57,11 +57,10 @@ defineEmits<{
 const tables = useTablesStore();
 const project = useProjectStore();
 
-const activeData = computed(() => project.activeModData);
+const activeManifest = computed(() => project.activeManifest);
 
 const factionOptions = computed(() => {
   const base = [{ label: '全部势力', value: 'all' }];
-  if (!activeData.value) return base;
-  return base.concat(Object.entries(activeData.value.factionMeta).map(([value, meta]) => ({ label: meta.name, value })));
+  return base;
 });
 </script>

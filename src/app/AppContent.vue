@@ -14,7 +14,7 @@
       <SettingsPage v-else-if="workspace.currentView === 'settings'" />
       <AboutPage v-else-if="workspace.currentView === 'about'" />
       <TableWorkspace
-        v-else-if="workspace.currentView === 'table' && project.activeModData"
+        v-else-if="workspace.currentView === 'table' && project.activeManifest"
         @add-row="actions.addNewRow"
         @delete-row="actions.deleteSelectedRow"
         @redo="actions.redoCurrentTableEdit"
@@ -22,7 +22,7 @@
         @undo="actions.undoCurrentTableEdit"
         @detail-action="actions.handleDetailAction"
       />
-      <ConfigWorkspace v-else-if="workspace.currentView === 'config' && project.activeModData" />
+      <ConfigWorkspace v-else-if="workspace.currentView === 'config' && project.activeManifest" />
       <main v-else class="workspace">
         <section class="empty-state">
           <h1>选择一个 Starsector 目录</h1>

@@ -11,7 +11,7 @@
 - `src/app/components/config/ConfigSkinEditor.vue` 编辑 `.skin` schema 表单。
 - `schemas/skin.schema.json` 定义 `.skin` 表单字段。
 - `src-tauri/src/services/config/skins.rs` 统一处理 `.skin` 新建、保存、重命名和删除 changeset。
-- `src-tauri/src/services/project/mod.rs` 在完整项目读取时扫描并校验 `.skin` 文件。
+- `src-tauri/src/services/project/mod.rs` 在 ProjectSession 中索引并校验 `.skin` 文件。
 - `src/shared/api/skins-api.ts` 封装舰船皮肤 entity command。
 
 ## 规范
@@ -20,9 +20,9 @@
 - 每个 `.skin` 必须有 `skinHullId` 和 `baseHullId`。
 - `skinHullId` 必须在当前 Mod 内全局唯一。
 - `skinHullId` 在引用语义上是合法 hull ID；所有 hull 引用解析都必须支持指向舰船皮肤。
-- 舰船皮肤作为 hull 引用参与下拉和缩略图时，必须通过 `hull-references.ts` 统一解析。
+- 舰船皮肤作为 hull 引用参与下拉和缩略图时，必须通过 ProjectSession hull reference query 统一解析。
 - 舰船皮肤模块不提供文件编辑器入口。
-- 舰船皮肤列表缩略图优先使用 `.skin` 的 `spriteName`，没有时按 `baseHullId` 读取舰船贴图，再没有时显示占位图标。
+- 舰船皮肤列表缩略图优先使用 `.skin` 的 `spriteName`，没有时按 `baseHullId` 读取舰船贴图；前端只能用 query 返回的 `ResourceRef` 批量加载图片，读取不到时显示占位图标。
 - 保存允许修改 `skinHullId`；修改后必须在同一个 changeset 中删除旧文件并创建新文件。
 - 新建路径固定为 `data/hulls/skins/{skinHullId}.skin`。
 - 新建、保存、重命名和删除都必须进入文件级 history。
@@ -31,13 +31,13 @@
 
 ## 链路：读取舰船皮肤
 
-1. 前端调用完整项目读取。
-2. Rust 扫描 `data/hulls/skins/*.skin`。
+1. 前端打开 ProjectSession 或查询舰船皮肤列表。
+2. Rust 索引 `data/hulls/skins/*.skin`。
 3. Rust 解析 JSON-like 文件。
 4. Rust 校验 `skinHullId`、`baseHullId` 和重复 `skinHullId`。
-5. Rust 返回扁平 `skinFiles`。
-6. 前端 project store 缓存 AppData。
-7. `ConfigSkinView.vue` 从 project cache 渲染左侧列表和右侧 schema 表单。
+5. Rust 通过 session manifest 或 entity query 返回舰船皮肤摘要与实体数据。
+6. 前端只缓存当前界面需要的舰船皮肤列表和选中实体。
+7. `ConfigSkinView.vue` 基于 query 结果渲染左侧列表和右侧 schema 表单。
 
 ## 链路：保存舰船皮肤
 
@@ -51,7 +51,7 @@
 8. Rust 构建单文件修改 changeset；重命名时构建旧 `.skin` 删除和新 `.skin` 写入的同一 changeset。
 9. Rust 写盘并返回 `SkinEntityResult`。
 10. 前端记录文件级 history。
-11. 前端只基于 result 同步 project cache 中的 `skinFiles`。
+11. 前端只基于 result 同步当前舰船皮肤列表并失效对应 session cache。
 
 ## 链路：新建舰船皮肤
 
@@ -70,4 +70,4 @@
 3. config save orchestrator 调用 `deleteSkinEntity()`。
 4. `skins-api.ts` 调用 Rust `delete_skin_entity_with_history` command。
 5. Rust 构建单文件删除 changeset 并写盘。
-6. 前端记录文件级 history，并移除 project cache 中的对应舰船皮肤。
+6. 前端记录文件级 history，并移除当前列表中的对应舰船皮肤。

@@ -6,7 +6,7 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 
 - 打开 Starsector 游戏目录或任意 Mod 目录，并在原位读取、编辑、保存 Mod 文件。
 - 支持多 Mod 工作区：同时读取多个 Mod，隔离状态，自由切换。
-- 游戏目录先进入轻量概览，只有用户选择“完整读取”后才加载单个 Mod 的完整数据。
+- 游戏目录先进入轻量概览，用户选择 Mod 后打开 ProjectSession，并按界面需要查询数据。
 - 覆盖 CSV 表格编辑、配置编辑、舰船编辑器、武器编辑器、弹体编辑器、发射预览、文件编辑器和 PNG 贴图导入。
 - 让工程结构保持清晰边界，避免臃肿调用链和“为了拆而拆”的碎片化。
 
@@ -58,9 +58,9 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 ## 核心数据流
 
 - 用户通过目录选择器打开游戏目录或 Mod 目录。
-- 前端调用目录识别 command，决定进入游戏概览或完整读取单个 Mod。
-- Rust 完整读取单个 Mod 的表格、配置、spec、资源索引和只读引用数据。
-- 前端将数据写入 project store，并驱动表格、右侧详情和独立编辑器窗口。
+- 前端调用目录识别 command，决定进入游戏概览或打开单个 Mod 的 ProjectSession。
+- Rust 建立 session 索引，CSV、配置、spec、资源和只读引用按需 query。
+- 前端将 manifest 写入 project store，并由当前界面按需驱动表格、右侧详情和独立编辑器窗口。
 - 用户编辑并保存后，前端通过对应 orchestrator 编排状态、历史和 service 调用。
 - Rust service 执行路径解析、数据校验、文件写回和 changeset 回放。
 - workspace 状态写入工具私有目录，启动时按当前 parser 重新加载。

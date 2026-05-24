@@ -15,7 +15,7 @@ export function useCoreSchema() {
   const settings = useSettingsStore();
   const project = useProjectStore();
 
-  const starsectorRoot = computed(() => settings.starsectorRoot || project.activeModData?.starsectorRoot || '');
+  const starsectorRoot = computed(() => settings.starsectorRoot || project.activeManifest?.starsectorRoot || '');
 
   async function loadCoreFields() {
     const root = starsectorRoot.value;

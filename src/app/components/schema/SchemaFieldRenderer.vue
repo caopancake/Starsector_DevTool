@@ -241,7 +241,7 @@
               v-if="field.valueSchema"
               :field="field.valueSchema"
               :value="entry.val"
-              :app-data="appData"
+              :runtime-context="runtimeContext"
               :is-nested="true"
               @update="updateKvValue(idx, $event)"
             />
@@ -262,7 +262,7 @@
             :key="sub.key"
             :field="sub"
             :value="getSubValue(sub.key)"
-            :app-data="appData"
+            :runtime-context="runtimeContext"
             :is-nested="true"
             @update="onSubUpdate(sub.key, $event)"
           />
@@ -282,7 +282,7 @@
             <SchemaFieldRenderer
               :field="field.item"
               :value="genericArrayItems[idx]"
-              :app-data="appData"
+              :runtime-context="runtimeContext"
               :is-nested="true"
               @update="updateGenericArrayItem(idx, $event)"
             />
@@ -306,7 +306,7 @@
               :key="sub.key"
               :field="sub"
               :value="getArrayItemValue(idx, sub.key)"
-              :app-data="appData"
+              :runtime-context="runtimeContext"
               :is-nested="true"
               @update="onArrayItemUpdate(idx, sub.key, $event)"
             />
@@ -326,15 +326,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, ref } from 'vue';
+import { computed, h, ref, watch } from 'vue';
 import { pickFileDialog } from '@/shared/runtime/dialog.runtime';
-import type { AppData, JsonValue } from '@/shared/types';
+import type { JsonValue, SchemaRuntimeContext } from '@/shared/types';
 import type { FieldSchema } from '@/domain/schema/schema.types';
 import type { SelectOption } from '@/domain/schema/schema-registry';
-import { resolveSource } from '@/domain/schema/schema-registry';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import { useCoreGraphics } from '@/app/composables/use-core-graphics';
 import { useSettingsStore } from '@/stores/settings.store';
+import { queryTableSourceOptions } from '@/services/table.service';
 
 const { graphicsPaths, loadGraphics } = useCoreGraphics();
 loadGraphics(); // Fire-and-forget, loads once and caches
@@ -342,7 +342,7 @@ loadGraphics(); // Fire-and-forget, loads once and caches
 const props = defineProps<{
   field: FieldSchema;
   value: unknown;
-  appData: AppData | null;
+  runtimeContext?: SchemaRuntimeContext | null;
   isNested?: boolean;
 }>();
 
@@ -457,7 +457,8 @@ function emitPlainTagSelect(raw: string) {
 
 // ─── Source / enum options ────────────────────────────────────────────
 
-const sourceOptions = computed(() => resolveSource(props.field.source, props.appData));
+const loadedSourceOptions = ref<SelectOption[]>([]);
+const sourceOptions = computed<SelectOption[]>(() => loadedSourceOptions.value);
 const isReferenceKeyValue = computed(() => props.field.type === 'key-value' && props.field.source?.startsWith('csv:'));
 const selectOpen = ref(false);
 const suppressNextSelectOpen = ref(false);
@@ -490,21 +491,51 @@ const enumOptions = computed(() => {
   return sourceOptions.value;
 });
 
+watch(
+  () =>
+    [
+      props.runtimeContext?.sessionId ?? '',
+      props.field.source ?? '',
+      strVal.value,
+      arrVal.value.join(','),
+      tagSelectVal.value.join(','),
+    ] as const,
+  async ([sessionId, source]) => {
+    if (!sessionId || !source?.startsWith('csv:')) {
+      loadedSourceOptions.value = [];
+      return;
+    }
+    const currentValues = currentSourceValues();
+    const groups = await queryTableSourceOptions(sessionId, source, currentValues, null, 500);
+    loadedSourceOptions.value = groups.map((group) => ({
+      type: 'group',
+      label: group.label,
+      value: group.label,
+      children: group.options.map((option) => ({
+        label: option.label,
+        value: option.value,
+        sprite: option.sprite ?? undefined,
+        resourceRef: option.resourceRef ?? null,
+      })),
+    }));
+  },
+  { immediate: true },
+);
+
+function currentSourceValues(): string[] {
+  if (props.field.type === 'string-array') return arrVal.value;
+  if (props.field.type === 'tag-select') return tagSelectVal.value;
+  if (props.field.type === 'key-value' && props.value && typeof props.value === 'object' && !Array.isArray(props.value)) {
+    return Object.keys(props.value as Record<string, unknown>);
+  }
+  return strVal.value ? [strVal.value] : [];
+}
+
 // ─── path-image graphics options ─────────────────────────────────────
 
 const graphicsOptions = computed(() => {
   const options: SelectOption[] = [];
   const seen = new Set<string>();
-
-  // Add mod's own available sprites first
-  if (props.appData?.availableSprites) {
-    for (const sprite of props.appData.availableSprites) {
-      if (!seen.has(sprite)) {
-        seen.add(sprite);
-        options.push({ label: sprite.split('/').pop() ?? sprite, value: sprite });
-      }
-    }
-  }
 
   // Add core graphics paths
   for (const path of graphicsPaths.value) {
@@ -762,7 +793,7 @@ function formatKvVal(val: unknown): string {
 // ─── File picker for path / path-image fields ────────────────────────
 
 async function pickFile() {
-  const modRoot = props.appData?.modRoot;
+  const modRoot = props.runtimeContext?.modRoot;
   if (!modRoot) return;
 
   const selected = await pickFileDialog({
