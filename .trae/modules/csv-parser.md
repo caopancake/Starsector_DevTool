@@ -7,7 +7,8 @@
 ## 边界
 
 - `src-tauri/src/parsers/alex_csv.rs` 实现 `read_csv_data()`、`render_csv_text()` 和 cell 转换。
-- `src-tauri/src/services/project/mod.rs` 通过 ProjectSession 按需读取 CSV window，并在保存当前表 patch 时渲染 CSV 文本。
+- `src-tauri/src/services/project/query/csv_window.rs` 通过 ProjectSession 按需读取 CSV window。
+- `src-tauri/src/services/project/write/csv_patch.rs` 在保存当前表 patch 时渲染 CSV 文本。
 - `src-tauri/src/models/project.rs` 中 `CSV_TABLES` 定义表路径。
 
 ## 规范

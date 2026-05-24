@@ -32,7 +32,7 @@
       </li>
     </ul>
     <footer class="mission-file-list-footer config-entity-list-footer">
-      <n-button size="small" block @click="createMission">新建战役</n-button>
+      <n-button size="small" block @click="openCreateDialog">新建战役</n-button>
     </footer>
 
     <n-modal
@@ -54,31 +54,30 @@ import { NCheckbox } from 'naive-ui';
 import { useProjectStore } from '@/stores/project.store';
 import type { JsonValue, RowData } from '@/shared/types';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
-import { listMissionEntities } from '@/services/config.service';
-import { queryResourceDataUrlBatch } from '@/services/resource-cache.service';
-import { buildMissionIndexRow } from '@/domain/config/config-entities';
-import {
-  createIndexedConfigEntityWithFileHistory,
-  deleteIndexedConfigEntityWithFileHistory,
-} from '@/orchestrators/config-save.orchestrator';
 
-const props = defineProps<{ selectedId: string; refreshToken: number }>();
+const props = defineProps<{
+  selectedId: string;
+  refreshToken: number;
+  missionRows: RowData[];
+  missionIcons: Record<string, string>;
+  modRoot: string | null;
+  sessionId: string | null;
+  queryMissions: () => Promise<void>;
+  createMission: (id: string) => Promise<boolean>;
+  deleteMission: (id: string, deleteDirectory: boolean) => Promise<boolean>;
+}>();
 const emit = defineEmits<{ select: [missionId: string] }>();
 
 const project = useProjectStore();
 const feedback = useAppFeedback();
 
-const missionRows = ref<RowData[]>([]);
-const missionIcons = ref<Record<string, string>>({});
 const showCreateDialog = ref(false);
 const newMissionId = ref('');
 const deleteMissionDirectory = ref(false);
 const pendingDeleteMission = ref('');
 
-const modRoot = computed(() => project.activeManifest?.modRoot ?? null);
-const sessionId = computed(() => project.activeManifest?.sessionId ?? null);
 const missions = computed(() =>
-  missionRows.value
+  props.missionRows
     .map((row) => missionId(row))
     .filter(Boolean)
     .map((id) => ({ id })),
@@ -93,42 +92,21 @@ function missionId(row: RowData): string {
 }
 
 function missionIcon(id: string): string {
-  return missionIcons.value[id] ?? '';
+  return props.missionIcons[id] ?? '';
 }
 
 async function loadFileList() {
-  if (!modRoot.value) {
-    missionRows.value = [];
-    return;
-  }
   try {
-    if (!sessionId.value) return;
-    const entities = await listMissionEntities(sessionId.value);
-    missionRows.value = entities.map((entity) => entity.list);
+    await props.queryMissions();
     syncMissionCount();
-    await loadMissionIcons(entities);
     if (!props.selectedId && missions.value[0]) emit('select', missions.value[0].id);
     if (props.selectedId && !missions.value.some((mission) => mission.id === props.selectedId)) emit('select', missions.value[0]?.id ?? '');
   } catch (error) {
     feedback.error(error, '加载战役列表失败');
-    missionRows.value = [];
   }
 }
 
-async function loadMissionIcons(entities = [] as Awaited<ReturnType<typeof listMissionEntities>>) {
-  if (!sessionId.value) {
-    missionIcons.value = {};
-    return;
-  }
-  const iconEntities = entities.filter((entity) => entity.iconResourceRef);
-  const dataUrls = await queryResourceDataUrlBatch(
-    sessionId.value,
-    iconEntities.map((entity) => entity.iconResourceRef!),
-  );
-  missionIcons.value = Object.fromEntries(iconEntities.map((entity, index) => [entity.id, dataUrls[index] ?? '']));
-}
-
-function createMission() {
+function openCreateDialog() {
   newMissionId.value = '';
   showCreateDialog.value = true;
 }
@@ -147,18 +125,9 @@ async function doCreateMission() {
     feedback.warning(`战役 "${id}" 已存在`);
     return false;
   }
-  if (!modRoot.value) return false;
   try {
-    const result = await createIndexedConfigEntityWithFileHistory({
-      modRoot: modRoot.value,
-      kind: 'mission',
-      nextId: id,
-      indexRow: buildMissionIndexRow([], ['mission'], id),
-      payload: { descriptor: { title: id }, text: '' },
-    });
-    missionRows.value = result.indexRows;
+    if (!(await props.createMission(id))) return false;
     syncMissionCount();
-    feedback.success(`战役 "${id}" 已创建`);
     showCreateDialog.value = false;
     await loadFileList();
     emit('select', id);
@@ -194,16 +163,14 @@ function confirmDeleteMission(id: string) {
 }
 
 async function deletePendingMission() {
-  if (!pendingDeleteMission.value || !modRoot.value) return;
+  if (!pendingDeleteMission.value) return;
   try {
     const deleted = pendingDeleteMission.value;
-    await deleteIndexedConfigEntityWithFileHistory(modRoot.value, 'mission', deleted, deleteMissionDirectory.value);
+    await props.deleteMission(deleted, deleteMissionDirectory.value);
     await loadFileList();
-    delete missionIcons.value[deleted];
     pendingDeleteMission.value = '';
     const nextId = missions.value[0]?.id ?? '';
     if (props.selectedId === deleted) emit('select', nextId);
-    feedback.success(`战役 "${deleted}" 已删除`);
   } catch (error) {
     feedback.error(error, '删除战役失败');
   }
@@ -231,8 +198,6 @@ onMounted(() => {
 watch(
   () => project.activeModRoot,
   () => {
-    missionRows.value = [];
-    missionIcons.value = {};
     loadFileList();
   },
 );

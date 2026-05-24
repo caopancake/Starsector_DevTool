@@ -100,6 +100,7 @@ export interface EntityData {
   kind: string;
   id: string;
   data: JsonValue;
+  resourceRefs: Record<string, ResourceRef>;
 }
 
 export interface ResourceRef {
@@ -108,6 +109,10 @@ export interface ResourceRef {
   ownerKind: string;
   ownerId: string;
   key: string;
+}
+
+export interface CsvRowPreview {
+  resourceRef?: ResourceRef | null;
 }
 
 export interface ResourceDataUrlBatchEntry {

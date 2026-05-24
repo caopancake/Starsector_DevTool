@@ -1,10 +1,10 @@
 import { watch } from 'vue';
-import { scanGameOverview } from '@/shared/api/project-api';
-import { loadWorkspace, saveWorkspace } from '@/shared/api/workspace-api';
 import { cell, formatModVersion } from '@/shared/lib/starsector';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { restoreWorkspaceMod } from '@/orchestrators/open-directory.orchestrator';
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
+import { scanWorkspaceOverview } from '@/services/session.service';
+import { loadPersistedWorkspace, savePersistedWorkspace } from '@/services/workspace-state.service';
 
 interface RestoreWorkspaceOptions {
   fallbackStarsectorRoot: string | null;
@@ -23,7 +23,7 @@ export function watchWorkspacePersistence() {
     (state) => {
       if (restoring) return;
       if (saveTimer !== null) window.clearTimeout(saveTimer);
-      saveTimer = window.setTimeout(() => void saveWorkspace(state), 500);
+      saveTimer = window.setTimeout(() => void savePersistedWorkspace(state), 500);
     },
     { deep: true },
   );
@@ -41,12 +41,12 @@ export function watchWorkspacePersistence() {
 
 export async function restorePersistedWorkspace(options: RestoreWorkspaceOptions) {
   const workspace = useWorkspaceStore();
-  const persisted = await loadWorkspace();
+  const persisted = await loadPersistedWorkspace();
   if (persisted.mods.length === 0 && !persisted.starsectorRoot) return;
 
   workspace.restoreFrom(persisted);
   if (persisted.starsectorRoot) {
-    const overview = await scanGameOverview(persisted.starsectorRoot);
+    const overview = await scanWorkspaceOverview(persisted.starsectorRoot);
     workspace.setGameOverview(overview);
   }
 

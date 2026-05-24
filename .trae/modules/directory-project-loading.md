@@ -7,10 +7,13 @@
 ## 边界
 
 - `src/orchestrators/open-directory.orchestrator.ts` 编排打开目录后的前端状态变化。
-- `src/services/project.service.ts` 调用项目 session 打开能力。
-- `src/shared/api/project-api.ts` 封装目录识别、游戏概览和 session query command。
+- `src/services/session.service.ts` 调用项目 session 打开能力。
+- `src/shared/api/session-api.ts` 封装目录识别、游戏概览和 session lifecycle command。
 - `src-tauri/src/commands/project.rs` 只暴露 command 桥接。
-- `src-tauri/src/services/project/mod.rs` 实现目录识别、概览扫描、session 创建和 query。
+- `src-tauri/src/services/project/root.rs` 实现目录识别和游戏概览扫描。
+- `src-tauri/src/services/project/session.rs` 实现 session 创建和关闭。
+- `src-tauri/src/services/project/query/` 实现 session query。
+- `src-tauri/src/services/project/mod.rs` 只做模块声明和 re-export。
 
 ## 规范
 

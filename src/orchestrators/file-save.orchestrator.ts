@@ -1,9 +1,10 @@
-import type { FileChangeRecord } from '@/shared/api/files-api';
+import type { FileChangeRecord, WriteResult } from '@/services/write.service';
 import { normalizeFsPath, pathBasename } from '@/shared/lib/paths';
 import type { EditorSpecSavedEvent, FileEditorSavedEvent } from '@/windows/window.events';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import { useProjectStore } from '@/stores/project.store';
-import { invalidateProjectSession } from '@/shared/api/project-api';
+import { invalidateProject } from '@/services/session.service';
+import { invalidateQueryCacheByPaths } from '@/services/query-cache.service';
 import { invalidateResourceCacheByPaths } from '@/services/resource-cache.service';
 
 export function recordFileSave(modRoot: string, changes: FileChangeRecord[], label: string) {
@@ -53,12 +54,20 @@ function resolveLoadedModRootForPath(modRoots: string[], path: string): string |
 }
 
 export async function invalidateChangedPathsForMod(modRoot: string, changes: FileChangeRecord[]) {
+  await invalidateWriteResultForMod(modRoot, {
+    changes,
+    invalidatedPaths: changes.map((change) => change.path),
+  });
+}
+
+export async function invalidateWriteResultForMod(modRoot: string, result: Pick<WriteResult, 'invalidatedPaths' | 'changes'>) {
   const project = useProjectStore();
   const sessionId = project.getSessionId(modRoot);
   if (!sessionId) return;
-  const paths = changes.map((change) => change.path);
+  const paths = result.invalidatedPaths;
+  invalidateQueryCacheByPaths(sessionId);
   invalidateResourceCacheByPaths(sessionId, paths);
-  await invalidateProjectSession(sessionId, paths);
+  await invalidateProject(sessionId, paths);
 }
 
 async function invalidateChangedPaths(modRoot: string, changes: FileChangeRecord[]) {

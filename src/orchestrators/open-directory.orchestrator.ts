@@ -1,5 +1,4 @@
 import type { ModEntry, PersistedMod, ProjectManifest } from '@/shared/types';
-import { detectDirectory } from '@/shared/api/project-api';
 import { cell, formatModVersion } from '@/shared/lib/starsector';
 import { useEditorsStore } from '@/stores/editors.store';
 import { useFileHistoryStore } from '@/stores/file-history.store';
@@ -7,7 +6,7 @@ import { useProjectStore } from '@/stores/project.store';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { useTablesStore } from '@/stores/tables.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
-import { openProject } from '@/services/project.service';
+import { detectWorkspaceDirectory, openProject } from '@/services/session.service';
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
 import { measurePerformance } from '@/services/performance.service';
 
@@ -20,7 +19,7 @@ export interface OpenDirectoryOutcome {
 }
 
 export async function openDetectedDirectory(path: string, fallbackStarsectorRoot: string | null): Promise<OpenDirectoryOutcome> {
-  const detected = await detectDirectory(path, fallbackStarsectorRoot);
+  const detected = await detectWorkspaceDirectory(path, fallbackStarsectorRoot);
   const workspace = useWorkspaceStore();
 
   if (detected.kind === 'game-root' && detected.overview) {

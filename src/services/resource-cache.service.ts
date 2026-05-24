@@ -1,4 +1,5 @@
-import { queryResourceDataUrls } from '@/shared/api/project-api';
+import { queryResourceDataUrls } from '@/shared/api/query-api';
+import { queryCached } from '@/services/query-cache.service';
 import type { ProjectSessionId, ResourceRef } from '@/shared/types';
 
 const cache = new Map<string, string>();
@@ -11,7 +12,9 @@ export async function queryResourceDataUrlBatch(sessionId: ProjectSessionId, res
   });
   if (missing.size > 0) {
     const request = [...missing.values()];
-    const result = await queryResourceDataUrls(sessionId, request);
+    const result = await queryCached(sessionId, 'resource-data-urls', { resources: request }, () =>
+      queryResourceDataUrls(sessionId, request),
+    );
     result.entries.forEach((entry, index) => {
       cache.set(resourceCacheKey(sessionId, request[index]), entry.dataUrl ?? '');
     });

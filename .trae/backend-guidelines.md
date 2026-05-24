@@ -16,6 +16,13 @@
 - domain 只放纯业务规则、校验、构造和数据转换，不依赖 command、service、io、parser 或 command payload。
 - Rust 是文件系统、路径校验、删除语义、写盘和 changeset 回放的权威实现。
 - 前端传来的路径只能作为待校验输入，后端必须重新校验路径归属和写入边界。
+- ProjectSession 的正式后端结构是 `root / session / query / write / cache / model`。
+- `project/mod.rs` 只能保留模块声明和 command-facing service re-export。
+- `root` 承载目录识别、游戏概览和非 session 根服务。
+- `query` 只读，不写盘。
+- `write` 执行写入事务并产出失效信息，不打开或重建整个项目。
+- `cache` 按 session 或 Starsector root 管理缓存，core cache 必须按类型懒加载。
+- `model` 只能承载 session、query、write、rowKey、patch 和 resource 相关模型，不依赖上层。
 
 ## 编码与 IO
 
@@ -33,6 +40,7 @@
 ## 文件变更集
 
 - 后端写盘、删除和回放必须通过统一 changeset 边界。
+- changeset 构建和回放能力归属 `io` 层；command-facing 保存入口归属 service。
 - changeset 应能覆盖声明支持的文件和目录变更，并在失败时返回错误。
 
 ## 保存边界

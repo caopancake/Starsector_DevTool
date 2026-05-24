@@ -86,7 +86,7 @@ import { fileEditorActionForRow, type TableDetailAction } from '@/domain/tables/
 import { isCsvCommentRow } from '@/domain/tables/csv-comment-row';
 import { csvColumnSchemasForTable, type CsvColumnSchema } from '@/domain/tables/csv-column-schema';
 import { createCsvSourceIndex, sourceValue } from '@/domain/tables/csv-source-options';
-import { queryTableRowPreviewDataUrl } from '@/services/table.service';
+import { queryTableRowPreviewDataUrl } from '@/services/csv-table.service';
 import type { SelectOption } from '@/domain/schema/schema-registry';
 import type { RowData, TableKey } from '@/shared/types';
 

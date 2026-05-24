@@ -13,55 +13,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import { useProjectStore } from '@/stores/project.store';
-import { useConfigStore } from '@/stores/config.store';
-import { saveModInfoWithFileHistory } from '@/orchestrators/config-save.orchestrator';
-import { deepClone } from '@/shared/lib/starsector';
-import type { RowData } from '@/shared/types';
+import { computed } from 'vue';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { useCoreSchema } from '@/app/composables/use-core-schema';
-import { aggregateSchemaSources, splitSchemaSources } from '@/domain/schema/schema-registry';
-import { useAppFeedback } from '@/app/composables/use-app-feedback';
-
-const project = useProjectStore();
-const configStore = useConfigStore();
-const feedback = useAppFeedback();
+import { useConfigModInfoViewModel } from '@/app/composables/use-config-mod-info-view-model';
 
 const { getMergedSchema, loadCoreFields } = useCoreSchema();
 loadCoreFields();
 const schema = computed(() => getMergedSchema('mod-info'));
-const schemaRuntimeContext = computed(() =>
-  project.activeManifest ? { modRoot: project.activeManifest.modRoot, sessionId: project.activeManifest.sessionId } : null,
-);
-const saving = ref(false);
-const local = ref<RowData>({});
+const { local, saving, schemaRuntimeContext, saveModInfo } = useConfigModInfoViewModel();
 
-watch(
-  () => project.activeManifest?.modInfo,
-  (modInfo) => {
-    if (modInfo) local.value = aggregateSchemaSources({ file: deepClone(modInfo) });
-  },
-  { immediate: true },
-);
-
-async function save() {
-  const modData = project.activeManifest;
-  if (!modData) return;
-  const currentSchema = schema.value;
-  if (!currentSchema) return;
-  saving.value = true;
-  try {
-    const split = splitSchemaSources(local.value, currentSchema);
-    const file = split.file && typeof split.file === 'object' && !Array.isArray(split.file) ? (split.file as RowData) : {};
-    await saveModInfoWithFileHistory(modData.modRoot, file);
-    project.updateManifest(modData.modRoot, { ...modData, modInfo: deepClone(file) });
-    configStore.updateSnapshot(file);
-    feedback.success('mod_info.json 已保存');
-  } catch (error) {
-    feedback.error(error, '保存 mod_info.json 失败');
-  } finally {
-    saving.value = false;
-  }
+function save() {
+  void saveModInfo(schema.value);
 }
 </script>

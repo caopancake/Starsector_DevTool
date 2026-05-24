@@ -6,7 +6,8 @@
 
 ## 边界
 
-- `src/shared/api/assets-api.ts` 封装资源相关 command。
+- `src/shared/api/query-api.ts` 封装资源读取和 core 扫描 command。
+- `src/shared/api/write-api.ts` 封装贴图上传 command。
 - `src/services/assets.service.ts` 是图片 data URL 读取的业务入口。
 - `src/services/resource-cache.service.ts` 是 ProjectSession 资源 data URL 的唯一前端缓存入口。
 - `src/app/composables/use-core-schema.ts` 和 `src/app/composables/use-core-graphics.ts` 管理 core 字段与图像索引加载。
@@ -21,6 +22,7 @@
 - 原版资源回退来源由 ProjectSession manifest 中的 `starsectorRoot` 表达。
 - 原版引用数据只用于下拉选择和缩略图，不注册为可编辑 Mod，也不参与保存。
 - source option 和 hull reference option 不携带 data URL；需要缩略图时必须批量查询 `ResourceRef`。
+- `ResourceRef` 的生成权归 Rust session query；前端不得构造 ResourceRef 形状对象。
 - ProjectSession 资源 data URL 只能通过统一资源缓存服务调用批量 query；组件不能直接调用批量资源 API。
 - 资源缓存 key 必须包含 sessionId、source、relPath、ownerKind、ownerId 和 key。
 - session 失效、关闭 session 和文件 changed paths 必须同步清理前端资源缓存。
@@ -31,7 +33,7 @@
 
 ## 链路：加载图片 data URL
 
-1. 前端持有 source query、hull reference query 或 entity query 返回的 `ResourceRef`。
+1. 前端持有 source query、hull reference query、CSV row preview query 或 entity query 返回的 `ResourceRef`。
 2. 前端按当前界面需要批量请求资源 data URL。
 3. Rust 根据 `sessionId` 和 `ResourceRef` 定位 Mod 或 core 根目录。
 4. Rust 读取图片并生成 data URL。

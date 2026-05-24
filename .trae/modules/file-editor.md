@@ -9,7 +9,7 @@
 - `src/windows/file-editor.window.ts` 打开单例文件编辑器窗口。
 - `src/app/FileEditorApp.vue` 加载、编辑、保存文本，并处理窗口内快捷键。
 - `src/services/files.service.ts` 是文件编辑器读取和保存 shared API 的业务入口。
-- `src/shared/api/files-api.ts` 封装 `load_editable_file` 和 `save_text_file_with_history`。
+- `src/shared/api/write-api.ts` 封装 `load_editable_file` 和 `save_text_file_with_history`。
 - `src-tauri/src/commands/files.rs` 暴露文本文件读取和保存 command。
 - `src-tauri/src/services/file_changes.rs` 读取可编辑文本文件、构建单文件 changeset 并写盘。
 - `src/styles/file-editor.css` 承载文件编辑器样式。

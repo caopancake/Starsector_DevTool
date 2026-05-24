@@ -1,13 +1,22 @@
 <template>
   <div class="skin-view">
-    <ConfigSkinList :selected-id="selectedSkinId" :skins="skins" @select="selectedSkinId = $event" @changed="loadSkins" />
+    <ConfigSkinList
+      :selected-id="selectedSkinId"
+      :skins="skins"
+      :skin-sprites="skinSprites"
+      :hull-options="hullOptions"
+      :create-skin="createSkin"
+      :delete-skin="deleteSkin"
+      @select="selectedSkinId = $event"
+    />
     <ConfigSkinEditor
       v-if="selectedSkinId"
       :key="selectedSkinId"
       :skin-hull-id="selectedSkinId"
       :skins="skins"
-      @saved="selectedSkinId = $event"
-      @changed="loadSkins"
+      :save-skin="saveSkin"
+      :delete-skin="deleteSkin"
+      @saved="onSaved"
     />
     <div v-else class="config-placeholder">
       <p>选择一个舰船皮肤以编辑</p>
@@ -16,25 +25,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
 import ConfigSkinEditor from '@/app/components/config/ConfigSkinEditor.vue';
 import ConfigSkinList from '@/app/components/config/ConfigSkinList.vue';
-import { listSkinEntities } from '@/services/config.service';
-import { useProjectStore } from '@/stores/project.store';
-import type { SkinFile } from '@/shared/types';
+import { useConfigSkinViewModel } from '@/app/composables/use-config-skin-view-model';
 
-const selectedSkinId = ref('');
-const skins = ref<SkinFile[]>([]);
-const project = useProjectStore();
-
-async function loadSkins() {
-  const sessionId = project.activeSessionId;
-  if (!sessionId) {
-    skins.value = [];
-    return;
-  }
-  skins.value = await listSkinEntities(sessionId);
-}
-
-watch(() => project.activeSessionId, loadSkins, { immediate: true });
+const { selectedSkinId, skins, skinSprites, hullOptions, createSkin, deleteSkin, onSaved, saveSkin } = useConfigSkinViewModel();
 </script>

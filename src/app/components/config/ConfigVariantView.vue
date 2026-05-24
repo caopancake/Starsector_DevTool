@@ -1,13 +1,22 @@
 <template>
   <div class="variant-view">
-    <ConfigVariantList :selected-id="selectedVariantId" :variants="variants" @select="selectedVariantId = $event" @changed="loadVariants" />
+    <ConfigVariantList
+      :selected-id="selectedVariantId"
+      :variants="variants"
+      :variant-sprites="variantSprites"
+      :hull-options="hullOptions"
+      :create-variant="createVariant"
+      :delete-variant="deleteVariant"
+      @select="selectedVariantId = $event"
+    />
     <ConfigVariantEditor
       v-if="selectedVariantId"
       :key="selectedVariantId"
       :variant-id="selectedVariantId"
       :variants="variants"
-      @saved="selectedVariantId = $event"
-      @changed="loadVariants"
+      :save-variant="saveVariant"
+      :delete-variant="deleteVariant"
+      @saved="onSaved"
     />
     <div v-else class="config-placeholder">
       <p>选择一个装配以编辑</p>
@@ -16,25 +25,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
 import ConfigVariantEditor from '@/app/components/config/ConfigVariantEditor.vue';
 import ConfigVariantList from '@/app/components/config/ConfigVariantList.vue';
-import { listVariantEntities } from '@/services/config.service';
-import { useProjectStore } from '@/stores/project.store';
-import type { VariantFile } from '@/shared/types';
+import { useConfigVariantViewModel } from '@/app/composables/use-config-variant-view-model';
 
-const selectedVariantId = ref('');
-const variants = ref<VariantFile[]>([]);
-const project = useProjectStore();
-
-async function loadVariants() {
-  const sessionId = project.activeSessionId;
-  if (!sessionId) {
-    variants.value = [];
-    return;
-  }
-  variants.value = await listVariantEntities(sessionId);
-}
-
-watch(() => project.activeSessionId, loadVariants, { immediate: true });
+const { selectedVariantId, variants, variantSprites, hullOptions, createVariant, deleteVariant, onSaved, saveVariant } =
+  useConfigVariantViewModel();
 </script>

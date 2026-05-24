@@ -1,8 +1,8 @@
 use crate::{
     errors::AppResult,
-    io::{read_json_file, strip_internal_fields},
+    io::{build_text_change, read_json_file, strip_internal_fields},
     models::FileChangeRecord,
-    services::file_changes::{apply_file_change_set, build_text_change},
+    services::file_changes::apply_file_change_set,
 };
 use serde_json::Value;
 use std::path::{Path, PathBuf};

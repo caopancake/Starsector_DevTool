@@ -1,10 +1,8 @@
 use crate::{
-    errors::{AppError, AppResult},
-    io::read_json_file,
+    errors::AppResult,
+    io::{read_json_file, FileChangeSetBuilder},
     models::{UploadSpritePayload, UploadSpriteResult},
-    services::file_changes::FileChangeSetBuilder,
 };
-use base64::{engine::general_purpose, Engine as _};
 use regex::Regex;
 use serde_json::{json, Value};
 use std::sync::OnceLock;
@@ -53,59 +51,6 @@ pub fn upload_sprite(payload: UploadSpritePayload) -> AppResult<UploadSpriteResu
         message: None,
         changes,
     })
-}
-
-pub fn load_image_as_data_url(
-    mod_root: &str,
-    rel_path: &str,
-    starsector_root: Option<&str>,
-) -> AppResult<Option<String>> {
-    let clean_path = rel_path.replace('\\', "/");
-
-    // Try mod directory first
-    let mod_path = Path::new(mod_root).join(&clean_path);
-    if mod_path.exists() {
-        return read_image_to_data_url(&mod_path);
-    }
-
-    // Fallback: try starsector-core directory
-    if let Some(root) = starsector_root {
-        let core_path = Path::new(root).join("starsector-core").join(&clean_path);
-        if core_path.exists() {
-            return read_image_to_data_url(&core_path);
-        }
-    }
-
-    // Also try inferring starsector root from mod_root (parent of parent)
-    if let Some(inferred_root) = Path::new(mod_root).parent().and_then(|p| p.parent()) {
-        let core_path = inferred_root.join("starsector-core").join(&clean_path);
-        if core_path.exists() {
-            return read_image_to_data_url(&core_path);
-        }
-    }
-
-    Ok(None)
-}
-
-fn read_image_to_data_url(path: &Path) -> AppResult<Option<String>> {
-    let bytes = fs::read(path).map_err(|error| {
-        AppError::context(
-            format!("读取图片文件失败 ({})", path.display()),
-            error.into(),
-        )
-    })?;
-    let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("png");
-    let mime = match ext {
-        "jpg" | "jpeg" => "image/jpeg",
-        "gif" => "image/gif",
-        "webp" => "image/webp",
-        _ => "image/png",
-    };
-    Ok(Some(format!(
-        "data:{};base64,{}",
-        mime,
-        general_purpose::STANDARD.encode(bytes)
-    )))
 }
 
 /// Scan starsector-core/graphics/ and return all image file paths (relative to starsector-core).
@@ -257,6 +202,7 @@ fn infer_type(value: &Value) -> String {
 mod tests {
     use super::*;
     use crate::{models::ApplyFileChangeSetPayload, services::file_changes::apply_file_change_set};
+    use base64::{engine::general_purpose, Engine as _};
     use std::{
         path::PathBuf,
         time::{SystemTime, UNIX_EPOCH},

@@ -1,5 +1,5 @@
 import type { RowData } from '@/shared/types';
-import type { FileChangeRecord } from '@/shared/api/files-api';
+import type { FileChangeRecord } from '@/shared/api/write-api';
 import type { AppSettings } from '@/shared/types';
 import type { EditorWindowKind } from '@/windows/editor.window';
 

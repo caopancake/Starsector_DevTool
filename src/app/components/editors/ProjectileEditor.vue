@@ -111,16 +111,20 @@ import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import ObjectEditor from '@/app/components/editors/common/ObjectEditor.vue';
-import { saveProjectileSpecWithUserAction } from '@/orchestrators/editor-save.orchestrator';
 import type { RowData } from '@/shared/types';
-import type { FileChangeRecord } from '@/shared/api/files-api';
+import type { FileChangeRecord } from '@/shared/api/write-api';
 import { arr, str } from '@/shared/lib/starsector';
 import { normalizeProjectileSpec } from '@/domain/editors/lib/normalize';
 import { useObjectField } from '@/app/composables/use-object-field';
 import { useSpriteUpload } from '@/app/composables/use-sprite-upload';
 import { editorCollapseTheme, toOptions as opts } from '@/domain/editors/lib/editor-constants';
 
-const props = defineProps<{ modRoot: string; projectileId: string; projectile?: RowData }>();
+const props = defineProps<{
+  modRoot: string;
+  projectileId: string;
+  projectile?: RowData;
+  saveSpec: (projectile: RowData) => Promise<FileChangeRecord[]>;
+}>();
 const emit = defineEmits<{ close: []; saved: [id: string, projectile: RowData, changes: FileChangeRecord[]] }>();
 const feedback = useAppFeedback();
 const localProjectile = ref<RowData>(normalizeProjectileSpec(props.projectile || { id: props.projectileId, specClass: 'projectile' }));
@@ -186,7 +190,7 @@ async function uploadSpriteFile(field: string, event: Event) {
 }
 async function save() {
   try {
-    const changes = await saveProjectileSpecWithUserAction(props.modRoot, props.projectileId, localProjectile.value);
+    const changes = await props.saveSpec(localProjectile.value);
     emit('saved', props.projectileId, localProjectile.value, changes);
   } catch (error) {
     feedback.error(error, '保存弹体失败');

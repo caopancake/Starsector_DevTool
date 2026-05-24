@@ -29,6 +29,7 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 - `src/domain/` 承载纯业务模型、schema、表格规则和编辑器纯工具，不访问后端和 store。
 - `src/services/` 承载后端 API 调用和单一业务服务。
 - `src/stores/` 承载 Pinia store，只管理内存状态。
+- `src/app/composables/use*ViewModel.ts` 承载复杂页面的 query、resource、保存动作和渲染数据编排。
 - `src/orchestrators/` 承载跨 store、service、history 和窗口的用户动作编排。
 - `src/windows/` 承载窗口创建、窗口事件和窗口生命周期协调。
 - `src/shared/api/` 只封装 Tauri command 的调用形状。
@@ -37,7 +38,7 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 - `src/styles/` 承载全局 CSS 模块，视觉边界以 `css-guidelines.md` 为准。
 - `src-tauri/src/lib.rs` 注册 Tauri command、plugin 和应用启动能力。
 - `src-tauri/src/commands/` 是 Tauri command 层，只负责参数接收、错误转换和调用 service。
-- `src-tauri/src/services/` 是 Rust service 层，负责 command 后的项目加载、保存、changeset、配置和资源扫描。
+- `src-tauri/src/services/` 是 Rust service 层，负责 command 后的 session、query、write、cache、配置和资源入口。
 - `src-tauri/src/domain/` 承载不直接 IO 的 Rust 业务规则、适配器和数据转换。
 - `src-tauri/src/parsers/` 是格式解析和渲染层。
 - `src-tauri/src/io/` 是 UTF-8、JSON-like、图片和路径相关 IO 层。
@@ -53,6 +54,8 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 - 前端运行时状态不是磁盘权威；所有按 Mod 归属的状态必须按 `modRoot` 隔离。
 - 保存流程只能写入当前模块声明拥有的目标。
 - 字段编辑入口必须遵守全局编辑模式。
+- 复杂页面组件不得绕过 ViewModel 直接编排 query、resource、cache 或保存链路。
+- ProjectSession 是当前项目数据访问边界；前端只持有 manifest 和按需 query 结果。
 - 禁止性规则必须描述完整边界，不得用具体对象、文件类型、状态类型、函数名或模块名的枚举来限定禁止范围。示例只能作为非穷尽说明，不能构成允许边界。
 
 ## 核心数据流

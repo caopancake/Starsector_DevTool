@@ -8,9 +8,11 @@
 
 - `src/orchestrators/table-save.orchestrator.ts` 是前端表格保存编排入口。
 - `src/domain/tables/associated-file-candidates.ts` 推导 ships、weapons、shipSystems、skills 的关联文件创建和删除候选。
-- `src/services/table.service.ts` 调用后端 CSV patch 保存 command。
-- `src/shared/api/tables-api.ts` 封装 `save_csv_patch_with_history`。
-- `src-tauri/src/services/project/mod.rs` 基于 session baseline 合成 CSV、构建 CSV 文件 changeset 和关联文件 changeset。
+- `src/services/csv-table.service.ts` 调用后端 CSV patch 保存 command。
+- `src/shared/api/write-api.ts` 封装 `save_csv_patch_with_history`。
+- `src-tauri/src/services/project/write/` 暴露 CSV patch 写入入口。
+- `src-tauri/src/services/project/model.rs` 定义统一写入结果模型。
+- Rust project service 基于 session baseline 合成 CSV、构建 CSV 文件 changeset 和关联文件 changeset。
 - `src-tauri/src/commands/tables.rs` 只暴露 CSV patch 保存 command。
 
 ## 规范
@@ -31,7 +33,7 @@
 3. orchestrator 检查当前表 dirty，并只收集当前表的关联文件候选。
 4. 需要创建或删除当前表关联 spec 文件时，前端弹出确认并要求用户勾选对应文件操作。
 5. orchestrator 传入用户确认的 associated files。
-6. `table.service.ts` 调用 `saveCsvPatchWithHistory()`。
+6. `csv-table.service.ts` 调用 `saveCsvPatch()`。
 7. Rust project service 用 session baseline 和 rowKey patch 合成 CSV 文本。
 8. Rust project service 构建 CSV 文件 change。
 9. Rust project service 构建关联文件 changes。

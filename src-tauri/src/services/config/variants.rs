@@ -1,12 +1,11 @@
 use crate::{
     domain::config::{build_variant_file, validate_config_id, variant_rel_path},
     errors::{AppError, AppResult},
-    io::strip_internal_fields,
+    io::{strip_internal_fields, FileChangeSetBuilder},
     models::{
         ConfigFileEntityPayload, DeleteVariantEntityPayload, VariantEntityPayload,
         VariantEntityResult,
     },
-    services::file_changes::FileChangeSetBuilder,
 };
 use std::path::Path;
 

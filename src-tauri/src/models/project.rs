@@ -106,6 +106,20 @@ pub struct CsvSourceOptionsPayload {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct CsvRowPreviewPayload {
+    pub session_id: ProjectSessionId,
+    pub table: String,
+    pub row_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CsvRowPreview {
+    pub resource_ref: Option<ResourceRef>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SourceOptionGroup {
     pub label: String,
     pub options: Vec<SourceOption>,
@@ -142,6 +156,8 @@ pub struct EntityData {
     pub kind: String,
     pub id: String,
     pub data: Value,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub resource_refs: BTreeMap<String, ResourceRef>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

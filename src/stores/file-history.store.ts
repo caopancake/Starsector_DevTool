@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { computed, reactive, ref } from 'vue';
 import { useSettingsStore } from '@/stores/settings.store';
-import type { FileChangeRecord } from '@/shared/api/files-api';
+import type { FileChangeRecord } from '@/shared/api/write-api';
 import type { FileHistoryItem, FileSaveHistoryEntry } from '@/shared/types/file-history.types';
 import { isFileSaveEntry } from '@/shared/types/file-history.types';
 

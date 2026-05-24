@@ -24,11 +24,14 @@ import type { RowData, SkinFile } from '@/shared/types';
 import { deepClone } from '@/shared/lib/starsector';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { getSchema } from '@/domain/schema/schema-registry';
-import { deleteSkinWithFileHistory, saveSkinWithFileHistory } from '@/orchestrators/config-save.orchestrator';
-import { isSafeEntityFileStem } from '@/domain/config/config-entities';
 
-const props = defineProps<{ skinHullId: string; skins: SkinFile[] }>();
-const emit = defineEmits<{ saved: [skinHullId: string]; changed: [] }>();
+const props = defineProps<{
+  skinHullId: string;
+  skins: SkinFile[];
+  saveSkin: (current: SkinFile, data: RowData) => Promise<SkinFile | null>;
+  deleteSkin: (skin: SkinFile) => Promise<boolean>;
+}>();
+const emit = defineEmits<{ saved: [skinHullId: string] }>();
 
 const project = useProjectStore();
 const feedback = useAppFeedback();
@@ -48,34 +51,12 @@ const selectedSkin = computed(() => skins.value.find((skin) => skin.skinHullId =
 async function save() {
   const current = selectedSkin.value;
   if (!current || !modRoot.value) return;
-  const nextSkinHullId = stringField(localSkin.value, 'skinHullId');
-  const nextBaseHullId = stringField(localSkin.value, 'baseHullId');
-  if (!nextSkinHullId || !nextBaseHullId) {
-    feedback.warning('skinHullId 和 baseHullId 不能为空');
-    return;
-  }
-  if (!isSafeEntityFileStem(nextSkinHullId)) {
-    feedback.error('skinHullId 不能包含路径分隔符或 ..');
-    return;
-  }
-  if (skins.value.some((skin) => skin.skinHullId === nextSkinHullId && skin.skinHullId !== current.skinHullId)) {
-    feedback.warning(`舰船皮肤 "${nextSkinHullId}" 已存在`);
-    return;
-  }
   saving.value = true;
   try {
-    const renamed = nextSkinHullId !== current.skinHullId;
-    const result = await saveSkinWithFileHistory(
-      modRoot.value,
-      nextSkinHullId,
-      localSkin.value,
-      renamed ? current.skinHullId : null,
-      renamed ? current.relPath : null,
-    );
-    emit('changed');
-    localSkin.value = deepClone(result.skinFile.data);
-    emit('saved', result.skinFile.skinHullId);
-    feedback.success(`舰船皮肤 "${result.skinFile.skinHullId}" 已保存`);
+    const saved = await props.saveSkin(current, localSkin.value);
+    if (!saved) return;
+    localSkin.value = deepClone(saved.data);
+    emit('saved', saved.skinHullId);
   } catch (error) {
     feedback.error(error, '保存舰船皮肤失败');
   } finally {
@@ -100,20 +81,14 @@ async function deleteCurrentSkin() {
   const current = selectedSkin.value;
   if (!current || !modRoot.value) return false;
   try {
-    await deleteSkinWithFileHistory(modRoot.value, current.relPath, current.skinHullId);
-    emit('changed');
-    emit('saved', skins.value[0]?.skinHullId ?? '');
-    feedback.success(`舰船皮肤 "${current.skinHullId}" 已删除`);
+    if (!(await props.deleteSkin(current))) return false;
+    const nextId = skins.value.find((skin) => skin.skinHullId !== current.skinHullId)?.skinHullId ?? '';
+    emit('saved', nextId);
   } catch (error) {
     feedback.error(error, '删除舰船皮肤失败');
     return false;
   }
   return true;
-}
-
-function stringField(data: RowData, key: string): string {
-  const value = data[key];
-  return typeof value === 'string' ? value.trim() : '';
 }
 
 watch(

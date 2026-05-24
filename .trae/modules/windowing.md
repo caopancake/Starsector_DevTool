@@ -11,6 +11,7 @@
 - `src/orchestrators/window-save.orchestrator.ts` 在主窗口监听保存事件并转交文件级 history。
 - `src/windows/file-editor.window.ts` 封装文件编辑器窗口打开请求。
 - `src/windows/editor.window.ts` 封装 spec 编辑器和发射预览窗口打开请求。
+- `src/app/composables/use-editor-window-view-model.ts` 统一编排编辑器窗口的 entity query、候选项和资源加载。
 - `src-tauri/capabilities/default.json` 控制窗口创建、聚焦、关闭和事件权限。
 
 ## 规范
@@ -18,6 +19,8 @@
 - 窗口单例 key 必须使用能唯一表达目标资源的业务身份。
 - 文件编辑器的单例 key 是文件路径。
 - 编辑器窗口的单例 key 是 `kind + modRoot + id`。
+- 编辑器窗口只能使用主窗口传入的 `sessionId + kind + id` 查询数据，不能自行打开项目。
+- 编辑器窗口组件只能消费 ViewModel 输出，不得直接拼 entity query、source query 或资源批量请求。
 - `managed.window.ts` 负责 normalize key、hash label、聚焦已有窗口和创建新窗口。
 - 业务模块不能直接 new `WebviewWindow`，必须经由对应窗口 service。
 - 已存在窗口再次打开时，必须聚焦已有窗口，并按需要发送 focus event。

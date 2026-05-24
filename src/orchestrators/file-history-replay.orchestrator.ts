@@ -1,8 +1,9 @@
 import { h } from 'vue';
 import type { AppFeedback } from '@/shared/types';
-import { applyFileChangeSet, type FileChangeRecord } from '@/shared/api/files-api';
-import { invalidateProjectSession } from '@/shared/api/project-api';
+import { applyFileChangeSet, type FileChangeRecord } from '@/services/write.service';
 import { normalizeFsPath } from '@/shared/lib/paths';
+import { invalidateProject } from '@/services/session.service';
+import { invalidateQueryCacheByPaths } from '@/services/query-cache.service';
 import { invalidateResourceCacheByPaths } from '@/services/resource-cache.service';
 import type { useProjectStore } from '@/stores/project.store';
 import type { useTablesStore } from '@/stores/tables.store';
@@ -102,7 +103,8 @@ async function invalidateLoadedSessions(project: ProjectStore, changes: FileChan
     [...project.manifests.values()].map(async (manifest) => {
       const sessionPaths = changedPaths.filter((path) => pathBelongsToRoot(path, manifest.modRoot));
       if (sessionPaths.length === 0) return;
-      await invalidateProjectSession(manifest.sessionId, sessionPaths);
+      await invalidateProject(manifest.sessionId, sessionPaths);
+      invalidateQueryCacheByPaths(manifest.sessionId);
       invalidateResourceCacheByPaths(manifest.sessionId, sessionPaths);
     }),
   );

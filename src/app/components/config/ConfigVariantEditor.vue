@@ -24,11 +24,14 @@ import type { RowData, VariantFile } from '@/shared/types';
 import { deepClone } from '@/shared/lib/starsector';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { getSchema } from '@/domain/schema/schema-registry';
-import { deleteVariantWithFileHistory, saveVariantWithFileHistory } from '@/orchestrators/config-save.orchestrator';
-import { isSafeEntityFileStem } from '@/domain/config/config-entities';
 
-const props = defineProps<{ variantId: string; variants: VariantFile[] }>();
-const emit = defineEmits<{ saved: [variantId: string]; changed: [] }>();
+const props = defineProps<{
+  variantId: string;
+  variants: VariantFile[];
+  saveVariant: (current: VariantFile, data: RowData) => Promise<VariantFile | null>;
+  deleteVariant: (variant: VariantFile) => Promise<boolean>;
+}>();
+const emit = defineEmits<{ saved: [variantId: string] }>();
 
 const project = useProjectStore();
 const feedback = useAppFeedback();
@@ -48,34 +51,12 @@ const selectedVariant = computed(() => variants.value.find((variant) => variant.
 async function save() {
   const current = selectedVariant.value;
   if (!current || !modRoot.value) return;
-  const nextVariantId = stringField(localVariant.value, 'variantId');
-  const nextHullId = stringField(localVariant.value, 'hullId');
-  if (!nextVariantId || !nextHullId) {
-    feedback.warning('variantId 和 hullId 不能为空');
-    return;
-  }
-  if (!isSafeEntityFileStem(nextVariantId)) {
-    feedback.error('variantId 不能包含路径分隔符或 ..');
-    return;
-  }
-  if (variants.value.some((variant) => variant.variantId === nextVariantId && variant.variantId !== current.variantId)) {
-    feedback.warning(`装配 "${nextVariantId}" 已存在`);
-    return;
-  }
   saving.value = true;
   try {
-    const renamed = nextVariantId !== current.variantId;
-    const result = await saveVariantWithFileHistory(
-      modRoot.value,
-      nextVariantId,
-      localVariant.value,
-      renamed ? current.variantId : null,
-      renamed ? current.relPath : null,
-    );
-    emit('changed');
-    localVariant.value = deepClone(result.variantFile.data);
-    emit('saved', result.variantFile.variantId);
-    feedback.success(`装配 "${result.variantFile.variantId}" 已保存`);
+    const saved = await props.saveVariant(current, localVariant.value);
+    if (!saved) return;
+    localVariant.value = deepClone(saved.data);
+    emit('saved', saved.variantId);
   } catch (error) {
     feedback.error(error, '保存装配失败');
   } finally {
@@ -100,20 +81,14 @@ async function deleteCurrentVariant() {
   const current = selectedVariant.value;
   if (!current || !modRoot.value) return false;
   try {
-    await deleteVariantWithFileHistory(modRoot.value, current.relPath, current.variantId);
-    emit('changed');
-    emit('saved', variants.value[0]?.variantId ?? '');
-    feedback.success(`装配 "${current.variantId}" 已删除`);
+    if (!(await props.deleteVariant(current))) return false;
+    const nextId = variants.value.find((variant) => variant.variantId !== current.variantId)?.variantId ?? '';
+    emit('saved', nextId);
   } catch (error) {
     feedback.error(error, '删除装配失败');
     return false;
   }
   return true;
-}
-
-function stringField(data: RowData, key: string): string {
-  const value = data[key];
-  return typeof value === 'string' ? value.trim() : '';
 }
 
 watch(

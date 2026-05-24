@@ -213,10 +213,9 @@ import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import EditorInspector from '@/app/components/editors/common/EditorInspector.vue';
-import { saveShipSpecWithUserAction } from '@/orchestrators/editor-save.orchestrator';
 import type { RowData } from '@/shared/types';
 import { arr, deepClone, num, str } from '@/shared/lib/starsector';
-import type { FileChangeRecord } from '@/shared/api/files-api';
+import type { FileChangeRecord } from '@/shared/api/write-api';
 import { normalizeShipSpec } from '@/domain/editors/lib/normalize';
 import { useHistory } from '@/app/composables/use-history';
 import { useCanvasDrawing } from '@/app/composables/use-canvas-drawing';
@@ -226,7 +225,13 @@ import { useSpriteUpload } from '@/app/composables/use-sprite-upload';
 import { editorCollapseTheme, snapToStep, toOptions as opts } from '@/domain/editors/lib/editor-constants';
 import { drawBoundsVisual, drawEngineVisual, drawRadiusField, drawWeaponSlotVisual } from '@/domain/editors/lib/canvas-visuals';
 
-const props = defineProps<{ modRoot: string; hullId: string; ship: RowData; spriteData?: string }>();
+const props = defineProps<{
+  modRoot: string;
+  hullId: string;
+  ship: RowData;
+  spriteData?: string;
+  saveSpec: (ship: RowData) => Promise<FileChangeRecord[]>;
+}>();
 const emit = defineEmits<{ close: []; saved: [id: string, ship: RowData, changes: FileChangeRecord[]] }>();
 const feedback = useAppFeedback();
 const editorWindowRef = ref<HTMLElement>();
@@ -1385,7 +1390,7 @@ async function uploadShipSprite(event: Event) {
 }
 async function save() {
   try {
-    const changes = await saveShipSpecWithUserAction(props.modRoot, props.hullId, localShip.value);
+    const changes = await props.saveSpec(localShip.value);
     emit('saved', props.hullId, localShip.value, changes);
   } catch (error) {
     feedback.error(error, '保存舰船失败');

@@ -1,12 +1,12 @@
-import type { AssociatedFileChange, CsvRowPatch } from '@/shared/api/tables-api';
+import type { AssociatedFileChange, CsvRowPatch } from '@/shared/api/write-api';
 import type { ProjectManifest, TableKey } from '@/shared/types';
 import type { ModTableState } from '@/shared/types/workspace.types';
-import { recordFileSave } from '@/orchestrators/file-save.orchestrator';
+import { invalidateWriteResultForMod, recordFileSave } from '@/orchestrators/file-save.orchestrator';
 import {
   getAssociatedFileCandidates as collectAssociatedFileCandidates,
   isAssociatedFileForTable,
 } from '@/domain/tables/associated-file-candidates';
-import { saveTablePatch } from '@/services/table.service';
+import { saveTablePatch } from '@/services/csv-table.service';
 import { useTablesStore } from '@/stores/tables.store';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { resolveTableRowKey, TABLE_ROW_KEY_FIELD } from '@/domain/tables/table-row-key';
@@ -37,12 +37,13 @@ export async function saveActiveTableChanges(
     const tableAssociatedFiles = associatedFiles.filter((file) => isAssociatedFileForTable(table, file.relPath));
     const patches = buildCurrentTablePatches(state, table);
     const result = await saveTablePatch(manifest.sessionId, table, patches, tableAssociatedFiles);
-    tables.applySavedRowKeyMap(table, result.keyMap);
+    tables.applySavedRowKeyMap(table, result.keyMap ?? []);
     tables.markTableSaved(table);
 
     if (result.changes.length > 0) {
       csvEditHistory.clearCsvEditHistory(capturedModRoot, table);
       recordFileSave(capturedModRoot, result.changes, `保存 ${table} CSV`);
+      await invalidateWriteResultForMod(capturedModRoot, result);
     }
     return 'saved';
   } finally {

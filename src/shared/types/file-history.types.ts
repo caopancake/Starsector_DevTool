@@ -1,4 +1,4 @@
-import type { FileChangeRecord } from '@/shared/api/files-api';
+import type { FileChangeRecord } from '@/shared/api/write-api';
 
 export interface FileSaveHistoryEntry {
   id: string;

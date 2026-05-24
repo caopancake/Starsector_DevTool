@@ -6,7 +6,8 @@ CSV 表格系统负责展示和编辑已注册的 Starsector CSV 表，并按 CS
 
 ## 边界
 
-- `src/app/DataTable.vue` 连接当前 session、表格 store 和 CSV Grid。
+- `src/app/DataTable.vue` 是 CSV 表格薄壳，只渲染 CSV Grid 和空状态。
+- `src/app/composables/use-csv-table-view-model.ts` 统一编排 CSV window query、source option query、grid model、搜索、势力筛选和性能日志。
 - `src/app/components/tables/` 承载 CSV Grid、虚拟 body、行和单元格控件。
 - `src/app/DetailPane.vue` 根据当前表、当前行和 CSV 列 schema 显示右侧字段速览，并只发出语义化详情动作。
 - `src/stores/tables.store.ts` 持有每个 Mod 的表格、原始表格、dirty、选择和编辑状态。
@@ -16,7 +17,8 @@ CSV 表格系统负责展示和编辑已注册的 Starsector CSV 表，并按 CS
 - `src/domain/tables/table-detail-actions.ts` 定义详情面板可发出的文件编辑器、spec 编辑器和预览动作。
 - `src/domain/tables/csv-column-schema.ts` 加载 CSV 列 schema 资产并提供列控件查询。
 - `schemas/csv/*.columns.json` 存放 CSV 列 schema 资产。
-- `src/services/table.service.ts` 调用 CSV window query、source query 和 patch 保存 API。
+- `src/services/csv-table.service.ts` 调用 CSV window query、source query 和当前表 patch 保存能力。
+- `src/services/write.service.ts` 把 CSV patch 保存统一转换为写入结果模型。
 - `src/shared/types/` 定义 `TableKey`、`RowData` 和 `ModTableState`。
 - `src-tauri/src/models/project.rs` 中 `CSV_TABLES` 定义表名到 CSV 路径的映射。
 
@@ -43,6 +45,7 @@ CSV 表格系统负责展示和编辑已注册的 Starsector CSV 表，并按 CS
 - 没有业务 ID 的行不能显示 spec 文件编辑入口。
 - `tables.store.ts` 只管理草稿、dirty、选择和编辑状态。
 - 写盘、副作用、文件级 history 和关联 spec 创建删除由表格保存 orchestrator 处理。
+- 表格保存 orchestrator 只能根据写入结果的 `invalidatedPaths` 触发缓存失效，不能自行猜测路径。
 - 打开 Mod 时不得解析或下发完整 CSV 行集；CSV 行只能通过当前 session 的 window query 获取。
 - 单元格编辑器在输入期间使用本地缓冲，只在提交时（blur / Enter）写入 store，避免响应式级联导致编辑器卸载。
 

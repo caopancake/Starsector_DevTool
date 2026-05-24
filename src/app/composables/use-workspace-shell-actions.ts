@@ -6,7 +6,7 @@ import { useEditorsStore } from '@/stores/editors.store';
 import { openShipEditorWindow, openWeaponEditorWindow, openWeaponPreviewWindow, type EditorSpecSavedEvent } from '@/windows/editor.window';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import { useProjectStore } from '@/stores/project.store';
-import { closeProject, invalidateProjectRootCache, pickDirectory, scanWorkspaceOverview } from '@/services/project.service';
+import { closeProject, invalidateProjectRootCache, pickDirectory, scanWorkspaceOverview } from '@/services/session.service';
 import { selectActiveTableAssociatedFileCandidates, saveActiveTableChanges } from '@/orchestrators/table-save.orchestrator';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { useTablesStore } from '@/stores/tables.store';
@@ -24,6 +24,7 @@ import { useWorkspaceStore } from '@/stores/workspace.store';
 import { useCoreSchema } from '@/app/composables/use-core-schema';
 import { recordLogSilently } from '@/services/app-config.service';
 import { invalidateResourceCacheForSession } from '@/services/resource-cache.service';
+import { invalidateQueryCacheForSession } from '@/services/query-cache.service';
 
 export function useWorkspaceShellActions(feedback: AppFeedback) {
   const project = useProjectStore();
@@ -246,6 +247,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   function removeMod(modRoot: string, showMessage = true) {
     const sessionId = project.getSessionId(modRoot);
     if (sessionId) {
+      invalidateQueryCacheForSession(sessionId);
       invalidateResourceCacheForSession(sessionId);
       void closeProject(sessionId);
     }

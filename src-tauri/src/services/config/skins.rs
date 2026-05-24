@@ -1,11 +1,10 @@
 use crate::{
     domain::config::{build_skin_file, skin_rel_path, validate_config_id},
     errors::{AppError, AppResult},
-    io::strip_internal_fields,
+    io::{strip_internal_fields, FileChangeSetBuilder},
     models::{
         ConfigFileEntityPayload, DeleteSkinEntityPayload, SkinEntityPayload, SkinEntityResult,
     },
-    services::file_changes::FileChangeSetBuilder,
 };
 use std::path::Path;
 

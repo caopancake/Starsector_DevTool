@@ -1,10 +1,10 @@
 use crate::{
     models::{
-        CsvSourceOptionsPayload, CsvTableWindow, CsvTableWindowPayload, EntityData,
-        GameOverviewData, HullReferencesPayload, HullReferencesResult, InvalidateCoreCachePayload,
-        InvalidateProjectSessionPayload, OpenDirectoryResult, ProjectManifest,
-        QueryEntityListPayload, QueryEntityPayload, ResourceDataUrlBatchPayload,
-        ResourceDataUrlBatchResult, SourceOptionGroup,
+        CsvRowPreview, CsvRowPreviewPayload, CsvSourceOptionsPayload, CsvTableWindow,
+        CsvTableWindowPayload, EntityData, GameOverviewData, HullReferencesPayload,
+        HullReferencesResult, InvalidateCoreCachePayload, InvalidateProjectSessionPayload,
+        OpenDirectoryResult, ProjectManifest, QueryEntityListPayload, QueryEntityPayload,
+        ResourceDataUrlBatchPayload, ResourceDataUrlBatchResult, SourceOptionGroup,
     },
     services,
 };
@@ -38,6 +38,11 @@ pub fn query_csv_source_options(
     payload: CsvSourceOptionsPayload,
 ) -> Result<Vec<SourceOptionGroup>, String> {
     services::project::query_csv_source_options_for_command(payload).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn query_csv_row_preview(payload: CsvRowPreviewPayload) -> Result<CsvRowPreview, String> {
+    services::project::query_csv_row_preview_for_command(payload).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

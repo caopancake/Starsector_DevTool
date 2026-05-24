@@ -1,0 +1,33 @@
+import { classifyFrontendPath } from '../shared/classify.mjs';
+import { frontendFile } from '../shared/files.mjs';
+import { importedProjectPaths } from '../shared/imports.mjs';
+
+export const resourceBoundaryRule = {
+  name: 'resource-boundary',
+  check(files) {
+    const failures = [];
+    for (const file of files) {
+      if (!frontendFile(file.rel)) continue;
+      const current = classifyFrontendPath(file.rel);
+      for (const imported of importedProjectPaths(file)) {
+        if (imported.typeOnly) continue;
+        if (current.role === 'component' && /^src\/services\/resource-cache\.service(?:\.ts)?$/.test(imported.resolved)) {
+          failures.push(`${file.rel}: components must receive resource data through ViewModel/service output`);
+        }
+      }
+      if (/\bqueryResourceDataUrl\b|\bquery_resource_data_url\b/.test(file.text)) {
+        failures.push(`${file.rel}: single resource data URL APIs are forbidden`);
+      }
+      if (current.layer !== 'services' && current.layer !== 'shared' && /\bqueryResourceDataUrls\b/.test(file.text)) {
+        failures.push(`${file.rel}: batch resource API must be wrapped by resource-cache service`);
+      }
+      if (/\bPromise\.all\s*\([^)]*queryResource/s.test(file.text)) {
+        failures.push(`${file.rel}: resource loading must use one batch request, not per-item promises`);
+      }
+      if (current.layer !== 'shared' && /source\s*:\s*['"](?:mod|core)['"]|\b(ownerKind|ownerId)\s*:/.test(file.text)) {
+        failures.push(`${file.rel}: ResourceRef objects are backend query output; frontend must not construct them`);
+      }
+    }
+    return failures;
+  },
+};

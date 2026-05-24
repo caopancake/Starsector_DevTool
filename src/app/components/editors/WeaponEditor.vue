@@ -232,8 +232,7 @@ import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import EditorInspector from '@/app/components/editors/common/EditorInspector.vue';
 import ObjectEditor from '@/app/components/editors/common/ObjectEditor.vue';
-import { saveWeaponSpecWithUserAction } from '@/orchestrators/editor-save.orchestrator';
-import type { FileChangeRecord } from '@/shared/api/files-api';
+import type { FileChangeRecord } from '@/shared/api/write-api';
 import type { RowData } from '@/shared/types';
 import { arr, str } from '@/shared/lib/starsector';
 import { normalizeWeaponSpec } from '@/domain/editors/lib/normalize';
@@ -276,6 +275,7 @@ const props = defineProps<{
   spriteData?: Record<string, string>;
   projectiles: Record<string, RowData>;
   projectileOptions: { label: string; value: string }[];
+  saveSpec: (weapon: RowData) => Promise<FileChangeRecord[]>;
 }>();
 const emit = defineEmits<{
   close: [];
@@ -836,7 +836,7 @@ async function uploadSpriteField(field: SpriteField, event: Event) {
 }
 async function save() {
   try {
-    const changes = await saveWeaponSpecWithUserAction(props.modRoot, props.weaponId, localWeapon.value);
+    const changes = await props.saveSpec(localWeapon.value);
     emit('saved', props.weaponId, localWeapon.value, changes);
   } catch (error) {
     feedback.error(error, '保存武器失败');

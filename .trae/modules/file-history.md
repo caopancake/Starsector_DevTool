@@ -11,7 +11,8 @@
 - `src/orchestrators/file-save.orchestrator.ts` 是前端记录文件保存事件的统一入口。
 - `src/orchestrators/file-history-replay.orchestrator.ts` 负责确认、调用 Rust 回放、刷新前端缓存、广播窗口事件和提交栈移动。
 - `src/app/components/config/ConfigFileHistoryView.vue` 展示当前 Mod 文件历史并提供清空、撤销和重做。
-- `src-tauri/src/services/file_changes.rs` 是 changeset 构建、写盘、目录快照、回滚和回放权威。
+- `src-tauri/src/io/file_changes.rs` 是 changeset 构建、写盘、目录快照、回滚和回放权威。
+- `src-tauri/src/services/file_changes.rs` 只保留 command-facing service 入口。
 
 ## 规范
 

@@ -334,7 +334,7 @@ import type { SelectOption } from '@/domain/schema/schema-registry';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import { useCoreGraphics } from '@/app/composables/use-core-graphics';
 import { useSettingsStore } from '@/stores/settings.store';
-import { queryTableSourceOptions } from '@/services/table.service';
+import { queryTableSourceOptions } from '@/services/csv-table.service';
 
 const { graphicsPaths, loadGraphics } = useCoreGraphics();
 loadGraphics(); // Fire-and-forget, loads once and caches
@@ -506,7 +506,7 @@ watch(
       return;
     }
     const currentValues = currentSourceValues();
-    const groups = await queryTableSourceOptions(sessionId, source, currentValues, null, 500);
+    const groups = await queryTableSourceOptions(sessionId, source, currentValues, undefined, 500);
     loadedSourceOptions.value = groups.map((group) => ({
       type: 'group',
       label: group.label,

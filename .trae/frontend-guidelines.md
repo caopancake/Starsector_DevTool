@@ -26,17 +26,21 @@
 - 组件不得直接写入任意跨层状态；跨模块操作必须通过 orchestrator 或明确的 store 状态入口。
 - 业务组件需要提示、确认框或主题信息时，优先使用 app provider 注入的入口；非组件代码使用统一 adapter。
 
-## Store 与 Service
+## Store、Service 与 ViewModel
 
 - 前端访问后端的唯一宏观链路是 `前端 -> shared/api -> Rust command -> service -> 后端实现`，任何情况都不允许绕过。
 - 前端业务代码不得直接 import `@tauri-apps/api/core`，不得直接执行 `invoke()`；只有 `src/shared/api/` 可以封装 Tauri command。
 - 引用解析必须走对应统一引用入口，组件不得绕过引用解析边界。
 - 架构静态检查以目录层级、文件职责后缀、导入关系和类型形状为主，不得通过业务文件名、业务扩展名或模块名白名单放行。
-- 任何 `shared/api` 调用只能出现在 `shared/api`、service 或 orchestrator；组件、store、domain 和普通 composable 不得直接导入。
+- 任何 `shared/api` 调用只能出现在 `shared/api` 或 service；组件、ViewModel、store、domain 和 orchestrator 不得直接导入。
 - Tauri package 只能出现在 `shared/api`、`shared/runtime`、`windows` 或窗口根边界；业务组件不得直接访问 Tauri command、dialog、event 或 window API。
 - Store 拥有内存状态和纯状态变更，不直接承担文件 IO、确认弹窗、跨模块编排。
 - Service 负责后端 API 调用和单一业务能力，不承担跨模块用户动作编排。
 - Orchestrator 负责一次用户动作跨越多个模块的流程。
+- 复杂页面组件必须通过 ViewModel 获取 query 结果、资源、保存动作和列表动作；组件不得直接调用 query service、resource cache、write service 或保存 orchestrator。
+- ViewModel 可以调用 service 或 orchestrator，不得调用 `shared/api`。
+- 资源 data URL 的唯一前端入口是批量资源缓存 service；组件不得逐项补图或直接发资源 query。
+- `ResourceRef` 只能消费后端 query 返回值，前端不得构造资源引用对象。
 - Orchestrator 导出函数不得和 domain 纯函数同名；带 store、副作用或当前选择状态的函数名必须体现状态来源。
 - API adapter 只封装 Tauri command/event 的调用形状，不包含业务决策。
 - `shared` 工具不得反向依赖任何上层应用目录。
@@ -47,6 +51,7 @@
 
 - 多 Mod 状态必须按 `modRoot` 隔离，dirty、选择、CSV 草稿历史、文件级历史和窗口引用不能串 Mod。
 - `project.store` 是 `ProjectManifest` 和活动 session 的前端缓存，不是磁盘权威状态。
+- 前端不得持有完整项目数据包、原版引用全集或图片 data URL manifest。
 - `tables.store` 只管理表格草稿状态、选择状态和 dirty 状态；保存副作用由表格保存 orchestrator 处理。
 - 游戏目录概览只代表轻量扫描结果，不等同于已打开 ProjectSession。
 

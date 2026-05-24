@@ -13,7 +13,7 @@
         @click="emit('select', skin.skinHullId)"
       >
         <span class="skin-list-preview config-entity-thumb">
-          <img v-if="skinSprites[skin.skinHullId]" :src="skinSprites[skin.skinHullId]" alt="" />
+          <img v-if="props.skinSprites[skin.skinHullId]" :src="props.skinSprites[skin.skinHullId]" alt="" />
           <svg v-else class="skin-list-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 3 5 18l7 3 7-3-7-15z" />
             <path d="M8 16h8M9 12h6" />
@@ -46,14 +46,14 @@
       title="新建舰船皮肤"
       positive-text="创建"
       negative-text="取消"
-      @positive-click="createSkin"
+      @positive-click="submitCreateSkin"
     >
       <div class="variant-dialog-fields">
         <n-input v-if="settings.isPlainEditMode" v-model:value="newBaseHullId" placeholder="baseHullId" />
         <n-select
           v-else
           v-model:value="newBaseHullId"
-          :options="hullOptions"
+          :options="props.hullOptions"
           :render-label="renderHullOptionLabel"
           filterable
           tag
@@ -67,93 +67,52 @@
 
 <script setup lang="ts">
 import { computed, h, ref, watch } from 'vue';
-import { useAppFeedback } from '@/app/composables/use-app-feedback';
-import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import type { SkinFile } from '@/shared/types';
 import type { SelectOption } from '@/domain/schema/schema-registry';
-import { createSkinWithFileHistory, deleteSkinWithFileHistory } from '@/orchestrators/config-save.orchestrator';
-import { isSafeEntityFileStem } from '@/domain/config/config-entities';
-import { queryHullReferenceOptions, querySkinPreviewSprites } from '@/services/config.service';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 
-const props = defineProps<{ selectedId: string; skins: SkinFile[] }>();
-const emit = defineEmits<{ select: [skinHullId: string]; changed: [] }>();
+const props = defineProps<{
+  selectedId: string;
+  skins: SkinFile[];
+  skinSprites: Record<string, string>;
+  hullOptions: SelectOption[];
+  createSkin: (baseHullId: string, skinHullId: string) => Promise<boolean>;
+  deleteSkin: (skin: SkinFile) => Promise<boolean>;
+}>();
+const emit = defineEmits<{ select: [skinHullId: string] }>();
 
-const project = useProjectStore();
-const feedback = useAppFeedback();
 const settings = useSettingsStore();
+const feedback = useAppFeedback();
 
 const showCreateDialog = ref(false);
 const newBaseHullId = ref('');
 const newSkinHullId = ref('');
-const pendingDeleteSkin = ref<SkinFile | null>(null);
-const hullOptions = ref<SelectOption[]>([]);
-const skinSprites = ref<Record<string, string>>({});
 
-const modData = computed(() => project.activeManifest);
-const modRoot = computed(() => modData.value?.modRoot ?? '');
-const sessionId = computed(() => modData.value?.sessionId ?? '');
 const skins = computed(() => [...props.skins].sort(compareSkins));
 
-async function createSkin() {
-  const baseHullId = newBaseHullId.value.trim();
+async function submitCreateSkin() {
+  const created = await props.createSkin(newBaseHullId.value.trim(), newSkinHullId.value.trim());
+  if (!created) {
+    return false;
+  }
   const skinHullId = newSkinHullId.value.trim();
-  if (!modRoot.value) return false;
-  if (!baseHullId || !skinHullId) {
-    feedback.warning('baseHullId 和 skinHullId 不能为空');
-    return false;
-  }
-  if (!isSafeEntityFileStem(skinHullId)) {
-    feedback.error('skinHullId 不能包含路径分隔符或 ..');
-    return false;
-  }
-  if (skins.value.some((skin) => skin.skinHullId === skinHullId)) {
-    feedback.warning(`舰船皮肤 "${skinHullId}" 已存在`);
-    return false;
-  }
-  try {
-    await createSkinWithFileHistory(modRoot.value, baseHullId, skinHullId);
-    emit('changed');
-    showCreateDialog.value = false;
-    newBaseHullId.value = '';
-    newSkinHullId.value = '';
-    emit('select', skinHullId);
-    feedback.success(`舰船皮肤 "${skinHullId}" 已创建`);
-  } catch (error) {
-    feedback.error(error, '创建舰船皮肤失败');
-    return false;
-  }
+  showCreateDialog.value = false;
+  newBaseHullId.value = '';
+  newSkinHullId.value = '';
+  emit('select', skinHullId);
   return true;
 }
 
 function confirmDeleteSkin(skin: SkinFile) {
-  pendingDeleteSkin.value = skin;
   feedback.confirmDanger({
     title: '删除舰船皮肤',
     content: `确定要删除舰船皮肤 "${skin.skinHullId}" 吗？`,
     actionText: '删除',
     onConfirm: async () => {
-      await deletePendingSkin();
+      await props.deleteSkin(skin);
     },
   });
-}
-
-async function deletePendingSkin() {
-  const skin = pendingDeleteSkin.value;
-  if (!skin || !modRoot.value) return false;
-  try {
-    await deleteSkinWithFileHistory(modRoot.value, skin.relPath, skin.skinHullId);
-    emit('changed');
-    pendingDeleteSkin.value = null;
-    if (props.selectedId === skin.skinHullId) {
-      emit('select', skins.value[0]?.skinHullId ?? '');
-    }
-    feedback.success(`舰船皮肤 "${skin.skinHullId}" 已删除`);
-  } catch (error) {
-    feedback.error(error, '删除舰船皮肤失败');
-    return false;
-  }
-  return true;
 }
 
 function compareSkins(a: SkinFile, b: SkinFile): number {
@@ -172,30 +131,6 @@ function renderHullOptionLabel(option: SelectOption) {
   ]);
 }
 
-async function loadHullOptions() {
-  if (!sessionId.value || settings.isPlainEditMode) {
-    hullOptions.value = [];
-    return;
-  }
-  try {
-    hullOptions.value = await queryHullReferenceOptions(sessionId.value);
-  } catch (error) {
-    feedback.error(error, '读取舰船引用失败');
-  }
-}
-
-async function loadSkinSprites() {
-  if (!sessionId.value || skins.value.length === 0) {
-    skinSprites.value = {};
-    return;
-  }
-  try {
-    skinSprites.value = await querySkinPreviewSprites(sessionId.value, skins.value);
-  } catch (error) {
-    feedback.error(error, '读取舰船皮肤缩略图失败');
-  }
-}
-
 watch(
   skins,
   (items) => {
@@ -209,7 +144,4 @@ watch(
   },
   { immediate: true },
 );
-
-watch([showCreateDialog, sessionId, () => settings.isPlainEditMode], () => void loadHullOptions(), { immediate: true });
-watch([skins, sessionId], () => void loadSkinSprites(), { immediate: true });
 </script>

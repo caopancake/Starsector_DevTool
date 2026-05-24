@@ -1,5 +1,6 @@
 import { saveTextFile } from '@/services/files.service';
 
-export function saveFileEditorTextWithUserAction(path: string, text: string) {
-  return saveTextFile(path, text);
+export async function saveFileEditorTextWithUserAction(path: string, text: string) {
+  const result = await saveTextFile(path, text);
+  return result.changes;
 }

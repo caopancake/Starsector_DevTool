@@ -14,6 +14,7 @@
       :hull-id="id"
       :ship="editorData.ship"
       :sprite-data="shipSpriteForEditor"
+      :save-spec="(ship) => saveEditorSpec('ship', ship)"
       @close="closeWindow"
       @saved="onShipSaved"
     />
@@ -25,6 +26,7 @@
       :sprite-data="editorData.weaponSpriteData"
       :projectiles="editorData.projectiles"
       :projectile-options="editorData.projectileOptions"
+      :save-spec="(weapon) => saveEditorSpec('weapon', weapon)"
       @close="closeWindow"
       @saved="onWeaponSaved"
       @edit-projectile="openProjectile"
@@ -35,6 +37,7 @@
       :mod-root="modRoot"
       :projectile-id="id"
       :projectile="editorData.projectile"
+      :save-spec="(projectile) => saveEditorSpec('projectile', projectile)"
       @close="closeWindow"
       @saved="onProjectileSaved"
     />
@@ -55,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import ShipEditor from '@/app/components/editors/ShipEditor.vue';
 import WeaponEditor from '@/app/components/editors/WeaponEditor.vue';
 import ProjectileEditor from '@/app/components/editors/ProjectileEditor.vue';
@@ -67,13 +70,12 @@ import {
   type EditorWindowKind,
 } from '@/windows/editor.window';
 import { useSettingsStore } from '@/stores/settings.store';
-import { queryEditorEntityBundle, type EditorEntityBundle } from '@/services/editor.service';
 import type { RowData } from '@/shared/types';
-import { deepClone, defaultWeapon } from '@/shared/lib/starsector';
-import { formatError } from '@/shared/lib/errors';
+import { deepClone } from '@/shared/lib/starsector';
 import { closeCurrentWindow } from '@/windows/current.window';
 import type { UnlistenFn } from '@/windows/tauri.events';
 import { emitEditorSpecSaved, listenEditorSpecApplied } from '@/orchestrators/editor-window.orchestrator';
+import { useEditorWindowViewModel } from '@/app/composables/use-editor-window-view-model';
 
 const params = new window.URLSearchParams(window.location.search);
 const kind = ref<EditorWindowKind>(parseKind(params.get('kind')));
@@ -81,26 +83,11 @@ const sessionId = params.get('sessionId') ?? '';
 const modRoot = params.get('modRoot') ?? '';
 const id = params.get('id') ?? '';
 const starsectorRoot = params.get('starsectorRoot');
-const editorData = ref<EditorEntityBundle | null>(null);
-const loading = ref(true);
-const errorText = ref('');
 const settings = useSettingsStore();
 let unlistenEditorSpecApplied: UnlistenFn | null = null;
 
-const weaponForEditor = computed<RowData>(() => {
-  const data = editorData.value;
-  if (!data) return {};
-  return data.weaponFiles[id] || defaultWeapon(id, data.weaponRow);
-});
-const shipSpriteForEditor = computed(() => editorData.value?.shipSpriteData ?? '');
-
-const missingEditorText = computed(() => {
-  if (!modRoot || !id) return '缺少 Mod 路径或目标 id。';
-  if (kind.value === 'ship') return `找不到 ${id}.ship。`;
-  if (kind.value === 'weapon') return `找不到 ${id}.wpn。`;
-  if (kind.value === 'projectile') return `找不到 ${id}.proj。`;
-  return `找不到 ${id} 的预览数据。`;
-});
+const { editorData, loading, errorText, weaponForEditor, shipSpriteForEditor, missingEditorText, queryEditorData, saveEditorSpec } =
+  useEditorWindowViewModel({ sessionId, modRoot, id, kind: kind.value });
 
 function parseKind(value: string | null): EditorWindowKind {
   if (value === 'ship' || value === 'weapon' || value === 'projectile' || value === 'weapon-preview') return value;
@@ -109,21 +96,6 @@ function parseKind(value: string | null): EditorWindowKind {
 
 function closeWindow() {
   void closeCurrentWindow();
-}
-
-async function loadEditorData() {
-  if (!sessionId || !modRoot || !id) {
-    errorText.value = '缺少 Mod 路径或目标 id。';
-    loading.value = false;
-    return;
-  }
-  try {
-    editorData.value = await queryEditorEntityBundle(sessionId, kind.value, id);
-  } catch (error) {
-    errorText.value = formatError(error);
-  } finally {
-    loading.value = false;
-  }
 }
 
 async function emitSaved(payload: EditorSpecSavedEvent) {
@@ -191,7 +163,7 @@ onMounted(async () => {
   unlistenEditorSpecApplied = await listenEditorSpecApplied((payload) => {
     handleEditorSpecApplied(payload);
   });
-  void loadEditorData();
+  void queryEditorData();
 });
 
 onUnmounted(() => {

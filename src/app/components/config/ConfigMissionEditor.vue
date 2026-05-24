@@ -18,20 +18,23 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useProjectStore } from '@/stores/project.store';
-import type { JsonValue, RowData } from '@/shared/types';
+import type { EntityData, JsonValue, RowData } from '@/shared/types';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { aggregateSchemaSources, getSchema, splitSchemaSources } from '@/domain/schema/schema-registry';
-import { getMissionEntity } from '@/services/config.service';
-import { queryResourceDataUrlBatch } from '@/services/resource-cache.service';
-import { buildMissionIndexRow, stripSchemaInternalFields } from '@/domain/config/config-entities';
-import { deleteIndexedConfigEntityWithFileHistory, saveIndexedConfigEntityWithFileHistory } from '@/orchestrators/config-save.orchestrator';
+import { stripSchemaInternalFields } from '@/domain/config/config-entities';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 
-const props = defineProps<{ missionId: string }>();
+const props = defineProps<{
+  missionId: string;
+  modRoot: string | null;
+  sessionId: string | null;
+  queryMission: (id: string) => Promise<EntityData | null>;
+  queryMissionIcon: (id: string) => Promise<string>;
+  saveMission: (id: string, list: RowData, descriptor: RowData, text: string, previousId: string) => Promise<string>;
+  deleteMission: (id: string, deleteDirectory: boolean) => Promise<boolean>;
+}>();
 const emit = defineEmits<{ saved: [missionId: string] }>();
 
-const project = useProjectStore();
 const feedback = useAppFeedback();
 
 const indexHeader = ref<string[]>(['mission']);
@@ -40,11 +43,11 @@ const loadedMissionId = ref('');
 const iconSrc = ref('');
 const saving = ref(false);
 
-const modRoot = computed(() => project.activeManifest?.modRoot ?? null);
-const sessionId = computed(() => project.activeManifest?.sessionId ?? null);
+const modRoot = computed(() => props.modRoot);
+const sessionId = computed(() => props.sessionId);
 const schema = computed(() => getSchema('mission'));
 const schemaRuntimeContext = computed(() =>
-  project.activeManifest ? { modRoot: project.activeManifest.modRoot, sessionId: project.activeManifest.sessionId } : null,
+  props.modRoot && props.sessionId ? { modRoot: props.modRoot, sessionId: props.sessionId } : null,
 );
 const editingMissionId = computed(() => {
   const list = localMission.value.list;
@@ -59,21 +62,29 @@ function missionIdFromRow(row: RowData): string {
   return cellValue(row.mission).trim();
 }
 
+function asRowData(value: unknown): RowData {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as RowData) : {};
+}
+
 async function loadConfigMissionEditor() {
   localMission.value = {};
   loadedMissionId.value = '';
   iconSrc.value = '';
   if (!modRoot.value || !sessionId.value || !props.missionId) return;
   try {
-    const data = await getMissionEntity(sessionId.value, props.missionId);
-    indexHeader.value = Object.keys(data.list).length ? Object.keys(data.list) : ['mission'];
+    const data = await props.queryMission(props.missionId);
+    if (!data) return;
+    const missionData = asRowData(data.data);
+    const list = asRowData(missionData.list);
+    const descriptor = asRowData(missionData.descriptor);
+    indexHeader.value = Object.keys(list).length ? Object.keys(list) : ['mission'];
     loadedMissionId.value = props.missionId;
     localMission.value = aggregateSchemaSources({
-      list: data.list,
-      descriptor: data.descriptor,
-      text: data.text,
+      list,
+      descriptor,
+      text: missionData.text,
     });
-    iconSrc.value = data.iconResourceRef ? ((await queryResourceDataUrlBatch(sessionId.value, [data.iconResourceRef]))[0] ?? '') : '';
+    iconSrc.value = await props.queryMissionIcon(props.missionId);
   } catch (error) {
     feedback.error(error, '加载战役失败');
   }
@@ -92,28 +103,14 @@ async function save() {
   }
   saving.value = true;
   try {
-    const idChanged = loadedMissionId.value !== nextId;
-    const result = await saveIndexedConfigEntityWithFileHistory({
-      modRoot: modRoot.value,
-      kind: 'mission',
-      previousId: idChanged ? loadedMissionId.value : null,
-      nextId,
-      indexRow: buildMissionIndexRow([list], indexHeader.value, nextId),
-      payload: {
-        descriptor: stripSchemaInternalFields(descriptor) as RowData,
-        text,
-      },
-      deletePreviousTarget: idChanged,
-    });
-    indexHeader.value = result.indexHeader;
-    loadedMissionId.value = result.entityId;
+    const savedId = await props.saveMission(nextId, list, stripSchemaInternalFields(descriptor) as RowData, text, loadedMissionId.value);
+    loadedMissionId.value = savedId;
     localMission.value = aggregateSchemaSources({
-      list: result.indexRows.find((row) => missionIdFromRow(row) === result.entityId) ?? list,
+      list,
       descriptor,
       text,
     });
-    emit('saved', result.entityId);
-    feedback.success(`战役 "${result.entityId}" 已保存`);
+    emit('saved', savedId);
   } catch (error) {
     feedback.error(error, '保存战役失败');
   } finally {
@@ -134,15 +131,14 @@ function confirmDeleteMission() {
 }
 
 async function deleteCurrentMission() {
-  if (!modRoot.value || !loadedMissionId.value) return false;
+  if (!loadedMissionId.value) return false;
   try {
     const deleted = loadedMissionId.value;
-    await deleteIndexedConfigEntityWithFileHistory(modRoot.value, 'mission', deleted, true);
+    await props.deleteMission(deleted, true);
     loadedMissionId.value = '';
     localMission.value = {};
     iconSrc.value = '';
     emit('saved', '');
-    feedback.success(`战役 "${deleted}" 已删除`);
   } catch (error) {
     feedback.error(error, '删除战役失败');
     return false;

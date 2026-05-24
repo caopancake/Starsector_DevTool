@@ -82,7 +82,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
-import type { FileChangeRecord } from '@/shared/api/files-api';
+import type { FileChangeRecord } from '@/shared/api/write-api';
 import { replayNextFileHistoryEntry } from '@/orchestrators/file-history-replay.orchestrator';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import type { FileHistoryItem } from '@/shared/types/file-history.types';

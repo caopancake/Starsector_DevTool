@@ -26,21 +26,21 @@
 - [多窗口机制](modules/windowing.md)：说明 Tauri 多窗口的创建、单例化、聚焦和跨窗口事件边界。
 - [工作区与启动恢复系统](modules/workspace.md)：说明 workspace 状态、启动恢复、自动保存和主窗口编排边界。
 - [目录识别、游戏概览与 ProjectSession 系统](modules/directory-project-loading.md)：说明打开游戏目录或 Mod 目录时的识别、轻量扫描和 session 打开流程。
-- [ProjectSession / Manifest 缓存系统](modules/project-cache.md)：说明 ProjectSession、ProjectManifest 和按需 query 的前端状态边界。
-- [CSV 表格系统](modules/csv-tables.md)：说明 CSV 表格显示、编辑、行身份、dirty 和详情动作边界。
+- [ProjectSession / Manifest 缓存系统](modules/project-cache.md)：追踪 ProjectSession 打开/关闭、query、write、cache invalidation 和 manifest 状态边界。
+- [CSV 表格系统](modules/csv-tables.md)：追踪 CSV window query、grid ViewModel、当前表 patch 保存、行身份、dirty 和详情动作边界。
 - [CSV 草稿历史系统](modules/csv-edit-history.md)：说明未保存 CSV 编辑的内存级 undo/redo 栈。
 - [表格保存与关联文件 changeset 系统](modules/table-save-changeset.md)：说明 CSV 保存和关联 spec 创建删除如何组成一次文件级 changeset。
 - [文件级 history / changeset 系统](modules/file-history.md)：说明已写盘文件 changeset 的记录、撤销、重做和同步。
 - [文件编辑器系统](modules/file-editor.md)：说明文本文件编辑器窗口、保存和文件历史接入。
-- [配置系统](modules/config.md)：说明 mod_info、阵营和任务配置的读取、编辑、保存边界。
-- [舰船编辑器模块](modules/ship-editor.md)：说明舰船 spec 独立窗口编辑器的加载、保存和同步。
-- [武器编辑器模块](modules/weapon-editor.md)：说明武器 spec 独立窗口编辑器及弹体、预览入口。
-- [弹体编辑器模块](modules/projectile-editor.md)：说明弹体 spec 独立窗口编辑器的加载、保存和同步。
+- [配置系统](modules/config.md)：追踪 mod_info、阵营、任务、装配和皮肤的 ViewModel、entity query、write 和 history 边界。
+- [舰船编辑器模块](modules/ship-editor.md)：追踪舰船 spec 独立窗口 ViewModel、entity query、资源加载、保存和同步。
+- [武器编辑器模块](modules/weapon-editor.md)：追踪武器 spec 独立窗口 ViewModel、候选 source、资源加载、弹体和预览入口。
+- [弹体编辑器模块](modules/projectile-editor.md)：追踪弹体 spec 独立窗口 ViewModel、entity query、保存和同步。
 - [发射预览模块](modules/weapon-preview.md)：说明武器发射预览窗口的读取和非保存边界。
 - [舰船皮肤编辑模块](modules/skin-editor.md)：说明 `.skin` 列表、schema 表单、新建、保存和删除链路。
 - [装配编辑模块](modules/variant-editor.md)：说明 `.variant` 列表、schema 表单、新建、保存和删除链路。
 - [Schema 系统](modules/schema.md)：说明配置 schema、字段渲染、多来源字段和表单边界。
-- [资源、贴图与原版资源回退系统](modules/assets-core-fallback.md)：说明图片资源读取、上传、原版资源回退和像素采样规则。
+- [资源、贴图与原版资源回退系统](modules/assets-core-fallback.md)：追踪 ResourceRef、批量资源 query、resource cache、core fallback、上传和失效链路。
 - [alex_csv 读取与写入 parser](modules/csv-parser.md)：说明 Starsector CSV-like parser 的读取、空行保留和写回规则。
 - [alex_json 宽松 JSON parser](modules/json-parser.md)：说明 Starsector JSON-like 清洗、解析和错误边界。
 - [Rust 文件 IO、路径校验与目录 changeset](modules/rust-file-io-changeset.md)：说明 Rust 文本 IO、路径安全、目录 changeset 和失败回滚。
