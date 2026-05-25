@@ -1,19 +1,25 @@
 import { computed, ref } from 'vue';
-import { getMissionEntity, listMissionEntities } from '@/services/config-entity.service';
-import { queryResourceDataUrlBatch } from '@/services/resource-cache.service';
+import { getConfigMissionEditorData, listConfigMissionRecords } from '@/services/config-entity.service';
 import { useProjectStore } from '@/stores/project.store';
-import type { EntityData, RowData } from '@/shared/types';
+import type { ConfigMissionEditorData, RowData } from '@/shared/types';
 import {
-  createIndexedConfigEntityWithFileHistory,
-  deleteIndexedConfigEntityWithFileHistory,
-  saveIndexedConfigEntityWithFileHistory,
+  createIndexedConfigEntityAction,
+  deleteIndexedConfigEntityAction,
+  saveIndexedConfigEntityAction,
 } from '@/orchestrators/config-save.orchestrator';
-import { buildMissionIndexRow } from '@/domain/config/config-entities';
+import {
+  buildMissionIndexRow,
+  configMissionSaveDraft,
+  isConfigEntityId,
+  missionItemsFromRows,
+  type ConfigMissionSaveDraft,
+} from '@/domain/config/config-entities';
 import { deepClone } from '@/shared/lib/starsector';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
+import type { FileSchema } from '@/domain/schema/schema.types';
 
 export function useConfigMissionViewModel() {
-  const selectedMission = ref('');
+  const selectedMission = ref<string | null>(null);
   const refreshToken = ref(0);
   const missionRows = ref<RowData[]>([]);
   const missionIcons = ref<Record<string, string>>({});
@@ -22,47 +28,49 @@ export function useConfigMissionViewModel() {
 
   const modRoot = computed(() => project.activeManifest?.modRoot ?? null);
   const sessionId = computed(() => project.activeManifest?.sessionId ?? null);
+  const missionItems = computed(() => missionItemsFromRows(missionRows.value));
 
-  function handleSaved(missionId: string) {
+  function handleSaved(missionId: string | null) {
     selectedMission.value = missionId;
     refreshToken.value += 1;
   }
 
   async function queryMissions() {
-    if (!sessionId.value) {
+    const manifest = project.activeManifest;
+    if (!sessionId.value || !manifest) {
       missionRows.value = [];
       missionIcons.value = {};
+      selectedMission.value = null;
       return;
     }
-    const entities = await listMissionEntities(sessionId.value);
-    missionRows.value = entities.map((entity) => ({ ...asRowData(asRowData(entity.data).list), id: entity.id }));
-    await queryMissionIcons(entities);
-    const missions = missionRows.value.map((row) => String(row.mission ?? '').trim()).filter(Boolean);
+    const records = await listConfigMissionRecords(sessionId.value);
+    missionRows.value = records.map((record) => record.list);
+    missionIcons.value = Object.fromEntries(records.map((record) => [record.id, record.iconSrc]));
+    const missions = missionItems.value.map((mission) => mission.id);
     if (!selectedMission.value && missions[0]) selectedMission.value = missions[0];
-    if (selectedMission.value && !missions.includes(selectedMission.value)) selectedMission.value = missions[0] ?? '';
+    if (selectedMission.value && !missions.includes(selectedMission.value)) selectedMission.value = missions[0] ?? null;
+    project.updateEntitySummary(manifest.modRoot, 'missions', missionItems.value.length);
   }
 
-  async function queryMission(id: string) {
+  async function queryMissionEditorData(id: string): Promise<ConfigMissionEditorData | null> {
     if (!sessionId.value || !id) return null;
-    return getMissionEntity(sessionId.value, id);
-  }
-
-  async function queryMissionIcon(id: string) {
-    if (!sessionId.value || !id) return '';
-    const entity = await getMissionEntity(sessionId.value, id);
-    const resource = entity?.resourceRefs.icon ?? null;
-    if (!resource) return '';
-    return (await queryResourceDataUrlBatch(sessionId.value, [resource]))[0] ?? '';
+    return getConfigMissionEditorData(sessionId.value, id);
   }
 
   async function createMission(id: string): Promise<boolean> {
     if (!modRoot.value) return false;
-    await createIndexedConfigEntityWithFileHistory({
+    if (!isConfigEntityId(id)) {
+      feedback.error('战役 ID 不能包含路径分隔符或 ..');
+      return false;
+    }
+    await createIndexedConfigEntityAction({
       modRoot: modRoot.value,
       kind: 'mission',
+      previousId: null,
       nextId: id,
       indexRow: buildMissionIndexRow([], ['mission'], id),
-      payload: { descriptor: { title: id }, text: '' },
+      entityData: { descriptor: { title: id }, text: '' },
+      deletePreviousTarget: false,
     });
     selectedMission.value = id;
     feedback.success(`战役 "${id}" 已创建`);
@@ -70,51 +78,69 @@ export function useConfigMissionViewModel() {
     return true;
   }
 
-  async function saveMission(id: string, list: RowData, descriptor: RowData, text: string, previousId: string): Promise<string> {
+  async function saveMission(previousId: string, localMission: RowData, schema: FileSchema): Promise<string> {
     if (!modRoot.value) return previousId;
-    await saveIndexedConfigEntityWithFileHistory({
-      modRoot: modRoot.value,
+    const draft = configMissionSaveDraft(localMission, schema);
+    if (!draft.nextId) {
+      feedback.warning('mission 不能为空');
+      return previousId;
+    }
+    if (!isConfigEntityId(draft.nextId)) {
+      feedback.error('战役 ID 不能包含路径分隔符或 ..');
+      return previousId;
+    }
+    await saveMissionDraft(modRoot.value, previousId, draft);
+    return draft.nextId;
+  }
+
+  async function saveMissionDraft(activeModRoot: string, previousId: string, draft: ConfigMissionSaveDraft) {
+    const idChanged = draft.nextId !== previousId;
+    await saveIndexedConfigEntityAction({
+      modRoot: activeModRoot,
       kind: 'mission',
-      previousId: id !== previousId ? previousId : null,
-      nextId: id,
-      indexRow: buildMissionIndexRow([list], Object.keys(list).length ? Object.keys(list) : ['mission'], id),
-      payload: { descriptor: deepClone(descriptor), text },
-      deletePreviousTarget: id !== previousId,
+      previousId: idChanged ? previousId : null,
+      nextId: draft.nextId,
+      indexRow: buildMissionIndexRow([draft.list], Object.keys(draft.list).length ? Object.keys(draft.list) : ['mission'], draft.nextId),
+      entityData: { descriptor: deepClone(draft.descriptor), text: draft.text },
+      deletePreviousTarget: idChanged,
     });
-    selectedMission.value = id;
-    feedback.success(`战役 "${id}" 已保存`);
+    selectedMission.value = draft.nextId;
+    feedback.success(`战役 "${draft.nextId}" 已保存`);
     await queryMissions();
-    return id;
   }
 
   async function deleteMission(id: string, deleteDirectory: boolean): Promise<boolean> {
     if (!modRoot.value) return false;
-    await deleteIndexedConfigEntityWithFileHistory(modRoot.value, 'mission', id, deleteDirectory);
+    await deleteIndexedConfigEntityAction(modRoot.value, 'mission', id, deleteDirectory);
     feedback.success(`战役 "${id}" 已删除`);
     await queryMissions();
     if (selectedMission.value === id) {
-      selectedMission.value = missionRows.value.map((row) => String(row.mission ?? '').trim()).filter(Boolean)[0] ?? '';
+      selectedMission.value = missionItems.value[0]?.id ?? null;
     }
     return true;
   }
 
-  async function queryMissionIcons(entities: EntityData[] = []) {
-    if (!sessionId.value) {
-      missionIcons.value = {};
-      return;
+  async function refreshMissionList() {
+    await queryMissions();
+    if (!selectedMission.value && missionItems.value[0]) selectedMission.value = missionItems.value[0].id;
+    if (selectedMission.value && !missionItems.value.some((mission) => mission.id === selectedMission.value)) {
+      selectedMission.value = missionItems.value[0]?.id ?? null;
     }
-    const iconEntities = entities.filter((entity) => entity.resourceRefs.icon);
-    const dataUrls = await queryResourceDataUrlBatch(
-      sessionId.value,
-      iconEntities.map((entity) => entity.resourceRefs.icon),
-    );
-    missionIcons.value = Object.fromEntries(iconEntities.map((entity, index) => [entity.id, dataUrls[index] ?? '']));
+  }
+
+  function missionExists(id: string): boolean {
+    return missionItems.value.some((mission) => mission.id === id);
+  }
+
+  function isValidMissionId(id: string): boolean {
+    return isConfigEntityId(id);
   }
 
   return {
     selectedMission,
     refreshToken,
     missionRows,
+    missionItems,
     missionIcons,
     modRoot,
     sessionId,
@@ -122,12 +148,10 @@ export function useConfigMissionViewModel() {
     createMission,
     deleteMission,
     queryMissions,
-    queryMission,
-    queryMissionIcon,
+    refreshMissionList,
+    queryMissionEditorData,
+    missionExists,
+    isValidMissionId,
     saveMission,
   };
-}
-
-function asRowData(value: unknown): RowData {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as RowData) : {};
 }

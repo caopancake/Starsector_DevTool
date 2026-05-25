@@ -10,6 +10,7 @@ CSV 草稿历史记录未保存的表格内编辑，包括单元格修改、新�
 - `src/shared/types/tables-edit-history.types.ts` 定义草稿历史事件。
 - `src/domain/tables/csv-edit-history.ts` 执行草稿 undo/redo。
 - `src/orchestrators/main-undo-redo.orchestrator.ts` 优先调用 CSV 草稿历史，再调用文件级 history。
+- history 栈长度由 settings persistence 编排层同步给草稿 history store，草稿 history store 不直接读取 settings store。
 
 ## 规范
 
@@ -18,6 +19,8 @@ CSV 草稿历史记录未保存的表格内编辑，包括单元格修改、新�
 - 保存当前 CSV 成功后必须清空当前 `modRoot + tableKey` 的 CSV 草稿历史。
 - 草稿 undo/redo 失败时不能移动草稿历史栈。
 - 草稿 history 的 `_rowKey` 必须通过 `table-row-key.ts` 解析。
+- 草稿回放生成 dirty 字段时必须使用共享内部字段规则，不能自行判断内部字段前缀。
+- 草稿回放生成 dirty row 时必须使用正式 dirty row 模型，不能把删除状态写成单元格字段。
 
 ## 链路：CSV 草稿撤销
 

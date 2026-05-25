@@ -1,4 +1,6 @@
-use super::model::{ProjectSession, SessionCsvTable, SpecBundle};
+use super::model::{
+    ProjectSession, SessionCsvTable, SpecBundle, MISSION_LIST_REL_PATH, MISSION_LIST_TABLE_KEY,
+};
 use super::{
     cache::{self, invalidate_session_path, session_for_mut, sessions},
     factions,
@@ -8,12 +10,8 @@ use super::{
 };
 use crate::{
     errors::{AppError, AppResult},
-    io::load_json_dir_by_id,
-    models::{
-        AppLogEntry, EntitySummaries, InvalidateCoreCachePayload, InvalidateProjectSessionPayload,
-        ProjectManifest, TableSummary,
-    },
-    services::app_log,
+    io::{load_json_dir_by_id, read_csv_data},
+    models::{CsvTableKey, EntitySummaries, ProjectManifest, TableSummary},
 };
 use std::{
     collections::BTreeMap,
@@ -21,24 +19,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub fn open_project_session_with_root_for_command(
-    app_handle: tauri::AppHandle,
-    mod_root: String,
-    starsector_root: Option<String>,
-) -> AppResult<ProjectManifest> {
-    let mut trace = PerformanceTrace::new("project.openSession");
-    let result = open_project_session_traced(
-        Path::new(&mod_root),
-        starsector_root.as_deref().map(Path::new),
-        &mut trace,
-    );
-    if result.is_ok() {
-        write_performance_trace(app_handle, &trace, &[("modRoot", mod_root)]);
-    }
-    result
-}
-
-pub fn close_project_session_for_command(session_id: String) -> AppResult<()> {
+pub fn close_project_session(session_id: String) -> AppResult<()> {
     sessions()
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?
@@ -46,21 +27,19 @@ pub fn close_project_session_for_command(session_id: String) -> AppResult<()> {
     Ok(())
 }
 
-pub fn invalidate_project_session_for_command(
-    payload: InvalidateProjectSessionPayload,
-) -> AppResult<()> {
+pub fn invalidate_project_session(session_id: &str, changed_paths: Vec<String>) -> AppResult<()> {
     let mut guard = sessions()
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = session_for_mut(&mut guard, &payload.session_id)?;
-    for changed_path in payload.changed_paths {
-        invalidate_session_path(session, &changed_path);
+    let session = session_for_mut(&mut guard, session_id)?;
+    for changed_path in changed_paths {
+        invalidate_session_path(session, &changed_path)?;
     }
     Ok(())
 }
 
-pub fn invalidate_core_cache_for_command(payload: InvalidateCoreCachePayload) -> AppResult<()> {
-    cache::invalidate_core_cache(&payload.starsector_root)
+pub fn invalidate_core_cache(starsector_root: &str) -> AppResult<()> {
+    cache::invalidate_core_cache(starsector_root)
 }
 
 pub(super) fn open_project_session_traced(
@@ -90,7 +69,7 @@ pub(super) fn build_project_session(
         .as_ref()
         .is_some_and(|root| root.join("starsector-core").exists());
     let timer = trace.timer();
-    let mod_info = root::read_mod_info(mod_root);
+    let mod_info = root::read_mod_info(mod_root)?;
     trace.record_stage(
         "mod_info",
         timer,
@@ -111,7 +90,7 @@ pub(super) fn build_project_session(
         ],
     );
     let timer = trace.timer();
-    let mission_count = root::count_mission_list_entries(mod_root);
+    let mission_count = root::count_mission_list_entries(mod_root)?;
     trace.record_stage(
         "mission_count",
         timer,
@@ -133,31 +112,35 @@ pub(super) fn build_project_session(
         trace,
     )?;
 
-    let table_summaries = csv_tables
+    let table_summaries = crate::models::CSV_TABLES
         .iter()
-        .map(|(key, table)| {
-            (
-                key.clone(),
+        .map(|(key, _)| {
+            let table = csv_tables.get(key.as_str()).ok_or_else(|| {
+                AppError::message(format!("missing registered CSV table: {}", key.as_str()))
+            })?;
+            Ok((
+                *key,
                 TableSummary {
                     path: table.path.clone(),
                     header: table.header.clone(),
                     available: mod_root.join(&table.path).exists(),
                     total_rows: None,
                 },
-            )
+            ))
         })
-        .collect();
+        .collect::<AppResult<BTreeMap<_, _>>>()?;
     let entity_summaries = EntitySummaries {
         factions: faction_files.len(),
         missions: mission_count,
         ships: spec_bundle.ship_files.len(),
-        weapons: spec_bundle.wpn_files.len(),
-        projectiles: spec_bundle.proj_files.len(),
+        weapons: spec_bundle.weapon_specs.len(),
+        projectiles: spec_bundle.projectile_specs.len(),
         variants: spec_bundle.variant_files.len(),
         skins: spec_bundle.skin_files.len(),
         systems: spec_bundle.system_files.len(),
         skills: spec_bundle.skill_files.len(),
     };
+    let table_entity_summaries = build_table_entity_summaries(mod_root, &entity_summaries)?;
     let manifest = ProjectManifest {
         session_id,
         mod_root: mod_root.to_string_lossy().to_string(),
@@ -165,6 +148,7 @@ pub(super) fn build_project_session(
         core_available,
         mod_info,
         table_summaries,
+        table_entity_summaries,
         entity_summaries,
         warnings: spec_bundle.warnings.clone(),
     };
@@ -176,8 +160,8 @@ pub(super) fn build_project_session(
         ship_files: spec_bundle.ship_files,
         variant_files: spec_bundle.variant_files,
         skin_files: spec_bundle.skin_files,
-        wpn_files: spec_bundle.wpn_files,
-        proj_files: spec_bundle.proj_files,
+        weapon_specs: spec_bundle.weapon_specs,
+        projectile_specs: spec_bundle.projectile_specs,
         system_files: spec_bundle.system_files,
         skill_files: spec_bundle.skill_files,
     })
@@ -188,7 +172,7 @@ pub(super) fn build_session_csv_tables(_mod_root: &Path) -> BTreeMap<String, Ses
         .iter()
         .map(|(key, rel)| {
             (
-                (*key).to_string(),
+                key.as_str().to_string(),
                 SessionCsvTable {
                     header: Vec::new(),
                     path: (*rel).to_string(),
@@ -198,14 +182,55 @@ pub(super) fn build_session_csv_tables(_mod_root: &Path) -> BTreeMap<String, Ses
         })
         .collect();
     tables.insert(
-        "missions".to_string(),
+        MISSION_LIST_TABLE_KEY.to_string(),
         SessionCsvTable {
             header: vec!["mission".to_string()],
-            path: "data/missions/mission_list.csv".to_string(),
+            path: MISSION_LIST_REL_PATH.to_string(),
             rows: None,
         },
     );
     tables
+}
+
+pub(super) fn build_table_entity_summaries(
+    mod_root: &Path,
+    entity_summaries: &EntitySummaries,
+) -> AppResult<BTreeMap<CsvTableKey, usize>> {
+    crate::models::CSV_TABLES
+        .iter()
+        .map(|(key, rel_path)| {
+            let count = match key {
+                CsvTableKey::Ships => entity_summaries.ships,
+                CsvTableKey::Weapons => entity_summaries.weapons,
+                CsvTableKey::ShipSystems => entity_summaries.systems,
+                CsvTableKey::Skills => entity_summaries.skills,
+                _ => count_valid_csv_entities(mod_root, *key, rel_path)?,
+            };
+            Ok((*key, count))
+        })
+        .collect()
+}
+
+pub(super) fn count_valid_csv_entities(
+    mod_root: &Path,
+    table: CsvTableKey,
+    rel_path: &str,
+) -> AppResult<usize> {
+    let id_field = csv_entity_id_field(table);
+    let csv = read_csv_data(&mod_root.join(rel_path))?;
+    Ok(csv
+        .rows
+        .iter()
+        .filter(|row| !super::model::is_comment_row(row))
+        .filter(|row| super::model::string_from_row(row, id_field).is_some())
+        .count())
+}
+
+fn csv_entity_id_field(table: CsvTableKey) -> &'static str {
+    match table {
+        CsvTableKey::SimOpponents => "variant id",
+        _ => "id",
+    }
 }
 
 pub(super) fn new_session_id() -> String {
@@ -230,11 +255,11 @@ pub(super) fn load_spec_bundle(
         [("files", ship_files.len().to_string())],
     );
     let timer = trace.timer();
-    let wpn_files = load_json_dir_by_id(&mod_root.join("data/weapons"), "wpn", "id")?;
+    let weapon_specs = load_json_dir_by_id(&mod_root.join("data/weapons"), "wpn", "id")?;
     trace.record_stage(
-        "spec.weapon_files",
+        "spec.weapon_specs",
         timer,
-        [("files", wpn_files.len().to_string())],
+        [("files", weapon_specs.len().to_string())],
     );
     let timer = trace.timer();
     let (variant_files, variant_warnings) = load_variant_files(mod_root)?;
@@ -258,11 +283,11 @@ pub(super) fn load_spec_bundle(
     );
     let warnings = variant_warnings.into_iter().chain(skin_warnings).collect();
     let timer = trace.timer();
-    let proj_files = projectiles::load_projectile_files(mod_root, core_dir)?;
+    let projectile_specs = projectiles::load_projectile_specs(mod_root, core_dir)?;
     trace.record_stage(
-        "spec.projectile_files",
+        "spec.projectile_specs",
         timer,
-        [("files", proj_files.len().to_string())],
+        [("files", projectile_specs.len().to_string())],
     );
     let timer = trace.timer();
     let system_files = load_json_dir_by_id(&mod_root.join("data/shipsystems"), "system", "id")?;
@@ -282,8 +307,8 @@ pub(super) fn load_spec_bundle(
         ship_files,
         variant_files,
         skin_files,
-        wpn_files,
-        proj_files,
+        weapon_specs,
+        projectile_specs,
         system_files,
         skill_files,
         warnings,
@@ -293,8 +318,8 @@ pub(super) fn load_spec_bundle(
         total_timer,
         [
             ("shipFiles", bundle.ship_files.len().to_string()),
-            ("weaponFiles", bundle.wpn_files.len().to_string()),
-            ("projectileFiles", bundle.proj_files.len().to_string()),
+            ("weaponSpecs", bundle.weapon_specs.len().to_string()),
+            ("projectileSpecs", bundle.projectile_specs.len().to_string()),
             ("systemFiles", bundle.system_files.len().to_string()),
             ("skillFiles", bundle.skill_files.len().to_string()),
             ("variantFiles", bundle.variant_files.len().to_string()),
@@ -302,24 +327,6 @@ pub(super) fn load_spec_bundle(
         ],
     );
     Ok(bundle)
-}
-
-pub(super) fn write_performance_trace(
-    app_handle: tauri::AppHandle,
-    trace: &PerformanceTrace,
-    root_fields: &[(&str, String)],
-) {
-    for message in trace.log_messages(root_fields) {
-        let _ = app_log::append_log_for_app(
-            app_handle.clone(),
-            AppLogEntry {
-                level: "info".to_string(),
-                message,
-                path: None,
-                line: None,
-            },
-        );
-    }
 }
 
 #[cfg(test)]
@@ -345,6 +352,95 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
         assert!(error.contains("bad.variant"));
         assert!(error.contains("hullId"));
+    }
+
+    #[test]
+    fn open_project_session_rejects_corrupted_mod_info() {
+        let root = temp_dir("mod_info_corrupted");
+        write_utf8_no_bom(&root.join("mod_info.json"), "{").unwrap();
+
+        let mut trace = PerformanceTrace::new("project.openSession");
+        let error = open_project_session_traced(&root, None, &mut trace)
+            .unwrap_err()
+            .to_string();
+
+        let _ = std::fs::remove_dir_all(root);
+        assert!(error.contains("mod_info.json"));
+    }
+
+    #[test]
+    fn open_project_session_rejects_corrupted_mission_list() {
+        let root = temp_dir("mission_list_corrupted");
+        std::fs::create_dir_all(root.join("data/missions")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/missions/mission_list.csv"),
+            "mission\r\nbad,extra\r\n",
+        )
+        .unwrap();
+
+        let mut trace = PerformanceTrace::new("project.openSession");
+        let error = open_project_session_traced(&root, None, &mut trace)
+            .unwrap_err()
+            .to_string();
+
+        let _ = std::fs::remove_dir_all(root);
+        assert!(error.contains("mission_list.csv"));
+    }
+
+    #[test]
+    fn open_project_session_manifest_summaries_only_include_public_csv_tables() {
+        let root = temp_dir("manifest_public_csv_tables");
+        std::fs::create_dir_all(root.join("data/missions")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/missions/mission_list.csv"),
+            "mission\r\ndemo\r\n",
+        )
+        .unwrap();
+
+        let mut trace = PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
+        let manifest_json = serde_json::to_value(&manifest).unwrap();
+
+        let _ = std::fs::remove_dir_all(root);
+        assert_eq!(manifest.entity_summaries.missions, 1);
+        assert!(!manifest_json["tableSummaries"]
+            .as_object()
+            .unwrap()
+            .contains_key(MISSION_LIST_TABLE_KEY));
+    }
+
+    #[test]
+    fn open_project_session_manifest_counts_valid_table_entities() {
+        let root = temp_dir("manifest_table_entity_counts");
+        std::fs::create_dir_all(root.join("data/hulls")).unwrap();
+        std::fs::create_dir_all(root.join("data/campaign")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/hulls/wing_data.csv"),
+            "id,variant\r\nwing_a,var_a\r\n,\r\n#comment,\r\nwing_b,var_b\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("data/campaign/sim_opponents.csv"),
+            "variant id\r\nvar_a\r\n\r\n#comment\r\nvar_b\r\n",
+        )
+        .unwrap();
+
+        let mut trace = PerformanceTrace::new("project.openSession");
+        let loaded = open_project_session_traced(&root, None, &mut trace).unwrap();
+
+        let _ = std::fs::remove_dir_all(root);
+        assert_eq!(
+            loaded.table_entity_summaries[&crate::models::CsvTableKey::Wings],
+            2
+        );
+        assert_eq!(
+            loaded.table_entity_summaries[&crate::models::CsvTableKey::SimOpponents],
+            2
+        );
+        assert_eq!(
+            loaded.table_summaries[&crate::models::CsvTableKey::Wings].total_rows,
+            None
+        );
     }
 
     #[test]

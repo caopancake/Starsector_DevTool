@@ -69,18 +69,18 @@
 import { computed, h, ref, watch } from 'vue';
 import { useSettingsStore } from '@/stores/settings.store';
 import type { VariantFile } from '@/shared/types';
-import type { SelectOption } from '@/domain/schema/schema-registry';
+import { isSelectOptionGroup, selectOptionText, type SelectOption } from '@/domain/schema/schema-registry';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 
 const props = defineProps<{
-  selectedId: string;
+  selectedId: string | null;
   variants: VariantFile[];
   variantSprites: Record<string, string>;
   hullOptions: SelectOption[];
   createVariant: (hullId: string, variantId: string) => Promise<boolean>;
   deleteVariant: (variant: VariantFile) => Promise<boolean>;
 }>();
-const emit = defineEmits<{ select: [variantId: string] }>();
+const emit = defineEmits<{ select: [variantId: string | null] }>();
 
 const settings = useSettingsStore();
 const feedback = useAppFeedback();
@@ -120,14 +120,14 @@ function compareVariants(a: VariantFile, b: VariantFile): number {
 }
 
 function renderHullOptionLabel(option: SelectOption) {
-  if (option.type === 'group') return option.label;
-  if (!option.sprite) return option.label ?? option.value ?? '';
+  if (isSelectOptionGroup(option)) return selectOptionText(option);
+  if (!option.sprite) return selectOptionText(option);
   return h('span', { class: 'schema-select-option' }, [
     h('img', {
       src: option.sprite,
       class: 'schema-select-option-thumb',
     }),
-    h('span', { class: 'schema-select-option-label' }, option.label ?? option.value ?? ''),
+    h('span', { class: 'schema-select-option-label' }, selectOptionText(option)),
   ]);
 }
 
@@ -135,7 +135,7 @@ watch(
   variants,
   (items) => {
     if (items.length === 0) {
-      emit('select', '');
+      emit('select', null);
       return;
     }
     if (!items.some((variant) => variant.variantId === props.selectedId)) {

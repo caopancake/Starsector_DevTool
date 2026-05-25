@@ -1,24 +1,26 @@
 <template>
   <CsvGrid
-    :editing="tables.editing"
-    :is-dirty="tables.isDirty"
+    :editing="csvTable.tables.editing"
+    :is-dirty="csvTable.tables.isDirty"
     :model="gridModel"
-    :selected-row-key="tables.selectedRowKey"
-    @request-window="loadTableWindow"
-    @select-row="tables.selectRowByKey"
-    @update-cell="tables.updateCellValueByKey"
+    :selected-row-key="csvTable.tables.selectedRowKey"
+    @request-window="csvTable.loadTableWindow"
+    @select-row="csvTable.tables.selectRowByKey"
+    @update-cell="csvTable.tables.updateCellValueByKey"
   />
-  <div v-if="tables.rows.length > 0 && tables.visibleColumns.length === 0" class="table-empty-note">
-    当前表有 {{ tables.rows.length }} 行，但没有可显示列。请检查 CSV 表头。
+  <div v-if="csvTable.tables.filteredRowCount > 0 && csvTable.tables.visibleColumns.length === 0" class="table-empty-note">
+    当前表有 {{ csvTable.tables.filteredRowCount }} 行，但没有可显示列。请检查 CSV 表头。
   </div>
-  <div v-else-if="tables.rows.length > 0 && tables.filteredRows.length === 0" class="table-empty-note">
-    当前表有 {{ tables.rows.length }} 行，但被搜索或势力过滤隐藏。
+  <div v-else-if="csvTable.tables.rows.length > 0 && csvTable.tables.filteredRowCount === 0" class="table-empty-note">
+    当前表有 {{ csvTable.tables.rows.length }} 行，但被搜索或势力过滤隐藏。
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import CsvGrid from '@/app/components/tables/CsvGrid.vue';
-import { useCsvTableViewModel } from '@/app/composables/use-csv-table-view-model';
+import type { CsvTableViewModel } from '@/app/composables/use-csv-table-view-model';
 
-const { tables, gridModel, loadTableWindow } = useCsvTableViewModel();
+const props = defineProps<{ csvTable: CsvTableViewModel }>();
+const gridModel = computed(() => props.csvTable.gridModel.value);
 </script>

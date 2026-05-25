@@ -63,25 +63,16 @@ import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import EditorInspector from '@/app/components/editors/common/EditorInspector.vue';
 import type { RowData } from '@/shared/types';
 import { num, rgba, str } from '@/shared/lib/starsector';
+import { WEAPON_SPRITE_DRAW_ORDER, type WeaponSpriteField, type WeaponViewMode } from '@/domain/editors/lib/weapon-sprite-fields';
 
 const props = defineProps<{
   weaponId: string;
-  weaponRow: RowData;
-  wpnFiles: Record<string, RowData>;
-  projFiles: Record<string, RowData>;
+  weaponCsvRow: RowData;
+  weaponSpec: RowData;
+  projectileSpecs: Record<string, RowData>;
   spriteData?: Record<string, string>;
 }>();
 defineEmits<{ close: [] }>();
-type WeaponViewMode = 'turret' | 'hardpoint';
-type SpriteField =
-  | 'turretSprite'
-  | 'turretGunSprite'
-  | 'turretGlowSprite'
-  | 'turretUnderSprite'
-  | 'hardpointSprite'
-  | 'hardpointGunSprite'
-  | 'hardpointGlowSprite'
-  | 'hardpointUnderSprite';
 
 const canvasRef = ref<HTMLCanvasElement>();
 const previewStageRef = ref<HTMLElement>();
@@ -89,7 +80,7 @@ const running = ref(true);
 const firing = ref(false);
 const speed = ref(1);
 const viewMode = ref<WeaponViewMode>('turret');
-const spriteImages = new Map<SpriteField, InstanceType<typeof Image>>();
+const spriteImages = new Map<WeaponSpriteField, InstanceType<typeof Image>>();
 let anim = 0;
 let last = 0;
 let fireTimer = 0;
@@ -128,10 +119,10 @@ interface BarrelState {
 
 let projectiles: ProjectilePreviewState[] = [];
 let beam: BeamPreviewState = { alpha: 0, length: 0, offset: 0, phase: 'idle', timer: 0 };
-const csv = computed(() => props.weaponRow || {});
-const wpn = computed(() => props.wpnFiles[props.weaponId] || {});
-const proj = computed(() => props.projFiles[str(wpn.value.projectileSpecId)] || {});
-const hasWeaponSpec = computed(() => Boolean(props.wpnFiles[props.weaponId]));
+const csv = computed(() => props.weaponCsvRow || {});
+const wpn = computed(() => props.weaponSpec || {});
+const proj = computed(() => props.projectileSpecs[str(wpn.value.projectileSpecId)] || {});
+const hasWeaponSpec = computed(() => Object.keys(props.weaponSpec).length > 0);
 const projectileId = computed(() => str(wpn.value.projectileSpecId) || '-');
 const previewSubtitle = computed(() => `武器 ${props.weaponId} · 弹体 ${projectileId.value}`);
 const speedLabel = computed(() => `${speed.value.toFixed(1)}x`);
@@ -171,10 +162,6 @@ const barrelCount = computed(() => Math.max(1, Math.floor(params.value.offsets.l
 const isBurstBeam = computed(
   () => params.value.specClass === 'beam' && params.value.hasBurstSize && params.value.hasBurstDelay && params.value.burstDelay > 0,
 );
-const spriteDrawOrder: Record<WeaponViewMode, SpriteField[]> = {
-  turret: ['turretUnderSprite', 'turretSprite', 'turretGunSprite', 'turretGlowSprite'],
-  hardpoint: ['hardpointUnderSprite', 'hardpointSprite', 'hardpointGunSprite', 'hardpointGlowSprite'],
-};
 const spriteOriginRatio: Record<WeaponViewMode, { x: number; y: number }> = {
   turret: { x: 0.5, y: 0.5 },
   hardpoint: { x: 0.5, y: 0.75 },
@@ -253,17 +240,17 @@ function weaponOrigin() {
   const c = canvasRef.value;
   return { x: 80, y: c ? c.height / 2 : 0 };
 }
-function barrelAt(index: number): BarrelState {
+function barrelAt(index: number): BarrelState | null {
+  if (index < 0 || index >= barrelCount.value) return null;
   const p = params.value;
   const origin = weaponOrigin();
   const s = scalePx();
-  const safeIndex = Math.max(0, Math.min(index, barrelCount.value - 1));
-  const bx = p.offsets[safeIndex * 2] || 0;
-  const by = p.offsets[safeIndex * 2 + 1] || 0;
+  const bx = p.offsets[index * 2] || 0;
+  const by = p.offsets[index * 2 + 1] || 0;
   return {
     x: origin.x + bx * s,
     y: origin.y - by * s,
-    angle: p.angles[safeIndex] || 0,
+    angle: p.angles[index] || 0,
   };
 }
 function fireProjectile(missile = false) {
@@ -271,6 +258,7 @@ function fireProjectile(missile = false) {
   const s = scalePx();
   const create = (i: number) => {
     const barrel = barrelAt(i);
+    if (!barrel) return;
     const spread = ((p.minSpread + Math.random() * (p.maxSpread - p.minSpread)) * Math.PI) / 180;
     const ang = (barrel.angle * Math.PI) / 180 + (Math.random() - 0.5) * spread;
     projectiles.push({
@@ -411,7 +399,7 @@ function drawWeapon(ctx: CanvasRenderingContext2D) {
     ctx.strokeRect(origin.x - 18, origin.y - 12, 36, 24);
     return;
   }
-  for (const field of spriteDrawOrder[viewMode.value]) {
+  for (const field of WEAPON_SPRITE_DRAW_ORDER[viewMode.value]) {
     const image = spriteImages.get(field);
     if (image) drawSpriteLayer(ctx, image);
   }
@@ -446,6 +434,7 @@ function draw() {
     const bw = Math.max(1, p.beamWidth * scalePx() * 0.15);
     for (let i = 0; i < barrelCount.value; i++) {
       const barrel = barrelAt(i);
+      if (!barrel) continue;
       ctx.save();
       ctx.translate(barrel.x, barrel.y);
       ctx.rotate((-barrel.angle * Math.PI) / 180);
@@ -509,7 +498,7 @@ function resize() {
 }
 function loadSpriteImages() {
   spriteImages.clear();
-  for (const [field, dataUrl] of Object.entries(props.spriteData ?? {}) as [SpriteField, string][]) {
+  for (const [field, dataUrl] of Object.entries(props.spriteData ?? {}) as [WeaponSpriteField, string][]) {
     if (!dataUrl) continue;
     const image = new Image();
     image.onload = () => draw();

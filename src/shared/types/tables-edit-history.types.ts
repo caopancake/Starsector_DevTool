@@ -1,4 +1,5 @@
-import type { RowData, TableKey } from '@/shared/types';
+import type { RowData } from '@/shared/types/json.types';
+import type { TableKey } from '@/shared/types/tables.types';
 
 export interface CsvCellEditEvent {
   type: 'csv-cell-edit';

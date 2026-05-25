@@ -7,9 +7,9 @@ import { scanWorkspaceOverview } from '@/services/session.service';
 import { loadPersistedWorkspace, savePersistedWorkspace } from '@/services/workspace-state.service';
 
 interface RestoreWorkspaceOptions {
-  fallbackStarsectorRoot: string | null;
+  knownStarsectorRoot: string | null;
   loadCoreFields?: () => void | Promise<void>;
-  onModRestoreError: (modRoot: string, displayName: string, error: unknown) => void;
+  onModRestoreError: (modRoot: string, displayName: string, error: unknown) => void | Promise<void>;
   onModRestoreWarnings?: (displayName: string, warnings: string[]) => void;
 }
 
@@ -29,8 +29,12 @@ export function watchWorkspacePersistence() {
   );
 
   return {
-    setRestoring(value: boolean) {
-      restoring = value;
+    beginRestore() {
+      restoring = true;
+    },
+    async finishRestore(persist = true) {
+      restoring = false;
+      if (persist) await savePersistedWorkspace(workspace.toPersistedState());
     },
     stop() {
       if (saveTimer !== null) window.clearTimeout(saveTimer);
@@ -52,7 +56,7 @@ export async function restorePersistedWorkspace(options: RestoreWorkspaceOptions
 
   for (const mod of persisted.mods) {
     try {
-      const loaded = await restoreWorkspaceMod(mod, persisted.starsectorRoot ?? options.fallbackStarsectorRoot);
+      const loaded = await restoreWorkspaceMod(mod, persisted.starsectorRoot ?? options.knownStarsectorRoot);
       const name = cell(loaded.modInfo?.name) || mod.displayName;
       const version = formatModVersion(loaded.modInfo?.version) || mod.version;
       workspace.updateModInfo(mod.modRoot, name, version);
@@ -62,7 +66,7 @@ export async function restorePersistedWorkspace(options: RestoreWorkspaceOptions
         options.onModRestoreWarnings?.(name, warnings);
       }
     } catch (error) {
-      options.onModRestoreError(mod.modRoot, mod.displayName || mod.modRoot, error);
+      await options.onModRestoreError(mod.modRoot, mod.displayName || mod.modRoot, error);
     }
   }
 
@@ -73,7 +77,7 @@ export async function restorePersistedWorkspace(options: RestoreWorkspaceOptions
     }
   }
   workspace.navigateTo('overview');
-  void options.loadCoreFields?.();
+  await options.loadCoreFields?.();
 }
 
 export type WorkspacePersistenceWatcher = ReturnType<typeof watchWorkspacePersistence>;

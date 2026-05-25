@@ -1,4 +1,5 @@
 import { frontendFile } from '../shared/files.mjs';
+import { classifyFrontendPath } from '../shared/classify.mjs';
 import { importedProjectPaths } from '../shared/imports.mjs';
 
 export const schemaModuleBoundaryRule = {
@@ -7,15 +8,17 @@ export const schemaModuleBoundaryRule = {
     const failures = [];
     for (const file of files) {
       if (!frontendFile(file.rel)) continue;
-      if (isSchemaFieldRenderer(file.rel) && !/\bsettings\.isPlainEditMode\b|\bplainMode\b/.test(file.text)) {
+      const current = classifyFrontendPath(file.rel);
+      if (isSchemaFieldRenderer(file.text, current) && !/\bsettings\.isPlainEditMode\b|\bplainMode\b/.test(file.text)) {
         failures.push(`${file.rel}: schema field rendering must cover plain text and enhanced edit modes`);
       }
-      if (isSchemaRenderer(file.rel) && /\bresolveSource\s*\(/.test(file.text)) {
+      if (isSchemaComponent(current) && /\bresolveSource\s*\(/.test(file.text)) {
         failures.push(`${file.rel}: schema sources must use session source query, not local source resolution`);
       }
       for (const imported of importedProjectPaths(file)) {
         if (imported.typeOnly) continue;
-        if (isSchemaRenderer(file.rel) && /^src\/shared\/api\//.test(imported.resolved)) {
+        const target = classifyFrontendPath(imported.resolved);
+        if (isSchemaComponent(current) && target.role === 'api') {
           failures.push(`${file.rel}: schema rendering must not call shared/api directly`);
         }
       }
@@ -27,10 +30,10 @@ export const schemaModuleBoundaryRule = {
   },
 };
 
-function isSchemaRenderer(path) {
-  return /^src\/app\/components\/schema\//.test(path);
+function isSchemaComponent(current) {
+  return current.layer === 'app' && current.role === 'component' && current.domain === 'schema';
 }
 
-function isSchemaFieldRenderer(path) {
-  return /^src\/app\/components\/schema\/SchemaFieldRenderer\.vue$/.test(path);
+function isSchemaFieldRenderer(text, current) {
+  return isSchemaComponent(current) && /\bfield\s*:\s*FieldSchema\b/.test(text);
 }

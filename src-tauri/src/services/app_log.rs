@@ -1,5 +1,6 @@
 use crate::{
     errors::{AppError, AppResult},
+    io::write_utf8_no_bom,
     models::{AppLogEntry, AppLogStatus},
     services::{app_paths, system_open},
 };
@@ -12,23 +13,23 @@ use std::{
 
 pub const LOG_FILE: &str = "starsector-devtool.log";
 
-pub fn append_log_for_app(app_handle: tauri::AppHandle, entry: AppLogEntry) -> AppResult<()> {
+pub fn append_app_log(app_handle: tauri::AppHandle, entry: AppLogEntry) -> AppResult<()> {
     let app_data = app_paths::app_data_dir(app_handle)?;
     append_log(&app_data, &entry)
 }
 
-pub fn log_status_for_app(app_handle: tauri::AppHandle) -> AppResult<AppLogStatus> {
+pub fn app_log_status(app_handle: tauri::AppHandle) -> AppResult<AppLogStatus> {
     let app_data = app_paths::app_data_dir(app_handle)?;
     log_status(&app_data)
 }
 
-pub fn open_log_file_for_app(app_handle: tauri::AppHandle) -> AppResult<()> {
+pub fn open_app_log_file(app_handle: tauri::AppHandle) -> AppResult<()> {
     let app_data = app_paths::app_data_dir(app_handle)?;
     ensure_log_file(&app_data)?;
     system_open::open_path(&log_path(&app_data))
 }
 
-pub fn clear_log_file_for_app(app_handle: tauri::AppHandle) -> AppResult<AppLogStatus> {
+pub fn clear_app_log_file(app_handle: tauri::AppHandle) -> AppResult<AppLogStatus> {
     let app_data = app_paths::app_data_dir(app_handle)?;
     clear_log_file(&app_data)?;
     log_status(&app_data)
@@ -88,11 +89,8 @@ pub fn clear_log_file(app_data_dir: &Path) -> AppResult<()> {
         )
     })?;
     let path = log_path(app_data_dir);
-    fs::write(&path, []).map_err(|error| {
-        AppError::context(
-            format!("清除日志文件失败 ({})", path.display()),
-            error.into(),
-        )
+    write_utf8_no_bom(&path, "").map_err(|error| {
+        AppError::context(format!("清除日志文件失败 ({})", path.display()), error)
     })?;
     Ok(())
 }
@@ -112,11 +110,8 @@ fn ensure_log_file(app_data_dir: &Path) -> AppResult<()> {
     if path.exists() {
         return Ok(());
     }
-    fs::write(&path, []).map_err(|error| {
-        AppError::context(
-            format!("创建日志文件失败 ({})", path.display()),
-            error.into(),
-        )
+    write_utf8_no_bom(&path, "").map_err(|error| {
+        AppError::context(format!("创建日志文件失败 ({})", path.display()), error)
     })?;
     Ok(())
 }
@@ -125,7 +120,7 @@ fn render_log_entry(entry: &AppLogEntry) -> String {
     let mut line = format!(
         "[{}] [{}] {}",
         timestamp_seconds(),
-        entry.level,
+        entry.level.as_str(),
         entry.message
     );
     if let Some(path) = &entry.path {
@@ -150,6 +145,7 @@ fn timestamp_seconds() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::io::read_utf8_no_bom;
 
     #[test]
     fn append_log_and_status_roundtrip() {
@@ -157,7 +153,7 @@ mod tests {
         append_log(
             &dir,
             &AppLogEntry {
-                level: "warning".to_string(),
+                level: crate::models::AppLogLevel::Warning,
                 message: "测试 warning".to_string(),
                 path: Some("D:/test/file.csv".to_string()),
                 line: Some(3),
@@ -165,7 +161,7 @@ mod tests {
         )
         .unwrap();
         let status = log_status(&dir).unwrap();
-        let text = fs::read_to_string(dir.join(LOG_FILE)).unwrap();
+        let text = read_utf8_no_bom(&dir.join(LOG_FILE)).unwrap();
         let _ = fs::remove_dir_all(dir);
         assert!(status.size_bytes > 0);
         assert!(text.contains("[warning] 测试 warning"));
@@ -179,7 +175,7 @@ mod tests {
         append_log(
             &dir,
             &AppLogEntry {
-                level: "info".to_string(),
+                level: crate::models::AppLogLevel::Info,
                 message: "hello".to_string(),
                 path: None,
                 line: None,

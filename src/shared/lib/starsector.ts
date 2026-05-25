@@ -1,4 +1,5 @@
 import type { JsonValue, RowData, TableKey } from '@/shared/types';
+import { isInternalJsonFieldKey } from '@/shared/lib/json-fields';
 
 export const TABLE_COLUMNS: Record<TableKey, string[]> = {
   ships: [
@@ -189,18 +190,18 @@ export function formatModVersion(value: JsonValue | undefined): string {
   return cell(value);
 }
 
-export function num(value: JsonValue | undefined, fallback = 0): number {
+export function num(value: JsonValue | undefined, defaultValue = 0): number {
   const n = typeof value === 'number' ? value : parseFloat(cell(value));
-  return Number.isFinite(n) ? n : fallback;
+  return Number.isFinite(n) ? n : defaultValue;
 }
 
-export function str(value: JsonValue | undefined, fallback = ''): string {
+export function str(value: JsonValue | undefined, defaultValue = ''): string {
   const s = cell(value);
-  return s || fallback;
+  return s || defaultValue;
 }
 
-export function arr(value: JsonValue | undefined, fallback: number[] = []): number[] {
-  return Array.isArray(value) ? value.map((v) => num(v)) : [...fallback];
+export function arr(value: JsonValue | undefined, defaultValue: number[] = []): number[] {
+  return Array.isArray(value) ? value.map((v) => num(v)) : [...defaultValue];
 }
 
 export function rowDisplayId(row: RowData): string {
@@ -232,7 +233,7 @@ export function getColumns(tab: TableKey, headers: string[]): string[] {
     }
   }
   for (const col of headers) {
-    if (col && !col.startsWith('_') && !seen.has(col)) {
+    if (col && !isInternalJsonFieldKey(col) && !seen.has(col)) {
       result.push(col);
       seen.add(col);
     }

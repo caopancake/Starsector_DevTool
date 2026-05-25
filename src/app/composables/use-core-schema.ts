@@ -1,34 +1,58 @@
-import { computed, ref } from 'vue';
-import { scanCoreFields } from '@/services/assets.service';
+import { computed, ref, watch } from 'vue';
+import { queryCoreFields } from '@/services/assets.service';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useProjectStore } from '@/stores/project.store';
 import { getSchema, mergeSchemaWithCoreFields } from '@/domain/schema/schema-registry';
+import { recordLogBestEffort } from '@/services/app-config.service';
+import { formatError } from '@/shared/lib/errors';
 import type { FileSchema } from '@/domain/schema/schema.types';
 
-type CoreFields = Awaited<ReturnType<typeof scanCoreFields>>;
+type CoreFields = Awaited<ReturnType<typeof queryCoreFields>>;
 
 const coreFields = ref<CoreFields>({});
 const loaded = ref(false);
 const loading = ref(false);
+const loadedRoot = ref<string | null>(null);
 
 export function useCoreSchema() {
   const settings = useSettingsStore();
   const project = useProjectStore();
 
-  const starsectorRoot = computed(() => settings.starsectorRoot || project.activeManifest?.starsectorRoot || '');
+  const starsectorRoot = computed(() => settings.starsectorRoot ?? project.activeManifest?.starsectorRoot ?? null);
 
   async function loadCoreFields() {
     const root = starsectorRoot.value;
-    if (!root || loading.value) return;
+    if (!root) {
+      resetCoreFields();
+      return;
+    }
+    if (loading.value || loadedRoot.value === root) return;
+    if (loadedRoot.value !== root) resetCoreFields();
     loading.value = true;
     try {
-      coreFields.value = await scanCoreFields(root);
+      coreFields.value = await queryCoreFields(root);
+      loadedRoot.value = root;
       loaded.value = true;
-    } catch {
+    } catch (error) {
       coreFields.value = {};
+      loadedRoot.value = null;
+      loaded.value = false;
+      recordLogBestEffort({
+        level: 'error',
+        message: `加载原版字段失败：${formatError(error)}`,
+        path: root,
+        line: null,
+      });
     } finally {
       loading.value = false;
     }
+    if (starsectorRoot.value && starsectorRoot.value !== root) void loadCoreFields();
+  }
+
+  function resetCoreFields() {
+    coreFields.value = {};
+    loadedRoot.value = null;
+    loaded.value = false;
   }
 
   function getMergedSchema(id: string): FileSchema | null {
@@ -37,6 +61,10 @@ export function useCoreSchema() {
     const fields = coreFields.value[id] ?? [];
     return mergeSchemaWithCoreFields(staticSchema, fields);
   }
+
+  watch(starsectorRoot, () => {
+    void loadCoreFields();
+  });
 
   return {
     coreFields,

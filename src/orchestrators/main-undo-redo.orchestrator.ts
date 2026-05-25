@@ -1,5 +1,5 @@
 import type { AppFeedback } from '@/shared/types';
-import { replayNextFileHistoryEntry } from '@/orchestrators/file-history-replay.orchestrator';
+import { replayNextFileRedo, replayNextFileUndo } from '@/orchestrators/file-history-replay.orchestrator';
 import { useProjectStore } from '@/stores/project.store';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { useTablesStore } from '@/stores/tables.store';
@@ -8,32 +8,32 @@ export async function undoMainWindow(feedback: AppFeedback) {
   const tables = useTablesStore();
   const currentTableCsvHistory = useTablesEditHistoryStore();
   const project = useProjectStore();
-  const modRoot = project.activeModRoot ?? '';
+  const modRoot = project.activeModRoot;
   const currentTable = tables.currentTab;
 
-  if (currentTableCsvHistory.canUndoCsvEdit(modRoot, currentTable)) {
+  if (modRoot && currentTableCsvHistory.canUndoCsvEdit(modRoot, currentTable)) {
     if (!currentTableCsvHistory.undoCsvEdit(modRoot, currentTable, tables.getActiveModTableState())) {
       feedback.error('撤销 CSV 编辑失败');
     }
     return;
   }
 
-  replayNextFileHistoryEntry('undo', project, tables, feedback);
+  replayNextFileUndo(project, tables, feedback);
 }
 
 export async function redoMainWindow(feedback: AppFeedback) {
   const tables = useTablesStore();
   const currentTableCsvHistory = useTablesEditHistoryStore();
   const project = useProjectStore();
-  const modRoot = project.activeModRoot ?? '';
+  const modRoot = project.activeModRoot;
   const currentTable = tables.currentTab;
 
-  if (currentTableCsvHistory.canRedoCsvEdit(modRoot, currentTable)) {
+  if (modRoot && currentTableCsvHistory.canRedoCsvEdit(modRoot, currentTable)) {
     if (!currentTableCsvHistory.redoCsvEdit(modRoot, currentTable, tables.getActiveModTableState())) {
       feedback.error('重做 CSV 编辑失败');
     }
     return;
   }
 
-  replayNextFileHistoryEntry('redo', project, tables, feedback);
+  replayNextFileRedo(project, tables, feedback);
 }

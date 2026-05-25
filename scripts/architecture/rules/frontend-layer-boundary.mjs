@@ -18,21 +18,15 @@ export const frontendLayerBoundaryRule = {
         if (!imported.typeOnly && target.role === 'api' && current.layer !== 'services') {
           failures.push(`${file.rel}: shared/api is a wire boundary; frontend business code must go through services`);
         }
-        if (
-          !imported.typeOnly &&
-          current.role === 'component' &&
-          target.layer === 'services' &&
-          isQueryWriteOrResourceService(imported.resolved)
-        ) {
-          failures.push(`${file.rel}: components must consume ViewModel state/actions instead of services (${imported.specifier})`);
+        if (!imported.typeOnly && current.role === 'component' && target.layer === 'services') {
+          failures.push(
+            `${file.rel}: components must consume ViewModel/composable state/actions instead of services (${imported.specifier})`,
+          );
         }
-        if (
-          !imported.typeOnly &&
-          current.role === 'component' &&
-          target.layer === 'orchestrators' &&
-          isWriteOrResourceOrchestrator(imported.resolved)
-        ) {
-          failures.push(`${file.rel}: components must consume ViewModel actions instead of orchestrators (${imported.specifier})`);
+        if (!imported.typeOnly && current.role === 'component' && target.layer === 'orchestrators') {
+          failures.push(
+            `${file.rel}: components must consume ViewModel/composable actions instead of orchestrators (${imported.specifier})`,
+          );
         }
         if (!imported.typeOnly && current.role === 'composable' && target.layer === 'shared' && target.role === 'api') {
           failures.push(`${file.rel}: ViewModel/composable code must not call shared/api directly`);
@@ -40,12 +34,15 @@ export const frontendLayerBoundaryRule = {
       }
       for (const imported of importSpecifiers(file.text)) {
         if (imported.typeOnly) continue;
-        if (imported.specifier.startsWith('@tauri-apps/') && current.layer !== 'shared' && current.layer !== 'windows') {
+        if (imported.specifier.startsWith('@tauri-apps/') && !tauriRuntimeBoundary(current)) {
           failures.push(`${file.rel}: Tauri runtime access belongs behind shared/api or window runtime modules`);
         }
       }
-      if (current.layer !== 'shared' && /\binvoke\s*\(/.test(file.text)) {
+      if (current.role !== 'api' && /\binvoke\s*\(/.test(file.text)) {
         failures.push(`${file.rel}: Tauri invoke belongs to shared/api wire adapters`);
+      }
+      if (current.role === 'api' && /\bexport\s+(?:interface|type)\s+(?!\{)/.test(file.text)) {
+        failures.push(`${file.rel}: shared/api must not define business-visible types; put them in shared/types or domain`);
       }
       if (/\b(?:localStorage|sessionStorage|indexedDB)\b/.test(file.text)) {
         failures.push(`${file.rel}: browser storage is forbidden; persist app state through app config services`);
@@ -54,6 +51,10 @@ export const frontendLayerBoundaryRule = {
     return failures;
   },
 };
+
+function tauriRuntimeBoundary(current) {
+  return current.role === 'api' || (current.layer === 'shared' && current.domain === 'runtime') || current.layer === 'windows';
+}
 
 function validFrontendDependency(fromLayer, toLayer) {
   const rank = {
@@ -76,12 +77,4 @@ function validFrontendDependency(fromLayer, toLayer) {
   if (fromLayer === 'app') return toLayer !== 'styles';
   if (fromLayer === 'styles') return toLayer === 'styles';
   return rank[toLayer] <= rank[fromLayer];
-}
-
-function isQueryWriteOrResourceService(path) {
-  return /\/(?:query|resource-cache|csv-table|config-entity|write)\.service\.ts$/.test(path);
-}
-
-function isWriteOrResourceOrchestrator(path) {
-  return /\/(?:config-save|editor-save|file-history-replay|file-save|table-save)\.orchestrator\.ts$/.test(path);
 }

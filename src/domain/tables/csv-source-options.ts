@@ -1,4 +1,11 @@
-import type { SelectOption } from '@/domain/schema/schema-registry';
+import {
+  flattenSelectOptions,
+  includeCurrentSelectOptions,
+  isSelectOptionGroup,
+  selectOptionText,
+  type SelectOption,
+} from '@/domain/schema/schema-registry';
+import { TABLE_KEYS, type TableKey } from '@/shared/types';
 
 export interface CsvSourceIndex {
   optionsBySource: Map<string, SelectOption[]>;
@@ -6,8 +13,28 @@ export interface CsvSourceIndex {
   valueSetsBySource: Map<string, Set<string>>;
 }
 
+export interface ParsedCsvSource {
+  column: string;
+  table: TableKey;
+}
+
 const EMPTY_OPTIONS: SelectOption[] = [];
 const EMPTY_VALUE_SET = new Set<string>();
+const tableKeys = new Set<string>(TABLE_KEYS);
+
+export function parseCsvSource(source: string | undefined | null): ParsedCsvSource | null {
+  if (!source) return null;
+  const trimmed = source.startsWith('csv:') ? source.slice(4) : source;
+  const separator = trimmed.indexOf('.');
+  if (separator <= 0 || separator === trimmed.length - 1) return null;
+  const table = trimmed.slice(0, separator);
+  if (!tableKeys.has(table)) return null;
+  return { table: table as TableKey, column: trimmed.slice(separator + 1) };
+}
+
+export function isCsvSource(source: string | undefined | null): boolean {
+  return Boolean(parseCsvSource(source));
+}
 
 export function createCsvSourceIndex(
   sources: Iterable<string | undefined | null>,
@@ -43,21 +70,21 @@ export function sourceValue(index: CsvSourceIndex, source: string | undefined | 
 
 export function includeCurrentValue(options: SelectOption[], existingValues: Set<string>, value: string): SelectOption[] {
   const trimmed = value.trim();
-  if (!trimmed || existingValues.has(trimmed)) return options;
-  return [{ type: 'group', label: '当前值', value: '__current', children: [{ label: trimmed, value: trimmed }] }, ...options];
+  return trimmed && !existingValues.has(trimmed) ? includeCurrentSelectOptions(options, [trimmed]) : options;
 }
 
 export function includeCurrentValues(options: SelectOption[], existingValues: Set<string>, values: string[]): SelectOption[] {
-  const missing = values.filter((value) => !existingValues.has(value)).map((value) => ({ label: value, value }));
-  if (missing.length === 0) return options;
-  return [{ type: 'group', label: '当前值', value: '__current', children: missing }, ...options];
+  return includeCurrentSelectOptions(
+    options,
+    values.filter((value) => !existingValues.has(value)),
+  );
 }
 
 function createValueIndex(options: SelectOption[]): Map<string, { group: string; option: SelectOption }> {
   const index = new Map<string, { group: string; option: SelectOption }>();
   for (const option of options) {
-    if (option.type === 'group') {
-      for (const child of option.children ?? []) index.set(child.value, { group: option.label, option: child });
+    if (isSelectOptionGroup(option)) {
+      for (const child of option.children ?? []) index.set(child.value, { group: selectOptionText(option), option: child });
     } else {
       index.set(option.value, { group: '', option });
     }
@@ -67,9 +94,6 @@ function createValueIndex(options: SelectOption[]): Map<string, { group: string;
 
 function createValueSet(options: SelectOption[]): Set<string> {
   const values = new Set<string>();
-  for (const option of options) {
-    values.add(option.value);
-    for (const child of option.children ?? []) values.add(child.value);
-  }
+  for (const option of flattenSelectOptions(options)) values.add(option.value);
   return values;
 }

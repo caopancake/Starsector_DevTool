@@ -14,9 +14,9 @@ export function withCause(message: string, cause: unknown, action?: string): App
   return new AppError(message, { action, cause });
 }
 
-export function toAppError(error: unknown, fallbackMessage: string, action?: string): AppError {
+export function toAppError(error: unknown, defaultMessage: string, action?: string): AppError {
   if (error instanceof AppError) return error;
-  return withCause(fallbackMessage, error, action);
+  return withCause(defaultMessage, error, action);
 }
 
 export function formatError(error: unknown): string {

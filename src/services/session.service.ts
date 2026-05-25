@@ -1,9 +1,9 @@
 import { pickDirectoryDialog } from '@/shared/runtime/dialog.runtime';
 import {
   closeProjectSession,
-  detectDirectory as detectDirectoryApi,
+  detectDirectory,
   invalidateCoreCache,
-  invalidateProjectSession as invalidateProjectSessionApi,
+  invalidateProjectSession,
   openProjectSession,
   scanGameOverview,
 } from '@/shared/api/session-api';
@@ -14,7 +14,7 @@ export async function pickDirectory(): Promise<string | null> {
   return pickDirectoryDialog('选择 Starsector 游戏目录或 Mod 目录');
 }
 
-export async function openProject(modRoot: string, starsectorRoot?: string | null): Promise<ProjectManifest> {
+export async function openProject(modRoot: string, starsectorRoot: string | null): Promise<ProjectManifest> {
   const fields = { modRoot, hasStarsectorRoot: Boolean(starsectorRoot) };
   const startedAt = performance.now();
   const invokeStartedAt = performance.now();
@@ -28,8 +28,8 @@ export function scanWorkspaceOverview(starsectorRoot: string): Promise<GameOverv
   return scanGameOverview(starsectorRoot);
 }
 
-export function detectWorkspaceDirectory(path: string, fallbackStarsectorRoot?: string | null): Promise<OpenDirectoryResult> {
-  return detectDirectoryApi(path, fallbackStarsectorRoot);
+export function detectWorkspaceDirectory(path: string, knownStarsectorRoot: string | null): Promise<OpenDirectoryResult> {
+  return detectDirectory(path, knownStarsectorRoot);
 }
 
 export function closeProject(sessionId: string): Promise<void> {
@@ -37,9 +37,9 @@ export function closeProject(sessionId: string): Promise<void> {
 }
 
 export function invalidateProject(sessionId: string, changedPaths: string[]): Promise<void> {
-  return invalidateProjectSessionApi(sessionId, changedPaths);
+  return invalidateProjectSession(sessionId, changedPaths);
 }
 
-export function invalidateProjectRootCache(starsectorRoot: string): Promise<void> {
+export function invalidateCoreCacheForRoot(starsectorRoot: string): Promise<void> {
   return invalidateCoreCache(starsectorRoot);
 }

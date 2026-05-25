@@ -3,13 +3,13 @@
     <ConfigMissionList
       :selected-id="selectedMission"
       :refresh-token="refreshToken"
-      :mission-rows="missionRows"
+      :missions="missionItems"
       :mission-icons="missionIcons"
-      :mod-root="modRoot"
-      :session-id="sessionId"
-      :query-missions="queryMissions"
+      :refresh-mission-list="refreshMissionList"
       :create-mission="createMission"
       :delete-mission="deleteMission"
+      :mission-exists="missionExists"
+      :is-valid-mission-id="isValidMissionId"
       @select="selectedMission = $event"
     />
     <ConfigMissionEditor
@@ -18,8 +18,7 @@
       :mission-id="selectedMission"
       :mod-root="modRoot"
       :session-id="sessionId"
-      :query-mission="queryMission"
-      :query-mission-icon="queryMissionIcon"
+      :query-mission-editor-data="queryMissionEditorData"
       :save-mission="saveMission"
       :delete-mission="deleteMission"
       @saved="handleSaved"
@@ -38,16 +37,17 @@ import { useConfigMissionViewModel } from '@/app/composables/use-config-mission-
 const {
   selectedMission,
   refreshToken,
-  missionRows,
+  missionItems,
   missionIcons,
   modRoot,
   sessionId,
   handleSaved,
   createMission,
   deleteMission,
-  queryMissions,
-  queryMission,
-  queryMissionIcon,
+  refreshMissionList,
+  queryMissionEditorData,
+  missionExists,
+  isValidMissionId,
   saveMission,
 } = useConfigMissionViewModel();
 </script>

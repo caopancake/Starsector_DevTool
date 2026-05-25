@@ -3,19 +3,23 @@
     <tr v-if="beforeHeight > 0" class="csv-grid-spacer-row" :style="{ height: `${beforeHeight}px` }">
       <td :colspan="columns.length"></td>
     </tr>
-    <CsvGridRow
-      v-for="row in visibleRows"
-      :key="row.rowKey"
-      :active-cell="activeCell"
-      :columns="columns"
-      :is-dirty="isDirty"
-      :row="row"
-      :source-index="sourceIndex"
-      @activate-cell="forwardActivateCell"
-      @close-active-cell="$emit('close-active-cell')"
-      @select-row="selectRow"
-      @update-cell="forwardUpdateCell"
-    />
+    <template v-for="row in visibleRows" :key="row.kind === 'row' ? row.rowKey : row.slotKey">
+      <CsvGridRow
+        v-if="row.kind === 'row'"
+        :active-cell="activeCell"
+        :columns="columns"
+        :is-dirty="isDirty"
+        :row="row"
+        :source-index="sourceIndex"
+        @activate-cell="forwardActivateCell"
+        @close-active-cell="$emit('close-active-cell')"
+        @select-row="selectRow"
+        @update-cell="forwardUpdateCell"
+      />
+      <tr v-else class="csv-grid-placeholder-row">
+        <td :colspan="columns.length"></td>
+      </tr>
+    </template>
     <tr v-if="afterHeight > 0" class="csv-grid-spacer-row" :style="{ height: `${afterHeight}px` }">
       <td :colspan="columns.length"></td>
     </tr>
@@ -24,7 +28,8 @@
 
 <script setup lang="ts">
 import { ref, toRef } from 'vue';
-import type { CsvGridColumn, CsvGridRow as CsvGridRowData } from '@/domain/tables/csv-grid-model';
+import type { CsvGridRowSlot, CsvWindowRow } from '@/shared/types';
+import type { CsvGridColumn } from '@/domain/tables/csv-grid-model';
 import type { CsvSourceIndex } from '@/domain/tables/csv-source-options';
 import { useTableDomSelection } from '@/app/composables/use-table-dom-selection';
 import CsvGridRow from '@/app/components/tables/CsvGridRow.vue';
@@ -35,13 +40,13 @@ const props = defineProps<{
   beforeHeight: number;
   columns: CsvGridColumn[];
   isDirty: (rowKey: string, column: string) => boolean;
-  selectedRowKey: string;
+  selectedRowKey: string | null;
   sourceIndex: CsvSourceIndex;
-  visibleRows: CsvGridRowData[];
+  visibleRows: CsvGridRowSlot[];
 }>();
 
 const emit = defineEmits<{
-  'activate-cell': [row: CsvGridRowData, column: CsvGridColumn, event: MouseEvent];
+  'activate-cell': [row: CsvWindowRow, column: CsvGridColumn, event: MouseEvent];
   'close-active-cell': [];
   'select-row': [rowKey: string, event: MouseEvent];
   'update-cell': [rowKey: string, column: string, value: string];
@@ -56,7 +61,7 @@ function selectRow(rowKey: string, event: MouseEvent) {
   handleRowClick(rowKey, event, (key) => emit('select-row', key, event));
 }
 
-function forwardActivateCell(row: CsvGridRowData, column: CsvGridColumn, event: MouseEvent) {
+function forwardActivateCell(row: CsvWindowRow, column: CsvGridColumn, event: MouseEvent) {
   emit('activate-cell', row, column, event);
 }
 

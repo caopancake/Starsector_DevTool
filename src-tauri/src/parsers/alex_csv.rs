@@ -75,7 +75,7 @@ pub fn render_csv_text(header: &[String], rows: &[Map<String, Value>]) -> AppRes
         let values: Vec<String> = header
             .iter()
             .map(|h| value_to_cell(row.get(h).unwrap_or(&Value::Null)))
-            .collect();
+            .collect::<AppResult<Vec<_>>>()?;
         wtr.write_record(values)?;
     }
     wtr.flush()?;
@@ -83,13 +83,14 @@ pub fn render_csv_text(header: &[String], rows: &[Map<String, Value>]) -> AppRes
     String::from_utf8(bytes).map_err(|error| AppError::message(format!("CSV 编码失败: {error}")))
 }
 
-pub fn value_to_cell(value: &Value) -> String {
+pub fn value_to_cell(value: &Value) -> AppResult<String> {
     match value {
-        Value::Null => String::new(),
-        Value::String(s) => s.clone(),
-        Value::Number(n) => n.to_string(),
-        Value::Bool(b) => b.to_string(),
-        other => serde_json::to_string(other).unwrap_or_default(),
+        Value::Null => Ok(String::new()),
+        Value::String(s) => Ok(s.clone()),
+        Value::Number(n) => Ok(n.to_string()),
+        Value::Bool(b) => Ok(b.to_string()),
+        other => serde_json::to_string(other)
+            .map_err(|error| AppError::message(format!("CSV 单元格序列化失败: {error}"))),
     }
 }
 

@@ -11,19 +11,19 @@ export const historyBoundaryRule = {
       if (
         /\bpushFileSaveEntry\s*\(/.test(file.text) &&
         current.layer !== 'stores' &&
-        !/\/file-save\.orchestrator(?:\.ts)?$/.test(file.rel)
+        !(current.layer === 'orchestrators' && current.domain === 'file-save')
       ) {
         failures.push(`${file.rel}: file history entries must be recorded through file-save orchestrator`);
       }
       if (
         /\bcommitFile(?:Undo|Redo)\s*\(/.test(file.text) &&
         current.layer !== 'stores' &&
-        !/\/file-history-replay\.orchestrator(?:\.ts)?$/.test(file.rel)
+        !(current.layer === 'orchestrators' && current.domain === 'file-history-replay')
       ) {
         failures.push(`${file.rel}: file history stack movement belongs to replay orchestrator`);
       }
-      if (/\/file-history-replay\.orchestrator(?:\.ts)?$/.test(file.rel)) {
-        const applyIndex = file.text.indexOf('applyFileChangeSet');
+      if (current.layer === 'orchestrators' && current.domain === 'file-history-replay') {
+        const applyIndex = file.text.indexOf('replayFileChangeSet');
         const commitIndex = Math.min(
           positiveIndex(file.text.indexOf('commitFileUndo')),
           positiveIndex(file.text.indexOf('commitFileRedo')),

@@ -13,10 +13,10 @@ import { computed } from 'vue';
 import AppContent from '@/app/AppContent.vue';
 import { useSettingsStore } from '@/stores/settings.store';
 import { buildThemeOverrides } from '@/app/theme-overrides';
-import { startSettingsPersistence } from '@/orchestrators/settings-persistence.orchestrator';
+import { useSettingsPersistence } from '@/app/composables/use-settings-persistence';
 
 const settings = useSettingsStore();
-startSettingsPersistence();
+useSettingsPersistence();
 
 const themeOverrides = computed(() => buildThemeOverrides(settings));
 </script>

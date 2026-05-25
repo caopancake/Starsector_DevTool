@@ -8,7 +8,12 @@
       <div class="top-actions">
         <div class="top-action-group">
           <n-input v-model:value="tables.searchText" class="top-search-input" clearable placeholder="搜索 ID / 名称" />
-          <n-select v-model:value="tables.currentFaction" class="top-faction-select" :options="factionOptions" placeholder="势力" />
+          <n-select
+            v-model:value="tables.currentFactionOptionValue"
+            class="top-faction-select"
+            :options="factionOptions"
+            placeholder="势力"
+          />
         </div>
         <div class="top-action-group">
           <n-button :disabled="!activeManifest" @click="$emit('add-row')">新建</n-button>
@@ -30,8 +35,12 @@
       </div>
     </header>
     <section class="content-grid">
-      <DataTable />
-      <DetailPane @detail-action="$emit('detail-action', $event)" />
+      <DataTable :csv-table="csvTable" />
+      <DetailPane
+        :query-row-preview="csvTable.querySelectedRowPreview"
+        :source-index="csvTable.sourceIndex.value"
+        @detail-action="$emit('detail-action', $event)"
+      />
     </section>
   </main>
 </template>
@@ -40,9 +49,11 @@
 import { computed } from 'vue';
 import DataTable from '@/app/DataTable.vue';
 import DetailPane from '@/app/DetailPane.vue';
+import { useCsvTableViewModel } from '@/app/composables/use-csv-table-view-model';
 import { useTablesStore } from '@/stores/tables.store';
 import { useProjectStore } from '@/stores/project.store';
 import { MODULE_LABELS } from '@/shared/lib/starsector';
+import { csvFactionFilterOptions } from '@/domain/tables/csv-faction-filter';
 import type { TableDetailAction } from '@/domain/tables/table-detail-actions';
 
 defineEmits<{
@@ -56,11 +67,9 @@ defineEmits<{
 
 const tables = useTablesStore();
 const project = useProjectStore();
+const csvTable = useCsvTableViewModel();
 
 const activeManifest = computed(() => project.activeManifest);
 
-const factionOptions = computed(() => {
-  const base = [{ label: '全部势力', value: 'all' }];
-  return base;
-});
+const factionOptions = computed(() => csvFactionFilterOptions());
 </script>

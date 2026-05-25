@@ -1,173 +1,207 @@
 use crate::{
-    errors::AppResult,
+    errors::{AppError, AppResult},
     io::{read_json_file, FileChangeSetBuilder},
-    models::{UploadSpritePayload, UploadSpriteResult},
+    models::{DiscoveredField, DiscoveredFieldType, ResourceSource, SpriteSubfolder, WriteResult},
 };
 use regex::Regex;
 use serde_json::{json, Value};
 use std::sync::OnceLock;
-use std::{collections::BTreeMap, fs, path::Path};
+use std::{collections::BTreeMap, path::Path};
 use walkdir::WalkDir;
 
-static SAFE_FILENAME_RE: OnceLock<Regex> = OnceLock::new();
+static SPRITE_FILENAME_RE: OnceLock<Regex> = OnceLock::new();
 
-pub fn upload_sprite(payload: UploadSpritePayload) -> AppResult<UploadSpriteResult> {
-    let sub = match payload.subfolder.as_deref() {
-        Some("weapons") => "graphics/weapons",
-        Some("missiles") | Some("proj") => "graphics/missiles",
-        Some("fx") => "graphics/fx",
-        _ => "graphics/ships",
-    };
-    let safe_re = SAFE_FILENAME_RE
-        .get_or_init(|| Regex::new(r"[^\w\-.]").expect("valid safe filename regex"));
-    let mut safe_name = safe_re.replace_all(&payload.filename, "_").to_string();
-    if !safe_name.to_ascii_lowercase().ends_with(".png") {
-        safe_name.push_str(".png");
-    }
-    let mod_root = Path::new(&payload.mod_root);
-    let target_dir = mod_root.join(sub);
-    fs::create_dir_all(&target_dir)?;
-    let target = target_dir.join(&safe_name);
-    let rel = format!("{}/{}", sub, safe_name).replace('\\', "/");
+pub fn upload_sprite(
+    mod_root: &str,
+    filename: &str,
+    data: String,
+    subfolder: SpriteSubfolder,
+    overwrite: bool,
+) -> AppResult<WriteResult<Value>> {
+    let sub = subfolder.graphics_rel_dir();
+    let sprite_filename = validate_sprite_filename(filename)?;
+    let mod_root = Path::new(mod_root);
+    let target = mod_root.join(sub).join(sprite_filename);
+    let rel = format!("{}/{}", sub, sprite_filename).replace('\\', "/");
     let exists = target.exists();
-    if exists && !payload.overwrite {
-        return Ok(UploadSpriteResult {
-            ok: false,
-            exists: true,
-            path: rel,
-            overwritten: false,
-            message: Some(format!("{safe_name} already exists. Overwrite?")),
+    if exists && !overwrite {
+        return Ok(WriteResult {
             changes: vec![],
+            invalidated_paths: Vec::new(),
+            key_map: Vec::new(),
+            refreshed_entity: Some(json!({
+                "ok": false,
+                "exists": true,
+                "path": rel,
+                "overwritten": false,
+                "message": format!("{sprite_filename} already exists. Overwrite?")
+            })),
+            warnings: Vec::new(),
         });
     }
     let mut builder = FileChangeSetBuilder::new(mod_root);
-    builder.binary_file(&rel, Some(payload.data))?;
+    builder.binary_file(&rel, Some(data))?;
     let changes = builder.apply()?;
-    Ok(UploadSpriteResult {
-        ok: true,
-        exists,
-        path: rel,
-        overwritten: exists,
-        message: None,
+    Ok(WriteResult {
+        invalidated_paths: changes.iter().map(|change| change.path.clone()).collect(),
         changes,
+        key_map: Vec::new(),
+        refreshed_entity: Some(json!({
+            "ok": true,
+            "exists": exists,
+            "path": rel,
+            "overwritten": exists,
+            "message": Value::Null
+        })),
+        warnings: Vec::new(),
     })
 }
 
+fn validate_sprite_filename(filename: &str) -> AppResult<&str> {
+    let trimmed = filename.trim();
+    let filename_re = SPRITE_FILENAME_RE.get_or_init(|| {
+        Regex::new(r"^[A-Za-z0-9][A-Za-z0-9_.-]*\.png$").expect("valid sprite filename regex")
+    });
+    if filename_re.is_match(trimmed) {
+        Ok(trimmed)
+    } else {
+        Err(AppError::message(format!(
+            "invalid sprite filename: {filename}"
+        )))
+    }
+}
+
 /// Scan starsector-core/graphics/ and return all image file paths (relative to starsector-core).
-pub fn scan_core_graphics(starsector_root: &str) -> Vec<String> {
+pub fn scan_core_graphics(starsector_root: &str) -> AppResult<Vec<String>> {
     let dir = Path::new(starsector_root)
         .join("starsector-core")
         .join("graphics");
     if !dir.exists() {
-        return vec![];
+        return Ok(vec![]);
     }
     let core_dir = Path::new(starsector_root).join("starsector-core");
-    WalkDir::new(&dir)
-        .into_iter()
-        .flatten()
-        .filter(|e| e.file_type().is_file())
-        .filter(|e| {
-            let ext = e.path().extension().and_then(|s| s.to_str()).unwrap_or("");
-            matches!(ext, "png" | "jpg" | "jpeg" | "gif")
-        })
-        .filter_map(|e| {
-            e.path()
-                .strip_prefix(&core_dir)
-                .ok()
-                .map(|p| p.to_string_lossy().replace('\\', "/"))
-        })
-        .collect()
+    let mut paths = Vec::new();
+    for entry in WalkDir::new(&dir) {
+        let entry =
+            entry.map_err(|error| AppError::message(format!("遍历原版图片目录失败: {error}")))?;
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let ext = entry
+            .path()
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        if !matches!(ext, "png" | "jpg" | "jpeg" | "gif") {
+            continue;
+        }
+        let rel = entry.path().strip_prefix(&core_dir).map_err(|error| {
+            AppError::message(format!(
+                "原版图片路径不在 starsector-core 内 ({}): {error}",
+                entry.path().display()
+            ))
+        })?;
+        paths.push(rel.to_string_lossy().replace('\\', "/"));
+    }
+    Ok(paths)
 }
 
 /// Scan starsector-core files and discover field names + inferred types.
-/// Returns a map: fileType → Vec<DiscoveredField>
-pub fn scan_core_fields(starsector_root: &str) -> BTreeMap<String, Vec<Value>> {
+/// Returns a map: fileType -> Vec<DiscoveredField>
+pub fn scan_core_fields(
+    starsector_root: &str,
+) -> AppResult<BTreeMap<String, Vec<DiscoveredField>>> {
     let mut result = BTreeMap::new();
     let core_dir = Path::new(starsector_root).join("starsector-core");
     if !core_dir.exists() {
-        return result;
+        return Ok(result);
     }
 
     // Scan faction files
-    let faction_fields = scan_json_fields(&core_dir.join("data/world/factions"), "faction");
+    let faction_fields = scan_json_fields(&core_dir.join("data/world/factions"), "faction")?;
     if !faction_fields.is_empty() {
         result.insert("faction".to_string(), faction_fields);
     }
 
     // Scan ship files
-    let ship_fields = scan_json_fields(&core_dir.join("data/hulls"), "ship");
+    let ship_fields = scan_json_fields(&core_dir.join("data/hulls"), "ship")?;
     if !ship_fields.is_empty() {
         result.insert("ship".to_string(), ship_fields);
     }
 
     // Scan weapon files
-    let wpn_fields = scan_json_fields(&core_dir.join("data/weapons"), "wpn");
+    let wpn_fields = scan_json_fields(&core_dir.join("data/weapons"), "wpn")?;
     if !wpn_fields.is_empty() {
         result.insert("weapon".to_string(), wpn_fields);
     }
 
-    result
+    Ok(result)
 }
 
 /// Scan all JSON files in a directory with given extension,
 /// collect all unique top-level field names and infer types from values.
-fn scan_json_fields(dir: &Path, ext: &str) -> Vec<Value> {
+fn scan_json_fields(dir: &Path, ext: &str) -> AppResult<Vec<DiscoveredField>> {
     if !dir.exists() {
-        return vec![];
+        return Ok(vec![]);
     }
 
-    let mut field_map: BTreeMap<String, String> = BTreeMap::new();
+    let mut field_map: BTreeMap<String, DiscoveredFieldType> = BTreeMap::new();
 
-    for entry in WalkDir::new(dir).max_depth(2).into_iter().flatten() {
+    for entry in WalkDir::new(dir).max_depth(2) {
+        let entry =
+            entry.map_err(|error| AppError::message(format!("遍历原版字段目录失败: {error}")))?;
         if entry.path().extension().and_then(|s| s.to_str()) != Some(ext) {
             continue;
         }
-        if let Ok(Value::Object(obj)) = read_json_file(entry.path()) {
-            for (key, value) in &obj {
-                if key.starts_with('_') {
-                    continue;
-                }
-                // Only set type if not already discovered (first occurrence wins)
-                field_map
-                    .entry(key.clone())
-                    .or_insert_with(|| infer_type(value));
+        let value = read_json_file(entry.path())?;
+        let Value::Object(obj) = value else {
+            return Err(AppError::message(format!(
+                "core field source must be a JSON object: {}",
+                entry.path().display()
+            )));
+        };
+        for (key, value) in &obj {
+            if key.starts_with('_') {
+                continue;
             }
+            // Only set type if not already discovered (first occurrence wins)
+            field_map
+                .entry(key.clone())
+                .or_insert_with(|| infer_type(value));
         }
     }
 
-    field_map
+    Ok(field_map
         .into_iter()
-        .map(|(key, field_type)| {
-            json!({
-                "key": key,
-                "type": field_type,
-                "origin": "core"
-            })
+        .map(|(key, field_type)| DiscoveredField {
+            key,
+            field_type,
+            origin: ResourceSource::Core,
         })
-        .collect()
+        .collect())
 }
 
 /// Infer a schema field type from a JSON value
-fn infer_type(value: &Value) -> String {
+fn infer_type(value: &Value) -> DiscoveredFieldType {
     match value {
-        Value::Bool(_) => "boolean".to_string(),
+        Value::Bool(_) => DiscoveredFieldType::Boolean,
         Value::Number(n) => {
             if n.is_i64() || n.is_u64() {
-                "integer".to_string()
+                DiscoveredFieldType::Integer
             } else {
-                "float".to_string()
+                DiscoveredFieldType::Float
             }
         }
         Value::String(s) => {
             if s.starts_with("graphics/") {
-                "path-image".to_string()
+                DiscoveredFieldType::PathImage
             } else {
-                "string".to_string()
+                DiscoveredFieldType::String
             }
         }
         Value::Array(arr) => {
             if arr.is_empty() {
-                return "string-array".to_string();
+                return DiscoveredFieldType::StringArray;
             }
             // Check if it looks like a color [R, G, B] or [R, G, B, A]
             if (arr.len() == 3 || arr.len() == 4) && arr.iter().all(|v| v.is_i64() || v.is_u64()) {
@@ -175,35 +209,37 @@ fn infer_type(value: &Value) -> String {
                     .iter()
                     .all(|v| v.as_i64().map(|n| (0..=255).contains(&n)).unwrap_or(false));
                 if all_in_range {
-                    return "color-rgba".to_string();
+                    return DiscoveredFieldType::ColorRgba;
                 }
             }
             if arr.iter().all(Value::is_string) {
-                "string-array".to_string()
+                DiscoveredFieldType::StringArray
             } else if arr.iter().all(Value::is_object) {
-                "array-of-object".to_string()
+                DiscoveredFieldType::ArrayOfObject
             } else {
-                "string-array".to_string()
+                DiscoveredFieldType::StringArray
             }
         }
         Value::Object(obj) => {
             // If it has a "tags" field that's an array, it's a tag-select
             if let Some(Value::Array(_)) = obj.get("tags") {
-                "tag-select".to_string()
+                DiscoveredFieldType::TagSelect
             } else {
-                "object".to_string()
+                DiscoveredFieldType::Object
             }
         }
-        Value::Null => "string".to_string(),
+        Value::Null => DiscoveredFieldType::String,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{models::ApplyFileChangeSetPayload, services::file_changes::apply_file_change_set};
+    use crate::models::FileChangeReplayDirection;
+    use crate::services::file_changes::apply_file_change_set;
     use base64::{engine::general_purpose, Engine as _};
     use std::{
+        fs,
         path::PathBuf,
         time::{SystemTime, UNIX_EPOCH},
     };
@@ -211,29 +247,26 @@ mod tests {
     #[test]
     fn upload_sprite_create_returns_replayable_history() {
         let root = temp_dir("upload_sprite_create_history");
-        let result = upload_sprite(UploadSpritePayload {
-            mod_root: root.to_string_lossy().to_string(),
-            filename: "demo.png".to_string(),
-            data: general_purpose::STANDARD.encode([1, 2, 3]),
-            overwrite: false,
-            subfolder: Some("ships".to_string()),
-        })
+        let result = upload_sprite(
+            &root.to_string_lossy(),
+            "demo.png",
+            general_purpose::STANDARD.encode([1, 2, 3]),
+            SpriteSubfolder::Ships,
+            false,
+        )
         .unwrap();
         let path = root.join("graphics/ships/demo.png");
 
-        assert!(result.ok);
+        assert!(result
+            .refreshed_entity
+            .as_ref()
+            .and_then(|entity| entity.get("ok"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false));
         assert_eq!(fs::read(&path).unwrap(), vec![1, 2, 3]);
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "undo".to_string(),
-            changes: result.changes.clone(),
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Undo, result.changes.clone()).unwrap();
         assert!(!path.exists());
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "redo".to_string(),
-            changes: result.changes,
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Redo, result.changes).unwrap();
         let bytes = fs::read(&path).unwrap();
         let _ = fs::remove_dir_all(root);
         assert_eq!(bytes, vec![1, 2, 3]);
@@ -246,43 +279,131 @@ mod tests {
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, [9, 8, 7]).unwrap();
 
-        let exists = upload_sprite(UploadSpritePayload {
-            mod_root: root.to_string_lossy().to_string(),
-            filename: "demo.png".to_string(),
-            data: general_purpose::STANDARD.encode([1, 2, 3]),
-            overwrite: false,
-            subfolder: Some("ships".to_string()),
-        })
+        let exists = upload_sprite(
+            &root.to_string_lossy(),
+            "demo.png",
+            general_purpose::STANDARD.encode([1, 2, 3]),
+            SpriteSubfolder::Ships,
+            false,
+        )
         .unwrap();
-        assert!(!exists.ok);
+        assert!(!exists
+            .refreshed_entity
+            .as_ref()
+            .and_then(|entity| entity.get("ok"))
+            .and_then(Value::as_bool)
+            .unwrap_or(true));
         assert!(exists.changes.is_empty());
 
-        let result = upload_sprite(UploadSpritePayload {
-            mod_root: root.to_string_lossy().to_string(),
-            filename: "demo.png".to_string(),
-            data: general_purpose::STANDARD.encode([1, 2, 3]),
-            overwrite: true,
-            subfolder: Some("ships".to_string()),
-        })
+        let result = upload_sprite(
+            &root.to_string_lossy(),
+            "demo.png",
+            general_purpose::STANDARD.encode([1, 2, 3]),
+            SpriteSubfolder::Ships,
+            true,
+        )
         .unwrap();
 
-        assert!(result.ok);
-        assert!(result.overwritten);
+        let refreshed = result.refreshed_entity.as_ref().unwrap();
+        assert!(refreshed
+            .get("ok")
+            .and_then(Value::as_bool)
+            .unwrap_or(false));
+        assert!(refreshed
+            .get("overwritten")
+            .and_then(Value::as_bool)
+            .unwrap_or(false));
         assert_eq!(fs::read(&path).unwrap(), vec![1, 2, 3]);
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "undo".to_string(),
-            changes: result.changes.clone(),
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Undo, result.changes.clone()).unwrap();
         assert_eq!(fs::read(&path).unwrap(), vec![9, 8, 7]);
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "redo".to_string(),
-            changes: result.changes,
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Redo, result.changes).unwrap();
         let bytes = fs::read(&path).unwrap();
         let _ = fs::remove_dir_all(root);
         assert_eq!(bytes, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn upload_sprite_invalid_data_does_not_create_target_directory() {
+        let root = temp_dir("upload_sprite_invalid_data");
+        let result = upload_sprite(
+            &root.to_string_lossy(),
+            "demo.png",
+            "not base64".to_string(),
+            SpriteSubfolder::Ships,
+            false,
+        );
+
+        let target_dir_exists = root.join("graphics/ships").exists();
+        let _ = fs::remove_dir_all(root);
+        assert!(result.is_err());
+        assert!(!target_dir_exists);
+    }
+
+    #[test]
+    fn upload_sprite_rejects_invalid_filename_without_rewriting() {
+        let root = temp_dir("upload_sprite_invalid_filename");
+        let result = upload_sprite(
+            &root.to_string_lossy(),
+            "../bad name.png",
+            general_purpose::STANDARD.encode([1, 2, 3]),
+            SpriteSubfolder::Ships,
+            false,
+        );
+
+        let target_dir_exists = root.join("graphics/ships").exists();
+        let _ = fs::remove_dir_all(root);
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("invalid sprite filename"));
+        assert!(!target_dir_exists);
+    }
+
+    #[test]
+    fn core_field_scan_reports_broken_json() {
+        let root = temp_dir("core_field_scan_broken_json");
+        fs::create_dir_all(root.join("starsector-core/data/weapons")).unwrap();
+        crate::io::write_utf8_no_bom(&root.join("starsector-core/data/weapons/bad.wpn"), "{")
+            .unwrap();
+
+        let error = scan_core_fields(&root.to_string_lossy())
+            .unwrap_err()
+            .to_string();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(error.contains("bad.wpn"));
+    }
+
+    #[test]
+    fn core_field_scan_rejects_non_object_json_sources() {
+        let root = temp_dir("core_field_scan_non_object");
+        fs::create_dir_all(root.join("starsector-core/data/weapons")).unwrap();
+        crate::io::write_utf8_no_bom(&root.join("starsector-core/data/weapons/list.wpn"), "[]")
+            .unwrap();
+
+        let error = scan_core_fields(&root.to_string_lossy())
+            .unwrap_err()
+            .to_string();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(error.contains("core field source must be a JSON object"));
+        assert!(error.contains("list.wpn"));
+    }
+
+    #[test]
+    fn core_graphics_scan_returns_relative_paths() {
+        let root = temp_dir("core_graphics_scan_paths");
+        fs::create_dir_all(root.join("starsector-core/graphics/ships")).unwrap();
+        fs::write(
+            root.join("starsector-core/graphics/ships/demo.png"),
+            [1, 2, 3],
+        )
+        .unwrap();
+
+        let paths = scan_core_graphics(&root.to_string_lossy()).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(paths, vec!["graphics/ships/demo.png".to_string()]);
     }
 
     fn temp_dir(name: &str) -> PathBuf {

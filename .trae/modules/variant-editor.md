@@ -14,7 +14,7 @@
 - `src/domain/schema/` 渲染 schema 表单和复杂字段控件。
 - `src-tauri/src/services/config/variants.rs` 统一处理 `.variant` 新建、保存、重命名和删除 changeset。
 - `src-tauri/src/services/project/query/` 在 ProjectSession 中索引并查询 `.variant` 文件。
-- `src/shared/api/write-api.ts` 只封装装配 entity wire command。
+- `src/shared/api/config-entity-api.ts` 只封装装配 entity wire command。
 
 ## 规范
 
@@ -27,7 +27,7 @@
 - 保存允许修改 `variantId`；修改后必须在同一个 changeset 中删除旧文件并创建新文件。
 - 新建路径固定为 `data/variants/{variantId}.variant`。
 - 新建、保存、重命名和删除都必须进入文件级 history。
-- 前端不能直接用 `saveModFilesWithHistory` 拼 `.variant` 文件操作，必须走 `saveVariantEntityWithHistory`、`createVariantEntityWithHistory` 或 `deleteVariantEntityWithHistory`。
+- 前端不能直接用文件批量保存拼 `.variant` 文件操作，必须走 `saveVariantAction`、`createVariantAction` 或 `deleteVariantAction`。
 - Variant 组件只消费 ViewModel 暴露的状态和动作，不直接调用 query service、resource cache、write service 或保存 orchestrator。
 - 装配详情页不显示额外总览统计块，只显示顶部当前文件信息和 schema 表单。
 - `wings` 必须按逐项数组编辑，不能使用去重的多选控件。
@@ -48,30 +48,30 @@
 1. 用户在 `ConfigVariantEditor.vue` 中编辑 schema 表单。
 2. 用户触发保存。
 3. ViewModel 或编辑器保存入口校验 `variantId`、`hullId` 和重复 ID。
-4. ViewModel 调用 `saveVariantWithFileHistory()`。
+4. ViewModel 调用 `saveVariantAction()`。
 5. config save orchestrator 调用 `saveVariantEntity()`。
-6. `write-api.ts` 调用 Rust `save_variant_entity_with_history` command。
+6. `config-entity-api.ts` 调用 Rust `save_variant_entity` command。
 7. Rust 校验 `variantId`、`hullId` 和路径边界。
 8. Rust 构建单文件修改 changeset；重命名时构建旧 `.variant` 删除和新 `.variant` 写入的同一 changeset。
-9. Rust 写盘并返回 `VariantEntityResult`。
+9. Rust 写盘并返回 `WriteResult`，并在 `refreshedEntity` 中返回当前装配数据。
 10. 前端记录文件级 history。
 11. ViewModel 只基于 result 同步当前装配列表并失效对应 session cache。
 
 ## 链路：新建装配
 
 1. 用户在 `ConfigVariantList.vue` 输入 `hullId` 和 `variantId`。
-2. Variant ViewModel 调用 `createVariantWithFileHistory()`。
+2. Variant ViewModel 调用 `createVariantAction()`。
 3. config save orchestrator 调用 `createVariantEntity()`。
-4. `write-api.ts` 调用 Rust `create_variant_entity_with_history` command。
+4. `config-entity-api.ts` 调用 Rust `create_variant_entity` command。
 5. Rust 生成 `data/variants/{variantId}.variant` 的默认内容并写盘。
-6. Rust 返回 `VariantEntityResult`。
+6. Rust 返回 `WriteResult`，并在 `refreshedEntity` 中返回当前装配数据。
 7. ViewModel 记录文件级 history，并只基于 result 更新列表和选中项。
 
 ## 链路：删除装配
 
 1. 用户在 `ConfigVariantList.vue` 或 `ConfigVariantEditor.vue` 确认删除。
-2. Variant ViewModel 调用 `deleteVariantWithFileHistory()`。
+2. Variant ViewModel 调用 `deleteVariantAction()`。
 3. config save orchestrator 调用 `deleteVariantEntity()`。
-4. `write-api.ts` 调用 Rust `delete_variant_entity_with_history` command。
+4. `config-entity-api.ts` 调用 Rust `delete_variant_entity` command。
 5. Rust 构建单文件删除 changeset 并写盘。
 6. 前端记录文件级 history，并移除 project cache 中的对应装配。

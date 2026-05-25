@@ -11,7 +11,8 @@ export const resourceBoundaryRule = {
       const current = classifyFrontendPath(file.rel);
       for (const imported of importedProjectPaths(file)) {
         if (imported.typeOnly) continue;
-        if (current.role === 'component' && /^src\/services\/resource-cache\.service(?:\.ts)?$/.test(imported.resolved)) {
+        const target = classifyFrontendPath(imported.resolved);
+        if (current.role === 'component' && target.layer === 'services' && target.domain === 'resource-cache') {
           failures.push(`${file.rel}: components must receive resource data through ViewModel/service output`);
         }
       }

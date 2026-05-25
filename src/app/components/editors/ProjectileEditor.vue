@@ -7,14 +7,14 @@
           <n-collapse-item title="基础属性" name="basic">
             <div class="form-grid">
               <label>id</label><n-input :value="projectileId" disabled /> <label>specClass</label
-              ><n-select v-model:value="localProjectile.specClass" :options="opts(['projectile', 'missile'])" />
+              ><n-select v-model:value="localProjectile.specClass" :options="toOptions(['projectile', 'missile'])" />
             </div>
           </n-collapse-item>
           <template v-if="specClass === 'projectile'">
             <n-collapse-item title="弹体外观" name="visual">
               <div class="form-grid">
                 <label>spawnType</label
-                ><n-select :options="opts(['BALLISTIC', 'BALLISTIC_AS_BEAM', 'ENERGY'])" v-model:value="localProjectile.spawnType" />
+                ><n-select :options="toOptions(['BALLISTIC', 'BALLISTIC_AS_BEAM', 'ENERGY'])" v-model:value="localProjectile.spawnType" />
                 <label>bulletSprite</label><n-input v-model:value="localProjectile.bulletSprite" /> <label>length</label
                 ><n-input-number v-model:value="localProjectile.length" /> <label>width</label
                 ><n-input-number v-model:value="localProjectile.width" /> <label>textureScrollSpeed</label
@@ -30,7 +30,7 @@
                 <label>collisionClass</label
                 ><n-select
                   :options="
-                    opts([
+                    toOptions([
                       'PROJECTILE_NO_FF',
                       'PROJECTILE_FF',
                       'PROJECTILE_FIGHTER',
@@ -54,7 +54,7 @@
             <n-collapse-item title="导弹外观" name="missileVisual">
               <div class="form-grid">
                 <label>missileType</label
-                ><n-select v-model:value="localProjectile.missileType" :options="opts(['MISSILE', 'ROCKET', 'MIRV', 'PHASE'])" />
+                ><n-select v-model:value="localProjectile.missileType" :options="toOptions(['MISSILE', 'ROCKET', 'MIRV', 'PHASE'])" />
                 <label>sprite</label><n-input v-model:value="localProjectile.sprite" /> <label>size W</label
                 ><n-input-number :value="size[0]" @update:value="setArray('size', 0, $event)" /> <label>size H</label
                 ><n-input-number :value="size[1]" @update:value="setArray('size', 1, $event)" /> <label>center X</label
@@ -97,7 +97,7 @@
       <EditorFooter note="结构化 JSON 写回，内部字段会被后端剔除。">
         <template #actions>
           <n-button @click="$emit('close')">关闭</n-button>
-          <n-button type="primary" @click="save">保存</n-button>
+          <n-button type="primary" @click="emit('save-requested', localProjectile)">保存</n-button>
         </template>
       </EditorFooter>
     </div>
@@ -112,25 +112,23 @@ import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import ObjectEditor from '@/app/components/editors/common/ObjectEditor.vue';
 import type { RowData } from '@/shared/types';
-import type { FileChangeRecord } from '@/shared/api/write-api';
 import { arr, str } from '@/shared/lib/starsector';
 import { normalizeProjectileSpec } from '@/domain/editors/lib/normalize';
 import { useObjectField } from '@/app/composables/use-object-field';
 import { useSpriteUpload } from '@/app/composables/use-sprite-upload';
-import { editorCollapseTheme, toOptions as opts } from '@/domain/editors/lib/editor-constants';
+import { editorCollapseTheme, toOptions } from '@/domain/editors/lib/editor-constants';
 
 const props = defineProps<{
   modRoot: string;
   projectileId: string;
   projectile?: RowData;
-  saveSpec: (projectile: RowData) => Promise<FileChangeRecord[]>;
 }>();
-const emit = defineEmits<{ close: []; saved: [id: string, projectile: RowData, changes: FileChangeRecord[]] }>();
+const emit = defineEmits<{ close: []; 'save-requested': [projectile: RowData] }>();
 const feedback = useAppFeedback();
 const localProjectile = ref<RowData>(normalizeProjectileSpec(props.projectile || { id: props.projectileId, specClass: 'projectile' }));
 const expandedSections = ref(['basic']);
 const { bindObjectField } = useObjectField(localProjectile);
-const { uploadSpriteFile: uploadSpriteInput } = useSpriteUpload();
+const { uploadSpriteFromInput } = useSpriteUpload();
 const specClass = computed(() => str(localProjectile.value.specClass, 'projectile'));
 const size = computed(() => arr(localProjectile.value.size, [0, 0]));
 const center = computed(() => arr(localProjectile.value.center, [0, 0]));
@@ -175,25 +173,17 @@ function applyGeneric() {
 }
 async function uploadSpriteFile(field: string, event: Event) {
   try {
-    await uploadSpriteInput(event, {
+    await uploadSpriteFromInput(event, {
       feedback,
       modRoot: props.modRoot,
       subfolder: 'missiles',
       onUploaded: (result) => {
-        localProjectile.value[field] = result.path;
+        localProjectile.value[field] = result.state.path;
         feedback.success('贴图已上传');
       },
     });
   } catch (error) {
     feedback.error(error, '上传贴图失败');
-  }
-}
-async function save() {
-  try {
-    const changes = await props.saveSpec(localProjectile.value);
-    emit('saved', props.projectileId, localProjectile.value, changes);
-  } catch (error) {
-    feedback.error(error, '保存弹体失败');
   }
 }
 watch(

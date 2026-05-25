@@ -21,25 +21,8 @@
       <section class="panel-card detail-card">
         <div class="panel-section-title">操作</div>
         <div class="detail-actions">
-          <n-button v-if="fileEditorAction" block secondary @click="$emit('detail-action', fileEditorAction)">文件编辑器</n-button>
-          <n-button v-if="canOpenShipEditor" block secondary @click="$emit('detail-action', { type: 'ship-editor', id: selectedSpecId })">
-            舰船编辑器
-          </n-button>
-          <n-button
-            v-if="canOpenWeaponEditor"
-            block
-            secondary
-            @click="$emit('detail-action', { type: 'weapon-editor', id: selectedSpecId })"
-          >
-            武器编辑器
-          </n-button>
-          <n-button
-            v-if="canOpenWeaponEditor"
-            block
-            secondary
-            @click="$emit('detail-action', { type: 'weapon-preview', id: selectedSpecId })"
-          >
-            发射预览
+          <n-button v-for="action in detailActions" :key="detailActionKey(action)" block secondary @click="$emit('detail-action', action)">
+            {{ detailActionLabel(action) }}
           </n-button>
         </div>
         <div v-if="isCommentRow" class="muted">注释行只允许编辑 CSV 内容。</div>
@@ -81,14 +64,26 @@ import { computed, ref, watch } from 'vue';
 import { useTablesStore } from '@/stores/tables.store';
 import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
-import { cell, MODULE_LABELS, rowDisplayId, rowSpecId } from '@/shared/lib/starsector';
-import { fileEditorActionForRow, type TableDetailAction } from '@/domain/tables/table-detail-actions';
+import { cell, MODULE_LABELS, rowDisplayId } from '@/shared/lib/starsector';
+import { detailActionKey, detailActionLabel, detailActionsForRow, type TableDetailAction } from '@/domain/tables/table-detail-actions';
 import { isCsvCommentRow } from '@/domain/tables/csv-comment-row';
-import { csvColumnSchemasForTable, type CsvColumnSchema } from '@/domain/tables/csv-column-schema';
-import { createCsvSourceIndex, sourceValue } from '@/domain/tables/csv-source-options';
-import { queryTableRowPreviewDataUrl } from '@/services/csv-table.service';
+import {
+  csvBooleanDisplayValue,
+  csvColumnControlLabel,
+  csvListValues,
+  csvColumnSchemasForTable,
+  isCsvListControl,
+  isCsvReferenceControl,
+  type CsvColumnSchema,
+} from '@/domain/tables/csv-column-schema';
+import { sourceValue, type CsvSourceIndex } from '@/domain/tables/csv-source-options';
 import type { SelectOption } from '@/domain/schema/schema-registry';
 import type { RowData, TableKey } from '@/shared/types';
+
+const props = defineProps<{
+  queryRowPreview: (rowKey: string) => Promise<string>;
+  sourceIndex: CsvSourceIndex;
+}>();
 
 defineEmits<{
   'detail-action': [request: TableDetailAction];
@@ -105,13 +100,9 @@ const displayName = computed(() => {
 });
 
 const selectedDisplayId = computed(() => (tables.selectedRow ? rowDisplayId(tables.selectedRow) : ''));
-const selectedSpecId = computed(() => (tables.selectedRow ? rowSpecId(tables.selectedRow, tables.currentTab) : ''));
 const isCommentRow = computed(() => isCsvCommentRow(tables.selectedRow, tables.currentTab));
-const canOpenShipEditor = computed(() => !isCommentRow.value && tables.currentTab === 'ships' && Boolean(selectedSpecId.value));
-const canOpenWeaponEditor = computed(() => !isCommentRow.value && tables.currentTab === 'weapons' && Boolean(selectedSpecId.value));
-const hasActions = computed(() => Boolean(fileEditorAction.value || canOpenShipEditor.value || canOpenWeaponEditor.value));
+const hasActions = computed(() => detailActions.value.length > 0);
 const schemaColumns = computed(() => csvColumnSchemasForTable(tables.currentTab));
-const sourceIndex = computed(() => createCsvSourceIndex(schemaColumns.value.map((schema) => schema.source)));
 const previewSrc = ref('');
 const summaryItems = computed<SchemaPreviewItem[]>(() => {
   const row = tables.selectedRow;
@@ -121,10 +112,10 @@ const summaryItems = computed<SchemaPreviewItem[]>(() => {
     return schema ? schemaPreviewItem(schema, row) : plainPreviewItem(column, row);
   });
 });
-const fileEditorAction = computed<TableDetailAction | null>(() => {
+const detailActions = computed<TableDetailAction[]>(() => {
   const row = tables.selectedRow;
   const data = project.activeManifest;
-  return data ? fileEditorActionForRow(data.modRoot, tables.currentTab, row) : null;
+  return data ? detailActionsForRow(data.modRoot, tables.currentTab, row) : [];
 });
 
 interface SchemaPreviewItem {
@@ -161,7 +152,7 @@ const previewState = computed<PreviewState>(() => {
 });
 
 watch(
-  () => [project.activeManifest?.sessionId ?? '', tables.currentTab, tables.selectedRowKey],
+  () => [project.activeSessionId, tables.currentTab, tables.selectedRowKey] as const,
   () => {
     void loadPreviewResource();
   },
@@ -190,9 +181,10 @@ async function loadPreviewResource() {
   previewSrc.value = '';
   const manifest = project.activeManifest;
   const row = tables.selectedRow;
-  if (!manifest || !row || isCommentRow.value) return;
-  const dataUrl = await queryTableRowPreviewDataUrl(manifest.sessionId, tables.currentTab, row);
-  if (tables.selectedRow === row) previewSrc.value = dataUrl;
+  const rowKey = tables.selectedRowKey;
+  if (!manifest || !row || !rowKey || isCommentRow.value) return;
+  const dataUrl = await props.queryRowPreview(rowKey);
+  if (tables.selectedRowKey === rowKey) previewSrc.value = dataUrl;
 }
 
 function schemaPreviewItem(schema: CsvColumnSchema, row: RowData): SchemaPreviewItem {
@@ -202,24 +194,24 @@ function schemaPreviewItem(schema: CsvColumnSchema, row: RowData): SchemaPreview
     key: schema.key,
     kind: schema.control,
     label: schema.label ?? schema.key,
-    meta: controlLabel(schema.control),
+    meta: csvColumnControlLabel(schema.control),
     sprite: '',
     value,
     values: [],
   };
 
-  if (schema.control === 'reference') {
+  if (isCsvReferenceControl(schema.control)) {
     const match = findSourceOption(schema.source, value);
     if (match.option) {
       base.display = match.option.label;
-      base.meta = match.group ? `${controlLabel(schema.control)} · ${match.group}` : controlLabel(schema.control);
+      base.meta = match.group ? `${csvColumnControlLabel(schema.control)} · ${match.group}` : csvColumnControlLabel(schema.control);
       base.sprite = match.option.sprite ?? '';
     }
     return base;
   }
 
-  if (schema.control === 'tags' || schema.control === 'multi') {
-    base.values = splitListValue(value);
+  if (isCsvListControl(schema.control)) {
+    base.values = csvListValues(value);
     return base;
   }
 
@@ -234,7 +226,7 @@ function schemaPreviewItem(schema: CsvColumnSchema, row: RowData): SchemaPreview
   }
 
   if (schema.control === 'boolean') {
-    base.display = booleanLabel(value);
+    base.display = csvBooleanDisplayValue(value);
     return base;
   }
 
@@ -258,44 +250,6 @@ function plainPreviewItem(column: string, row: RowData): SchemaPreviewItem {
 function findSourceOption(source: string | undefined, value: string): { group: string; option: SelectOption | null } {
   if (!value) return { group: '', option: null };
   if (!source) return { group: '', option: null };
-  return sourceValue(sourceIndex.value, source, value) ?? { group: '', option: null };
-}
-
-function splitListValue(value: string): string[] {
-  return value
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function booleanLabel(value: string): string {
-  if (!value) return '-';
-  const normalized = value.toLowerCase();
-  if (normalized === 'true') return 'true';
-  if (normalized === 'false') return 'false';
-  return value;
-}
-
-function controlLabel(control: CsvColumnSchema['control']): string {
-  switch (control) {
-    case 'number':
-      return '数值';
-    case 'boolean':
-      return '布尔';
-    case 'enum':
-      return '枚举';
-    case 'reference':
-      return '引用';
-    case 'tags':
-      return '标签';
-    case 'multi':
-      return '多值';
-    case 'path-image':
-      return '图片路径';
-    case 'color':
-      return '颜色';
-    default:
-      return '文本';
-  }
+  return sourceValue(props.sourceIndex, source, value) ?? { group: '', option: null };
 }
 </script>

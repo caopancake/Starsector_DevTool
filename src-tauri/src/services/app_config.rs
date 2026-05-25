@@ -4,7 +4,7 @@ use crate::{
 };
 use std::{fs, path::Path};
 
-pub fn open_config_dir_for_app(app_handle: tauri::AppHandle) -> AppResult<()> {
+pub fn open_config_dir(app_handle: tauri::AppHandle) -> AppResult<()> {
     let app_data = app_paths::app_data_dir(app_handle)?;
     fs::create_dir_all(&app_data).map_err(|error| {
         AppError::context(
@@ -15,7 +15,7 @@ pub fn open_config_dir_for_app(app_handle: tauri::AppHandle) -> AppResult<()> {
     system_open::open_path(&app_data)
 }
 
-pub fn clear_config_files_for_app(app_handle: tauri::AppHandle) -> AppResult<()> {
+pub fn clear_app_config_files(app_handle: tauri::AppHandle) -> AppResult<()> {
     let app_data = app_paths::app_data_dir(app_handle)?;
     clear_config_files(&app_data)
 }
@@ -62,7 +62,11 @@ pub fn clear_config_files(app_data_dir: &Path) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{models::AppLogEntry, services::app_settings};
+    use crate::{
+        io::write_utf8_no_bom,
+        models::{AppLogEntry, AppLogLevel},
+        services::app_settings,
+    };
     use std::{
         path::PathBuf,
         time::{SystemTime, UNIX_EPOCH},
@@ -71,14 +75,14 @@ mod tests {
     #[test]
     fn clear_config_files_keeps_log() {
         let dir = temp_dir("config_clear");
-        fs::write(dir.join("workspace.json"), b"{}").unwrap();
+        write_utf8_no_bom(&dir.join("workspace.json"), "{}").unwrap();
         app_settings::save_settings(&dir, &crate::models::AppSettings::default()).unwrap();
         fs::create_dir_all(dir.join("nested")).unwrap();
-        fs::write(dir.join("nested/file.json"), b"{}").unwrap();
+        write_utf8_no_bom(&dir.join("nested/file.json"), "{}").unwrap();
         app_log::append_log(
             &dir,
             &AppLogEntry {
-                level: "info".to_string(),
+                level: AppLogLevel::Info,
                 message: "keep".to_string(),
                 path: None,
                 line: None,

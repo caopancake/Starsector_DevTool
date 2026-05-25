@@ -1,11 +1,15 @@
 import { computed, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
 import { darkTheme, lightTheme } from 'naive-ui';
-import type { AppSettings } from '@/shared/types';
-
-export type AppTheme = 'light' | 'dark';
-export type AccentPreset = 'blue' | 'orange' | 'green' | 'cyan' | 'pink' | 'purple' | 'gray' | 'custom';
-export type EditMode = 'plain' | 'smart';
+import {
+  ACCENT_PRESET_VALUES,
+  APP_THEMES,
+  EDIT_MODES,
+  type AccentPreset,
+  type AppSettings,
+  type AppTheme,
+  type EditMode,
+} from '@/shared/types';
 
 export interface AccentTone {
   name: string;
@@ -28,7 +32,11 @@ export const ACCENT_PRESETS: AccentTone[] = [
 ];
 
 function isAccentPreset(value: string | null): value is AccentPreset {
-  return value === 'custom' || ACCENT_PRESETS.some((preset) => preset.value === value);
+  return isSharedSettingValue(ACCENT_PRESET_VALUES, value);
+}
+
+function isSharedSettingValue<T extends readonly string[]>(values: T, value: string | null): value is T[number] {
+  return Boolean(value && values.includes(value));
 }
 
 function normalizeHex(value: string): string | null {
@@ -49,12 +57,12 @@ function assertValidSettings(settings: AppSettings): void {
   readEditMode(settings.editMode);
 }
 
-function readTheme(value: string): AppTheme {
-  if (value !== 'light' && value !== 'dark') throw new Error(`Invalid app theme: ${value}`);
+function readTheme(value: AppTheme): AppTheme {
+  if (!isSharedSettingValue(APP_THEMES, value)) throw new Error(`Invalid app theme: ${value}`);
   return value;
 }
 
-function readAccent(value: string): AccentPreset {
+function readAccent(value: AccentPreset): AccentPreset {
   if (!isAccentPreset(value)) throw new Error(`Invalid app accent: ${value}`);
   return value;
 }
@@ -70,8 +78,8 @@ function readHistoryLimit(value: number): number {
   return Math.round(value);
 }
 
-function readEditMode(value: string): EditMode {
-  if (value !== 'plain' && value !== 'smart') throw new Error(`Invalid edit mode: ${value}`);
+function readEditMode(value: EditMode): EditMode {
+  if (!isSharedSettingValue(EDIT_MODES, value)) throw new Error(`Invalid edit mode: ${value}`);
   return value;
 }
 
@@ -121,7 +129,7 @@ export const useSettingsStore = defineStore('settings', () => {
     editMode.value = mode;
   }
 
-  function setStarsectorRoot(path: string) {
+  function setStarsectorRoot(path: string | null) {
     starsectorRoot.value = path;
   }
 

@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, reactive, ref } from 'vue';
-import { useSettingsStore } from '@/stores/settings.store';
-import type { FileChangeRecord } from '@/shared/api/write-api';
+import type { FileChangeRecord } from '@/shared/types';
 import type { FileHistoryItem, FileSaveHistoryEntry } from '@/shared/types/file-history.types';
 import { isFileSaveEntry } from '@/shared/types/file-history.types';
 
@@ -21,9 +20,10 @@ function nextId(): string {
 
 export const useFileHistoryStore = defineStore('fileHistory', () => {
   const stateMap = reactive<Map<string, FileHistoryState>>(new Map());
-  const activeRoot = ref('');
+  const activeRoot = ref<string | null>(null);
+  const historyLimit = ref(100);
 
-  function activateFor(modRoot: string) {
+  function activateFor(modRoot: string | null) {
     activeRoot.value = modRoot;
     if (modRoot && !stateMap.has(modRoot)) stateMap.set(modRoot, createState());
   }
@@ -53,11 +53,10 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
 
   function pushFileSaveEntry(modRoot: string, changes: FileChangeRecord[], label: string) {
     if (!modRoot || changes.length === 0) return;
-    const settings = useSettingsStore();
     const state = getOrCreateState(modRoot);
     state.undoStack.push({ id: nextId(), timestamp: Date.now(), kind: 'file-save', changes, label });
     state.redoStack.length = 0;
-    trimToLimit(state, settings.historyLimit);
+    trimToLimit(state, historyLimit.value);
   }
 
   function peekFileUndo(): FileSaveHistoryEntry | null {
@@ -128,6 +127,11 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     }
   }
 
+  function setHistoryLimit(limit: number) {
+    historyLimit.value = limit;
+    for (const state of stateMap.values()) trimToLimit(state, historyLimit.value);
+  }
+
   return {
     canRedoFileSave,
     canUndoFileSave,
@@ -143,5 +147,6 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     getHistoryStacks,
     pushFileSaveEntry,
     removeModState,
+    setHistoryLimit,
   };
 });

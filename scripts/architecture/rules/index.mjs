@@ -10,6 +10,7 @@ import { queryBoundaryRule } from './query-boundary.mjs';
 import { resourceBoundaryRule } from './resource-boundary.mjs';
 import { rustProjectLayerBoundaryRule } from './rust-project-layer-boundary.mjs';
 import { schemaModuleBoundaryRule } from './schema-module-boundary.mjs';
+import { sharedTypesBoundaryRule } from './shared-types-boundary.mjs';
 import { windowBoundaryRule } from './window-boundary.mjs';
 import { workspaceModuleBoundaryRule } from './workspace-module-boundary.mjs';
 import { writeBoundaryRule } from './write-boundary.mjs';
@@ -25,6 +26,7 @@ export const rules = [
   windowBoundaryRule,
   feedbackBoundaryRule,
   namingBoundaryRule,
+  sharedTypesBoundaryRule,
   csvModuleBoundaryRule,
   schemaModuleBoundaryRule,
   configModuleBoundaryRule,

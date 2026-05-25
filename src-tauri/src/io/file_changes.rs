@@ -101,18 +101,6 @@ pub enum ChangeDirection {
     Redo,
 }
 
-impl ChangeDirection {
-    pub fn parse(value: &str) -> AppResult<Self> {
-        match value {
-            "undo" => Ok(Self::Undo),
-            "redo" => Ok(Self::Redo),
-            other => Err(AppError::message(format!(
-                "unknown changeset direction: {other}"
-            ))),
-        }
-    }
-}
-
 pub fn build_text_change(path: &Path, after_text: Option<String>) -> AppResult<FileChangeRecord> {
     build_file_change(path, after_text, None)
 }

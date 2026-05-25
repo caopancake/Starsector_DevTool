@@ -214,7 +214,12 @@ export function drawWeaponSlotVisual(ctx: CanvasRenderingContext2D, options: Wea
   ctx.restore();
 }
 
-export function drawBoundsVisual(ctx: CanvasRenderingContext2D, points: Point[], selectedIndex: number, hoveredIndex = -1) {
+export function drawBoundsVisual(
+  ctx: CanvasRenderingContext2D,
+  points: Point[],
+  selectedIndex: number | null,
+  hoveredIndex: number | null,
+) {
   if (points.length < 2) return;
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 3;

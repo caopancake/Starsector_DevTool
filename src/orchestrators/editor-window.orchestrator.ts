@@ -1,10 +1,11 @@
 import { WINDOW_EVENTS, type EditorSpecSavedEvent } from '@/windows/window.events';
-import { emitWindowEvent, listenWindowEvent } from '@/windows/tauri.events';
+import { emitWindowEvent, listenWindowEvent, type WindowEventHandler } from '@/windows/tauri.events';
+import { recordWindowEventHandlerError } from '@/orchestrators/window-event-errors.orchestrator';
 
-export function emitEditorSpecSaved(payload: EditorSpecSavedEvent) {
-  return emitWindowEvent(WINDOW_EVENTS.editorSpecSaved, payload);
+export function emitEditorSpecSaved(event: EditorSpecSavedEvent) {
+  return emitWindowEvent(WINDOW_EVENTS.editorSpecSaved, event);
 }
 
-export function listenEditorSpecApplied(handler: (payload: EditorSpecSavedEvent) => void) {
-  return listenWindowEvent<EditorSpecSavedEvent>(WINDOW_EVENTS.editorSpecApplied, handler);
+export function listenEditorSpecSaved(handler: WindowEventHandler<EditorSpecSavedEvent>) {
+  return listenWindowEvent<EditorSpecSavedEvent>(WINDOW_EVENTS.editorSpecSaved, handler, recordWindowEventHandlerError);
 }

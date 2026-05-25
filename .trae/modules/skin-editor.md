@@ -13,7 +13,7 @@
 - `schemas/skin.schema.json` 定义 `.skin` 表单字段。
 - `src-tauri/src/services/config/skins.rs` 统一处理 `.skin` 新建、保存、重命名和删除 changeset。
 - `src-tauri/src/services/project/query/` 在 ProjectSession 中索引并查询 `.skin` 文件。
-- `src/shared/api/write-api.ts` 只封装舰船皮肤 entity wire command。
+- `src/shared/api/config-entity-api.ts` 只封装舰船皮肤 entity wire command。
 
 ## 规范
 
@@ -27,7 +27,7 @@
 - 保存允许修改 `skinHullId`；修改后必须在同一个 changeset 中删除旧文件并创建新文件。
 - 新建路径固定为 `data/hulls/skins/{skinHullId}.skin`。
 - 新建、保存、重命名和删除都必须进入文件级 history。
-- 前端不能直接用 `saveModFilesWithHistory` 拼 `.skin` 文件操作，必须走 `saveSkinEntityWithHistory`、`createSkinEntityWithHistory` 或 `deleteSkinEntityWithHistory`。
+- 前端不能直接用文件批量保存拼 `.skin` 文件操作，必须走 `saveSkinAction`、`createSkinAction` 或 `deleteSkinAction`。
 - Skin 组件只消费 ViewModel 暴露的状态和动作，不直接调用 query service、resource cache、write service 或保存 orchestrator。
 
 ## 链路：读取舰船皮肤
@@ -45,30 +45,30 @@
 1. 用户在 `ConfigSkinEditor.vue` 中编辑 schema 表单。
 2. 用户触发保存。
 3. ViewModel 或编辑器保存入口校验 `skinHullId`、`baseHullId` 和重复 ID。
-4. ViewModel 调用 `saveSkinWithFileHistory()`。
+4. ViewModel 调用 `saveSkinAction()`。
 5. config save orchestrator 调用 `saveSkinEntity()`。
-6. `write-api.ts` 调用 Rust `save_skin_entity_with_history` command。
+6. `config-entity-api.ts` 调用 Rust `save_skin_entity` command。
 7. Rust 校验 `skinHullId`、`baseHullId` 和路径边界。
 8. Rust 构建单文件修改 changeset；重命名时构建旧 `.skin` 删除和新 `.skin` 写入的同一 changeset。
-9. Rust 写盘并返回 `SkinEntityResult`。
+9. Rust 写盘并返回 `WriteResult`，并在 `refreshedEntity` 中返回当前舰船皮肤数据。
 10. 前端记录文件级 history。
 11. ViewModel 只基于 result 同步当前舰船皮肤列表并失效对应 session cache。
 
 ## 链路：新建舰船皮肤
 
 1. 用户在 `ConfigSkinList.vue` 输入 `baseHullId` 和 `skinHullId`。
-2. Skin ViewModel 调用 `createSkinWithFileHistory()`。
+2. Skin ViewModel 调用 `createSkinAction()`。
 3. config save orchestrator 调用 `createSkinEntity()`。
-4. `write-api.ts` 调用 Rust `create_skin_entity_with_history` command。
+4. `config-entity-api.ts` 调用 Rust `create_skin_entity` command。
 5. Rust 生成 `data/hulls/skins/{skinHullId}.skin` 的默认内容并写盘。
-6. Rust 返回 `SkinEntityResult`。
+6. Rust 返回 `WriteResult`，并在 `refreshedEntity` 中返回当前舰船皮肤数据。
 7. ViewModel 记录文件级 history，并只基于 result 更新列表和选中项。
 
 ## 链路：删除舰船皮肤
 
 1. 用户在 `ConfigSkinList.vue` 或 `ConfigSkinEditor.vue` 确认删除。
-2. Skin ViewModel 调用 `deleteSkinWithFileHistory()`。
+2. Skin ViewModel 调用 `deleteSkinAction()`。
 3. config save orchestrator 调用 `deleteSkinEntity()`。
-4. `write-api.ts` 调用 Rust `delete_skin_entity_with_history` command。
+4. `config-entity-api.ts` 调用 Rust `delete_skin_entity` command。
 5. Rust 构建单文件删除 changeset 并写盘。
 6. 前端记录文件级 history，并移除当前列表中的对应舰船皮肤。

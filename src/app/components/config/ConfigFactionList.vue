@@ -52,52 +52,27 @@
 <script setup lang="ts">
 import { computed, h, ref } from 'vue';
 import { NCheckbox } from 'naive-ui';
-import type { JsonValue, RowData } from '@/shared/types';
+import type { RowData } from '@/shared/types';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
+import { configFactionListItems } from '@/domain/config/config-entities';
 
 const props = defineProps<{
-  selectedId: string;
+  selectedId: string | null;
   factions: Record<string, RowData>;
   factionCrests: Record<string, string>;
   createFaction: (id: string) => Promise<boolean>;
   deleteFaction: (id: string, deleteFile: boolean) => Promise<boolean>;
 }>();
-const emit = defineEmits<{ select: [factionId: string] }>();
+const emit = defineEmits<{ select: [factionId: string | null] }>();
 
 const feedback = useAppFeedback();
 
 const showCreateDialog = ref(false);
 const newFactionId = ref('');
 const deleteFactionDataFile = ref(false);
-const pendingDeleteFaction = ref('');
+const pendingDeleteFaction = ref<string | null>(null);
 
-interface ConfigFactionViewItem {
-  id: string;
-  displayName: string;
-  colorCss: string;
-}
-
-function rgbaToCss(color: JsonValue): string {
-  if (Array.isArray(color) && color.length >= 3) {
-    const r = Math.round(Number(color[0]) || 0);
-    const g = Math.round(Number(color[1]) || 0);
-    const b = Math.round(Number(color[2]) || 0);
-    const a = Math.max(0, Math.min(255, Math.round(Number(color[3] ?? 255) || 0))) / 255;
-    return `rgba(${r}, ${g}, ${b}, ${a})`;
-  }
-  return 'rgba(128, 128, 128, 1)';
-}
-
-const factions = computed<ConfigFactionViewItem[]>(() => {
-  const files = props.factions;
-  return Object.keys(files)
-    .sort()
-    .map((id) => ({
-      id,
-      displayName: String(files[id]?.displayName ?? id),
-      colorCss: rgbaToCss(files[id]?.color),
-    }));
-});
+const factions = computed(() => configFactionListItems(props.factions));
 
 function factionCrest(id: string): string {
   return props.factionCrests[id] ?? '';
@@ -152,8 +127,9 @@ function confirmDelete(id: string) {
       ]),
     actionText: '删除',
     onConfirm: async () => {
+      if (!pendingDeleteFaction.value) return;
       await doDelete(pendingDeleteFaction.value, deleteFactionDataFile.value);
-      pendingDeleteFaction.value = '';
+      pendingDeleteFaction.value = null;
     },
   });
 }
@@ -162,7 +138,7 @@ async function doDelete(id: string, deleteFile: boolean) {
   try {
     if (!(await props.deleteFaction(id, deleteFile))) return;
     if (props.selectedId === id) {
-      emit('select', '');
+      emit('select', null);
     }
   } catch (error) {
     feedback.error(error, '删除势力失败');

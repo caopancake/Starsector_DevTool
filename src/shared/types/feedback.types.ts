@@ -11,7 +11,7 @@ export interface AppFeedback {
   success(message: string): void;
   info(message: string): void;
   warning(message: string): void;
-  error(error: unknown, fallback?: string): void;
+  error(error: unknown, contextMessage?: string): void;
   confirmDanger(options: ConfirmOptions): void;
   confirmWarning(options: ConfirmOptions): void;
 }

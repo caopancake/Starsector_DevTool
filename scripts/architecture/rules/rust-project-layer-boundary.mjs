@@ -1,10 +1,11 @@
-import { rustFile } from '../shared/files.mjs';
+import { rustFile, singleFileByRel } from '../shared/files.mjs';
 import { cratePaths } from '../shared/rust-crate-paths.mjs';
 
 export const rustProjectLayerBoundaryRule = {
   name: 'rust-project-layer-boundary',
   check(files) {
     const failures = [];
+    const projectModule = singleFileByRel(files, 'src-tauri/src/services/project/mod.rs');
     for (const file of files) {
       if (!rustFile(file.rel)) continue;
       if (testOnlyRustFile(file.text)) continue;
@@ -14,6 +15,9 @@ export const rustProjectLayerBoundaryRule = {
         const reference = `crate::${parts.join('::')}`;
         const to = rustLayerFromCratePath(reference);
         if (!to) continue;
+        if (from !== 'commands' && reference.startsWith('crate::models::command_payloads')) {
+          failures.push(`${file.rel}: command payload models must stay inside Rust command modules`);
+        }
         if (!validRustDependency(from, to)) {
           failures.push(`${file.rel}: ${from} must not depend on ${to} (${reference})`);
         }
@@ -27,6 +31,12 @@ export const rustProjectLayerBoundaryRule = {
       if (from === 'project-cache' && /load_core_references|load_all_core|core_references/i.test(productionText)) {
         failures.push(`${file.rel}: project cache must stay typed lazy and must not pre-read the full core set`);
       }
+      if (file === projectModule && /\bpub\s+mod\b/.test(productionText)) {
+        failures.push(`${file.rel}: project root module must not expose internal submodules`);
+      }
+      if (from === 'services' && /\bpub\s+fn\s+\w+\([^)]*\b[A-Za-z0-9_]*Payload\b/.test(productionText)) {
+        failures.push(`${file.rel}: service functions must not accept command payload models`);
+      }
     }
     return failures;
   },
@@ -37,8 +47,8 @@ function rustLayer(path) {
   if (path.startsWith('src-tauri/src/services/project/query/')) return 'project-query';
   if (path.startsWith('src-tauri/src/services/project/write/')) return 'project-write';
   if (path.startsWith('src-tauri/src/services/project/cache/')) return 'project-cache';
-  if (path.startsWith('src-tauri/src/services/project/session/')) return 'project-session';
-  if (path.startsWith('src-tauri/src/services/project/model')) return 'project-model';
+  if (projectServiceModule(path, 'session')) return 'project-session';
+  if (projectServiceModule(path, 'model')) return 'project-model';
   if (path.startsWith('src-tauri/src/services/')) return 'services';
   if (path.startsWith('src-tauri/src/domain/')) return 'domain';
   if (path.startsWith('src-tauri/src/io/')) return 'io';
@@ -91,6 +101,10 @@ function rustLayerFromCratePath(path) {
   if (path.startsWith('crate::parsers')) return 'parsers';
   if (path.startsWith('crate::models')) return 'models';
   return null;
+}
+
+function projectServiceModule(path, moduleName) {
+  return new RegExp(`^src-tauri/src/services/project/${moduleName}(?:\\.rs|/)`).test(path);
 }
 
 function validRustDependency(from, to) {

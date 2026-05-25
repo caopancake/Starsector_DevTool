@@ -27,10 +27,10 @@ pub(super) fn load_ship_sprite_data(
 pub(super) fn load_weapon_sprite_data(
     mod_root: &Path,
     core_dir: Option<&Path>,
-    wpn_files: &BTreeMap<String, Value>,
+    weapon_specs: &BTreeMap<String, Value>,
 ) -> BTreeMap<String, BTreeMap<String, String>> {
     let mut sprites = BTreeMap::new();
-    for (id, value) in wpn_files {
+    for (id, value) in weapon_specs {
         let mut weapon_sprites = BTreeMap::new();
         for field in [
             "turretUnderSprite",
@@ -146,8 +146,8 @@ mod tests {
         ];
         fs::write(sprite_dir.join("test_turret.png"), png_bytes).unwrap();
 
-        let mut wpn_files = BTreeMap::new();
-        wpn_files.insert(
+        let mut weapon_specs = BTreeMap::new();
+        weapon_specs.insert(
             "testgun".to_string(),
             serde_json::json!({
                 "id": "testgun",
@@ -155,7 +155,7 @@ mod tests {
             }),
         );
 
-        let loaded = load_weapon_sprite_data(&mod_dir, Some(core_dir.as_path()), &wpn_files);
+        let loaded = load_weapon_sprite_data(&mod_dir, Some(core_dir.as_path()), &weapon_specs);
 
         let _ = fs::remove_dir_all(&mod_dir);
         let _ = fs::remove_dir_all(&core_dir);

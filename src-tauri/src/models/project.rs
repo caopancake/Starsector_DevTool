@@ -2,22 +2,99 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 
-pub const CSV_TABLES: [(&str, &str); 14] = [
-    ("ships", "data/hulls/ship_data.csv"),
-    ("weapons", "data/weapons/weapon_data.csv"),
-    ("wings", "data/hulls/wing_data.csv"),
-    ("hullmods", "data/hullmods/hull_mods.csv"),
-    ("shipSystems", "data/shipsystems/ship_systems.csv"),
-    ("industries", "data/campaign/industries.csv"),
-    ("skills", "data/characters/skills/skill_data.csv"),
-    ("abilities", "data/campaign/abilities.csv"),
-    ("commodities", "data/campaign/commodities.csv"),
-    ("specialItems", "data/campaign/special_items.csv"),
-    ("submarkets", "data/campaign/submarkets.csv"),
-    ("marketConditions", "data/campaign/market_conditions.csv"),
-    ("simOpponents", "data/campaign/sim_opponents.csv"),
-    ("descriptions", "data/strings/descriptions.csv"),
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "camelCase")]
+pub enum CsvTableKey {
+    Ships,
+    Weapons,
+    Wings,
+    Hullmods,
+    ShipSystems,
+    Industries,
+    Skills,
+    Abilities,
+    Commodities,
+    SpecialItems,
+    Submarkets,
+    MarketConditions,
+    SimOpponents,
+    Descriptions,
+}
+
+pub const CSV_TABLES: [(CsvTableKey, &str); 14] = [
+    (CsvTableKey::Ships, "data/hulls/ship_data.csv"),
+    (CsvTableKey::Weapons, "data/weapons/weapon_data.csv"),
+    (CsvTableKey::Wings, "data/hulls/wing_data.csv"),
+    (CsvTableKey::Hullmods, "data/hullmods/hull_mods.csv"),
+    (
+        CsvTableKey::ShipSystems,
+        "data/shipsystems/ship_systems.csv",
+    ),
+    (CsvTableKey::Industries, "data/campaign/industries.csv"),
+    (CsvTableKey::Skills, "data/characters/skills/skill_data.csv"),
+    (CsvTableKey::Abilities, "data/campaign/abilities.csv"),
+    (CsvTableKey::Commodities, "data/campaign/commodities.csv"),
+    (CsvTableKey::SpecialItems, "data/campaign/special_items.csv"),
+    (CsvTableKey::Submarkets, "data/campaign/submarkets.csv"),
+    (
+        CsvTableKey::MarketConditions,
+        "data/campaign/market_conditions.csv",
+    ),
+    (CsvTableKey::SimOpponents, "data/campaign/sim_opponents.csv"),
+    (CsvTableKey::Descriptions, "data/strings/descriptions.csv"),
 ];
+
+pub const CSV_FACTION_FIELD: &str = "_faction";
+pub const CSV_DEFAULT_FACTION_ID: &str = "other";
+
+impl CsvTableKey {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Ships => "ships",
+            Self::Weapons => "weapons",
+            Self::Wings => "wings",
+            Self::Hullmods => "hullmods",
+            Self::ShipSystems => "shipSystems",
+            Self::Industries => "industries",
+            Self::Skills => "skills",
+            Self::Abilities => "abilities",
+            Self::Commodities => "commodities",
+            Self::SpecialItems => "specialItems",
+            Self::Submarkets => "submarkets",
+            Self::MarketConditions => "marketConditions",
+            Self::SimOpponents => "simOpponents",
+            Self::Descriptions => "descriptions",
+        }
+    }
+
+    pub fn from_key(value: &str) -> Option<Self> {
+        CSV_TABLES
+            .iter()
+            .find_map(|(key, _)| (key.as_str() == value).then_some(*key))
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum CsvFactionFilter {
+    All,
+    Faction {
+        #[serde(rename = "factionId")]
+        faction_id: String,
+    },
+}
+
+impl CsvFactionFilter {
+    pub fn faction_id_for_table(&self, table: CsvTableKey) -> Option<&str> {
+        if !matches!(table, CsvTableKey::Ships | CsvTableKey::Weapons) {
+            return None;
+        }
+        match self {
+            Self::All => None,
+            Self::Faction { faction_id } => Some(faction_id.as_str()),
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CsvTable {
@@ -36,7 +113,8 @@ pub struct ProjectManifest {
     pub starsector_root: Option<String>,
     pub core_available: bool,
     pub mod_info: Value,
-    pub table_summaries: BTreeMap<String, TableSummary>,
+    pub table_summaries: BTreeMap<CsvTableKey, TableSummary>,
+    pub table_entity_summaries: BTreeMap<CsvTableKey, usize>,
     pub entity_summaries: EntitySummaries,
     pub warnings: Vec<GameScanWarning>,
 }
@@ -67,7 +145,7 @@ pub struct EntitySummaries {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CsvTableWindow {
-    pub table: String,
+    pub table: CsvTableKey,
     pub header: Vec<String>,
     pub total_rows: usize,
     pub filtered_rows: usize,
@@ -85,31 +163,26 @@ pub struct CsvWindowRow {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct CsvTableWindowPayload {
-    pub session_id: ProjectSessionId,
-    pub table: String,
-    pub start: usize,
-    pub count: usize,
-    pub search: Option<String>,
-    pub faction: Option<String>,
+pub struct DiscoveredField {
+    pub key: String,
+    #[serde(rename = "type")]
+    pub field_type: DiscoveredFieldType,
+    pub origin: ResourceSource,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct CsvSourceOptionsPayload {
-    pub session_id: ProjectSessionId,
-    pub source: String,
-    pub search: Option<String>,
-    pub limit: Option<usize>,
-    pub current_values: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct CsvRowPreviewPayload {
-    pub session_id: ProjectSessionId,
-    pub table: String,
-    pub row_key: String,
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum DiscoveredFieldType {
+    Boolean,
+    Integer,
+    Float,
+    String,
+    PathImage,
+    StringArray,
+    ColorRgba,
+    ArrayOfObject,
+    TagSelect,
+    Object,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -130,66 +203,120 @@ pub struct SourceOptionGroup {
 pub struct SourceOption {
     pub label: String,
     pub value: String,
-    pub sprite: Option<String>,
     pub resource_ref: Option<ResourceRef>,
-    pub origin: String,
+    pub origin: SourceOptionOrigin,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "camelCase")]
-pub struct QueryEntityPayload {
-    pub session_id: ProjectSessionId,
-    pub kind: String,
-    pub id: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct QueryEntityListPayload {
-    pub session_id: ProjectSessionId,
-    pub kind: String,
+pub enum EntityKind {
+    Ship,
+    Weapon,
+    Projectile,
+    System,
+    Skill,
+    Faction,
+    Mission,
+    Variant,
+    Skin,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct EntityData {
-    pub kind: String,
+    pub kind: EntityKind,
     pub id: String,
     pub data: Value,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub resource_refs: BTreeMap<String, ResourceRef>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "camelCase")]
+pub enum ResourceSource {
+    Mod,
+    Core,
+}
+
+impl ResourceSource {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Mod => "mod",
+            Self::Core => "core",
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "camelCase")]
+pub enum ResourceOwnerKind {
+    Ship,
+    Weapon,
+    Variant,
+    Skin,
+    Faction,
+    Mission,
+    Hullmods,
+    ShipSystems,
+    Industries,
+    Skills,
+    Abilities,
+    Commodities,
+    SpecialItems,
+    Submarkets,
+    MarketConditions,
+}
+
+impl From<EntityKind> for ResourceOwnerKind {
+    fn from(kind: EntityKind) -> Self {
+        match kind {
+            EntityKind::Ship => Self::Ship,
+            EntityKind::Weapon => Self::Weapon,
+            EntityKind::Variant => Self::Variant,
+            EntityKind::Skin => Self::Skin,
+            EntityKind::Faction => Self::Faction,
+            EntityKind::Mission => Self::Mission,
+            EntityKind::Skill => Self::Skills,
+            EntityKind::System => Self::ShipSystems,
+            EntityKind::Projectile => Self::Weapon,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "camelCase")]
+pub enum SourceOptionOrigin {
+    Current,
+    Mod,
+    Core,
+}
+
+impl From<ResourceSource> for SourceOptionOrigin {
+    fn from(source: ResourceSource) -> Self {
+        match source {
+            ResourceSource::Mod => Self::Mod,
+            ResourceSource::Core => Self::Core,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ResourceRef {
-    pub source: String,
+    pub source: ResourceSource,
     pub rel_path: String,
-    pub owner_kind: String,
+    pub owner_kind: ResourceOwnerKind,
     pub owner_id: String,
     pub key: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ResourceDataUrlBatchPayload {
-    pub session_id: ProjectSessionId,
-    pub resources: Vec<ResourceRef>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct HullReferencesPayload {
-    pub session_id: ProjectSessionId,
-    pub hull_ids: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct ResourceDataUrlBatchEntry {
     pub key: String,
-    pub source: String,
+    pub source: ResourceSource,
     pub rel_path: String,
+    pub owner_kind: ResourceOwnerKind,
+    pub owner_id: String,
     pub data_url: Option<String>,
 }
 
@@ -204,9 +331,16 @@ pub struct ResourceDataUrlBatchResult {
 pub struct HullReferenceOption {
     pub label: String,
     pub value: String,
-    pub origin: String,
-    pub kind: String,
+    pub origin: ResourceSource,
+    pub kind: HullReferenceKind,
     pub resource_ref: Option<ResourceRef>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "camelCase")]
+pub enum HullReferenceKind {
+    Ship,
+    Skin,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -221,19 +355,6 @@ pub struct HullReferenceGroup {
 pub struct HullReferencesResult {
     pub groups: Vec<HullReferenceGroup>,
     pub sprites: BTreeMap<String, ResourceRef>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct InvalidateProjectSessionPayload {
-    pub session_id: ProjectSessionId,
-    pub changed_paths: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct InvalidateCoreCachePayload {
-    pub starsector_root: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -268,12 +389,21 @@ pub struct SkinFile {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenDirectoryResult {
-    pub kind: String,
+    pub kind: OpenDirectoryKind,
     pub selected_path: String,
     pub starsector_root: Option<String>,
     pub mod_root: Option<String>,
     pub overview: Option<GameOverviewData>,
     pub warnings: Vec<GameScanWarning>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum OpenDirectoryKind {
+    GameRoot,
+    ModInGame,
+    ExternalMod,
+    Unknown,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -308,4 +438,33 @@ pub struct GameScanWarning {
 pub struct FactionMeta {
     pub name: String,
     pub color: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{EntityData, EntityKind};
+    use serde_json::{json, Map, Value};
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn entity_data_serializes_empty_resource_refs_explicitly() {
+        let entity = EntityData {
+            kind: EntityKind::Projectile,
+            id: "demo_projectile".to_string(),
+            data: Value::Object(Map::new()),
+            resource_refs: BTreeMap::new(),
+        };
+
+        let value = serde_json::to_value(entity).unwrap();
+
+        assert_eq!(
+            value,
+            json!({
+                "kind": "projectile",
+                "id": "demo_projectile",
+                "data": {},
+                "resourceRefs": {}
+            })
+        );
+    }
 }

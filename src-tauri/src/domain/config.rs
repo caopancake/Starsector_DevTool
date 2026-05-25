@@ -7,16 +7,19 @@ use std::path::Path;
 
 pub fn validate_config_id<'a>(id: &'a str, message: &str) -> AppResult<&'a str> {
     let clean = id.trim();
-    if clean.is_empty()
-        || clean.contains('/')
-        || clean.contains('\\')
-        || clean == "."
-        || clean == ".."
-        || clean.contains("..")
-    {
+    if !is_config_entity_id(clean) {
         return Err(AppError::message(message));
     }
     Ok(clean)
+}
+
+fn is_config_entity_id(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    first.is_ascii_alphanumeric()
+        && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '.' || ch == '-')
 }
 
 pub fn build_variant_file(mod_root: &Path, rel_path: &str, data: &Value) -> AppResult<VariantFile> {
@@ -77,4 +80,26 @@ fn object_len(value: Option<&Value>) -> usize {
     value
         .and_then(Value::as_object)
         .map_or(0, |object| object.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn config_id_accepts_portable_ascii_identifier_segments() {
+        assert_eq!(
+            validate_config_id(" demo_id-01.alpha ", "invalid").unwrap(),
+            "demo_id-01.alpha"
+        );
+    }
+
+    #[test]
+    fn config_id_rejects_non_identifier_path_segments() {
+        for id in [
+            "", ".", "..", "a/b", "a\\b", "a b", "-demo", "_demo", "demo:bad",
+        ] {
+            assert!(validate_config_id(id, "invalid").is_err(), "{id}");
+        }
+    }
 }

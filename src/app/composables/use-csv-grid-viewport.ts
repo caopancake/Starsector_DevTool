@@ -15,7 +15,7 @@ export interface CsvGridViewportState<T> {
 
 export function useCsvGridViewport<T>(
   items: Ref<T[]>,
-  options: { editingIndex: Ref<number>; overscan?: number; rowHeight?: number },
+  options: { editingIndex: Ref<number | null>; overscan?: number; rowHeight?: number },
 ): CsvGridViewportState<T> {
   const rowHeight = options.rowHeight ?? CSV_GRID_ROW_HEIGHT;
   const overscan = options.overscan ?? CSV_GRID_OVERSCAN_ROWS;
@@ -45,8 +45,8 @@ export function useCsvGridViewport<T>(
   return { afterHeight, beforeHeight, endIndex, onScroll, setViewportMetrics, startIndex, visibleItems };
 }
 
-function includeEditingIndex(start: number, end: number, editingIndex: number): { end: number; start: number } {
-  if (editingIndex < 0) return { end, start };
+function includeEditingIndex(start: number, end: number, editingIndex: number | null): { end: number; start: number } {
+  if (editingIndex === null) return { end, start };
   if (editingIndex < start) return { end, start: editingIndex };
   if (editingIndex >= end) return { end: editingIndex + 1, start };
   return { end, start };

@@ -1,3 +1,3 @@
 mod csv_patch;
 
-pub use csv_patch::save_csv_patch_for_command;
+pub use csv_patch::save_csv_patch;

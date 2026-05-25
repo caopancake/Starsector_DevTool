@@ -1,8 +1,8 @@
-use crate::{errors::AppResult, io::load_json_dir};
+use crate::{errors::AppResult, io::load_json_dir, models::ResourceSource};
 use serde_json::Value;
 use std::{collections::BTreeMap, path::Path};
 
-pub(super) fn load_projectile_files(
+pub(super) fn load_projectile_specs(
     mod_root: &Path,
     core_dir: Option<&Path>,
 ) -> AppResult<BTreeMap<String, Value>> {
@@ -10,11 +10,16 @@ pub(super) fn load_projectile_files(
     insert_projectiles(
         &mut result,
         &mod_root.join("data/weapons/proj"),
-        "mod",
+        ResourceSource::Mod,
         true,
     )?;
     if let Some(core) = core_dir {
-        insert_projectiles(&mut result, &core.join("data/weapons/proj"), "core", false)?;
+        insert_projectiles(
+            &mut result,
+            &core.join("data/weapons/proj"),
+            ResourceSource::Core,
+            false,
+        )?;
     }
     Ok(result)
 }
@@ -22,7 +27,7 @@ pub(super) fn load_projectile_files(
 fn insert_projectiles(
     result: &mut BTreeMap<String, Value>,
     dir: &Path,
-    source: &str,
+    source: ResourceSource,
     overwrite: bool,
 ) -> AppResult<()> {
     for mut value in load_json_dir(dir, "proj")? {
@@ -35,7 +40,10 @@ fn insert_projectiles(
                 continue;
             }
             if let Value::Object(obj) = &mut value {
-                obj.insert("_source".to_string(), Value::String(source.to_string()));
+                obj.insert(
+                    "_source".to_string(),
+                    Value::String(source.as_str().to_string()),
+                );
             }
             result.insert(id, value);
         }
@@ -64,12 +72,15 @@ mod tests {
         write_utf8_no_bom(&core_proj.join("same.proj"), r#"{"id":"same","damage":1}"#).unwrap();
         write_utf8_no_bom(&core_proj.join("core_only.proj"), r#"{"id":"core_only"}"#).unwrap();
 
-        let loaded = load_projectile_files(&root.join("mod"), Some(&root.join("core"))).unwrap();
+        let loaded = load_projectile_specs(&root.join("mod"), Some(&root.join("core"))).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(loaded["same"]["damage"], 2);
-        assert_eq!(loaded["same"]["_source"], "mod");
-        assert_eq!(loaded["core_only"]["_source"], "core");
+        assert_eq!(loaded["same"]["_source"], ResourceSource::Mod.as_str());
+        assert_eq!(
+            loaded["core_only"]["_source"],
+            ResourceSource::Core.as_str()
+        );
     }
 
     fn temp_dir(name: &str) -> PathBuf {

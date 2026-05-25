@@ -1,75 +1,54 @@
-import type { FileChangeRecord, WriteResult } from '@/services/write.service';
-import { normalizeFsPath, pathBasename } from '@/shared/lib/paths';
+import type { WriteResult } from '@/shared/types';
+import { closestRootForPath, pathBasename } from '@/shared/lib/paths';
 import type { EditorSpecSavedEvent, FileEditorSavedEvent } from '@/windows/window.events';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import { useProjectStore } from '@/stores/project.store';
 import { invalidateProject } from '@/services/session.service';
 import { invalidateQueryCacheByPaths } from '@/services/query-cache.service';
 import { invalidateResourceCacheByPaths } from '@/services/resource-cache.service';
+import { editorSpecExtension } from '@/domain/editors/editor-kind-metadata';
 
-export function recordFileSave(modRoot: string, changes: FileChangeRecord[], label: string) {
-  if (!modRoot || changes.length === 0) return false;
+export function recordFileSave(modRoot: string, result: WriteResult, label: string) {
+  if (!modRoot || result.changes.length === 0) return false;
   const fileHistory = useFileHistoryStore();
-  fileHistory.pushFileSaveEntry(modRoot, changes, label);
+  fileHistory.pushFileSaveEntry(modRoot, result.changes, label);
   return true;
 }
 
-export function recordSpriteUploadSaved(modRoot: string, changes: FileChangeRecord[], overwritten: boolean, filename: string) {
+export function recordSpriteUploadSaved(modRoot: string, result: WriteResult, overwritten: boolean, filename: string) {
   const action = overwritten ? '覆盖贴图' : '上传贴图';
-  return recordFileSave(modRoot, changes, `${action}: ${filename}`);
+  return recordFileSave(modRoot, result, `${action}: ${filename}`);
 }
 
-export function recordEditorSpecSaved(payload: EditorSpecSavedEvent) {
-  if (payload.changes?.length) {
-    recordFileSave(payload.modRoot, payload.changes, `保存 ${payload.id}.${editorExtension(payload.kind)}`);
-    void invalidateChangedPaths(payload.modRoot, payload.changes);
+export async function handleEditorSpecSaved(event: EditorSpecSavedEvent) {
+  if (event.writeResult.changes.length) {
+    recordFileSave(event.modRoot, event.writeResult, `保存 ${event.id}.${editorSpecExtension(event.kind)}`);
+    await invalidateWriteResultForMod(event.modRoot, event.writeResult);
   }
   return true;
 }
 
-export function recordFileEditorSaved(payload: FileEditorSavedEvent) {
-  if (!payload.changes.length) return false;
+export async function handleFileEditorSaved(event: FileEditorSavedEvent) {
+  if (!event.writeResult.changes.length) return false;
   const project = useProjectStore();
-  const modRoot = resolveLoadedModRootForPath([...project.manifests.keys()], payload.path);
+  const modRoot = resolveLoadedModRootForPath([...project.manifests.keys()], event.path);
   if (!modRoot) return false;
-  recordFileSave(modRoot, payload.changes, `保存 ${pathBasename(payload.path)}`);
-  void invalidateChangedPaths(modRoot, payload.changes);
+  recordFileSave(modRoot, event.writeResult, `保存 ${pathBasename(event.path)}`);
+  await invalidateWriteResultForMod(modRoot, event.writeResult);
   return true;
 }
 
-function editorExtension(kind: EditorSpecSavedEvent['kind']) {
-  if (kind === 'ship') return 'ship';
-  if (kind === 'weapon') return 'wpn';
-  return 'proj';
-}
-
 function resolveLoadedModRootForPath(modRoots: string[], path: string): string | null {
-  const normalizedPath = normalizeFsPath(path);
-  const matches = modRoots.filter((modRoot) => {
-    const normalizedRoot = normalizeFsPath(modRoot);
-    return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`);
-  });
-  matches.sort((a, b) => normalizeFsPath(b).length - normalizeFsPath(a).length);
-  return matches[0] ?? null;
+  return closestRootForPath(modRoots, path);
 }
 
-export async function invalidateChangedPathsForMod(modRoot: string, changes: FileChangeRecord[]) {
-  await invalidateWriteResultForMod(modRoot, {
-    changes,
-    invalidatedPaths: changes.map((change) => change.path),
-  });
-}
-
-export async function invalidateWriteResultForMod(modRoot: string, result: Pick<WriteResult, 'invalidatedPaths' | 'changes'>) {
+export async function invalidateWriteResultForMod(modRoot: string, result: WriteResult) {
   const project = useProjectStore();
-  const sessionId = project.getSessionId(modRoot);
-  if (!sessionId) return;
+  const manifest = project.getManifest(modRoot);
+  if (!manifest) return;
   const paths = result.invalidatedPaths;
-  invalidateQueryCacheByPaths(sessionId);
-  invalidateResourceCacheByPaths(sessionId, paths);
-  await invalidateProject(sessionId, paths);
-}
-
-async function invalidateChangedPaths(modRoot: string, changes: FileChangeRecord[]) {
-  await invalidateChangedPathsForMod(modRoot, changes);
+  const projectRoot = manifest.modRoot;
+  invalidateQueryCacheByPaths(manifest, paths);
+  invalidateResourceCacheByPaths(manifest.sessionId, projectRoot, paths);
+  await invalidateProject(manifest.sessionId, paths);
 }

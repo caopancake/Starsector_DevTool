@@ -4,16 +4,17 @@ use crate::{
         apply_changes, build_text_change, read_utf8_no_bom, ChangeDirection, FileChangeSetBuilder,
     },
     models::{
-        ApplyFileChangeSetPayload, AssociatedFileChangePayload, EditableFileData, FileChangeRecord,
+        AssociatedFileChange, EditableFileData, FileChangeRecord, FileChangeReplayDirection,
+        WriteResult,
     },
 };
 use std::path::Path;
 
-pub fn save_text_file(path: &str, text: String) -> AppResult<Vec<FileChangeRecord>> {
+pub fn save_text_file(path: &str, text: String) -> AppResult<WriteResult> {
     let path = Path::new(path);
     let change = build_text_change(path, Some(text))?;
     apply_changes(std::slice::from_ref(&change), ChangeDirection::Redo)?;
-    Ok(vec![change])
+    Ok(write_result(vec![change]))
 }
 
 pub fn load_editable_file(path: String) -> AppResult<EditableFileData> {
@@ -24,20 +25,38 @@ pub fn load_editable_file(path: String) -> AppResult<EditableFileData> {
     })
 }
 
-pub fn save_mod_files(
-    mod_root: &str,
-    files: Vec<AssociatedFileChangePayload>,
-) -> AppResult<Vec<FileChangeRecord>> {
+pub fn save_mod_files(mod_root: &str, files: Vec<AssociatedFileChange>) -> AppResult<WriteResult> {
     let mut builder = FileChangeSetBuilder::new(Path::new(mod_root));
     for file in files {
         builder.file(&file.rel_path, file.after_text, file.after_data_base64)?;
     }
-    builder.apply()
+    builder.apply().map(write_result)
 }
 
-pub fn apply_file_change_set(payload: ApplyFileChangeSetPayload) -> AppResult<()> {
-    let direction = ChangeDirection::parse(&payload.direction)?;
-    apply_changes(&payload.changes, direction)
+pub fn apply_file_change_set(
+    direction: FileChangeReplayDirection,
+    changes: Vec<FileChangeRecord>,
+) -> AppResult<WriteResult> {
+    apply_changes(&changes, change_direction(direction))?;
+    Ok(write_result(changes))
+}
+
+fn change_direction(direction: FileChangeReplayDirection) -> ChangeDirection {
+    match direction {
+        FileChangeReplayDirection::Undo => ChangeDirection::Undo,
+        FileChangeReplayDirection::Redo => ChangeDirection::Redo,
+    }
+}
+
+fn write_result(changes: Vec<FileChangeRecord>) -> WriteResult {
+    let invalidated_paths = changes.iter().map(|change| change.path.clone()).collect();
+    WriteResult {
+        changes,
+        invalidated_paths,
+        key_map: Vec::new(),
+        refreshed_entity: None,
+        warnings: Vec::new(),
+    }
 }
 
 #[cfg(test)]
@@ -45,7 +64,7 @@ mod tests {
     use super::*;
     use crate::{
         io::{build_directory_delete_change, build_file_change, write_utf8_no_bom},
-        models::AssociatedFileChangePayload,
+        models::{AssociatedFileChange, FileChangeReplayDirection},
     };
     use base64::{engine::general_purpose, Engine as _};
     use std::{
@@ -59,15 +78,15 @@ mod tests {
         let root = temp_dir("save_mod_files_changeset");
         write_utf8_no_bom(&root.join("mod_info.json"), "{\"id\":\"old\"}").unwrap();
 
-        let changes = save_mod_files(
+        let result = save_mod_files(
             &root.to_string_lossy(),
             vec![
-                AssociatedFileChangePayload {
+                AssociatedFileChange {
                     rel_path: "mod_info.json".to_string(),
                     after_text: Some("{\"id\":\"new\"}".to_string()),
                     after_data_base64: None,
                 },
-                AssociatedFileChangePayload {
+                AssociatedFileChange {
                     rel_path: "data/missions/demo/mission_text.txt".to_string(),
                     after_text: Some("text".to_string()),
                     after_data_base64: None,
@@ -81,7 +100,8 @@ mod tests {
             read_utf8_no_bom(&root.join("data/missions/demo/mission_text.txt")).unwrap();
 
         let _ = fs::remove_dir_all(root);
-        assert_eq!(changes.len(), 2);
+        assert_eq!(result.changes.len(), 2);
+        assert_eq!(result.invalidated_paths.len(), 2);
         assert_eq!(mod_info, "{\"id\":\"new\"}");
         assert_eq!(mission_text, "text");
     }
@@ -92,7 +112,7 @@ mod tests {
 
         let result = save_mod_files(
             &root.to_string_lossy(),
-            vec![AssociatedFileChangePayload {
+            vec![AssociatedFileChange {
                 rel_path: "../outside.txt".to_string(),
                 after_text: Some("bad".to_string()),
                 after_data_base64: None,
@@ -113,18 +133,10 @@ mod tests {
         fs::write(dir.join("icon.bin"), [0, 159, 146, 150]).unwrap();
 
         let change = build_directory_delete_change(&dir).unwrap();
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "redo".to_string(),
-            changes: vec![change.clone()],
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Redo, vec![change.clone()]).unwrap();
         assert!(!dir.exists());
 
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "undo".to_string(),
-            changes: vec![change],
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Undo, vec![change]).unwrap();
 
         let descriptor = read_utf8_no_bom(&dir.join("descriptor.json")).unwrap();
         let nested = read_utf8_no_bom(&dir.join("nested/readme.txt")).unwrap();
@@ -146,25 +158,13 @@ mod tests {
         )
         .unwrap();
 
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "redo".to_string(),
-            changes: vec![change.clone()],
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Redo, vec![change.clone()]).unwrap();
         assert_eq!(fs::read(&path).unwrap(), vec![1, 2, 3]);
 
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "undo".to_string(),
-            changes: vec![change.clone()],
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Undo, vec![change.clone()]).unwrap();
         assert!(!path.exists());
 
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "redo".to_string(),
-            changes: vec![change],
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Redo, vec![change]).unwrap();
         let bytes = fs::read(&path).unwrap();
         let _ = fs::remove_dir_all(root);
         assert_eq!(bytes, vec![1, 2, 3]);
@@ -183,25 +183,13 @@ mod tests {
         )
         .unwrap();
 
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "redo".to_string(),
-            changes: vec![change.clone()],
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Redo, vec![change.clone()]).unwrap();
         assert_eq!(fs::read(&path).unwrap(), vec![1, 2, 3]);
 
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "undo".to_string(),
-            changes: vec![change.clone()],
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Undo, vec![change.clone()]).unwrap();
         assert_eq!(fs::read(&path).unwrap(), vec![9, 8, 7]);
 
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "redo".to_string(),
-            changes: vec![change],
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Redo, vec![change]).unwrap();
         let bytes = fs::read(&path).unwrap();
         let _ = fs::remove_dir_all(root);
         assert_eq!(bytes, vec![1, 2, 3]);
@@ -215,18 +203,10 @@ mod tests {
         fs::write(&path, [9, 8, 7]).unwrap();
         let change = build_file_change(&path, None, None).unwrap();
 
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "redo".to_string(),
-            changes: vec![change.clone()],
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Redo, vec![change.clone()]).unwrap();
         assert!(!path.exists());
 
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "undo".to_string(),
-            changes: vec![change],
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Undo, vec![change]).unwrap();
         let bytes = fs::read(&path).unwrap();
         let _ = fs::remove_dir_all(root);
         assert_eq!(bytes, vec![9, 8, 7]);

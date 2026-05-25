@@ -7,10 +7,11 @@
 ## 边界
 
 - `src/windows/managed.window.ts` 是窗口创建和单例化的基础入口。
-- `src/windows/window.events.ts` 定义跨窗口事件名和 payload。
+- `src/windows/window.events.ts` 定义跨窗口事件名和事件数据。
 - `src/orchestrators/window-save.orchestrator.ts` 在主窗口监听保存事件并转交文件级 history。
 - `src/windows/file-editor.window.ts` 封装文件编辑器窗口打开请求。
 - `src/windows/editor.window.ts` 封装 spec 编辑器和发射预览窗口打开请求。
+- `src/domain/editors/editor-kind-metadata.ts` 定义编辑器 kind 的标题、spec 扩展名和解析规则。
 - `src/app/composables/use-editor-window-view-model.ts` 统一编排编辑器窗口的 entity query、候选项和资源加载。
 - `src-tauri/capabilities/default.json` 控制窗口创建、聚焦、关闭和事件权限。
 
@@ -20,7 +21,13 @@
 - 文件编辑器的单例 key 是文件路径。
 - 编辑器窗口的单例 key 是 `kind + modRoot + id`。
 - 编辑器窗口只能使用主窗口传入的 `sessionId + kind + id` 查询数据，不能自行打开项目。
+- 编辑器窗口 URL 目标上下文缺失必须以 null 表达，不能把缺失的 session、Mod 路径或目标 id 压成空字符串。
+- `managed.window.ts` 只按 `null` / `undefined` 省略 URL 参数，空字符串是调用方显式传入的参数值。
 - 编辑器窗口组件只能消费 ViewModel 输出，不得直接拼 entity query、source query 或资源批量请求。
+- 编辑器 spec 保存只广播 `editor-spec-saved`，事件必须携带 `WriteResult`；窗口间 spec 同步和主窗口 history 记录都消费同一个保存事件。
+- 窗口事件监听器必须支持异步 handler；保存事件处理器声明的 history 记录、缓存失效和后续回调必须在同一 handler 链路中 await。
+- 窗口事件异步 handler 失败必须由监听注册方写入 app log，`windows` 适配层只负责事件转发和错误回调，不读取 app 配置。
+- `file-editor-focus-line` 按完整上下文覆盖当前文件编辑器状态，缺失的上下文用 `null` 清空。
 - `managed.window.ts` 负责 normalize key、hash label、聚焦已有窗口和创建新窗口。
 - 业务模块不能直接 new `WebviewWindow`，必须经由对应窗口 service。
 - 已存在窗口再次打开时，必须聚焦已有窗口，并按需要发送 focus event。

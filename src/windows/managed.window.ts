@@ -9,8 +9,8 @@ export interface ManagedWindowSize {
 
 export interface ManagedWindowRequest {
   focusEvent?: {
+    data: unknown;
     name: string;
-    payload: unknown;
   };
   labelPrefix: string;
   singletonKey: string;
@@ -37,13 +37,13 @@ export async function openManagedWindow(request: ManagedWindowRequest): Promise<
   if (existing) {
     await existing.show();
     await existing.setFocus();
-    if (request.focusEvent) await existing.emit(request.focusEvent.name, request.focusEvent.payload);
+    if (request.focusEvent) await existing.emit(request.focusEvent.name, request.focusEvent.data);
     return;
   }
 
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(request.urlParams)) {
-    if (value !== null && value !== undefined && value !== '') query.set(key, String(value));
+    if (value !== null && value !== undefined) query.set(key, String(value));
   }
 
   new WebviewWindow(label, {

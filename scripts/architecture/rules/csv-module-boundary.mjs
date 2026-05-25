@@ -1,3 +1,4 @@
+import { classifyFrontendPath } from '../shared/classify.mjs';
 import { frontendFile } from '../shared/files.mjs';
 import { importedProjectPaths, importSpecifiers } from '../shared/imports.mjs';
 
@@ -7,7 +8,8 @@ export const csvModuleBoundaryRule = {
     const failures = [];
     for (const file of files) {
       if (!frontendFile(file.rel)) continue;
-      if (!isCsvGridFile(file.rel)) continue;
+      const current = classifyFrontendPath(file.rel);
+      if (!isCsvGridSurface(file.text, current)) continue;
       if (/<n-select\b/i.test(file.text)) {
         failures.push(`${file.rel}: CSV Grid must use CsvCellPicker instead of Naive select controls`);
       }
@@ -19,7 +21,8 @@ export const csvModuleBoundaryRule = {
       }
       for (const imported of importedProjectPaths(file)) {
         if (imported.typeOnly) continue;
-        if (/^src\/services\/(?:query|resource-cache|write)\.service(?:\.ts)?$/.test(imported.resolved)) {
+        const target = classifyFrontendPath(imported.resolved);
+        if (target.role === 'service') {
           failures.push(`${file.rel}: CSV Grid must receive query/write/resource behavior from its ViewModel`);
         }
       }
@@ -31,6 +34,6 @@ export const csvModuleBoundaryRule = {
   },
 };
 
-function isCsvGridFile(path) {
-  return /^src\/app\/components\/tables\/Csv/.test(path) || /^src\/app\/components\/tables\/DataTable\.vue$/.test(path);
+function isCsvGridSurface(text, current) {
+  return current.layer === 'app' && (current.domain === 'tables' || /\bCsvGrid\b/.test(text));
 }

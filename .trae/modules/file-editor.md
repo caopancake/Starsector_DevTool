@@ -9,7 +9,7 @@
 - `src/windows/file-editor.window.ts` 打开单例文件编辑器窗口。
 - `src/app/FileEditorApp.vue` 加载、编辑、保存文本，并处理窗口内快捷键。
 - `src/services/files.service.ts` 是文件编辑器读取和保存 shared API 的业务入口。
-- `src/shared/api/write-api.ts` 封装 `load_editable_file` 和 `save_text_file_with_history`。
+- `src/shared/api/files-api.ts` 封装 `load_editable_file` 和 `save_text_file`。
 - `src-tauri/src/commands/files.rs` 暴露文本文件读取和保存 command。
 - `src-tauri/src/services/file_changes.rs` 读取可编辑文本文件、构建单文件 changeset 并写盘。
 - `src/styles/file-editor.css` 承载文件编辑器样式。
@@ -17,9 +17,12 @@
 ## 规范
 
 - 文件编辑器按文件路径单例化。
+- 文件编辑器窗口 URL 文件路径缺失必须以 null 表达，不能把缺失路径压成空字符串。
+- 文件编辑器读取和保存 command 必须使用 payload 对象作为 wire 边界，command 层只拆出 service 所需业务参数。
 - 文件编辑器保存只写当前文件。
 - 文件编辑器窗口内 Ctrl+Z、Ctrl+Shift+Z 和 ESC 是窗口局部快捷键。
 - 文件编辑器保存成功后发送 `file-editor-saved`。
+- 已存在文件编辑器再次被打开时，`file-editor-focus-line` 必须以显式 `null` 清空缺失的上下文字段，不能保留上一次错误行或错误消息。
 - 主窗口收到保存事件后按文件路径判断是否属于已加载 Mod。
 - 同一文件被文件级 history 回放影响时，通过 `file-editor-text-applied` 刷新已打开窗口。
 
@@ -36,10 +39,10 @@
 ## 链路：文件编辑器保存
 
 1. 用户在文件编辑器窗口点击保存或按 Ctrl+S。
-2. `FileEditorApp.vue` 通过 `files.service.ts` 调用 `saveTextFile(path, text)`。
+2. `FileEditorApp.vue` 通过 `files.service.ts` 调用 `writeEditableFileText(path, text)`。
 3. Rust file changes service 构建单文件 change。
 4. Rust file changes service 以 redo 写盘。
-5. Rust 返回 `FileChangeRecord[]`。
+5. Rust 返回 `WriteResult`。
 6. `FileEditorApp.vue` 更新本窗口 original text。
 7. `FileEditorApp.vue` 发送 `file-editor-saved`。
-8. 主窗口 `window-save.orchestrator.ts` 记录文件级 history。
+8. 主窗口 `window-save.orchestrator.ts` 记录文件级 history 并等待缓存失效完成。

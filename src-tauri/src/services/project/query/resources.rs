@@ -2,25 +2,26 @@ use super::super::cache::{session_for, sessions};
 use super::resources_shared::{resource_cache_key, resource_data_url};
 use crate::{
     errors::{AppError, AppResult},
-    models::{ResourceDataUrlBatchEntry, ResourceDataUrlBatchPayload, ResourceDataUrlBatchResult},
+    models::{ResourceDataUrlBatchEntry, ResourceDataUrlBatchResult, ResourceRef},
 };
 use std::collections::BTreeMap;
 
-pub fn query_resource_data_urls_for_command(
-    payload: ResourceDataUrlBatchPayload,
+pub fn query_resource_data_urls(
+    session_id: &str,
+    resources: Vec<ResourceRef>,
 ) -> AppResult<ResourceDataUrlBatchResult> {
     let guard = sessions()
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = session_for(&guard, &payload.session_id)?;
+    let session = session_for(&guard, session_id)?;
     let mut loaded: BTreeMap<String, Option<String>> = BTreeMap::new();
-    let mut entries = Vec::with_capacity(payload.resources.len());
-    for resource in payload.resources {
+    let mut entries = Vec::with_capacity(resources.len());
+    for resource in resources {
         let cache_key = resource_cache_key(&resource);
         let data_url = if let Some(data_url) = loaded.get(&cache_key) {
             data_url.clone()
         } else {
-            let data_url = resource_data_url(session, &resource);
+            let data_url = resource_data_url(session, &resource)?;
             loaded.insert(cache_key, data_url.clone());
             data_url
         };
@@ -28,6 +29,8 @@ pub fn query_resource_data_urls_for_command(
             key: resource.key,
             source: resource.source,
             rel_path: resource.rel_path,
+            owner_kind: resource.owner_kind,
+            owner_id: resource.owner_id,
             data_url,
         });
     }
@@ -36,13 +39,9 @@ pub fn query_resource_data_urls_for_command(
 
 #[cfg(test)]
 mod tests {
+    use super::super::super::session::{close_project_session, open_project_session_traced};
     use super::*;
-    use crate::{
-        models::{ResourceDataUrlBatchPayload, ResourceRef},
-        services::project::session::{
-            close_project_session_for_command, open_project_session_traced,
-        },
-    };
+    use crate::models::{ResourceOwnerKind, ResourceRef, ResourceSource};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
@@ -54,34 +53,63 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
-        let result = query_resource_data_urls_for_command(ResourceDataUrlBatchPayload {
-            session_id: manifest.session_id.clone(),
-            resources: vec![
+        let result = query_resource_data_urls(
+            &manifest.session_id,
+            vec![
                 ResourceRef {
-                    source: "mod".to_string(),
+                    source: ResourceSource::Mod,
                     rel_path: "graphics/ships/ship.png".to_string(),
-                    owner_kind: "ship".to_string(),
+                    owner_kind: ResourceOwnerKind::Ship,
                     owner_id: "ship".to_string(),
                     key: "ship".to_string(),
                 },
                 ResourceRef {
-                    source: "mod".to_string(),
+                    source: ResourceSource::Mod,
                     rel_path: "graphics/ships/missing.png".to_string(),
-                    owner_kind: "ship".to_string(),
+                    owner_kind: ResourceOwnerKind::Ship,
                     owner_id: "missing".to_string(),
                     key: "missing".to_string(),
                 },
             ],
-        })
+        )
         .unwrap();
 
-        let _ = close_project_session_for_command(manifest.session_id);
+        let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
         assert_eq!(result.entries.len(), 2);
         assert_eq!(result.entries[0].key, "ship");
+        assert_eq!(result.entries[0].owner_kind, ResourceOwnerKind::Ship);
+        assert_eq!(result.entries[0].owner_id, "ship");
         assert!(result.entries[0].data_url.is_some());
         assert_eq!(result.entries[1].key, "missing");
+        assert_eq!(result.entries[1].owner_kind, ResourceOwnerKind::Ship);
+        assert_eq!(result.entries[1].owner_id, "missing");
         assert!(result.entries[1].data_url.is_none());
+    }
+
+    #[test]
+    fn core_resource_requires_starsector_root() {
+        let root = temp_dir("core_resource_without_root");
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
+        let error = query_resource_data_urls(
+            &manifest.session_id,
+            vec![ResourceRef {
+                source: ResourceSource::Core,
+                rel_path: "graphics/ships/ship.png".to_string(),
+                owner_kind: ResourceOwnerKind::Ship,
+                owner_id: "ship".to_string(),
+                key: "ship".to_string(),
+            }],
+        )
+        .unwrap_err()
+        .to_string();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        assert!(error.contains("core resource requires starsector root"));
     }
 
     fn temp_dir(name: &str) -> std::path::PathBuf {

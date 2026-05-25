@@ -1,6 +1,9 @@
 import { normalizeRelPath, pathStem } from '@/shared/lib/paths';
 import type { ModTableState, RowData, TableKey } from '@/shared/types';
-import { defaultShip, defaultWeapon, rowSpecId } from '@/shared/lib/starsector';
+import { rowSpecId } from '@/shared/lib/starsector';
+import { isCsvDeletedRow } from '@/domain/tables/csv-dirty';
+import { associatedSpecCreateText, associatedSpecRelPath, tableHasAssociatedSpec } from '@/domain/tables/associated-specs';
+import { isLoadedCsvTableRow } from '@/domain/tables/csv-table-rows';
 
 export interface AssociatedFileCandidate {
   key: string;
@@ -9,17 +12,12 @@ export interface AssociatedFileCandidate {
   id: string;
   label: string;
   relPath: string;
-  afterText?: string | null;
-  afterDataBase64?: string | null;
+  afterText: string | null;
+  afterDataBase64: string | null;
 }
 
 export function associatedRelPath(table: TableKey, id: string): string | null {
-  if (!id) return null;
-  if (table === 'ships') return `data/hulls/${id}.ship`;
-  if (table === 'weapons') return `data/weapons/${id}.wpn`;
-  if (table === 'shipSystems') return `data/shipsystems/${id}.system`;
-  if (table === 'skills') return `data/characters/skills/${id}.skill`;
-  return null;
+  return associatedSpecRelPath(table, id);
 }
 
 export function isAssociatedFileForTable(table: TableKey, relPath: string): boolean {
@@ -33,10 +31,12 @@ export function getAssociatedFileCandidates(
 ): AssociatedFileCandidate[] {
   if (!state) return [];
   const result: AssociatedFileCandidate[] = [];
-  if (!tableSupportsAssociatedFiles(table)) return result;
+  if (!tableHasAssociatedSpec(table)) return result;
   for (const [rowKey, dirtyRow] of Object.entries(state.dirty[table])) {
-    if (dirtyRow._deleted === 'true') {
-      const originalIndex = state.originalTables[table].findIndex((row, index) => rowKeyForTab(table, row, index) === rowKey);
+    if (isCsvDeletedRow(dirtyRow)) {
+      const originalIndex = state.originalTables[table].findIndex(
+        (row, index) => isLoadedCsvTableRow(row) && rowKeyForTab(table, row, index) === rowKey,
+      );
       const original = originalIndex >= 0 ? state.originalTables[table][originalIndex] : null;
       const id = original ? rowSpecId(original, table) : '';
       const relPath = associatedRelPath(table, id);
@@ -48,14 +48,19 @@ export function getAssociatedFileCandidates(
         id,
         relPath,
         afterText: null,
+        afterDataBase64: null,
         label: `删除 ${relPath}`,
       });
       continue;
     }
 
-    const originalExists = state.originalTables[table].some((row, index) => rowKeyForTab(table, row, index) === rowKey);
+    const originalExists = state.originalTables[table].some(
+      (row, index) => isLoadedCsvTableRow(row) && rowKeyForTab(table, row, index) === rowKey,
+    );
     if (originalExists) continue;
-    const row = state.tables[table].find((candidate, index) => rowKeyForTab(table, candidate, index) === rowKey);
+    const row = state.tables[table].find(
+      (candidate, index): candidate is RowData => isLoadedCsvTableRow(candidate) && rowKeyForTab(table, candidate, index) === rowKey,
+    );
     const id = row ? rowSpecId(row, table) : '';
     const relPath = associatedRelPath(table, id);
     if (!row || !id || !relPath) continue;
@@ -65,19 +70,10 @@ export function getAssociatedFileCandidates(
       action: 'create',
       id,
       relPath,
-      afterText: associatedCreateText(table, id, row),
+      afterText: associatedSpecCreateText(table, id, row),
+      afterDataBase64: null,
       label: `创建 ${relPath}`,
     });
   }
   return result;
-}
-
-function associatedCreateText(table: TableKey, id: string, row: RowData): string {
-  if (table === 'ships') return JSON.stringify(defaultShip(id), null, 2);
-  if (table === 'weapons') return JSON.stringify(defaultWeapon(id, row), null, 2);
-  return JSON.stringify({ id }, null, 2);
-}
-
-function tableSupportsAssociatedFiles(table: TableKey): boolean {
-  return table === 'ships' || table === 'weapons' || table === 'shipSystems' || table === 'skills';
 }

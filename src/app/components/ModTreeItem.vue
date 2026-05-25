@@ -13,104 +13,19 @@
     </div>
 
     <div v-if="isExpanded && mod.status === 'ready'" class="mod-tree-modules">
-      <button
-        class="mod-tree-module-btn"
-        :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'mod-overview' }"
-        @click="$emit('switch-config', mod.modRoot, 'mod-overview')"
-      >
-        <span>Mod 概览</span>
-      </button>
-      <button
-        class="mod-tree-module-btn"
-        :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'file-history' }"
-        @click="$emit('switch-config', mod.modRoot, 'file-history')"
-      >
-        <span>文件历史</span>
-      </button>
-
-      <div class="mod-tree-separator" />
-
-      <button
-        class="mod-tree-module-btn"
-        :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'mod-info' }"
-        @click="$emit('switch-config', mod.modRoot, 'mod-info')"
-      >
-        <span>Mod 信息</span>
-      </button>
-
-      <div class="mod-tree-separator" />
-
-      <button
-        v-for="key in primaryTableKeys"
-        :key="key"
-        class="mod-tree-module-btn"
-        :class="{ 'module-active': isActive && workspace.currentView === 'table' && tables.currentTab === key }"
-        @click="$emit('switch-tab', mod.modRoot, key)"
-      >
-        <span>{{ MODULE_LABELS[key] }}</span>
-        <span class="mod-tree-module-count">{{ getRowCount(key) }}</span>
-      </button>
-      <button
-        class="mod-tree-module-btn"
-        :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'skins' }"
-        @click="$emit('switch-config', mod.modRoot, 'skins')"
-      >
-        <span>舰船皮肤</span>
-        <span class="mod-tree-module-count">{{ skinCount }}</span>
-      </button>
-      <button
-        class="mod-tree-module-btn"
-        :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'variants' }"
-        @click="$emit('switch-config', mod.modRoot, 'variants')"
-      >
-        <span>装配</span>
-        <span class="mod-tree-module-count">{{ variantCount }}</span>
-      </button>
-      <button
-        class="mod-tree-module-btn"
-        :class="{ 'module-active': isActive && workspace.currentView === 'table' && tables.currentTab === 'simOpponents' }"
-        @click="$emit('switch-tab', mod.modRoot, 'simOpponents')"
-      >
-        <span>{{ MODULE_LABELS.simOpponents }}</span>
-        <span class="mod-tree-module-count">{{ getRowCount('simOpponents') }}</span>
-      </button>
-      <button
-        class="mod-tree-module-btn"
-        :class="{ 'module-active': isActive && workspace.currentView === 'table' && tables.currentTab === 'descriptions' }"
-        @click="$emit('switch-tab', mod.modRoot, 'descriptions')"
-      >
-        <span>{{ MODULE_LABELS.descriptions }}</span>
-        <span class="mod-tree-module-count">{{ getRowCount('descriptions') }}</span>
-      </button>
-
-      <div class="mod-tree-separator" />
-
-      <button
-        class="mod-tree-module-btn"
-        :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'factions' }"
-        @click="$emit('switch-config', mod.modRoot, 'factions')"
-      >
-        <span>势力</span>
-        <span class="mod-tree-module-count">{{ factionCount }}</span>
-      </button>
-      <button
-        v-for="key in secondaryTableKeys"
-        :key="key"
-        class="mod-tree-module-btn"
-        :class="{ 'module-active': isActive && workspace.currentView === 'table' && tables.currentTab === key }"
-        @click="$emit('switch-tab', mod.modRoot, key)"
-      >
-        <span>{{ MODULE_LABELS[key] }}</span>
-        <span class="mod-tree-module-count">{{ getRowCount(key) }}</span>
-      </button>
-      <button
-        class="mod-tree-module-btn"
-        :class="{ 'module-active': isActive && workspace.currentView === 'config' && workspace.configView === 'mission' }"
-        @click="$emit('switch-config', mod.modRoot, 'mission')"
-      >
-        <span>战役</span>
-        <span class="mod-tree-module-count">{{ missionCount }}</span>
-      </button>
+      <template v-for="(section, sectionIndex) in moduleSections" :key="section.id">
+        <div v-if="sectionIndex > 0" class="mod-tree-separator" />
+        <button
+          v-for="item in section.items"
+          :key="item.id"
+          class="mod-tree-module-btn"
+          :class="{ 'module-active': isActive && isModuleActive(item) }"
+          @click="switchModule(item)"
+        >
+          <span>{{ item.label }}</span>
+          <span v-if="item.count !== null" class="mod-tree-module-count">{{ item.count }}</span>
+        </button>
+      </template>
     </div>
 
     <div v-if="isExpanded && mod.status === 'loading'" class="mod-tree-status">加载中…</div>
@@ -121,10 +36,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { ConfigView, ModEntry, TableKey } from '@/shared/types';
-import { MODULE_LABELS } from '@/shared/lib/starsector';
 import { useTablesStore } from '@/stores/tables.store';
 import { useProjectStore } from '@/stores/project.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
+import { buildModTreeModuleSections, isModTreeModuleActive, type ModTreeModuleItem } from '@/domain/workspace/mod-tree';
 
 const props = defineProps<{ mod: ModEntry; isActive: boolean; isExpanded: boolean }>();
 const emit = defineEmits<{
@@ -139,28 +54,21 @@ const tables = useTablesStore();
 const project = useProjectStore();
 const workspace = useWorkspaceStore();
 const showMenu = ref(false);
-const primaryTableKeys: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'shipSystems'];
-const secondaryTableKeys: TableKey[] = [
-  'industries',
-  'skills',
-  'abilities',
-  'commodities',
-  'specialItems',
-  'submarkets',
-  'marketConditions',
-];
 
 const hasDirtyChanges = computed(() => tables.hasModDirtyChanges(props.mod.modRoot));
-const factionCount = computed(() => {
-  const manifest = project.getManifest(props.mod.modRoot);
-  return manifest?.entitySummaries.factions ?? 0;
-});
-const missionCount = computed(() => project.getManifest(props.mod.modRoot)?.entitySummaries.missions ?? 0);
-const skinCount = computed(() => project.getManifest(props.mod.modRoot)?.entitySummaries.skins ?? 0);
-const variantCount = computed(() => project.getManifest(props.mod.modRoot)?.entitySummaries.variants ?? 0);
+const manifest = computed(() => project.getManifest(props.mod.modRoot));
+const moduleSections = computed(() => buildModTreeModuleSections(manifest.value));
 
-function getRowCount(key: TableKey): number {
-  return project.getManifest(props.mod.modRoot)?.tableSummaries[key]?.totalRows ?? 0;
+function isModuleActive(item: ModTreeModuleItem): boolean {
+  return isModTreeModuleActive(item, workspace.currentView, workspace.configView, tables.currentTab);
+}
+
+function switchModule(item: ModTreeModuleItem) {
+  if (item.target.type === 'config') {
+    emit('switch-config', props.mod.modRoot, item.target.view);
+    return;
+  }
+  emit('switch-tab', props.mod.modRoot, item.target.table);
 }
 
 function onRemove() {

@@ -34,9 +34,9 @@
               <div class="form-grid">
                 <label>hullId</label><n-input v-model:value="localShip.hullId" /> <label>hullName</label
                 ><n-input v-model:value="localShip.hullName" /> <label>hullSize</label
-                ><n-select v-model:value="localShip.hullSize" :options="opts(['FRIGATE', 'DESTROYER', 'CRUISER', 'CAPITAL_SHIP'])" />
+                ><n-select v-model:value="localShip.hullSize" :options="toOptions(['FRIGATE', 'DESTROYER', 'CRUISER', 'CAPITAL_SHIP'])" />
                 <label>style</label
-                ><n-select v-model:value="localShip.style" :options="opts(['LOW_TECH', 'MIDLINE', 'HIGH_TECH', 'CUSTOM'])" />
+                ><n-select v-model:value="localShip.style" :options="toOptions(['LOW_TECH', 'MIDLINE', 'HIGH_TECH', 'CUSTOM'])" />
                 <label>width</label><n-input-number v-model:value="localShip.width" @update:value="draw" /> <label>height</label
                 ><n-input-number v-model:value="localShip.height" @update:value="draw" />
               </div>
@@ -95,12 +95,12 @@
               </div>
               <div v-if="mode === 'weapon' && selectedSlot" class="form-grid">
                 <label>id</label><n-input v-model:value="selectedSlot.id" /> <label>size</label
-                ><n-select v-model:value="selectedSlot.size" :options="opts(['SMALL', 'MEDIUM', 'LARGE'])" @update:value="draw" />
+                ><n-select v-model:value="selectedSlot.size" :options="toOptions(['SMALL', 'MEDIUM', 'LARGE'])" @update:value="draw" />
                 <label>type</label
                 ><n-select
                   v-model:value="selectedSlot.type"
                   :options="
-                    opts([
+                    toOptions([
                       'BALLISTIC',
                       'ENERGY',
                       'MISSILE',
@@ -115,7 +115,7 @@
                   "
                   @update:value="draw"
                 />
-                <label>mount</label><n-select v-model:value="selectedSlot.mount" :options="opts(['TURRET', 'HARDPOINT', 'HIDDEN'])" />
+                <label>mount</label><n-select v-model:value="selectedSlot.mount" :options="toOptions(['TURRET', 'HARDPOINT', 'HIDDEN'])" />
                 <label>angle</label><n-input-number v-model:value="selectedSlot.angle" @update:value="draw" /> <label>arc</label
                 ><n-input-number v-model:value="selectedSlot.arc" @update:value="draw" /> <label>loc X</label
                 ><n-input-number :value="slotLoc[0]" @update:value="setSlotLoc(0, $event)" /> <label>loc Y</label
@@ -163,7 +163,7 @@
                 ><n-input-number v-model:value="selectedEngine.width" @update:value="draw" /> <label>length</label
                 ><n-input-number v-model:value="selectedEngine.length" @update:value="draw" /> <label>contrailSize</label
                 ><n-input-number v-model:value="selectedEngine.contrailSize" /> <label>style</label
-                ><n-select v-model:value="selectedEngine.style" :options="opts(['LOW_TECH', 'MIDLINE', 'HIGH_TECH', 'CUSTOM'])" />
+                ><n-select v-model:value="selectedEngine.style" :options="toOptions(['LOW_TECH', 'MIDLINE', 'HIGH_TECH', 'CUSTOM'])" />
                 <label>loc X</label><n-input-number :value="engineLoc[0]" @update:value="setEngineLoc(0, $event)" /> <label>loc Y</label
                 ><n-input-number :value="engineLoc[1]" @update:value="setEngineLoc(1, $event)" />
               </div>
@@ -215,14 +215,13 @@ import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import EditorInspector from '@/app/components/editors/common/EditorInspector.vue';
 import type { RowData } from '@/shared/types';
 import { arr, deepClone, num, str } from '@/shared/lib/starsector';
-import type { FileChangeRecord } from '@/shared/api/write-api';
 import { normalizeShipSpec } from '@/domain/editors/lib/normalize';
 import { useHistory } from '@/app/composables/use-history';
 import { useCanvasDrawing } from '@/app/composables/use-canvas-drawing';
 import { useCanvasViewport } from '@/app/composables/use-canvas-viewport';
 import { useEditorShortcuts } from '@/app/composables/use-editor-shortcuts';
 import { useSpriteUpload } from '@/app/composables/use-sprite-upload';
-import { editorCollapseTheme, snapToStep, toOptions as opts } from '@/domain/editors/lib/editor-constants';
+import { editorCollapseTheme, snapToStep, toOptions } from '@/domain/editors/lib/editor-constants';
 import { drawBoundsVisual, drawEngineVisual, drawRadiusField, drawWeaponSlotVisual } from '@/domain/editors/lib/canvas-visuals';
 
 const props = defineProps<{
@@ -230,9 +229,8 @@ const props = defineProps<{
   hullId: string;
   ship: RowData;
   spriteData?: string;
-  saveSpec: (ship: RowData) => Promise<FileChangeRecord[]>;
 }>();
-const emit = defineEmits<{ close: []; saved: [id: string, ship: RowData, changes: FileChangeRecord[]] }>();
+const emit = defineEmits<{ close: []; 'save-requested': [ship: RowData] }>();
 const feedback = useAppFeedback();
 const editorWindowRef = ref<HTMLElement>();
 const stageRef = ref<HTMLElement>();
@@ -240,16 +238,16 @@ const canvasRef = ref<HTMLCanvasElement>();
 const shipSpriteInputRef = ref<HTMLInputElement>();
 const localShip = ref<RowData>(normalizeShipSpec(props.ship));
 const mode = ref<'overview' | 'ranges' | 'bounds' | 'weapon' | 'launchBay' | 'engine'>('overview');
-const selected = ref(-1);
+const selected = ref<number | null>(null);
 const expandedSections = ref(['basic']);
 const viewport = useCanvasViewport(canvasRef, 1, 10);
 const { scale } = viewport;
 const img = new Image();
 const spriteSize = ref({ width: 0, height: 0 });
-const dragging = ref('');
-const hovered = ref<{ kind: string; i: number } | null>(null);
-const activeTarget = ref<{ kind: 'weapon' | 'engine' | 'bound' | 'center' | 'shield'; i: number } | null>(null);
-const inspectorLock = ref<{ kind: 'weapon' | 'engine' | 'bound' | 'center' | 'shield'; i: number } | null>(null);
+const dragging = ref<ShipDragKind | null>(null);
+const hovered = ref<ShipCanvasTargetIdentity | null>(null);
+const activeTarget = ref<ShipCanvasTargetIdentity | null>(null);
+const inspectorLock = ref<ShipCanvasTargetIdentity | null>(null);
 const panning = ref(false);
 const dragStarted = ref(false);
 const pointerInside = ref(false);
@@ -257,7 +255,7 @@ const inspectorRevealInProgress = ref(false);
 let last = { x: 0, y: 0 };
 const history = useHistory(() => localShip.value);
 const drawing = useCanvasDrawing();
-const { uploadSpriteFile } = useSpriteUpload();
+const { uploadSpriteFromInput } = useSpriteUpload();
 const modes = [
   { shortcut: 'P', value: 'overview', label: '总览' },
   { shortcut: 'C', value: 'ranges', label: '范围' },
@@ -268,6 +266,14 @@ const modes = [
 ] as const;
 type ShipCanvasTarget = { kind: 'weapon' | 'engine' | 'bound' | 'center' | 'shield'; i: number; distance: number };
 type ShipCanvasTargetIdentity = Pick<ShipCanvasTarget, 'kind' | 'i'>;
+type ShipDragKind =
+  | ShipCanvasTarget['kind']
+  | 'collisionRadius'
+  | 'shieldRadius'
+  | 'weaponAngle'
+  | 'weaponArc'
+  | 'engineAngle'
+  | 'engineSize';
 type InspectorSection = 'basic' | 'sprite' | 'props' | 'weapons' | 'launchBays' | 'engines' | 'bounds' | 'builtins';
 type ModifierState = Pick<MouseEvent | KeyboardEvent, 'altKey' | 'ctrlKey' | 'shiftKey'>;
 type HoverPreview =
@@ -318,8 +324,8 @@ const bounds = computed<number[]>(() => (Array.isArray(localShip.value.bounds) ?
 const boundPairs = computed(() => Array.from({ length: Math.floor(bounds.value.length / 2) }));
 const center = computed(() => arr(localShip.value.center, [0, 0]));
 const shieldCenter = computed(() => arr(localShip.value.shieldCenter, [0, 0]));
-const selectedSlot = computed(() => weaponSlots.value[selected.value]);
-const selectedEngine = computed(() => engineSlots.value[selected.value]);
+const selectedSlot = computed(() => (selected.value === null ? null : weaponSlots.value[selected.value]));
+const selectedEngine = computed(() => (selected.value === null ? null : engineSlots.value[selected.value]));
 const slotLoc = computed(() => arr(selectedSlot.value?.locations, [0, 0]));
 const engineLoc = computed(() => arr(selectedEngine.value?.location, [0, 0]));
 const builtInMods = computed({
@@ -339,7 +345,7 @@ function doUndo() {
   const previous = history.undo(localShip.value);
   if (!previous) return;
   localShip.value = normalizeShipSpec(previous);
-  selected.value = -1;
+  selected.value = null;
   activeTarget.value = null;
   inspectorLock.value = null;
   clearHoverPreview();
@@ -349,7 +355,7 @@ function doRedo() {
   const next = history.redo(localShip.value);
   if (!next) return;
   localShip.value = normalizeShipSpec(next);
-  selected.value = -1;
+  selected.value = null;
   activeTarget.value = null;
   inspectorLock.value = null;
   clearHoverPreview();
@@ -358,7 +364,7 @@ function doRedo() {
 useEditorShortcuts({ onKeyDown: handleEditorShortcut, redo: doRedo, scope: editorWindowRef, undo: doUndo });
 function setMode(value: typeof mode.value) {
   mode.value = value;
-  selected.value = -1;
+  selected.value = null;
   hovered.value = null;
   activeTarget.value = null;
   inspectorLock.value = null;
@@ -585,10 +591,10 @@ function shouldPauseAutoSnap(modifiers: ModifierState) {
 }
 
 function currentInspectorTargetSelector() {
-  if (mode.value === 'weapon') return selected.value >= 0 ? `[data-inspector-target="weapon-${selected.value}"]` : '';
-  if (mode.value === 'launchBay') return selected.value >= 0 ? `[data-inspector-target="launchBay-${selected.value}"]` : '';
-  if (mode.value === 'engine') return selected.value >= 0 ? `[data-inspector-target="engine-${selected.value}"]` : '';
-  if (mode.value === 'bounds') return selected.value >= 0 ? `[data-inspector-target="bound-${selected.value}"]` : '';
+  if (mode.value === 'weapon') return selected.value !== null ? `[data-inspector-target="weapon-${selected.value}"]` : '';
+  if (mode.value === 'launchBay') return selected.value !== null ? `[data-inspector-target="launchBay-${selected.value}"]` : '';
+  if (mode.value === 'engine') return selected.value !== null ? `[data-inspector-target="engine-${selected.value}"]` : '';
+  if (mode.value === 'bounds') return selected.value !== null ? `[data-inspector-target="bound-${selected.value}"]` : '';
   if (mode.value === 'ranges') {
     if (activeTarget.value?.kind === 'center') return '[data-inspector-field="center-x"]';
     if (activeTarget.value?.kind === 'shield') return '[data-inspector-field="shield-x"]';
@@ -797,8 +803,8 @@ function draw() {
     drawBoundsVisual(
       ctx,
       points,
-      mode.value === 'bounds' ? selected.value : -1,
-      mode.value === 'bounds' && hovered.value?.kind === 'bound' ? hovered.value.i : -1,
+      mode.value === 'bounds' ? selected.value : null,
+      mode.value === 'bounds' && hovered.value?.kind === 'bound' ? hovered.value.i : null,
     );
   }
   if (mode.value === 'ranges' || mode.value === 'overview') {
@@ -923,9 +929,9 @@ function syncSelection(target: ShipCanvasTarget | null) {
   return changed;
 }
 function clearCanvasSelection() {
-  const changed = hovered.value !== null || selected.value !== -1;
+  const changed = hovered.value !== null || selected.value !== null;
   hovered.value = null;
-  selected.value = -1;
+  selected.value = null;
   activeTarget.value = null;
   return changed;
 }
@@ -1058,7 +1064,7 @@ function updateInteraction(mx: number, my: number) {
   const relativeCoord = canvasToRelative(mx, my);
   if (dragging.value === 'weapon' && selectedSlot.value) selectedSlot.value.locations = relativeCoord;
   if (dragging.value === 'engine' && selectedEngine.value) selectedEngine.value.location = relativeCoord;
-  if (dragging.value === 'bound') {
+  if (dragging.value === 'bound' && selected.value !== null) {
     bounds.value[selected.value * 2] = relativeCoord[0];
     bounds.value[selected.value * 2 + 1] = relativeCoord[1];
   }
@@ -1206,7 +1212,7 @@ function onMove(e: MouseEvent) {
   draw();
 }
 function onUp() {
-  dragging.value = '';
+  dragging.value = null;
   panning.value = false;
   dragStarted.value = false;
 }
@@ -1223,7 +1229,7 @@ function onKeyDown(event: KeyboardEvent) {
   if (hoverPreview.value) draw();
 }
 function onLeave() {
-  dragging.value = '';
+  dragging.value = null;
   panning.value = false;
   dragStarted.value = false;
   pointerInside.value = false;
@@ -1335,26 +1341,27 @@ function addBound() {
   draw();
 }
 function deleteSelected() {
-  if (selected.value < 0) return false;
+  if (selected.value === null) return false;
+  const selectedIndex = selected.value;
   let deleted = false;
   pushUndo();
-  if ((mode.value === 'weapon' || mode.value === 'launchBay') && selected.value >= 0) {
-    const isLaunchBay = str(weaponSlots.value[selected.value]?.type).toUpperCase() === 'LAUNCH_BAY';
+  if (mode.value === 'weapon' || mode.value === 'launchBay') {
+    const isLaunchBay = str(weaponSlots.value[selectedIndex]?.type).toUpperCase() === 'LAUNCH_BAY';
     if ((mode.value === 'weapon' && !isLaunchBay) || (mode.value === 'launchBay' && isLaunchBay)) {
-      weaponSlots.value.splice(selected.value, 1);
+      weaponSlots.value.splice(selectedIndex, 1);
       deleted = true;
     }
   }
-  if (mode.value === 'engine' && selected.value >= 0) {
-    engineSlots.value.splice(selected.value, 1);
+  if (mode.value === 'engine') {
+    engineSlots.value.splice(selectedIndex, 1);
     deleted = true;
   }
-  if (mode.value === 'bounds' && selected.value >= 0) {
-    bounds.value.splice(selected.value * 2, 2);
+  if (mode.value === 'bounds') {
+    bounds.value.splice(selectedIndex * 2, 2);
     deleted = true;
   }
   if (!deleted) return false;
-  selected.value = -1;
+  selected.value = null;
   hovered.value = null;
   activeTarget.value = null;
   inspectorLock.value = null;
@@ -1370,12 +1377,12 @@ function applyBuiltInWeapons() {
 }
 async function uploadShipSprite(event: Event) {
   try {
-    await uploadSpriteFile(event, {
+    await uploadSpriteFromInput(event, {
       feedback,
       modRoot: props.modRoot,
       subfolder: 'ships',
       onUploaded: (result, dataUrl) => {
-        localShip.value.spriteName = result.path;
+        localShip.value.spriteName = result.state.path;
         img.src = dataUrl;
         img.onload = () => {
           updateSpriteSize();
@@ -1388,20 +1395,15 @@ async function uploadShipSprite(event: Event) {
     feedback.error(error, '上传贴图失败');
   }
 }
-async function save() {
-  try {
-    const changes = await props.saveSpec(localShip.value);
-    emit('saved', props.hullId, localShip.value, changes);
-  } catch (error) {
-    feedback.error(error, '保存舰船失败');
-  }
+function save() {
+  emit('save-requested', localShip.value);
 }
 watch(
   () => props.ship,
   (ship) => {
     localShip.value = normalizeShipSpec(ship);
     builtInWeaponsText.value = JSON.stringify(localShip.value.builtInWeapons || {}, null, 2);
-    selected.value = -1;
+    selected.value = null;
     activeTarget.value = null;
     inspectorLock.value = null;
     clearHoverPreview();

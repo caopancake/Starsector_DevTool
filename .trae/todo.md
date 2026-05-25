@@ -95,7 +95,7 @@
 
 ### Phase 2.4: 前端 ViewModel 收束
 
-- [x] 为复杂页面建立 `*.view-model.ts`，组件只接收状态、动作和渲染数据，不直接拼 query、cache、ResourceRef 或保存 payload。
+- [x] 为复杂页面建立 `*.view-model.ts`，组件只接收状态、动作和渲染数据，不直接拼 query、cache、ResourceRef 或保存请求数据。
 - [x] Config Mission、Faction、Variant、Skin 优先接入 ViewModel；列表、详情、创建、删除、保存和缩略图加载由 ViewModel 统一编排。
 - [x] CSV 表格 ViewModel 统一管理当前表 window query、search、faction filter、row selection、dirty patch、草稿 history 和保存动作。
 - [x] 编辑器窗口 ViewModel 统一管理 entity query、候选 source query、资源批量加载、保存和窗口事件。
@@ -111,7 +111,7 @@
 
 ### Phase 2.6: 旧 API、旧模型和命名清理
 
-- [x] 删除或重命名所有仍带旧完整读取、旧 AppData、旧 config-api、旧 mission load、旧 project tables service 语义的文件、函数和类型。
+- [x] 删除或重命名所有仍带旧完整项目包、旧全局应用数据包、旧配置 API、旧任务读取和旧表格 service 语义的文件、函数和类型。
 - [x] 检查 `shared/api`、`services`、`orchestrators`、`stores`、`windows` 的命名是否表达正式职责；不清晰的必须重命名。
 - [x] 清理旧兼容函数、空占位实现、超大窗口查询、重复缓存和组件内临时 Promise 编排。
 - [x] Rust 和前端测试按新模块边界重排；不保留围绕旧入口的 test-only 链路。
@@ -119,10 +119,10 @@
 ### Phase 2.7: 静态检查体系重写
 
 - [x] 删除不再适配 Phase 2 新结构的静态检查脚本；剩余检查必须重新审计职责和边界。
-- [x] 以 Phase 2 的正式目录、模型和调用链为准重写前端架构检查，禁止旧 API、旧 AppData、组件直连 query、组件直连 resource、组件内临时缓存和绕过 ViewModel 的复杂页面编排。
+- [x] 以 Phase 2 的正式目录、模型和调用链为准重写前端架构检查，禁止旧 API、旧全局应用数据包、组件直连 query、组件直连 resource、组件内临时缓存和绕过 ViewModel 的复杂页面编排。
 - [x] 以 Phase 2 的 Rust session/query/write/cache/model 分层为准重写后端架构检查，禁止 command 直接业务、query 写盘、write 读完整项目、cache 预读整套 core 和跨层调用。
-- [x] 静态检查必须以目录角色、导入方向、类型形状和正式入口为依据；不允许业务白名单、临时例外、兼容放行或为了减少误伤而放宽边界。
-- [x] 静态检查自检也必须按新规则重写，继续禁止白名单/黑名单式漂移，并允许必要的单文件语义检查。
+- [x] 静态检查必须以目录角色、导入方向、类型形状和正式入口为依据；不允许业务名单、临时例外、兼容放行或为了减少误伤而放宽边界。
+- [x] 静态检查自检也必须按新规则重写，继续禁止名单式边界漂移，并允许必要的单文件语义检查。
 - [x] 新静态检查必须覆盖 shared/api、services、orchestrators、view-model、stores、windows、Rust commands/services/domain/io/parsers/models 的长期边界。
 
 ### Phase 2.8: 模块文档体系重写
@@ -130,7 +130,7 @@
 - [x] 按 Phase 2 新架构重写 `.trae/module-map.md`，模块索引必须反映 session/query/write/cache/view-model 的正式结构。
 - [x] 重写 ProjectSession、CSV tables、config、resource/core fallback、file history、workspace、editor、schema 等受影响模块文档。
 - [x] 模块文档只记录长期定义、边界、规范和正式链路；不得记录迁移过程、临时理由、阶段过程或实现细枝末节。
-- [x] 删除仍围绕旧完整读取、旧 AppData、旧 project tables service、旧 mission load、旧 config-api 语义的文档表述。
+- [x] 删除仍围绕旧完整项目读取、旧全局应用数据包、旧表格 service、旧任务读取和旧配置 API 语义的文档表述。
 - [x] overview / frontend-guidelines / backend-guidelines 只保留总边界；具体链路和模块规则必须落到 `.trae/modules/`。
 - [x] 文档重写后必须能从 module map 追踪到每条正式读链路、写链路、cache invalidation 链路和 UI ViewModel 链路。
 
@@ -147,34 +147,34 @@
 
 ### Phase 3.1: 调用链一致性审计
 
-- [ ] 审计前端从组件、ViewModel、service、shared/api 到 Rust command/service 的完整调用链，确认读链路、写链路、资源链路和缓存失效链路都遵守同一套入口和返回模型。
-- [ ] 审计 Rust project service、config service、file history、editor spec、asset 上传等后端链路，确认 command 只进入 service，service 再进入 query/write/cache/io/parser 的正式边界。
-- [ ] 标记仍然存在的跨层调用、重复编排、组件内临时拼装、service 兼容旧语义和 orchestrator 过度承载问题；不得用静态检查放行代替结构修复。
+- [x] 审计前端从组件、ViewModel、service、shared/api 到 Rust command/service 的完整调用链，确认读链路、写链路、资源链路和缓存失效链路都遵守同一套入口和返回模型。
+- [x] 审计 Rust project service、config service、file history、editor spec、asset 上传等后端链路，确认 command 只进入 service，service 再进入 query/write/cache/io/parser 的正式边界。
+- [x] 标记仍然存在的跨层调用、重复编排、组件内临时拼装、service 兼容旧语义和 orchestrator 过度承载问题；不得用静态检查放行代替结构修复。
 
 ### Phase 3.2: API 分组与命名统一
 
-- [ ] 审计 `shared/api` 的文件名、函数名和 payload/result 类型，确认命名表达 wire 边界而不是旧功能碎片。
-- [ ] 审计前端 service 的公开函数名，确认只表达业务能力，不混入 command 名、history 细节、临时迁移语义或重复后缀。
-- [ ] 审计 Rust service 的公开函数名，确认 command-facing、query、write、cache、root、session 的命名边界清晰一致。
-- [ ] 清理仍然带有旧 `load`、旧完整数据包、旧 config-api、旧 mission load、旧 project tables 或含义不明的 API / service / helper 命名。
+- [x] 审计 `shared/api` 的文件名、函数名和 payload/result 类型，确认命名表达 wire 边界而不是旧功能碎片。
+- [x] 审计前端 service 的公开函数名，确认只表达业务能力，不混入 history 细节、临时迁移语义或重复后缀。
+- [x] 审计 Rust service 的公开函数名，确认 command-facing、query、write、cache、root、session 的命名边界清晰一致。
+- [x] 清理仍然带有旧 `load`、旧完整数据包、旧 config-api、旧 mission load、旧 project tables 或含义不明的 API / service / helper 命名。
 
 ### Phase 3.3: 文件职责与拆分粒度收束
 
-- [ ] 审计职责过重文件，拆出明确的 query、write、cache、ViewModel、domain 纯规则或 UI 渲染职责；拆分必须基于稳定边界，不得按文件大小拆。
-- [ ] 审计拆分过细文件，合并只能靠上下文共同理解、没有独立职责、只包装单个同层函数的碎片文件。
-- [ ] 审计 ViewModel、service、orchestrator、store、domain、shared/api 的职责重叠，去掉重复模型、重复缓存、重复资源补图和重复保存结果适配。
+- [x] 审计职责过重文件，判断是否需要拆分；拆分必须基于稳定边界，不得按文件大小拆。
+- [x] 审计拆分过细文件，合并只能靠上下文共同理解、没有独立职责、只包装单个同层函数的碎片文件。
+- [x] 审计 ViewModel、service、orchestrator、store、domain、shared/api 的职责重叠，去掉重复模型、重复缓存、重复资源补图和重复保存结果适配。
 
 ### Phase 3.4: 模型统一与数据形状收束
 
-- [ ] 审计 query result、write result、entity data、source option、ResourceRef、CSV row patch、cache key 等核心模型，确认同类数据只有一种正式形状。
-- [ ] 清理前端和后端各自重复构造的同形结构；跨窗口配置、session 上下文、资源引用和写入结果必须由正式链路传递。
-- [ ] 审计字段转换和 UI 派生模型，确认转换位置固定在 service / ViewModel / domain 中，不在组件和 store 中散落。
+- [x] 审计 query result、write result、entity data、source option、ResourceRef、CSV row patch、cache key 等核心模型，确认同类数据只有一种正式形状。
+- [x] 清理前端和后端各自重复构造的同形结构；跨窗口配置、session 上下文、资源引用和写入结果必须由正式链路传递。
+- [x] 审计字段转换和 UI 派生模型，确认转换位置固定在 service / ViewModel / domain 中，不在组件和 store 中散落。
 
 ### Phase 3.5: 回归与文档同步
 
-- [ ] 修复完成后更新 module map 和相关模块文档，只记录长期边界、正式链路和命名规则。
-- [ ] 更新 frontend / backend guide 中仍过宽、过旧或与新调用链不一致的总边界描述；细节归模块文档。
-- [ ] 跑前端格式、类型、lint、编码检查和 Rust test、fmt、clippy；只在验证通过后勾选本 Phase。
+- [x] 修复完成后更新 module map 和相关模块文档，只记录长期边界、正式链路和命名规则。
+- [x] 更新 frontend / backend guide 中仍过宽、过旧或与新调用链不一致的总边界描述；细节归模块文档。
+- [x] 跑前端格式、类型、lint、编码检查和 Rust test、fmt、clippy；只在验证通过后勾选本 Phase。
 
 ## Phase 4: 加载改善性能验收与回归
 

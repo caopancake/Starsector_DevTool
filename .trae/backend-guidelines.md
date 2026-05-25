@@ -10,14 +10,15 @@
 - command 层必须保持纯 service 边界，command 注册必须完整，service 不得反向依赖 command，domain / io / parser 不得反向依赖 service 或 command。
 - 业务规则和数据转换放在 service 或 domain；路径安全、文件读写放在 service 或 io；解析和渲染放在 parser。
 - command 模块按 project、workspace、tables、config、files、assets 等边界组织；command 名称保持前端兼容。
-- service 公开函数名表达业务能力，不使用 command wire 名里的 `_with_history`。
+- service 和 command 公开函数名表达业务能力，不使用 history 这类内部效果命名。
 - service 不得依赖 command payload 模型；command wire payload 只能停留在 command 边界。
-- command 入参适配函数统一使用 `*_for_command`；不得新增 `*_from_path` 或 `*_from_payload` 公开 service 函数。
+- command 层负责把 wire payload 拆成 service 业务参数；service 公开函数不得接受 command payload，也不得用 command-only 命名表达业务能力。
 - domain 只放纯业务规则、校验、构造和数据转换，不依赖 command、service、io、parser 或 command payload。
 - Rust 是文件系统、路径校验、删除语义、写盘和 changeset 回放的权威实现。
 - 前端传来的路径只能作为待校验输入，后端必须重新校验路径归属和写入边界。
-- ProjectSession 的正式后端结构是 `root / session / query / write / cache / model`。
+- ProjectSession 的正式后端结构是 `entry / root / session / query / write / cache / model`。
 - `project/mod.rs` 只能保留模块声明和 command-facing service re-export。
+- `entry` 承载 command-facing ProjectSession 入口编排，可组合 ProjectSession 内部能力和同级 app service 效果。
 - `root` 承载目录识别、游戏概览和非 session 根服务。
 - `query` 只读，不写盘。
 - `write` 执行写入事务并产出失效信息，不打开或重建整个项目。

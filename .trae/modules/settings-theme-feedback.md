@@ -29,10 +29,16 @@
 - `error` 用于失败、不可继续、写盘、解析和路径边界问题；`warning` 用于可修正输入、重复项、危险确认和非阻断风险。
 - 带文件路径或行号的错误必须通过统一错误反馈提供打开文件动作。
 - 所有 `warning` 和 `error` 弹窗都必须写入 app data 目录下的 log 文件；log 手动清除，不自动轮转。
+- app log 和 settings 保存 command 必须使用 payload 对象作为 wire 边界，command 层只拆出 service 所需业务参数。
 - 设置页必须提供打开配置目录、打开 log 文件、清空配置文件和清除 log 文件入口；清空配置文件删除设置文件但不得删除 log 文件。
+- settings 的 theme、accent 和 editMode 必须使用正式设置枚举，不得用裸字符串承载有限设置语义。
+- app log 的 level 必须使用正式日志等级枚举，不得用裸字符串承载 info、warning 和 error 语义。
+- app log entry 的可空字段必须按 Rust wire 结构显式使用 null，前端不得用可缺省字段兼容缺失形状。
+- settings 的 Starsector root 未设置时必须使用 null，不能用空字符串表示缺失。
 - 主题状态必须通过 settings store 和 app 根节点 data theme 驱动。
 - 业务 service 不应自行创建消息、弹窗或不受主题控制的反馈 UI。
-- history limit 由 settings store 提供，CSV 草稿历史和文件级 history 裁剪都读取该设置。
+- history limit 由 settings store 提供，settings persistence 编排层同步给 CSV 草稿历史和文件级 history store 后用于裁剪。
+- 主窗口 settings 变化后必须以同一个 snapshot 触发配置保存和子窗口广播；保存或广播失败必须写入 app log。
 - 编辑模式由 settings store 提供，plain 模式退回文本编辑；复杂结构字段保留多行 JSON 文本，smart 模式保持现有增强控件。
 - 编辑模式边界由架构静态检查覆盖，新增 schema 字段类型或 CSV control 不能只接入单一模式。
 

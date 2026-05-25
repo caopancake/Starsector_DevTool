@@ -23,19 +23,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
-import type { SelectOption } from '@/domain/schema/schema-registry';
-
-interface FlatOption {
-  label: string;
-  sprite?: string;
-  value: string;
-}
-
-interface OptionGroup {
-  key: string;
-  label: string;
-  options: FlatOption[];
-}
+import { groupSelectOptions, type SelectOption } from '@/domain/schema/schema-registry';
 
 const props = defineProps<{
   anchor: { height: number; left: number; top: number; width: number };
@@ -58,7 +46,7 @@ const pickerStyle = computed(() => ({
   top: `${props.anchor.top + props.anchor.height + 2}px`,
   width: `${Math.min(Math.max(props.anchor.width, 260), 460)}px`,
 }));
-const groups = computed<OptionGroup[]>(() => flattenOptions(props.options));
+const groups = computed(() => groupSelectOptions(props.options));
 const filteredGroups = computed(() => {
   const needle = query.value.trim().toLowerCase();
   if (!needle) return groups.value;
@@ -89,32 +77,6 @@ function selectOption(value: string) {
   if (next.has(value)) next.delete(value);
   else next.add(value);
   emit('update', [...next]);
-}
-
-function flattenOptions(options: SelectOption[]): OptionGroup[] {
-  const groups: OptionGroup[] = [];
-  const ungrouped: FlatOption[] = [];
-  for (const option of options) {
-    if (option.type === 'group') {
-      groups.push({
-        key: option.value,
-        label: option.label,
-        options: (option.children ?? []).map(toFlatOption),
-      });
-    } else {
-      ungrouped.push(toFlatOption(option));
-    }
-  }
-  if (ungrouped.length > 0) groups.unshift({ key: '__ungrouped', label: '', options: ungrouped });
-  return groups;
-}
-
-function toFlatOption(option: SelectOption): FlatOption {
-  return {
-    label: option.label,
-    sprite: option.sprite,
-    value: option.value,
-  };
 }
 
 function handleDocumentMouseDown(event: MouseEvent) {

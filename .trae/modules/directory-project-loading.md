@@ -17,10 +17,15 @@
 
 ## 规范
 
+- 目录识别、游戏概览和 session lifecycle command 必须使用 payload 对象作为 wire 边界；command 层负责拆成 service 业务参数。
 - 游戏目录以包含 `starsector-core/` 和 `mods/` 为判断依据。
 - Mod 目录以 `mod_info.json` 或可推导的 Mod 根目录为判断依据。
 - 游戏概览只扫描 Mod 基本元信息，不加载 CSV、spec、schema entity 或贴图 data URL。
+- 游戏概览扫描 `mods` 目录失败、目录项读取失败或 `mod_info.json` 读取失败时必须返回带路径和底层原因的 warning，不能静默跳过目录项。
 - 打开 Mod 只返回 `ProjectManifest`，不得返回完整 CSV 行集、spec map、原版引用全集或图片 data URL。
+- ProjectManifest 中的实体摘要必须使用对应模块的正式实体行模型；注释行和空行不得计入实体数量。
+- CSV 表格摘要和 CSV 模块有效数量必须分开建模；导航计数不得使用 CSV 总行数。
+- 目录识别和打开 session 的可空 Starsector 根目录必须显式提交 null，不能依赖缺省参数表达 wire 语义。
 - 原版引用和资源回退由 Rust session / core cache 在 query 时按需提供。
 - 打开未知目录必须返回错误，由前端显示错误提示。
 
@@ -28,7 +33,7 @@
 
 1. 用户在主窗口触发打开目录。
 2. 前端 dialog 返回目录路径。
-3. `openDetectedDirectory()` 调用 `detectDirectory(path, fallbackStarsectorRoot)`。
+3. `openDetectedDirectory()` 调用 `detectDirectory(path, knownStarsectorRoot)`。
 4. Rust project service 判断目录类型。
 5. 返回 `game-root` 时前端写入 game overview。
 6. 返回 Mod 时前端打开 ProjectSession。

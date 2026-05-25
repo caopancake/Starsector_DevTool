@@ -48,6 +48,7 @@ import {
   getSchemaKeys,
   getSections,
   isMultiSourceSchema,
+  isSchemaInternalKey,
   setNestedValue,
 } from '@/domain/schema/schema-registry';
 import SchemaFieldRenderer from '@/app/components/schema/SchemaFieldRenderer.vue';
@@ -85,7 +86,7 @@ const extraKnownKeys = computed<string[]>(() => {
 });
 
 const extraKeys = computed<string[]>(() =>
-  Object.keys(extraModelValue.value).filter((key) => !key.startsWith('_') && !extraKnownKeys.value.includes(key)),
+  Object.keys(extraModelValue.value).filter((key) => !isSchemaInternalKey(key) && !extraKnownKeys.value.includes(key)),
 );
 
 const collapsedSections = reactive(new Set<string>());

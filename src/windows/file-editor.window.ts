@@ -38,7 +38,7 @@ export function openFileEditorWindow(request: OpenFileEditorWindowRequest): Prom
     },
     focusEvent: {
       name: WINDOW_EVENTS.fileEditorFocusLine,
-      payload: {
+      data: {
         line: request.line ?? null,
         message: request.message ?? null,
         contextLabel: request.contextLabel ?? null,

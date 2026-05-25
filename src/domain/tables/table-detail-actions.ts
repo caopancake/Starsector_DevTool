@@ -1,35 +1,43 @@
 import { rowSpecId } from '@/shared/lib/starsector';
-import type { RowData, TableKey } from '@/shared/types';
+import { joinRootRelativePath, pathBasename } from '@/shared/lib/paths';
+import type { EditorWindowKind, RowData, TableKey } from '@/shared/types';
 import { isCsvCommentRow } from '@/domain/tables/csv-comment-row';
+import { associatedSpecEditorKinds, associatedSpecRelPath } from '@/domain/tables/associated-specs';
+import { editorWindowLabel } from '@/domain/editors/editor-kind-metadata';
 
 export type TableDetailAction =
   | { type: 'file-editor'; path: string; title: string; contextLabel: string; message: string }
-  | { type: 'ship-editor'; id: string }
-  | { type: 'weapon-editor'; id: string }
-  | { type: 'weapon-preview'; id: string };
+  | { type: 'editor-window'; kind: EditorWindowKind; id: string };
 
-export function fileEditorActionForRow(modRoot: string, table: TableKey, row: RowData | null | undefined): TableDetailAction | null {
-  if (!row) return null;
-  if (isCsvCommentRow(row, table)) return null;
+export function detailActionsForRow(modRoot: string, table: TableKey, row: RowData | null | undefined): TableDetailAction[] {
+  if (!row) return [];
+  if (isCsvCommentRow(row, table)) return [];
   const id = rowSpecId(row, table);
-  if (!id) return null;
-  if (table === 'ships') return specFileAction(modRoot, ['data', 'hulls', `${id}.ship`], `${id}.ship`);
-  if (table === 'weapons') return specFileAction(modRoot, ['data', 'weapons', `${id}.wpn`], `${id}.wpn`);
-  if (table === 'shipSystems') return specFileAction(modRoot, ['data', 'shipsystems', `${id}.system`], `${id}.system`);
-  if (table === 'skills') return specFileAction(modRoot, ['data', 'characters', 'skills', `${id}.skill`], `${id}.skill`);
-  return null;
+  if (!id) return [];
+  const relPath = associatedSpecRelPath(table, id);
+  if (!relPath) return [];
+  return [
+    specFileAction(modRoot, relPath),
+    ...associatedSpecEditorKinds(table).map((kind) => ({ type: 'editor-window' as const, kind, id })),
+  ];
 }
 
-function specFileAction(modRoot: string, parts: string[], title: string): TableDetailAction {
+export function detailActionLabel(action: TableDetailAction): string {
+  if (action.type === 'file-editor') return '文件编辑器';
+  return editorWindowLabel(action.kind);
+}
+
+export function detailActionKey(action: TableDetailAction): string {
+  return action.type === 'file-editor' ? `${action.type}:${action.path}` : `${action.type}:${action.kind}:${action.id}`;
+}
+
+function specFileAction(modRoot: string, relPath: string): TableDetailAction {
+  const title = pathBasename(relPath);
   return {
     type: 'file-editor',
-    path: joinModPath(modRoot, ...parts),
+    path: joinRootRelativePath(modRoot, relPath),
     title: '文件编辑器',
     contextLabel: title,
     message: title,
   };
-}
-
-function joinModPath(modRoot: string, ...parts: string[]): string {
-  return [modRoot.replace(/[\\/]+$/, ''), ...parts].join('\\');
 }

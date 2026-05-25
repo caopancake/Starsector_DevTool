@@ -51,15 +51,16 @@ import ModTreeItem from '@/app/components/ModTreeItem.vue';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { useTablesStore } from '@/stores/tables.store';
 import type { ConfigView, TableKey } from '@/shared/types';
-import { measurePerformance } from '@/services/performance.service';
+import { usePerformanceLogger } from '@/app/composables/use-performance-logger';
 
 defineEmits<{ 'remove-mod': [modRoot: string] }>();
 
 const workspace = useWorkspaceStore();
 const tables = useTablesStore();
+const performanceLogger = usePerformanceLogger();
 
 function onSwitchTab(modRoot: string, tab: TableKey) {
-  measurePerformance('frontend.table.switchTab', { modRoot, table: tab }, () => {
+  performanceLogger.measure('frontend.table.switchTab', { modRoot, table: tab }, () => {
     workspace.setActiveTable(modRoot);
     tables.switchTab(tab);
   });

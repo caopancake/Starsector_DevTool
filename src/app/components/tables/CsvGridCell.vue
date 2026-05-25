@@ -21,7 +21,8 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { CsvGridColumn, CsvGridRow } from '@/domain/tables/csv-grid-model';
+import type { CsvWindowRow } from '@/shared/types';
+import type { CsvGridColumn } from '@/domain/tables/csv-grid-model';
 import type { CsvSourceIndex } from '@/domain/tables/csv-source-options';
 import CsvCellFrame from '@/app/components/tables/CsvCellFrame.vue';
 import CsvGridCellEditor from '@/app/components/tables/CsvGridCellEditor.vue';
@@ -31,7 +32,7 @@ defineProps<{
   active: boolean;
   column: CsvGridColumn;
   dirty: boolean;
-  row: CsvGridRow;
+  row: CsvWindowRow;
   sourceIndex: CsvSourceIndex;
 }>();
 
@@ -39,7 +40,7 @@ const frameRef = ref<{ frameRef: HTMLElement | null } | null>(null);
 const frameElement = computed(() => frameRef.value?.frameRef ?? null);
 
 const emit = defineEmits<{
-  'activate-cell': [row: CsvGridRow, column: CsvGridColumn, event: MouseEvent];
+  'activate-cell': [row: CsvWindowRow, column: CsvGridColumn, event: MouseEvent];
   'close-active-cell': [];
   'update-cell': [rowKey: string, column: string, value: string];
 }>();

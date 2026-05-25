@@ -22,23 +22,24 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import type { CsvGridRowSlot, CsvWindowRow } from '@/shared/types';
 import type { ModTableState } from '@/shared/types/workspace.types';
-import type { CsvGridColumn, CsvGridModel, CsvGridRow } from '@/domain/tables/csv-grid-model';
+import type { CsvGridColumn, CsvGridModel } from '@/domain/tables/csv-grid-model';
 import { useCsvGridViewport } from '@/app/composables/use-csv-grid-viewport';
 import CsvGridBody from '@/app/components/tables/CsvGridBody.vue';
 import CsvGridHeader from '@/app/components/tables/CsvGridHeader.vue';
-import { measurePerformance } from '@/services/performance.service';
+import { usePerformanceLogger } from '@/app/composables/use-performance-logger';
 
 interface ActiveCell {
   column: CsvGridColumn;
-  row: CsvGridRow;
+  row: CsvWindowRow;
 }
 
 const props = defineProps<{
   editing: ModTableState['editing'];
   isDirty: (rowKey: string, column: string) => boolean;
   model: CsvGridModel;
-  selectedRowKey: string;
+  selectedRowKey: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -49,19 +50,21 @@ const emit = defineEmits<{
 
 const panelRef = ref<{ clientHeight?: number; scrollTop?: number } | null>(null);
 const activeCell = ref<ActiveCell | null>(null);
+const performanceLogger = usePerformanceLogger();
 const activeCellKey = computed(() =>
   activeCell.value ? { columnKey: activeCell.value.column.key, rowKey: activeCell.value.row.rowKey } : null,
 );
 const editingIndex = computed(() => {
   const rowKey = props.editing?.rowKey;
-  if (!rowKey) return -1;
-  return props.model.rows.findIndex((row) => row.rowKey === rowKey);
+  if (!rowKey) return null;
+  const index = props.model.rows.findIndex((row) => row.kind === 'row' && row.rowKey === rowKey);
+  return index >= 0 ? index : null;
 });
 const rows = computed(() => props.model.rows);
 const viewport = useCsvGridViewport(rows, { editingIndex });
 const afterHeight = computed(() => viewport.afterHeight.value);
 const beforeHeight = computed(() => viewport.beforeHeight.value);
-const visibleRows = computed(() => viewport.visibleItems.value);
+const visibleRows = computed<CsvGridRowSlot[]>(() => viewport.visibleItems.value);
 
 watch(
   () => props.model,
@@ -81,8 +84,8 @@ function handleScroll(event: Event) {
   clearActiveCell();
 }
 
-function activateCell(row: CsvGridRow, column: CsvGridColumn) {
-  measurePerformance('frontend.csvGrid.activateCell', { column: column.key, rowKey: row.rowKey }, () => {
+function activateCell(row: CsvWindowRow, column: CsvGridColumn) {
+  performanceLogger.measure('frontend.csvGrid.activateCell', { column: column.key, rowKey: row.rowKey }, () => {
     forwardSelectRow(row.rowKey);
     activeCell.value = {
       column,
@@ -102,10 +105,10 @@ function clearActiveCell() {
 }
 
 function forwardSelectRow(rowKey: string) {
-  measurePerformance('frontend.csvGrid.selectRow', { rowKey }, () => emit('select-row', rowKey));
+  performanceLogger.measure('frontend.csvGrid.selectRow', { rowKey }, () => emit('select-row', rowKey));
 }
 
 function forwardUpdateCell(rowKey: string, column: string, value: string) {
-  measurePerformance('frontend.csvGrid.updateCell', { column, rowKey }, () => emit('update-cell', rowKey, column, value));
+  performanceLogger.measure('frontend.csvGrid.updateCell', { column, rowKey }, () => emit('update-cell', rowKey, column, value));
 }
 </script>

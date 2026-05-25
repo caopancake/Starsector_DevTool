@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
-import { reactive } from 'vue';
-import { useSettingsStore } from '@/stores/settings.store';
+import { reactive, ref } from 'vue';
 import type { ModTableState, TableKey } from '@/shared/types';
 import { applyCsvEditRedo, applyCsvEditUndo } from '@/domain/tables/csv-edit-history';
 import type { CsvEditHistoryEntry, CsvEditHistoryEvent } from '@/shared/types/tables-edit-history.types';
@@ -25,6 +24,7 @@ function stateKey(modRoot: string, table: TableKey): string {
 
 export const useTablesEditHistoryStore = defineStore('tablesEditHistory', () => {
   const stateMap = reactive<Map<string, CsvEditHistoryState>>(new Map());
+  const historyLimit = ref(100);
 
   function getOrCreateState(modRoot: string, table: TableKey): CsvEditHistoryState {
     const key = stateKey(modRoot, table);
@@ -42,11 +42,10 @@ export const useTablesEditHistoryStore = defineStore('tablesEditHistory', () => 
 
   function pushCsvEditEvent(modRoot: string, table: TableKey, event: CsvEditHistoryEvent, label: string) {
     if (!modRoot) return;
-    const settings = useSettingsStore();
     const state = getOrCreateState(modRoot, table);
     state.undoStack.push({ id: nextId(), timestamp: Date.now(), event, label });
     state.redoStack.length = 0;
-    trimToLimit(state, settings.historyLimit);
+    trimToLimit(state, historyLimit.value);
   }
 
   function canUndoCsvEdit(modRoot: string, table: TableKey): boolean {
@@ -91,6 +90,11 @@ export const useTablesEditHistoryStore = defineStore('tablesEditHistory', () => 
     while (state.undoStack.length > limit) state.undoStack.shift();
   }
 
+  function setHistoryLimit(limit: number) {
+    historyLimit.value = limit;
+    for (const state of stateMap.values()) trimToLimit(state, historyLimit.value);
+  }
+
   return {
     canRedoCsvEdit,
     canUndoCsvEdit,
@@ -98,6 +102,7 @@ export const useTablesEditHistoryStore = defineStore('tablesEditHistory', () => 
     clearForMod,
     pushCsvEditEvent,
     redoCsvEdit,
+    setHistoryLimit,
     undoCsvEdit,
   };
 });

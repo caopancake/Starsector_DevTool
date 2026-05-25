@@ -1,19 +1,18 @@
-import { uploadEditorSprite, type EditorSpriteUploadResult } from '@/services/editor.service';
+import { uploadEditorSprite } from '@/services/editor.service';
 import { invalidateWriteResultForMod, recordSpriteUploadSaved } from '@/orchestrators/file-save.orchestrator';
+import type { SpriteSubfolder, SpriteUploadResult } from '@/shared/types';
 
-type SpriteSubfolder = 'ships' | 'weapons' | 'missiles' | 'fx';
-
-export async function uploadEditorSpriteWithHistory(
+export async function uploadEditorSpriteAction(
   modRoot: string,
   filename: string,
   dataBase64: string,
   subfolder: SpriteSubfolder,
   overwrite: boolean,
-): Promise<EditorSpriteUploadResult> {
+): Promise<SpriteUploadResult> {
   const result = await uploadEditorSprite(modRoot, filename, dataBase64, subfolder, overwrite);
-  if (result.ok && result.changes.length > 0) {
-    recordSpriteUploadSaved(modRoot, result.changes, result.overwritten, filename);
-    await invalidateWriteResultForMod(modRoot, result);
+  if (result.state.ok && result.write.changes.length > 0) {
+    recordSpriteUploadSaved(modRoot, result.write, result.state.overwritten, filename);
+    await invalidateWriteResultForMod(modRoot, result.write);
   }
   return result;
 }

@@ -1,74 +1,77 @@
-import type {
-  FileChangeRecord,
-  IndexedConfigEntityKind,
-  IndexedConfigEntityResult,
-  SkinEntityResult,
-  VariantEntityResult,
-} from '@/shared/api/write-api';
+import type { IndexedConfigKind, SkinFile, VariantFile, WriteResult } from '@/shared/types';
 import type { RowData } from '@/shared/types';
 import { recordFileSave, invalidateWriteResultForMod } from '@/orchestrators/file-save.orchestrator';
 import {
+  createIndexedConfigEntity,
   saveIndexedConfigEntity,
   deleteIndexedConfigEntity,
   deleteVariantEntity,
   deleteSkinEntity,
   createVariantEntity,
   createSkinEntity,
+  indexedConfigEntityData,
+  skinEntityData,
   saveModInfo,
   saveSkinEntity,
   saveVariantEntity,
+  variantEntityData,
 } from '@/services/config-entity.service';
+import { indexedConfigHistoryLabel } from '@/domain/config/config-entities';
 
-export async function saveModInfoWithFileHistory(modRoot: string, data: RowData): Promise<FileChangeRecord[]> {
+export async function saveModInfoAction(modRoot: string, data: RowData): Promise<WriteResult> {
   const result = await saveModInfo(modRoot, data);
   await recordConfigWrite(modRoot, result, '保存 mod_info.json');
-  return result.changes;
-}
-
-export async function saveIndexedConfigEntityWithFileHistory(payload: {
-  modRoot: string;
-  kind: IndexedConfigEntityKind;
-  previousId?: string | null;
-  nextId: string;
-  indexRow: RowData;
-  payload: RowData;
-  deletePreviousTarget?: boolean;
-}): Promise<IndexedConfigEntityResult> {
-  const result = await saveIndexedConfigEntity(payload);
-  await recordConfigWrite(payload.modRoot, result, indexedEntitySaveLabel(payload.kind, result.entityId));
   return result;
 }
 
-export async function createIndexedConfigEntityWithFileHistory(payload: {
+export async function saveIndexedConfigEntityAction(write: {
   modRoot: string;
-  kind: IndexedConfigEntityKind;
+  kind: IndexedConfigKind;
+  previousId: string | null;
   nextId: string;
   indexRow: RowData;
-  payload: RowData;
-}): Promise<IndexedConfigEntityResult> {
-  const result = await saveIndexedConfigEntity(payload);
-  await recordConfigWrite(payload.modRoot, result, indexedEntityCreateLabel(payload.kind, result.entityId));
-  return result;
+  entityData: RowData;
+  deletePreviousTarget: boolean;
+}): Promise<string> {
+  const result = await saveIndexedConfigEntity(write);
+  const entity = indexedConfigEntityData(result);
+  await recordConfigWrite(write.modRoot, result, indexedConfigHistoryLabel(write.kind, 'save', entity.entityId));
+  return entity.entityId;
 }
 
-export async function deleteIndexedConfigEntityWithFileHistory(
+export async function createIndexedConfigEntityAction(write: {
+  modRoot: string;
+  kind: IndexedConfigKind;
+  previousId: null;
+  nextId: string;
+  indexRow: RowData;
+  entityData: RowData;
+  deletePreviousTarget: false;
+}): Promise<string> {
+  const result = await createIndexedConfigEntity(write);
+  const entity = indexedConfigEntityData(result);
+  await recordConfigWrite(write.modRoot, result, indexedConfigHistoryLabel(write.kind, 'create', entity.entityId));
+  return entity.entityId;
+}
+
+export async function deleteIndexedConfigEntityAction(
   modRoot: string,
-  kind: IndexedConfigEntityKind,
+  kind: IndexedConfigKind,
   id: string,
-  deleteTarget = false,
-): Promise<IndexedConfigEntityResult> {
+  deleteTarget: boolean,
+): Promise<string> {
   const result = await deleteIndexedConfigEntity(modRoot, kind, id, deleteTarget);
-  await recordConfigWrite(modRoot, result, indexedEntityDeleteLabel(kind, id));
-  return result;
+  await recordConfigWrite(modRoot, result, indexedConfigHistoryLabel(kind, 'delete', id));
+  return indexedConfigEntityData(result).entityId;
 }
 
-export async function saveVariantWithFileHistory(
+export async function saveVariantAction(
   modRoot: string,
   variantId: string,
   data: RowData,
-  previousId?: string | null,
-  previousRelPath?: string | null,
-): Promise<VariantEntityResult> {
+  previousId: string | null,
+  previousRelPath: string | null,
+): Promise<VariantFile> {
   const result = await saveVariantEntity({
     modRoot,
     previousId,
@@ -76,29 +79,31 @@ export async function saveVariantWithFileHistory(
     nextId: variantId,
     data,
   });
-  await recordConfigWrite(modRoot, result, `保存装配 ${variantId}`);
-  return result;
+  const variant = variantEntityData(result);
+  await recordConfigWrite(modRoot, result, `保存装配 ${variant.variantId}`);
+  return variant;
 }
 
-export async function createVariantWithFileHistory(modRoot: string, hullId: string, variantId: string): Promise<VariantEntityResult> {
+export async function createVariantAction(modRoot: string, hullId: string, variantId: string): Promise<VariantFile> {
   const result = await createVariantEntity(modRoot, hullId, variantId);
-  await recordConfigWrite(modRoot, result, `创建装配 ${variantId}`);
-  return result;
+  const variant = variantEntityData(result);
+  await recordConfigWrite(modRoot, result, `创建装配 ${variant.variantId}`);
+  return variant;
 }
 
-export async function deleteVariantWithFileHistory(modRoot: string, relPath: string, variantId: string): Promise<FileChangeRecord[]> {
+export async function deleteVariantAction(modRoot: string, relPath: string, variantId: string): Promise<WriteResult> {
   const result = await deleteVariantEntity(modRoot, relPath, variantId);
   await recordConfigWrite(modRoot, result, `删除装配 ${variantId}`);
-  return result.changes;
+  return result;
 }
 
-export async function saveSkinWithFileHistory(
+export async function saveSkinAction(
   modRoot: string,
   skinHullId: string,
   data: RowData,
-  previousId?: string | null,
-  previousRelPath?: string | null,
-): Promise<SkinEntityResult> {
+  previousId: string | null,
+  previousRelPath: string | null,
+): Promise<SkinFile> {
   const result = await saveSkinEntity({
     modRoot,
     previousId,
@@ -106,35 +111,25 @@ export async function saveSkinWithFileHistory(
     nextId: skinHullId,
     data,
   });
-  await recordConfigWrite(modRoot, result, `保存舰船皮肤 ${skinHullId}`);
-  return result;
+  const skin = skinEntityData(result);
+  await recordConfigWrite(modRoot, result, `保存舰船皮肤 ${skin.skinHullId}`);
+  return skin;
 }
 
-export async function createSkinWithFileHistory(modRoot: string, baseHullId: string, skinHullId: string): Promise<SkinEntityResult> {
+export async function createSkinAction(modRoot: string, baseHullId: string, skinHullId: string): Promise<SkinFile> {
   const result = await createSkinEntity(modRoot, baseHullId, skinHullId);
-  await recordConfigWrite(modRoot, result, `创建舰船皮肤 ${skinHullId}`);
-  return result;
+  const skin = skinEntityData(result);
+  await recordConfigWrite(modRoot, result, `创建舰船皮肤 ${skin.skinHullId}`);
+  return skin;
 }
 
-export async function deleteSkinWithFileHistory(modRoot: string, relPath: string, skinHullId: string): Promise<FileChangeRecord[]> {
+export async function deleteSkinAction(modRoot: string, relPath: string, skinHullId: string): Promise<WriteResult> {
   const result = await deleteSkinEntity(modRoot, relPath, skinHullId);
   await recordConfigWrite(modRoot, result, `删除舰船皮肤 ${skinHullId}`);
-  return result.changes;
+  return result;
 }
 
-async function recordConfigWrite(modRoot: string, result: { changes: FileChangeRecord[]; invalidatedPaths: string[] }, label: string) {
-  recordFileSave(modRoot, result.changes, label);
+async function recordConfigWrite(modRoot: string, result: WriteResult, label: string) {
+  recordFileSave(modRoot, result, label);
   await invalidateWriteResultForMod(modRoot, result);
-}
-
-function indexedEntitySaveLabel(kind: IndexedConfigEntityKind, id: string): string {
-  return kind === 'faction' ? `保存 ${id}.faction` : `保存战役 ${id}`;
-}
-
-function indexedEntityCreateLabel(kind: IndexedConfigEntityKind, id: string): string {
-  return kind === 'faction' ? `创建势力 ${id}` : `创建战役 ${id}`;
-}
-
-function indexedEntityDeleteLabel(kind: IndexedConfigEntityKind, id: string): string {
-  return kind === 'faction' ? `删除势力 ${id}` : `删除战役 ${id}`;
 }

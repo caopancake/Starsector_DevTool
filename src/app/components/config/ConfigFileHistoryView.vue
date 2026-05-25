@@ -80,52 +80,23 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useAppFeedback } from '@/app/composables/use-app-feedback';
-import type { FileChangeRecord } from '@/shared/api/write-api';
-import { replayNextFileHistoryEntry } from '@/orchestrators/file-history-replay.orchestrator';
-import { useFileHistoryStore } from '@/stores/file-history.store';
+import { useFileHistoryViewModel } from '@/app/composables/use-file-history-view-model';
+import type { FileChangeRecord } from '@/shared/types';
 import type { FileHistoryItem } from '@/shared/types/file-history.types';
-import { useProjectStore } from '@/stores/project.store';
-import { useTablesStore } from '@/stores/tables.store';
 
-const project = useProjectStore();
-const tables = useTablesStore();
-const fileHistory = useFileHistoryStore();
-const feedback = useAppFeedback();
-
-const activeMod = computed(() => project.activeManifest);
-const modTitle = computed(() => activeMod.value?.modInfo?.name ?? activeMod.value?.modRoot ?? '未选择 Mod');
-const stacks = computed(() => (activeMod.value ? fileHistory.getHistoryStacks(activeMod.value.modRoot) : { undoStack: [], redoStack: [] }));
-const undoStack = computed(() => stacks.value.undoStack);
-const redoStack = computed(() => stacks.value.redoStack);
-const undoDisplayItems = computed(() => [...undoStack.value].reverse());
-const redoDisplayItems = computed(() => [...redoStack.value].reverse());
-const historyCount = computed(() => undoStack.value.length + redoStack.value.length);
-const canUndo = computed(() => Boolean(fileHistory.peekFileUndo()));
-const canRedo = computed(() => Boolean(fileHistory.peekFileRedo()));
-
-function confirmClear() {
-  const modData = activeMod.value;
-  if (!modData || historyCount.value === 0) return;
-  feedback.confirmWarning({
-    title: '清空文件历史',
-    content: '这会清空当前 Mod 的文件级 undo/redo 栈，不会修改任何磁盘文件。确认清空？',
-    actionText: '清空',
-    onConfirm: () => {
-      fileHistory.clearForMod(modData.modRoot);
-      feedback.success('文件历史已清空');
-    },
-  });
-}
-
-function undoOne() {
-  replayNextFileHistoryEntry('undo', project, tables, feedback);
-}
-
-function redoOne() {
-  replayNextFileHistoryEntry('redo', project, tables, feedback);
-}
+const {
+  modTitle,
+  undoStack,
+  redoStack,
+  undoDisplayItems,
+  redoDisplayItems,
+  historyCount,
+  canUndo,
+  canRedo,
+  confirmClear,
+  undoOne,
+  redoOne,
+} = useFileHistoryViewModel();
 
 function formatItemKind(item: FileHistoryItem): string {
   return `${item.changes.length} 个文件变更`;

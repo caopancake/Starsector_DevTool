@@ -7,24 +7,26 @@ use super::resources_shared::{resource_ref, skin_resource_ref};
 use crate::{
     errors::{AppError, AppResult},
     models::{
-        HullReferenceGroup, HullReferenceOption, HullReferencesPayload, HullReferencesResult,
+        HullReferenceGroup, HullReferenceKind, HullReferenceOption, HullReferencesResult,
+        ResourceOwnerKind, ResourceSource,
     },
 };
 use std::collections::{BTreeMap, BTreeSet};
 
-pub fn query_hull_references_for_command(
-    payload: HullReferencesPayload,
+pub fn query_hull_references(
+    session_id: &str,
+    reference_ids: &[String],
 ) -> AppResult<HullReferencesResult> {
     let guard = sessions()
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = session_for(&guard, &payload.session_id)?;
-    build_hull_references(session, &payload.hull_ids)
+    let session = session_for(&guard, session_id)?;
+    build_hull_references(session, reference_ids)
 }
 
 fn build_hull_references(
     session: &ProjectSession,
-    requested_hull_ids: &[String],
+    requested_reference_ids: &[String],
 ) -> AppResult<HullReferencesResult> {
     let mut groups = Vec::new();
     let mut sprites = BTreeMap::new();
@@ -35,16 +37,23 @@ fn build_hull_references(
         .map(|(hull_id, ship)| {
             seen.insert(hull_id.clone());
             let label = hull_reference_label(hull_id, ship);
-            let resource_ref = string_field(ship, "spriteName")
-                .map(|sprite| resource_ref("mod", &sprite, "ship", hull_id, "thumbnail"));
+            let resource_ref = string_field(ship, "spriteName").map(|sprite| {
+                resource_ref(
+                    ResourceSource::Mod,
+                    &sprite,
+                    ResourceOwnerKind::Ship,
+                    hull_id,
+                    "thumbnail",
+                )
+            });
             if let Some(resource_ref) = resource_ref.clone() {
                 sprites.insert(hull_id.clone(), resource_ref);
             }
             HullReferenceOption {
                 label,
                 value: hull_id.clone(),
-                origin: "mod".to_string(),
-                kind: "ship".to_string(),
+                origin: ResourceSource::Mod,
+                kind: HullReferenceKind::Ship,
                 resource_ref,
             }
         })
@@ -61,7 +70,7 @@ fn build_hull_references(
         .iter()
         .map(|skin| {
             seen.insert(skin.skin_hull_id.clone());
-            let resource_ref = skin_resource_ref("mod", &session.ship_files, skin);
+            let resource_ref = skin_resource_ref(ResourceSource::Mod, &session.ship_files, skin);
             if let Some(resource_ref) = resource_ref.clone() {
                 sprites.insert(skin.skin_hull_id.clone(), resource_ref);
             }
@@ -72,8 +81,8 @@ fn build_hull_references(
                     format!("{} ({})", skin.skin_hull_id, skin.base_hull_id)
                 },
                 value: skin.skin_hull_id.clone(),
-                origin: "mod".to_string(),
-                kind: "skin".to_string(),
+                origin: ResourceSource::Mod,
+                kind: HullReferenceKind::Skin,
                 resource_ref,
             }
         })
@@ -98,13 +107,20 @@ fn build_hull_references(
             }
             seen.insert(hull_id.clone());
             let label = hull_reference_label(hull_id, ship);
-            let resource_ref = string_field(ship, "spriteName")
-                .map(|sprite| resource_ref("core", &sprite, "ship", hull_id, "thumbnail"));
+            let resource_ref = string_field(ship, "spriteName").map(|sprite| {
+                resource_ref(
+                    ResourceSource::Core,
+                    &sprite,
+                    ResourceOwnerKind::Ship,
+                    hull_id,
+                    "thumbnail",
+                )
+            });
             core_ship_options.push(HullReferenceOption {
                 label,
                 value: hull_id.clone(),
-                origin: "core".to_string(),
-                kind: "ship".to_string(),
+                origin: ResourceSource::Core,
+                kind: HullReferenceKind::Ship,
                 resource_ref,
             });
         }
@@ -121,7 +137,7 @@ fn build_hull_references(
                 continue;
             }
             seen.insert(skin.skin_hull_id.clone());
-            let resource_ref = skin_resource_ref("core", &core_ship_files, skin);
+            let resource_ref = skin_resource_ref(ResourceSource::Core, &core_ship_files, skin);
             core_skin_options.push(HullReferenceOption {
                 label: if skin.skin_hull_id == skin.base_hull_id {
                     skin.skin_hull_id.clone()
@@ -129,8 +145,8 @@ fn build_hull_references(
                     format!("{} ({})", skin.skin_hull_id, skin.base_hull_id)
                 },
                 value: skin.skin_hull_id.clone(),
-                origin: "core".to_string(),
-                kind: "skin".to_string(),
+                origin: ResourceSource::Core,
+                kind: HullReferenceKind::Skin,
                 resource_ref,
             });
         }
@@ -142,36 +158,54 @@ fn build_hull_references(
         }
     }
 
-    for hull_id in requested_hull_ids {
-        if sprites.contains_key(hull_id) {
+    for reference_id in requested_reference_ids {
+        if sprites.contains_key(reference_id) {
             continue;
         }
         let resource_ref = session
             .skin_files
             .iter()
-            .find(|skin| skin.skin_hull_id == *hull_id)
-            .and_then(|skin| skin_resource_ref("mod", &session.ship_files, skin))
+            .find(|skin| skin.skin_hull_id == *reference_id)
+            .and_then(|skin| skin_resource_ref(ResourceSource::Mod, &session.ship_files, skin))
             .or_else(|| {
                 session
                     .ship_files
-                    .get(hull_id)
+                    .get(reference_id)
                     .and_then(|ship| string_field(ship, "spriteName"))
-                    .map(|sprite| resource_ref("mod", &sprite, "ship", hull_id, "thumbnail"))
+                    .map(|sprite| {
+                        resource_ref(
+                            ResourceSource::Mod,
+                            &sprite,
+                            ResourceOwnerKind::Ship,
+                            reference_id,
+                            "thumbnail",
+                        )
+                    })
             })
             .or_else(|| {
                 core_skin_files
                     .iter()
-                    .find(|skin| skin.skin_hull_id == *hull_id)
-                    .and_then(|skin| skin_resource_ref("core", &core_ship_files, skin))
+                    .find(|skin| skin.skin_hull_id == *reference_id)
+                    .and_then(|skin| {
+                        skin_resource_ref(ResourceSource::Core, &core_ship_files, skin)
+                    })
             })
             .or_else(|| {
                 core_ship_files
-                    .get(hull_id)
+                    .get(reference_id)
                     .and_then(|ship| string_field(ship, "spriteName"))
-                    .map(|sprite| resource_ref("core", &sprite, "ship", hull_id, "thumbnail"))
+                    .map(|sprite| {
+                        resource_ref(
+                            ResourceSource::Core,
+                            &sprite,
+                            ResourceOwnerKind::Ship,
+                            reference_id,
+                            "thumbnail",
+                        )
+                    })
             });
         if let Some(resource_ref) = resource_ref {
-            sprites.insert(hull_id.clone(), resource_ref);
+            sprites.insert(reference_id.clone(), resource_ref);
         }
     }
 
@@ -191,14 +225,9 @@ fn hull_reference_label(hull_id: &str, ship: &serde_json::Value) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::super::super::session::{close_project_session, open_project_session_traced};
     use super::*;
-    use crate::{
-        io::write_utf8_no_bom,
-        models::HullReferencesPayload,
-        services::project::session::{
-            close_project_session_for_command, open_project_session_traced,
-        },
-    };
+    use crate::io::write_utf8_no_bom;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
@@ -231,18 +260,18 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
-        let result = query_hull_references_for_command(HullReferencesPayload {
-            session_id: manifest.session_id.clone(),
-            hull_ids: vec![
+        let result = query_hull_references(
+            &manifest.session_id,
+            &[
                 "mod_ship".to_string(),
                 "mod_skin".to_string(),
                 "core_ship".to_string(),
                 "core_skin".to_string(),
             ],
-        })
+        )
         .unwrap();
 
-        let _ = close_project_session_for_command(manifest.session_id);
+        let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
         let values: Vec<String> = result
             .groups

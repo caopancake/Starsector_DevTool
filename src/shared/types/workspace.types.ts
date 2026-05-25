@@ -1,4 +1,5 @@
-import type { GameModSummary, GameScanWarning, RowData, TableKey } from '@/shared/types/index';
+import type { GameModSummary, GameScanWarning } from '@/shared/types/query.types';
+import type { CsvDirtyRow, CsvFactionFilter, CsvTableRows, TableKey } from '@/shared/types/tables.types';
 
 /** Metadata for one imported Mod in the workspace */
 export interface ModEntry {
@@ -11,16 +12,16 @@ export interface ModEntry {
 
 /** Per-Mod table state — fully isolated from other Mods */
 export interface ModTableState {
-  tables: Record<TableKey, RowData[]>;
-  originalTables: Record<TableKey, RowData[]>;
+  tables: Record<TableKey, CsvTableRows>;
+  originalTables: Record<TableKey, CsvTableRows>;
   headers: Record<TableKey, string[]>;
   totalRows: Record<TableKey, number>;
   filteredRows: Record<TableKey, number>;
-  dirty: Record<TableKey, Record<string, Record<string, string>>>;
+  dirty: Record<TableKey, Record<string, CsvDirtyRow>>;
   currentTab: TableKey;
-  currentFaction: string;
+  currentFaction: CsvFactionFilter;
   searchText: string;
-  selectedRowKey: string;
+  selectedRowKey: string | null;
   editing: { tab: TableKey; rowKey: string; col: string; value: string } | null;
   nextRowKey: number; // Per-mod row key counter to prevent collisions
 }
@@ -42,9 +43,9 @@ export interface PersistedMod {
 export interface PersistedWorkspace {
   mods: PersistedMod[];
   activeModRoot: string | null;
-  currentView: string | null;
+  currentView: WorkspaceView | null;
   expandedMods: string[];
-  starsectorRoot?: string | null;
-  gameMods?: GameModSummary[];
-  gameWarnings?: GameScanWarning[];
+  starsectorRoot: string | null;
+  gameMods: GameModSummary[];
+  gameWarnings: GameScanWarning[];
 }

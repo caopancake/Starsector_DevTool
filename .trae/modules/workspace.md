@@ -7,6 +7,7 @@
 ## 边界
 
 - `src/stores/workspace.store.ts` 是主窗口 workspace 状态源。
+- `src/domain/workspace/mod-tree.ts` 定义已加载 Mod 在主侧栏中的模块导航结构、计数来源和激活判定。
 - `src/app/composables/use-workspace-shell-actions.ts` 是主窗口 workspace 级组合入口，承接打开目录、保存表格、移除 Mod、窗口事件和详情动作。
 - `src/orchestrators/workspace-persistence.orchestrator.ts` 负责 workspace 自动保存和启动恢复。
 - `src/orchestrators/open-directory.orchestrator.ts` 负责打开目录后的前端编排。
@@ -19,14 +20,23 @@
 ## 规范
 
 - workspace 持久化保存的是打开状态，不保存项目数据包。
+- workspace 保存 command 必须使用 payload 对象作为 wire 边界，command 层只拆出 service 所需业务参数。
 - `App.vue` 不直接横向编排多个 feature；主窗口用户动作通过 `use-workspace-shell-actions.ts` 调用对应业务模块。
 - 启动恢复必须重新调用当前 session 打开流程，不能信任旧缓存。
 - 恢复完成后主窗口进入总览视图。
+- 启动恢复期间自动保存必须暂停；恢复结束后必须等待当前 workspace 状态写回工具私有 workspace 文件。
 - 移除 Mod 时必须同时移除 workspace、project cache、tables、编辑器引用、CSV 草稿历史和文件级 history。
-- 移除 Mod 时必须显式关闭对应 ProjectSession，并清理该 session 的前端资源缓存。
-- 关闭工作区时必须清空游戏目录概览、所有已加载 Mod、project cache、tables、编辑器引用、CSV 草稿历史和文件级 history，并按 Starsector root 失效 core cache。
+- 移除 Mod 时必须显式关闭对应 ProjectSession，并清理该 session 的前端资源缓存；移除动作必须等待 ProjectSession 关闭完成。
+- 关闭工作区时必须清空游戏目录概览、所有已加载 Mod、project cache、tables、编辑器引用、CSV 草稿历史和文件级 history，并等待 Starsector root 的 core cache 失效完成。
 - 游戏目录概览和已打开 ProjectSession 是不同状态；概览中的 Mod 不等于已加载 Mod。
+- 主侧栏 Mod 树只能渲染 workspace domain 生成的模块导航模型，不能在组件模板中直接维护表格 key 分组、配置 view 分组、计数来源或激活判定。
+- workspace store 生成游戏目录派生路径时必须使用共享路径工具，不得在 store 内自行拼接路径分隔符。
+- workspace 持久化的 currentView 必须使用正式 WorkspaceView 枚举，不得用裸字符串承载主视图语义。
+- workspace 持久化模型由 Rust 返回完整结构；前端共享类型不得把已由 Rust 默认化或显式返回的字段建模成可缺省字段。
+- workspace 文件缺失时使用默认空工作区；workspace 文件存在但读取或解析失败时必须返回错误，前端不得把损坏状态静默当成空工作区。
+- 启动恢复失败时不得立刻把当前空运行态写回 workspace 文件，避免覆盖仍需用户处理的损坏持久化文件。
 - workspace 私有状态只能写入工具私有目录，不能写入游戏目录或 Mod 目录。
+- 活动 Mod 为空必须使用 `null` 语义，workspace 级编排和按 Mod 隔离的 store 不能用空字符串表示未选中 Mod。
 
 ## 链路：启动恢复
 
@@ -42,7 +52,8 @@
 10. 加载成功的 Mod 写入 project store、tables store 和 workspace store。
 11. workspace store 恢复活动 Mod。
 12. workspace store 导航到 `overview`。
-13. core fields 加载器刷新全局 core 字段。
+13. core fields 加载器刷新全局 core 字段，启动恢复等待刷新完成。
+14. workspace 自动保存恢复，并等待当前 workspace 状态写回工具私有 workspace 文件。
 
 ## 链路：workspace 自动保存
 

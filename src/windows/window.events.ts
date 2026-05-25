@@ -1,11 +1,10 @@
 import type { RowData } from '@/shared/types';
-import type { FileChangeRecord } from '@/shared/api/write-api';
+import type { WriteResult } from '@/shared/types';
 import type { AppSettings } from '@/shared/types';
-import type { EditorWindowKind } from '@/windows/editor.window';
+import type { EditorSpecKind } from '@/shared/types';
 
 export const WINDOW_EVENTS = {
   editorSpecSaved: 'editor-spec-saved',
-  editorSpecApplied: 'editor-spec-applied',
   fileEditorFocusLine: 'file-editor-focus-line',
   fileEditorSaved: 'file-editor-saved',
   fileEditorTextApplied: 'file-editor-text-applied',
@@ -13,27 +12,25 @@ export const WINDOW_EVENTS = {
 } as const;
 
 export interface EditorSpecSavedEvent {
-  kind: Exclude<EditorWindowKind, 'weapon-preview'>;
+  kind: EditorSpecKind;
   modRoot: string;
   id: string;
   spec: RowData;
-  changes?: FileChangeRecord[];
+  writeResult: WriteResult;
 }
-
-export type EditorSpecAppliedEvent = EditorSpecSavedEvent;
 
 export type FileEditorContextSeverity = 'error' | 'info';
 
 export interface FileEditorFocusLineEvent {
-  contextLabel?: string | null;
-  contextSeverity?: FileEditorContextSeverity | null;
-  line?: number | null;
-  message?: string | null;
+  contextLabel: string | null;
+  contextSeverity: FileEditorContextSeverity | null;
+  line: number | null;
+  message: string | null;
 }
 
 export interface FileEditorSavedEvent {
   path: string;
-  changes: FileChangeRecord[];
+  writeResult: WriteResult;
 }
 
 export interface FileEditorTextAppliedEvent {

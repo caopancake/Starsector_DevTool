@@ -19,11 +19,11 @@ import { useCoreSchema } from '@/app/composables/use-core-schema';
 import { useConfigModInfoViewModel } from '@/app/composables/use-config-mod-info-view-model';
 
 const { getMergedSchema, loadCoreFields } = useCoreSchema();
-loadCoreFields();
+void loadCoreFields();
 const schema = computed(() => getMergedSchema('mod-info'));
 const { local, saving, schemaRuntimeContext, saveModInfo } = useConfigModInfoViewModel();
 
-function save() {
-  void saveModInfo(schema.value);
+async function save() {
+  await saveModInfo(schema.value);
 }
 </script>

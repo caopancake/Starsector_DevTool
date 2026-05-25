@@ -1,3 +1,4 @@
+import { classifyFrontendPath } from '../shared/classify.mjs';
 import { frontendFile } from '../shared/files.mjs';
 import { importedProjectPaths } from '../shared/imports.mjs';
 
@@ -6,27 +7,40 @@ export const editorModuleBoundaryRule = {
   check(files) {
     const failures = [];
     for (const file of files) {
-      if (!frontendFile(file.rel) || !isEditorComponent(file.rel)) continue;
+      if (!frontendFile(file.rel)) continue;
+      const current = classifyFrontendPath(file.rel);
+      if (!isEditorSurface(current)) continue;
       for (const imported of importedProjectPaths(file)) {
         if (imported.typeOnly) continue;
-        if (/^src\/shared\/api\//.test(imported.resolved)) {
+        const target = classifyFrontendPath(imported.resolved);
+        if (target.role === 'api') {
           failures.push(`${file.rel}: editor components must not call wire APIs`);
         }
-        if (/^src\/services\/(?:query|write|resource-cache|editor|csv-table)\.service(?:\.ts)?$/.test(imported.resolved)) {
+        if (target.role === 'service') {
           failures.push(`${file.rel}: editor components must use editor ViewModel output instead of services`);
         }
-        if (/^src\/orchestrators\/(?:editor-save|file-save|file-history-replay)\.orchestrator(?:\.ts)?$/.test(imported.resolved)) {
+        if (target.role === 'orchestrator') {
           failures.push(`${file.rel}: editor components must not own save or history orchestration`);
         }
       }
       if (/\bqueryCsvTableWindow\s*\(/.test(file.text)) {
         failures.push(`${file.rel}: editor candidates must use source/entity query, not CSV windows`);
       }
+      if (file.rel.startsWith('src/app/components/editors/') && /\bWriteResult\b|\bsaveSpec\b|\bwriteResult\b/.test(file.text)) {
+        failures.push(`${file.rel}: editor components submit edited data; window ViewModel owns write results and save effects`);
+      }
+      if (
+        /function\s+queryEditorEntityBundle[\s\S]*?Promise\.all\(\s*\[[\s\S]*?querySessionEntity\(sessionId,\s*['"]ship['"][\s\S]*?querySessionEntity\(sessionId,\s*['"]weapon['"][\s\S]*?querySessionEntity\(sessionId,\s*['"]projectile['"]/m.test(
+          file.text,
+        )
+      ) {
+        failures.push(`${file.rel}: editor bundle query must be selected by editor kind, not a full entity fan-out`);
+      }
     }
     return failures;
   },
 };
 
-function isEditorComponent(path) {
-  return /^src\/app\/components\/editors\//.test(path) || /^src\/app\/EditorWindow/.test(path);
+function isEditorSurface(current) {
+  return current.layer === 'app' && (current.domain === 'editors' || current.domain === 'editor-window');
 }

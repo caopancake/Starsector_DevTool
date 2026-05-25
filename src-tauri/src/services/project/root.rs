@@ -1,6 +1,10 @@
+use super::model::is_comment_row;
 use crate::{
+    errors::AppResult,
     io::{read_csv_data, read_json_file},
-    models::{GameModSummary, GameOverviewData, GameScanWarning, OpenDirectoryResult},
+    models::{
+        GameModSummary, GameOverviewData, GameScanWarning, OpenDirectoryKind, OpenDirectoryResult,
+    },
 };
 use serde_json::{Map, Value};
 use std::{
@@ -9,15 +13,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub fn detect_directory(
-    path: &Path,
-    fallback_starsector_root: Option<&str>,
-) -> OpenDirectoryResult {
+pub fn detect_directory(path: &Path, known_starsector_root: Option<&str>) -> OpenDirectoryResult {
     let selected = path.to_string_lossy().to_string();
     if is_game_root(path) {
         let overview = scan_game_overview(path);
         return OpenDirectoryResult {
-            kind: "game-root".to_string(),
+            kind: OpenDirectoryKind::GameRoot,
             selected_path: selected,
             starsector_root: Some(path.to_string_lossy().to_string()),
             mod_root: None,
@@ -29,15 +30,15 @@ pub fn detect_directory(
     if is_mod_root(path) {
         let inferred = infer_starsector_root(path);
         let overview = inferred.as_deref().map(scan_game_overview);
-        let fallback = fallback_starsector_root
+        let known_root = known_starsector_root
             .filter(|root| !root.trim().is_empty())
             .map(PathBuf::from);
-        let starsector_root = inferred.or(fallback);
+        let starsector_root = inferred.or(known_root);
         return OpenDirectoryResult {
             kind: if overview.is_some() {
-                "mod-in-game".to_string()
+                OpenDirectoryKind::ModInGame
             } else {
-                "external-mod".to_string()
+                OpenDirectoryKind::ExternalMod
             },
             selected_path: selected,
             starsector_root: starsector_root.map(|p| p.to_string_lossy().to_string()),
@@ -48,7 +49,7 @@ pub fn detect_directory(
     }
 
     OpenDirectoryResult {
-        kind: "unknown".to_string(),
+        kind: OpenDirectoryKind::Unknown,
         selected_path: selected.clone(),
         starsector_root: None,
         mod_root: None,
@@ -58,13 +59,6 @@ pub fn detect_directory(
             message: "未识别为 Starsector 游戏目录或 Mod 目录".to_string(),
         }],
     }
-}
-
-pub fn detect_directory_for_command(
-    path: String,
-    fallback_starsector_root: Option<String>,
-) -> OpenDirectoryResult {
-    detect_directory(Path::new(&path), fallback_starsector_root.as_deref())
 }
 
 pub fn scan_game_overview(starsector_root: &Path) -> GameOverviewData {
@@ -82,38 +76,52 @@ pub fn scan_game_overview(starsector_root: &Path) -> GameOverviewData {
         });
     }
 
-    if !mods_dir.exists() {
-        warnings.push(GameScanWarning {
-            path: mods_dir.to_string_lossy().to_string(),
-            message: "缺少 mods 目录".to_string(),
-        });
-    } else if let Ok(entries) = fs::read_dir(&mods_dir) {
-        for entry in entries.flatten() {
-            let mod_root = entry.path();
-            if !mod_root.is_dir() {
-                continue;
-            }
-            let mod_info_path = mod_root.join("mod_info.json");
-            if !mod_info_path.exists() {
-                warnings.push(GameScanWarning {
-                    path: mod_root.to_string_lossy().to_string(),
-                    message: "缺少 mod_info.json，已跳过".to_string(),
-                });
-                continue;
-            }
-            match read_json_file(&mod_info_path) {
-                Ok(info) => mods.push(summary_from_mod_info(&mod_root, &info)),
-                Err(error) => warnings.push(GameScanWarning {
-                    path: mod_info_path.to_string_lossy().to_string(),
-                    message: format!("读取 mod_info.json 失败: {error}"),
-                }),
+    match fs::read_dir(&mods_dir) {
+        Ok(entries) => {
+            for entry in entries {
+                let entry = match entry {
+                    Ok(entry) => entry,
+                    Err(error) => {
+                        warnings.push(GameScanWarning {
+                            path: mods_dir.to_string_lossy().to_string(),
+                            message: format!("读取 mods 目录项失败: {error}"),
+                        });
+                        continue;
+                    }
+                };
+                let mod_root = entry.path();
+                if !mod_root.is_dir() {
+                    continue;
+                }
+                let mod_info_path = mod_root.join("mod_info.json");
+                if !mod_info_path.exists() {
+                    warnings.push(GameScanWarning {
+                        path: mod_root.to_string_lossy().to_string(),
+                        message: "缺少 mod_info.json，已跳过".to_string(),
+                    });
+                    continue;
+                }
+                match read_json_file(&mod_info_path) {
+                    Ok(info) => mods.push(summary_from_mod_info(&mod_root, &info)),
+                    Err(error) => warnings.push(GameScanWarning {
+                        path: mod_info_path.to_string_lossy().to_string(),
+                        message: format!("读取 mod_info.json 失败: {error}"),
+                    }),
+                }
             }
         }
-    } else {
-        warnings.push(GameScanWarning {
-            path: mods_dir.to_string_lossy().to_string(),
-            message: "无法读取 mods 目录".to_string(),
-        });
+        Err(_) if !mods_dir.exists() => {
+            warnings.push(GameScanWarning {
+                path: mods_dir.to_string_lossy().to_string(),
+                message: "缺少 mods 目录".to_string(),
+            });
+        }
+        Err(error) => {
+            warnings.push(GameScanWarning {
+                path: mods_dir.to_string_lossy().to_string(),
+                message: format!("无法读取 mods 目录: {error}"),
+            });
+        }
     }
 
     mods.sort_by_key(|summary| summary.name.to_lowercase());
@@ -126,10 +134,6 @@ pub fn scan_game_overview(starsector_root: &Path) -> GameOverviewData {
         mods,
         warnings,
     }
-}
-
-pub fn scan_game_overview_for_command(starsector_root: String) -> GameOverviewData {
-    scan_game_overview(Path::new(&starsector_root))
 }
 
 pub(super) fn is_game_root(path: &Path) -> bool {
@@ -145,8 +149,12 @@ pub(super) fn infer_starsector_root(mod_root: &Path) -> Option<PathBuf> {
     is_game_root(candidate).then(|| candidate.to_path_buf())
 }
 
-pub(super) fn read_mod_info(mod_root: &Path) -> Value {
-    read_json_file(&mod_root.join("mod_info.json")).unwrap_or_else(|_| {
+pub(super) fn read_mod_info(mod_root: &Path) -> AppResult<Value> {
+    let path = mod_root.join("mod_info.json");
+    if path.exists() {
+        return read_json_file(&path);
+    }
+    Ok({
         let mut obj = Map::new();
         let name = mod_root
             .file_name()
@@ -158,33 +166,34 @@ pub(super) fn read_mod_info(mod_root: &Path) -> Value {
     })
 }
 
-pub(super) fn count_mission_list_entries(mod_root: &Path) -> usize {
+pub(super) fn count_mission_list_entries(mod_root: &Path) -> AppResult<usize> {
     let path = mod_root.join("data/missions/mission_list.csv");
-    read_csv_data(&path)
-        .map(|table| {
-            table
-                .rows
-                .iter()
-                .filter(|row| {
-                    row.get("mission")
-                        .and_then(Value::as_str)
-                        .is_some_and(|mission| !mission.trim().is_empty())
-                })
-                .count()
-        })
-        .unwrap_or(0)
+    read_csv_data(&path).map(|table| {
+        table
+            .rows
+            .iter()
+            .filter(|row| {
+                if is_comment_row(row) {
+                    return false;
+                }
+                row.get("mission")
+                    .and_then(Value::as_str)
+                    .is_some_and(|mission| !mission.trim().is_empty())
+            })
+            .count()
+    })
 }
 
 fn summary_from_mod_info(mod_root: &Path, info: &Value) -> GameModSummary {
-    let fallback_name = mod_root
+    let folder_name = mod_root
         .file_name()
         .and_then(|s| s.to_str())
         .unwrap_or("Mod")
         .to_string();
     GameModSummary {
         mod_root: mod_root.to_string_lossy().to_string(),
-        id: value_string(info.get("id")).unwrap_or_else(|| fallback_name.clone()),
-        name: value_string(info.get("name")).unwrap_or(fallback_name),
+        id: value_string(info.get("id")).unwrap_or_else(|| folder_name.clone()),
+        name: value_string(info.get("name")).unwrap_or(folder_name),
         version: version_string(info.get("version")).unwrap_or_default(),
         description: value_string(info.get("description")).unwrap_or_default(),
         has_mod_info: true,
@@ -276,7 +285,7 @@ mod tests {
         let detected = detect_directory(&root, None);
 
         let _ = fs::remove_dir_all(&root);
-        assert_eq!(detected.kind, "game-root");
+        assert_eq!(detected.kind, OpenDirectoryKind::GameRoot);
         assert!(detected.overview.is_some());
     }
 
@@ -290,10 +299,10 @@ mod tests {
         write_utf8_no_bom(&mod_root.join("mod_info.json"), r#"{"id":"demo"}"#).unwrap();
         write_utf8_no_bom(&root.join("mods/other/mod_info.json"), r#"{"id":"other"}"#).unwrap();
 
-        let detected = detect_directory(&mod_root, Some("D:/fallback"));
+        let detected = detect_directory(&mod_root, Some("D:/known-root"));
 
         let _ = fs::remove_dir_all(&root);
-        assert_eq!(detected.kind, "mod-in-game");
+        assert_eq!(detected.kind, OpenDirectoryKind::ModInGame);
         assert_eq!(
             detected.mod_root,
             Some(mod_root.to_string_lossy().to_string())
@@ -312,15 +321,15 @@ mod tests {
     }
 
     #[test]
-    fn detect_external_mod_uses_fallback_root() {
+    fn detect_external_mod_uses_known_root() {
         let mod_root = temp_dir("detect_external_mod");
         write_utf8_no_bom(&mod_root.join("mod_info.json"), r#"{"id":"external"}"#).unwrap();
 
-        let detected = detect_directory(&mod_root, Some("D:/fallback"));
+        let detected = detect_directory(&mod_root, Some("D:/known-root"));
 
         let _ = fs::remove_dir_all(mod_root);
-        assert_eq!(detected.kind, "external-mod");
-        assert_eq!(detected.starsector_root, Some("D:/fallback".to_string()));
+        assert_eq!(detected.kind, OpenDirectoryKind::ExternalMod);
+        assert_eq!(detected.starsector_root, Some("D:/known-root".to_string()));
         assert!(detected.overview.is_none());
     }
 
@@ -349,6 +358,37 @@ mod tests {
             .warnings
             .iter()
             .any(|w| w.message.contains("重复 Mod id")));
+    }
+
+    #[test]
+    fn scan_game_overview_reports_unreadable_mods_path_reason() {
+        let root = temp_dir("game_mods_path_error");
+        fs::create_dir_all(root.join("starsector-core")).unwrap();
+        fs::write(root.join("mods"), "not a directory").unwrap();
+
+        let overview = scan_game_overview(&root);
+
+        let _ = fs::remove_dir_all(root);
+        assert!(overview
+            .warnings
+            .iter()
+            .any(|w| w.message.contains("无法读取 mods 目录:")));
+    }
+
+    #[test]
+    fn mission_count_ignores_comment_rows() {
+        let root = temp_dir("mission_count_comments");
+        fs::create_dir_all(root.join("data/missions")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/missions/mission_list.csv"),
+            "mission,name\r\n#comment,Hidden\r\ndemo,Demo\r\n",
+        )
+        .unwrap();
+
+        let count = count_mission_list_entries(&root).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(count, 1);
     }
 
     fn temp_dir(name: &str) -> PathBuf {

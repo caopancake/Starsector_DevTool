@@ -1,11 +1,13 @@
 import { ref, watch } from 'vue';
+import { createVariantAction, deleteVariantAction, saveVariantAction } from '@/orchestrators/config-save.orchestrator';
 import {
-  createVariantWithFileHistory,
-  deleteVariantWithFileHistory,
-  saveVariantWithFileHistory,
-} from '@/orchestrators/config-save.orchestrator';
-import { isSafeEntityFileStem } from '@/domain/config/config-entities';
-import { listVariantEntities, queryHullPreviewSprites, queryHullReferenceOptions } from '@/services/config-entity.service';
+  configEntityRenameContext,
+  hasConfigEntityIdConflict,
+  isConfigEntityId,
+  trimmedConfigStringField,
+} from '@/domain/config/config-entities';
+import { listVariantEntities } from '@/services/config-entity.service';
+import { queryHullPreviewSprites, queryHullReferenceOptions } from '@/services/config-resource.service';
 import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import type { RowData, VariantFile } from '@/shared/types';
@@ -13,7 +15,7 @@ import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import type { SelectOption } from '@/domain/schema/schema-registry';
 
 export function useConfigVariantViewModel() {
-  const selectedVariantId = ref('');
+  const selectedVariantId = ref<string | null>(null);
   const variants = ref<VariantFile[]>([]);
   const variantSprites = ref<Record<string, string>>({});
   const hullOptions = ref<SelectOption[]>([]);
@@ -23,15 +25,17 @@ export function useConfigVariantViewModel() {
 
   async function loadVariants() {
     const sessionId = project.activeSessionId;
-    if (!sessionId) {
+    const manifest = project.activeManifest;
+    if (!sessionId || !manifest) {
       variants.value = [];
-      selectedVariantId.value = '';
+      selectedVariantId.value = null;
       return;
     }
     variants.value = await listVariantEntities(sessionId);
+    project.updateEntitySummary(manifest.modRoot, 'variants', variants.value.length);
     await loadVariantSprites();
     if (selectedVariantId.value && !variants.value.some((variant) => variant.variantId === selectedVariantId.value)) {
-      selectedVariantId.value = '';
+      selectedVariantId.value = null;
     }
   }
 
@@ -59,29 +63,29 @@ export function useConfigVariantViewModel() {
       return;
     }
     try {
-      hullOptions.value = await queryHullReferenceOptions(sessionId);
+      hullOptions.value = await queryHullReferenceOptions(sessionId, []);
     } catch (error) {
       feedback.error(error, '读取舰船引用失败');
     }
   }
 
   async function createVariant(hullId: string, variantId: string): Promise<boolean> {
-    const modRoot = project.activeManifest?.modRoot ?? '';
-    if (!modRoot) return false;
+    const manifest = project.activeManifest;
+    if (!manifest) return false;
     if (!hullId || !variantId) {
       feedback.warning('hullId 和 variantId 不能为空');
       return false;
     }
-    if (!isSafeEntityFileStem(variantId)) {
+    if (!isConfigEntityId(variantId)) {
       feedback.error('variantId 不能包含路径分隔符或 ..');
       return false;
     }
-    if (variants.value.some((variant) => variant.variantId === variantId)) {
+    if (hasConfigEntityIdConflict(variants.value, variantId, null, (variant) => variant.variantId)) {
       feedback.warning(`装配 "${variantId}" 已存在`);
       return false;
     }
     try {
-      await createVariantWithFileHistory(modRoot, hullId, variantId);
+      await createVariantAction(manifest.modRoot, hullId, variantId);
       await loadVariants();
       selectedVariantId.value = variantId;
       feedback.success(`装配 "${variantId}" 已创建`);
@@ -93,13 +97,13 @@ export function useConfigVariantViewModel() {
   }
 
   async function deleteVariant(variant: VariantFile): Promise<boolean> {
-    const modRoot = project.activeManifest?.modRoot ?? '';
-    if (!modRoot) return false;
+    const manifest = project.activeManifest;
+    if (!manifest) return false;
     try {
-      await deleteVariantWithFileHistory(modRoot, variant.relPath, variant.variantId);
+      await deleteVariantAction(manifest.modRoot, variant.relPath, variant.variantId);
       await loadVariants();
       if (selectedVariantId.value === variant.variantId) {
-        selectedVariantId.value = variants.value[0]?.variantId ?? '';
+        selectedVariantId.value = variants.value[0]?.variantId ?? null;
       }
       feedback.success(`装配 "${variant.variantId}" 已删除`);
       return true;
@@ -110,37 +114,31 @@ export function useConfigVariantViewModel() {
   }
 
   async function saveVariant(current: VariantFile, data: RowData): Promise<VariantFile | null> {
-    const modRoot = project.activeManifest?.modRoot ?? '';
-    if (!modRoot) return null;
-    const nextVariantId = stringField(data, 'variantId');
-    const nextHullId = stringField(data, 'hullId');
+    const manifest = project.activeManifest;
+    if (!manifest) return null;
+    const nextVariantId = trimmedConfigStringField(data, 'variantId');
+    const nextHullId = trimmedConfigStringField(data, 'hullId');
     if (!nextVariantId || !nextHullId) {
       feedback.warning('variantId 和 hullId 不能为空');
       return null;
     }
-    if (!isSafeEntityFileStem(nextVariantId)) {
+    if (!isConfigEntityId(nextVariantId)) {
       feedback.error('variantId 不能包含路径分隔符或 ..');
       return null;
     }
-    if (variants.value.some((variant) => variant.variantId === nextVariantId && variant.variantId !== current.variantId)) {
+    if (hasConfigEntityIdConflict(variants.value, nextVariantId, current.variantId, (variant) => variant.variantId)) {
       feedback.warning(`装配 "${nextVariantId}" 已存在`);
       return null;
     }
-    const renamed = nextVariantId !== current.variantId;
-    const result = await saveVariantWithFileHistory(
-      modRoot,
-      nextVariantId,
-      data,
-      renamed ? current.variantId : null,
-      renamed ? current.relPath : null,
-    );
+    const renameContext = configEntityRenameContext(current.variantId, current.relPath, nextVariantId);
+    const variant = await saveVariantAction(manifest.modRoot, nextVariantId, data, renameContext.previousId, renameContext.previousRelPath);
     await loadVariants();
-    selectedVariantId.value = result.variantFile.variantId;
-    feedback.success(`装配 "${result.variantFile.variantId}" 已保存`);
-    return result.variantFile;
+    selectedVariantId.value = variant.variantId;
+    feedback.success(`装配 "${variant.variantId}" 已保存`);
+    return variant;
   }
 
-  function onSaved(variantId: string) {
+  function onSaved(variantId: string | null) {
     selectedVariantId.value = variantId;
   }
 
@@ -148,9 +146,4 @@ export function useConfigVariantViewModel() {
   watch([() => project.activeSessionId, () => settings.isPlainEditMode], () => void loadHullOptions(), { immediate: true });
 
   return { selectedVariantId, variants, variantSprites, hullOptions, createVariant, deleteVariant, loadVariants, onSaved, saveVariant };
-}
-
-function stringField(data: RowData, key: string): string {
-  const value = data[key];
-  return typeof value === 'string' ? value.trim() : '';
 }

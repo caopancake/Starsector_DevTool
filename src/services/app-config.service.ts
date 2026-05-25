@@ -7,25 +7,19 @@ import {
   openAppLogFile,
   openConfigDir,
   saveAppSettings,
-  type AppLogEntry,
-  type AppLogStatus,
-  type AppSettings,
 } from '@/shared/api/app-config-api';
+import type { AppLogEntry, AppLogStatus, AppSettings } from '@/shared/types';
 
-export type LogLevel = 'info' | 'warning' | 'error';
-
-export function recordLog(entry: { level: LogLevel; message: string; path?: string; line?: number }): Promise<void> {
-  const payload: AppLogEntry = {
-    level: entry.level,
-    message: entry.message,
-    path: entry.path ?? null,
-    line: entry.line ?? null,
-  };
-  return appendAppLog(payload);
+export function recordLog(entry: AppLogEntry): Promise<void> {
+  return appendAppLog(entry);
 }
 
-export function recordLogSilently(entry: { level: LogLevel; message: string; path?: string; line?: number }): void {
-  void recordLog(entry).catch(() => undefined);
+export function recordLogBestEffort(entry: AppLogEntry): void {
+  void recordLog(entry).catch(ignoreAppLogWriteFailure);
+}
+
+function ignoreAppLogWriteFailure(): void {
+  return;
 }
 
 export function loadLogStatus(): Promise<AppLogStatus> {

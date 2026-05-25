@@ -1,127 +1,173 @@
-import type { WriteResult } from '@/shared/api/write-api';
 import { querySessionEntity, querySessionEntityList } from '@/services/query.service';
 import { AppError, withCause } from '@/shared/lib/errors';
-import { queryResourceDataUrlBatch } from '@/services/resource-cache.service';
-import { uploadSprite, writeJsonSpec, type WriteResultWith } from '@/services/write.service';
-import type { ProjectSessionId, ResourceRef, RowData } from '@/shared/types';
+import { queryResourceDataUrls } from '@/services/resource-cache.service';
+import { writeEditorSpec, writeSpriteUpload } from '@/services/write.service';
+import { WEAPON_SPRITE_FIELDS } from '@/domain/editors/lib/weapon-sprite-fields';
+import { editorSpecExtension } from '@/domain/editors/editor-kind-metadata';
+import { requireRowData } from '@/shared/lib/row-data';
+import type {
+  EditorSpecKind,
+  EditorWindowKind,
+  EntityData,
+  ProjectSessionId,
+  ResourceRef,
+  RowData,
+  SpriteSubfolder,
+  SpriteUploadResult,
+  SpriteUploadState,
+  WriteResult,
+} from '@/shared/types';
 
 type EditorSelectOption = { label: string; value: string };
 
-export type EditorSpriteUploadResult = WriteResultWith<{
-  ok: boolean;
-  exists: boolean;
-  path: string;
-  overwritten: boolean;
-  message?: string;
-}>;
+export type EditorEntityBundle =
+  | ShipEditorEntityBundle
+  | WeaponEditorEntityBundle
+  | ProjectileEditorEntityBundle
+  | WeaponPreviewEntityBundle;
 
-export interface EditorEntityBundle {
+export interface ShipEditorEntityBundle {
+  kind: 'ship';
   ship: RowData;
-  weapon: RowData;
-  projectile: RowData;
-  weaponRow: RowData;
-  weaponFiles: Record<string, RowData>;
-  projectiles: Record<string, RowData>;
-  projectileOptions: EditorSelectOption[];
-  weaponSpriteData: Record<string, string>;
   shipSpriteData: string;
 }
 
-export async function queryEditorEntityBundle(sessionId: ProjectSessionId, kind: string, id: string): Promise<EditorEntityBundle> {
-  const [ship, weapon, projectile, weaponRow, projectileOptions] = await Promise.all([
-    querySessionEntity(sessionId, 'ship', id),
-    querySessionEntity(sessionId, 'weapon', id),
-    querySessionEntity(sessionId, 'projectile', id),
-    queryWeaponCsvRow(sessionId, id),
-    queryProjectileOptions(sessionId),
-  ]);
-  const weaponSpec = asRowData(weapon?.data);
-  const projectileId = typeof weaponSpec.projectileSpecId === 'string' ? weaponSpec.projectileSpecId : '';
-  const weaponProjectile = projectileId ? await querySessionEntity(sessionId, 'projectile', projectileId) : null;
-  const shipSpec = asRowData(ship?.data);
+export interface WeaponEditorEntityBundle {
+  kind: 'weapon';
+  weapon: RowData;
+  weaponCsvRow: RowData;
+  projectileSpecs: Record<string, RowData>;
+  projectileOptions: EditorSelectOption[];
+  weaponSpriteData: Record<string, string>;
+}
+
+export interface WeaponPreviewEntityBundle {
+  kind: 'weapon-preview';
+  weapon: RowData;
+  weaponCsvRow: RowData;
+  projectileSpecs: Record<string, RowData>;
+  weaponSpriteData: Record<string, string>;
+}
+
+export interface ProjectileEditorEntityBundle {
+  kind: 'projectile';
+  projectile: RowData;
+  projectileSpecs: Record<string, RowData>;
+}
+
+export async function queryEditorEntityBundle(
+  sessionId: ProjectSessionId,
+  kind: EditorWindowKind,
+  id: string,
+): Promise<EditorEntityBundle> {
+  return EDITOR_ENTITY_BUNDLE_LOADERS[kind](sessionId, id);
+}
+
+const EDITOR_ENTITY_BUNDLE_LOADERS: Record<EditorWindowKind, (sessionId: ProjectSessionId, id: string) => Promise<EditorEntityBundle>> = {
+  ship: queryShipEditorBundle,
+  weapon: (sessionId, id) => queryWeaponEditorBundle(sessionId, id),
+  projectile: queryProjectileEditorBundle,
+  'weapon-preview': queryWeaponPreviewBundle,
+};
+
+async function queryShipEditorBundle(sessionId: ProjectSessionId, id: string): Promise<ShipEditorEntityBundle> {
+  const ship = requireEditorEntity(await querySessionEntity(sessionId, 'ship', id), 'ship', id);
+  const shipSpec = requireEditorRowData(ship.data, `舰船 ${id} 数据无效`);
   return {
+    kind: 'ship',
     ship: shipSpec,
-    weapon: weaponSpec,
-    projectile: asRowData(projectile?.data),
-    weaponRow,
-    weaponFiles: weaponSpec.id ? { [id]: weaponSpec } : {},
-    projectiles: projectileId ? { [projectileId]: asRowData(weaponProjectile?.data) } : {},
-    projectileOptions,
-    weaponSpriteData: await queryWeaponSprites(sessionId, weapon?.resourceRefs ?? {}),
-    shipSpriteData: await querySpriteData(sessionId, ship?.resourceRefs?.spriteName ?? null),
+    shipSpriteData: await querySpriteData(sessionId, ship.resourceRefs.sprite ?? null),
   };
 }
 
-export async function saveShipSpec(modRoot: string, id: string, data: RowData): Promise<WriteResult> {
-  ensureSpecContext(modRoot, id, '.ship');
-  data.hullId = data.hullId || id;
+async function queryWeaponEditorBundle(sessionId: ProjectSessionId, id: string): Promise<WeaponEditorEntityBundle> {
+  const bundle = await queryWeaponLikeBundle(sessionId, id);
+  return {
+    kind: 'weapon',
+    ...bundle,
+    projectileOptions: await queryProjectileOptions(sessionId),
+  };
+}
+
+async function queryWeaponPreviewBundle(sessionId: ProjectSessionId, id: string): Promise<WeaponPreviewEntityBundle> {
+  return {
+    kind: 'weapon-preview',
+    ...(await queryWeaponLikeBundle(sessionId, id)),
+  };
+}
+
+async function queryWeaponLikeBundle(
+  sessionId: ProjectSessionId,
+  id: string,
+): Promise<Omit<WeaponEditorEntityBundle, 'kind' | 'projectileOptions'>> {
+  const weapon = requireEditorEntity(await querySessionEntity(sessionId, 'weapon', id), 'weapon', id);
+  const weaponEntity = requireEditorRowData(weapon.data, `武器 ${id} 数据无效`);
+  const weaponSpec = requireEditorRowData(weaponEntity.spec, `武器 ${id} spec 数据无效`);
+  const weaponCsvRow = requireEditorRowData(weaponEntity.csvRow, `武器 ${id} CSV 数据无效`);
+  const projectileId = typeof weaponSpec.projectileSpecId === 'string' ? weaponSpec.projectileSpecId : '';
+  const weaponProjectile = projectileId ? await querySessionEntity(sessionId, 'projectile', projectileId) : null;
+  return {
+    weapon: weaponSpec,
+    weaponCsvRow,
+    projectileSpecs: weaponProjectile
+      ? { [projectileId]: requireEditorRowData(weaponProjectile.data, `弹体 ${projectileId} 数据无效`) }
+      : {},
+    weaponSpriteData: await queryWeaponSprites(sessionId, weapon.resourceRefs),
+  };
+}
+
+async function queryProjectileEditorBundle(sessionId: ProjectSessionId, id: string): Promise<ProjectileEditorEntityBundle> {
+  const projectile = requireEditorEntity(await querySessionEntity(sessionId, 'projectile', id), 'projectile', id);
+  return {
+    kind: 'projectile',
+    projectile: requireEditorRowData(projectile.data, `弹体 ${id} 数据无效`),
+    projectileSpecs: { [id]: requireEditorRowData(projectile.data, `弹体 ${id} 数据无效`) },
+  };
+}
+
+export async function saveEditorSpecByKind(modRoot: string, kind: EditorSpecKind, id: string, data: RowData): Promise<WriteResult> {
+  const extension = editorSpecExtension(kind);
+  ensureSpecContext(modRoot, id, extension);
+  data[EDITOR_SPEC_ID_FIELDS[kind]] = data[EDITOR_SPEC_ID_FIELDS[kind]] || id;
   try {
-    return await writeJsonSpec(modRoot, 'data/hulls', 'ship', 'hullId', id, data);
+    return await writeEditorSpec(modRoot, kind, id, data);
   } catch (error) {
-    throw withCause(`保存 ${id}.ship 失败`, error, 'save-ship-spec');
+    throw withCause(`保存 ${id}.${extension} 失败`, error, `save-${kind}-spec`);
   }
 }
 
-export async function saveWeaponSpec(modRoot: string, id: string, data: RowData): Promise<WriteResult> {
-  ensureSpecContext(modRoot, id, '.wpn');
-  data.id = data.id || id;
-  try {
-    return await writeJsonSpec(modRoot, 'data/weapons', 'wpn', 'id', id, data);
-  } catch (error) {
-    throw withCause(`保存 ${id}.wpn 失败`, error, 'save-weapon-spec');
-  }
-}
+const EDITOR_SPEC_ID_FIELDS: Record<EditorSpecKind, string> = {
+  ship: 'hullId',
+  weapon: 'id',
+  projectile: 'id',
+};
 
-export async function saveProjectileSpec(modRoot: string, id: string, data: RowData): Promise<WriteResult> {
-  ensureSpecContext(modRoot, id, '.proj');
-  data.id = data.id || id;
-  try {
-    return await writeJsonSpec(modRoot, 'data/weapons/proj', 'proj', 'id', id, data);
-  } catch (error) {
-    throw withCause(`保存 ${id}.proj 失败`, error, 'save-projectile-spec');
-  }
-}
-
-export function uploadEditorSprite(
-  modRoot: string,
-  filename: string,
-  data: string,
-  subfolder: 'ships' | 'weapons' | 'missiles' | 'fx',
-  overwrite = false,
-) {
-  return uploadSprite(modRoot, filename, data, subfolder, overwrite);
+export function uploadEditorSprite(modRoot: string, filename: string, data: string, subfolder: SpriteSubfolder, overwrite: boolean) {
+  return writeSpriteUpload(modRoot, filename, data, subfolder, overwrite).then(
+    (write): SpriteUploadResult => ({
+      state: spriteUploadStateFromEntity(write.refreshedEntity),
+      write,
+    }),
+  );
 }
 
 async function queryWeaponSprites(sessionId: ProjectSessionId, refs: Record<string, ResourceRef>): Promise<Record<string, string>> {
-  const fields = [
-    'turretSprite',
-    'turretGunSprite',
-    'turretGlowSprite',
-    'turretUnderSprite',
-    'hardpointSprite',
-    'hardpointGunSprite',
-    'hardpointGlowSprite',
-    'hardpointUnderSprite',
-  ];
-  const resources = fields
-    .map((field) => (refs[field] ? { field, resource: refs[field] } : null))
-    .filter((entry): entry is { field: string; resource: ResourceRef } => Boolean(entry));
+  const resources: { field: string; resource: ResourceRef }[] = [];
+  for (const field of WEAPON_SPRITE_FIELDS) {
+    const resource = refs[field];
+    if (resource) resources.push({ field, resource });
+  }
   if (resources.length === 0) return {};
-  const dataUrls = await queryResourceDataUrlBatch(
+  const dataUrls = await queryResourceDataUrls(
     sessionId,
     resources.map((entry) => entry.resource),
   );
-  return Object.fromEntries(dataUrls.map((dataUrl, index) => [resources[index].field, dataUrl]).filter((entry) => entry[1]));
+  return Object.fromEntries(dataUrls.flatMap((dataUrl, index) => (dataUrl ? [[resources[index].field, dataUrl] as const] : [])));
 }
 
 async function querySpriteData(sessionId: ProjectSessionId, resource: ResourceRef | null): Promise<string> {
   if (!resource) return '';
-  return (await queryResourceDataUrlBatch(sessionId, [resource]))[0] ?? '';
-}
-
-async function queryWeaponCsvRow(sessionId: ProjectSessionId, weaponId: string): Promise<RowData> {
-  const weapon = await querySessionEntity(sessionId, 'weapon', weaponId);
-  return asRowData(weapon?.data);
+  return (await queryResourceDataUrls(sessionId, [resource]))[0] ?? '';
 }
 
 async function queryProjectileOptions(sessionId: ProjectSessionId): Promise<EditorSelectOption[]> {
@@ -129,15 +175,31 @@ async function queryProjectileOptions(sessionId: ProjectSessionId): Promise<Edit
   return projectiles.map((projectile) => ({ label: projectile.id, value: projectile.id }));
 }
 
-function asRowData(value: unknown): RowData {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as RowData) : {};
+function requireEditorEntity(entity: EntityData | null, kind: EditorSpecKind, id: string): EntityData {
+  if (entity) return entity;
+  throw new AppError(`找不到 ${id} 的 ${kind} 数据。`, { action: 'query-editor-entity' });
 }
 
-function ensureSpecContext(modRoot: string, id: string, ext: string) {
+function requireEditorRowData(value: unknown, message: string): RowData {
+  return requireRowData(value, message);
+}
+
+function spriteUploadStateFromEntity(value: unknown): SpriteUploadState {
+  const row = requireEditorRowData(value, '贴图上传返回状态无效');
+  return {
+    ok: row.ok === true,
+    exists: row.exists === true,
+    path: typeof row.path === 'string' ? row.path : '',
+    overwritten: row.overwritten === true,
+    message: typeof row.message === 'string' ? row.message : null,
+  };
+}
+
+function ensureSpecContext(modRoot: string, id: string, extension: string) {
   if (!modRoot) {
-    throw new AppError(`缺少 ${ext} 保存的 mod 根目录`, { action: 'save-spec' });
+    throw new AppError(`缺少 .${extension} 保存的 mod 根目录`, { action: 'save-spec' });
   }
   if (!id) {
-    throw new AppError(`缺少 ${ext} 保存 id`, { action: 'save-spec' });
+    throw new AppError(`缺少 .${extension} 保存 id`, { action: 'save-spec' });
   }
 }

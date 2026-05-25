@@ -48,6 +48,18 @@ export const useProjectStore = defineStore('project', () => {
     manifests.value.set(modRoot, { ...current, ...patch });
   }
 
+  function updateEntitySummary(modRoot: string, key: keyof ProjectManifest['entitySummaries'], count: number) {
+    const current = manifests.value.get(modRoot);
+    if (!current) return;
+    manifests.value.set(modRoot, {
+      ...current,
+      entitySummaries: {
+        ...current.entitySummaries,
+        [key]: count,
+      },
+    });
+  }
+
   return {
     activeManifest,
     activeModRoot,
@@ -62,6 +74,7 @@ export const useProjectStore = defineStore('project', () => {
     setActiveModRoot,
     setLoading,
     setProjectManifest,
+    updateEntitySummary,
     updateManifest,
   };
 });

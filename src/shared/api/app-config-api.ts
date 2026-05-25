@@ -1,22 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { AppSettings } from '@/shared/types';
-
-export type { AppSettings };
-
-export interface AppLogEntry {
-  level: string;
-  message: string;
-  path?: string | null;
-  line?: number | null;
-}
-
-export interface AppLogStatus {
-  path: string;
-  sizeBytes: number;
-}
+import type { AppLogEntry, AppLogStatus, AppSettings } from '@/shared/types';
 
 export function appendAppLog(entry: AppLogEntry): Promise<void> {
-  return invoke('append_app_log', { entry });
+  return invoke('append_app_log', { payload: { entry } });
 }
 
 export function getAppLogStatus(): Promise<AppLogStatus> {
@@ -44,5 +30,5 @@ export function loadAppSettings(): Promise<AppSettings> {
 }
 
 export function saveAppSettings(settings: AppSettings): Promise<void> {
-  return invoke('save_app_settings', { settings });
+  return invoke('save_app_settings', { payload: { settings } });
 }

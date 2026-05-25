@@ -1,4 +1,6 @@
-import type { JsonValue, ResourceRef, RowData } from '@/shared/types';
+import type { HydratedSourceOptionGroup, JsonValue, ResourceRef, RowData } from '@/shared/types';
+import { isInternalJsonFieldKey } from '@/shared/lib/json-fields';
+import { pathBasename } from '@/shared/lib/paths';
 import type { DiscoveredField, FieldSchema, FileSchema, SectionSchema } from '@/domain/schema/schema.types';
 
 import modInfoSchemaRaw from '../../../schemas/mod-info.schema.json';
@@ -8,12 +10,19 @@ import skinSchemaRaw from '../../../schemas/skin.schema.json';
 import variantSchemaRaw from '../../../schemas/variant.schema.json';
 
 const SCHEMAS: Record<string, FileSchema> = {
-  'mod-info': modInfoSchemaRaw as unknown as FileSchema,
-  faction: factionSchemaRaw as unknown as FileSchema,
-  mission: missionSchemaRaw as unknown as FileSchema,
-  skin: skinSchemaRaw as unknown as FileSchema,
-  variant: variantSchemaRaw as unknown as FileSchema,
+  'mod-info': schemaAsset(modInfoSchemaRaw),
+  faction: schemaAsset(factionSchemaRaw),
+  mission: schemaAsset(missionSchemaRaw),
+  skin: schemaAsset(skinSchemaRaw),
+  variant: schemaAsset(variantSchemaRaw),
 };
+
+function schemaAsset(schema: unknown): FileSchema {
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
+    throw new Error('Invalid schema asset');
+  }
+  return schema as FileSchema;
+}
 
 /**
  * Retrieve a schema by id. Returns null if not found.
@@ -51,6 +60,10 @@ export function getSchemaKeys(schema: FileSchema): string[] {
   return keys;
 }
 
+export function isSchemaInternalKey(key: string): boolean {
+  return isInternalJsonFieldKey(key);
+}
+
 export function isMultiSourceSchema(schema: FileSchema): boolean {
   return Boolean(schema.sources?.length);
 }
@@ -83,9 +96,9 @@ export function splitSchemaSources(model: RowData, schema: FileSchema): Record<s
     const value = model[source.id];
     if (source.type === 'text-file') {
       result[source.id] =
-        value && typeof value === 'object' && !Array.isArray(value) ? ((value as Record<string, unknown>).content ?? '') : '';
+        value && typeof value === 'object' && !Array.isArray(value) ? ((value as Record<string, unknown>).content ?? '') : value;
     } else {
-      result[source.id] = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+      result[source.id] = value;
     }
   }
   return result;
@@ -101,6 +114,28 @@ export interface SelectOption {
   children?: SelectOption[];
 }
 
+export interface FlatSelectOption {
+  label: string;
+  sprite?: string;
+  value: string;
+}
+
+export interface SelectOptionGroup {
+  key: string;
+  label: string;
+  options: FlatSelectOption[];
+}
+
+export interface SchemaKeyValueEntry {
+  key: string;
+  val: unknown;
+}
+
+const CURRENT_VALUE_OPTION_GROUP = {
+  label: '当前值',
+  value: '__current',
+} as const;
+
 export function resolveEnumSource(source: string | undefined | null): SelectOption[] {
   if (!source) return [];
   if (source.startsWith('enum:')) {
@@ -111,6 +146,225 @@ export function resolveEnumSource(source: string | undefined | null): SelectOpti
   }
 
   return [];
+}
+
+export function selectOptionValueExists(options: SelectOption[], value: string): boolean {
+  return options.some((option) => option.value === value || option.children?.some((child) => child.value === value));
+}
+
+export function isSelectOptionGroup(option: SelectOption): boolean {
+  return option.type === 'group';
+}
+
+export function selectOptionText(option: SelectOption): string {
+  return option.label || option.value;
+}
+
+export function flattenSelectOptions(options: SelectOption[]): FlatSelectOption[] {
+  return options.flatMap((option) =>
+    isSelectOptionGroup(option) ? (option.children ?? []).map(flatSelectOption) : [flatSelectOption(option)],
+  );
+}
+
+export function groupSelectOptions(options: SelectOption[]): SelectOptionGroup[] {
+  const groups: SelectOptionGroup[] = [];
+  const ungrouped: FlatSelectOption[] = [];
+  for (const option of options) {
+    if (isSelectOptionGroup(option)) {
+      groups.push({
+        key: option.value,
+        label: selectOptionText(option),
+        options: (option.children ?? []).map(flatSelectOption),
+      });
+    } else {
+      ungrouped.push(flatSelectOption(option));
+    }
+  }
+  if (ungrouped.length > 0) groups.unshift({ key: '__ungrouped', label: '', options: ungrouped });
+  return groups;
+}
+
+export function includeCurrentSelectOptions(options: SelectOption[], values: string[]): SelectOption[] {
+  const seen = new Set<string>();
+  const current = values
+    .map((value) => value.trim())
+    .filter((value) => {
+      if (!value || seen.has(value) || selectOptionValueExists(options, value)) return false;
+      seen.add(value);
+      return true;
+    })
+    .map((value) => ({ label: value, value }));
+  if (current.length === 0) return options;
+  return [{ type: 'group', ...CURRENT_VALUE_OPTION_GROUP, children: current }, ...options];
+}
+
+export function schemaEnumSelectOptions(field: FieldSchema, sourceOptions: SelectOption[]): SelectOption[] {
+  if (field.options && field.options.length > 0) return field.options.map((option) => ({ label: option, value: option }));
+  return sourceOptions;
+}
+
+export function schemaSourceCurrentValues(field: FieldSchema, value: unknown): string[] {
+  if (field.type === 'string-array') return schemaArrayStringValues(value);
+  if (field.type === 'tag-select') return schemaTagValues(value);
+  if (field.type === 'key-value') return schemaKeyValueEntries(value, field.format).map((entry) => entry.key);
+  const text = schemaStringValue(value);
+  return text ? [text] : [];
+}
+
+export function schemaSourceSelectOptions(groups: HydratedSourceOptionGroup[]): SelectOption[] {
+  return groups.map((group) => ({
+    type: 'group',
+    label: group.label,
+    value: group.label,
+    children: group.options.map((option) => ({
+      label: option.label,
+      value: option.value,
+      sprite: option.sprite,
+      resourceRef: option.resourceRef ?? null,
+    })),
+  }));
+}
+
+export function schemaStringValue(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+export function schemaArrayStringValues(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(String) : [];
+}
+
+export function schemaTagValues(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String);
+  if (isObjectWithSchemaTags(value)) {
+    const tags = value.tags;
+    return Array.isArray(tags) ? tags.map(String) : [];
+  }
+  return [];
+}
+
+export function wrapSchemaTagValues(currentValue: unknown, tags: string[]): unknown {
+  if (isObjectWithSchemaTags(currentValue)) return { ...currentValue, tags };
+  return tags;
+}
+
+export function schemaPlainBooleanText(value: unknown): string {
+  if (value === true) return 'true';
+  if (value === false) return 'false';
+  return schemaStringValue(value);
+}
+
+export function parseSchemaPlainBoolean(raw: string): boolean | string {
+  const normalized = raw.trim().toLowerCase();
+  if (SCHEMA_TRUE_TEXT.has(normalized)) return true;
+  if (SCHEMA_FALSE_TEXT.has(normalized)) return false;
+  return raw;
+}
+
+export function parseSchemaPlainNumber(raw: string, integer: boolean): number | string {
+  const trimmed = raw.trim();
+  if (trimmed === '') return '';
+  const parsed = integer ? parseInt(trimmed, 10) : Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : raw;
+}
+
+export function formatSchemaCommaList(values: string[]): string {
+  return values.join(', ');
+}
+
+export function parseSchemaCommaList(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+export function schemaPathDisplayLabel(path: string): string {
+  return pathBasename(path);
+}
+
+export function schemaKeyValueEntries(value: unknown, format: FieldSchema['format']): SchemaKeyValueEntry[] {
+  if (format === 'array-of-entries' && Array.isArray(value)) {
+    return value.map((item) => {
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        const keys = Object.keys(item);
+        if (keys.length > 0) return { key: keys[0], val: (item as Record<string, unknown>)[keys[0]] };
+      }
+      return { key: '', val: '' };
+    });
+  }
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return Object.entries(value as Record<string, unknown>).map(([key, val]) => ({ key, val }));
+  }
+  return [];
+}
+
+export function schemaKeyValueOutput(
+  entries: SchemaKeyValueEntry[],
+  format: FieldSchema['format'],
+): Record<string, unknown> | Record<string, unknown>[] {
+  if (format === 'array-of-entries') return entries.filter((entry) => entry.key).map((entry) => ({ [entry.key]: entry.val }));
+
+  const result: Record<string, unknown> = {};
+  for (const entry of entries) {
+    if (entry.key) result[entry.key] = schemaKeyValueObjectValue(entry.val);
+  }
+  return result;
+}
+
+export function appendSchemaKeyValueEntry(
+  entries: SchemaKeyValueEntry[],
+  format: FieldSchema['format'],
+): Record<string, unknown> | Record<string, unknown>[] {
+  return schemaKeyValueOutput([...entries, { key: nextSchemaKeyValueKey(entries, format), val: '' }], format);
+}
+
+export function parseSchemaKeyValueText(raw: string): unknown {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return raw;
+    }
+  }
+  return raw;
+}
+
+export function formatSchemaKeyValueText(value: unknown): string {
+  return schemaStringValue(value);
+}
+
+const SCHEMA_TRUE_TEXT = new Set(['true', '1', 'yes', 'y', 'on']);
+const SCHEMA_FALSE_TEXT = new Set(['false', '0', 'no', 'n', 'off']);
+
+function isObjectWithSchemaTags(value: unknown): value is Record<string, unknown> & { tags: unknown } {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value) && 'tags' in value);
+}
+
+function schemaKeyValueObjectValue(value: unknown): unknown {
+  if (typeof value === 'object' && value !== null) return value;
+  const text = String(value);
+  const numberValue = Number(text);
+  return !isNaN(numberValue) && text.trim() !== '' ? numberValue : value;
+}
+
+function nextSchemaKeyValueKey(entries: SchemaKeyValueEntry[], format: FieldSchema['format']): string {
+  const base = format === 'array-of-entries' ? 'newEntry' : 'newField';
+  const existingKeys = new Set(entries.map((entry) => entry.key));
+  if (!existingKeys.has(base)) return base;
+  let index = 1;
+  while (existingKeys.has(`${base}${index}`)) index += 1;
+  return `${base}${index}`;
+}
+
+function flatSelectOption(option: SelectOption): FlatSelectOption {
+  return {
+    label: selectOptionText(option),
+    sprite: option.sprite,
+    value: option.value,
+  };
 }
 
 /**

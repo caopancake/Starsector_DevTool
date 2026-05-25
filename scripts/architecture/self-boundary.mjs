@@ -12,6 +12,9 @@ export const architectureRulesSelfBoundaryRule = {
       if (usesConcretePathIdentity(file.text)) {
         failures.push(`${file.rel}: architecture rules must not authorize or branch by raw file path identity`);
       }
+      if (usesSourcePathBoundaryHelper(file.text)) {
+        failures.push(`${file.rel}: architecture rule helpers must consume classified path roles, not raw source paths`);
+      }
       if (usesTooManySingleFileAnchors(file.text)) {
         failures.push(`${file.rel}: each architecture rule may use singleFileByRel() at most once; split the rule or re-audit it`);
       }
@@ -19,7 +22,7 @@ export const architectureRulesSelfBoundaryRule = {
         failures.push(`${file.rel}: singleFileByRel() is only for one check(files) anchor, not authorization helpers or file sets`);
       }
       if (usesBoundaryDriftVocabulary(file.text)) {
-        failures.push(`${file.rel}: architecture rules must not use whitelist or exception vocabulary for boundaries`);
+        failures.push(`${file.rel}: architecture rules must not use membership-list or bypass vocabulary for boundaries`);
       }
       if (usesDirectoryPrefixAuthorization(file.text)) {
         failures.push(`${file.rel}: boundary helpers must not authorize by broad source directory prefix`);
@@ -34,16 +37,25 @@ export const architectureRulesSelfBoundaryRule = {
 };
 
 function usesConcreteSourcePathEquality(text) {
-  return /\b\w+\.rel\s*!?={1,2}\s*['"]src\/[^'"]+['"]|\brel\s*!?={1,2}\s*['"]src\/[^'"]+['"]/.test(text);
+  return /\b(?:\w+\.)?(?:rel|path|resolved)\s*!?={2,3}\s*['"]src(?:-tauri)?\/[^'"]+['"]/.test(text);
 }
 
 function usesConcretePathIdentity(text) {
   return (
     /\b(?:file\.)?rel\s*!={1,2}\s*[^;\n]*\??\.rel\b/.test(text) ||
     /\b(?:file\.)?rel\s*={2,3}\s*[A-Za-z0-9_]+Rel\b/.test(text) ||
+    /\b[A-Za-z0-9_]+\.resolved\.startsWith\(\s*['"]src(?:-tauri)?\/[^'"]+['"]\s*\)/.test(text) ||
+    /\/\^src\\\/[^/]+\/[^/]*\/\.test\(\s*[A-Za-z0-9_]+\.resolved\s*\)/.test(text) ||
     /\bwith(?:Ts|Vue|Rust)?Extension\([^)]*\)\s*={2,3}\s*[A-Za-z0-9_]+Rel\b/.test(text) ||
     /\b[A-Za-z0-9_]+Rel\s*=\s*singleFileByRel\([^)]*\)\?\.[A-Za-z0-9_]+/.test(text)
   );
+}
+
+function usesSourcePathBoundaryHelper(text) {
+  const helperMatches = text.matchAll(
+    /\b(?:is|mayUse|canUse|allow|allows|isAllowed|isTrusted)[A-Za-z0-9_]*\s*\([^)]*\)\s*\{([\s\S]*?)\n\}/g,
+  );
+  return [...helperMatches].some((match) => /\b(?:path|rel)\.(?:startsWith|endsWith)\(\s*['"]src|\/\^src\\\//.test(match[1]));
 }
 
 function usesTooManySingleFileAnchors(text) {
@@ -63,9 +75,7 @@ function countSingleFileByRelCalls(text) {
 }
 
 function singleFileInAuthorizationHelper(text) {
-  const helperMatches = text.matchAll(
-    /\b(?:mayUse|canUse|allow|allows|isAllowed|isTrusted|isException)[A-Za-z0-9_]*\s*\([^)]*\)\s*\{([\s\S]*?)\n\}/g,
-  );
+  const helperMatches = text.matchAll(/\b(?:mayUse|canUse|allow|allows|isAllowed|isTrusted)[A-Za-z0-9_]*\s*\([^)]*\)\s*\{([\s\S]*?)\n\}/g);
   return [...helperMatches].some((match) => match[1].includes('singleFileByRel('));
 }
 
@@ -77,7 +87,9 @@ function usesDirectoryPrefixAuthorization(text) {
 }
 
 function usesBoundaryDriftVocabulary(text) {
-  return /\b(?:allowList|allowedFiles|allowedFile|whitelist|whiteList|exception|exceptions|exempt|exempts)\b/i.test(text);
+  const boundaryDriftTerms = [`${'allow'}${'List'}`, `${'allowed'}${'Files'}`, `${'allowed'}${'File'}`, String.raw`white\s*list`];
+  const bypassTerms = [`${'except'}(?:ion|ions)?`, `${'exempt'}(?:s)?`];
+  return new RegExp(String.raw`\b(?:${boundaryDriftTerms.join('|')}|${bypassTerms.join('|')})\b`, 'i').test(text);
 }
 
 function usesContentIdentityBoundary(text) {

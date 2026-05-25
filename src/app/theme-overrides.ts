@@ -4,9 +4,9 @@ import type { useSettingsStore } from '@/stores/settings.store';
 
 type SettingsStore = ReturnType<typeof useSettingsStore>;
 
-function cssVar(name: string, fallback: string): string {
-  if (typeof window === 'undefined') return fallback;
-  return window.getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+function cssVar(name: string, defaultValue: string): string {
+  if (typeof window === 'undefined') return defaultValue;
+  return window.getComputedStyle(document.documentElement).getPropertyValue(name).trim() || defaultValue;
 }
 
 export function buildThemeOverrides(settings: SettingsStore): GlobalThemeOverrides {

@@ -1,16 +1,28 @@
 import { querySessionCsvRowPreview, querySessionSourceOptions, querySessionTableWindow } from '@/services/query.service';
-import { queryResourceDataUrlBatch } from '@/services/resource-cache.service';
-import { writeCsvPatch, type AssociatedFileChange, type CsvRowPatch, type WriteResult } from '@/services/write.service';
+import { queryResourceDataUrls } from '@/services/resource-cache.service';
+import { writeCsvPatch } from '@/services/write.service';
 import { recordPerformance } from '@/services/performance.service';
-import type { CsvTableWindow, ProjectSessionId, ResourceRef, RowData, SourceOption, SourceOptionGroup, TableKey } from '@/shared/types';
+import { isResourceRef } from '@/shared/lib/resource-ref';
+import type {
+  AssociatedFileChange,
+  CsvFactionFilter,
+  CsvRowPatch,
+  CsvTableWindow,
+  HydratedSourceOption,
+  HydratedSourceOptionGroup,
+  ProjectSessionId,
+  SourceOption,
+  TableKey,
+  WriteResult,
+} from '@/shared/types';
 
 export function queryTableWindow(
   sessionId: ProjectSessionId,
   table: TableKey,
   start: number,
   count: number,
-  search?: string | null,
-  faction?: string | null,
+  search: string | null,
+  faction: CsvFactionFilter,
 ): Promise<CsvTableWindow> {
   return querySessionTableWindow(sessionId, table, start, count, search, faction);
 }
@@ -18,18 +30,21 @@ export function queryTableWindow(
 export async function queryTableSourceOptions(
   sessionId: ProjectSessionId,
   source: string,
-  currentValues: string[] = [],
-  search?: string | null,
-  limit?: number,
-): Promise<SourceOptionGroup[]> {
+  currentValues: string[],
+  search: string | null,
+  limit: number | null,
+): Promise<HydratedSourceOptionGroup[]> {
   const startedAt = performance.now();
   const groups = await querySessionSourceOptions(sessionId, source, currentValues, search, limit);
-  const resources = groups.flatMap((group) => group.options.map((option) => option.resourceRef).filter(Boolean) as ResourceRef[]);
-  const dataUrls = await queryResourceDataUrlBatch(sessionId, resources);
+  const resources = groups.flatMap((group) => group.options.map((option) => option.resourceRef).filter(isResourceRef));
+  const dataUrls = await queryResourceDataUrls(sessionId, resources);
   let resourceIndex = 0;
   const hydrated = groups.map((group) => ({
     ...group,
-    options: group.options.map((option) => hydrateSourceOption(option, option.resourceRef ? dataUrls[resourceIndex++] : '')),
+    options: group.options.map((option) => {
+      const resource = isResourceRef(option.resourceRef) ? option.resourceRef : null;
+      return hydrateSourceOption(option, resource ? (dataUrls[resourceIndex++] ?? '') : '');
+    }),
   }));
   recordPerformance('frontend.query.sourceOptions', performance.now() - startedAt, {
     source,
@@ -44,18 +59,17 @@ export function saveTablePatch(
   sessionId: ProjectSessionId,
   table: TableKey,
   patches: CsvRowPatch[],
-  associatedFiles: AssociatedFileChange[] = [],
+  associatedFiles: AssociatedFileChange[],
 ): Promise<WriteResult> {
   return writeCsvPatch(sessionId, table, patches, associatedFiles);
 }
 
-export async function queryTableRowPreviewDataUrl(sessionId: ProjectSessionId, table: TableKey, row: RowData): Promise<string> {
-  const rowKey = typeof row._rowKey === 'string' ? row._rowKey : '';
-  const resource = rowKey ? (await querySessionCsvRowPreview(sessionId, table, rowKey)).resourceRef : null;
+export async function queryTableRowPreviewDataUrl(sessionId: ProjectSessionId, table: TableKey, rowKey: string): Promise<string> {
+  const resource = (await querySessionCsvRowPreview(sessionId, table, rowKey)).resourceRef;
   if (!resource) return '';
-  return (await queryResourceDataUrlBatch(sessionId, [resource]))[0] ?? '';
+  return (await queryResourceDataUrls(sessionId, [resource]))[0] ?? '';
 }
 
-function hydrateSourceOption(option: SourceOption, dataUrl: string): SourceOption {
-  return dataUrl ? { ...option, sprite: dataUrl } : option;
+function hydrateSourceOption(option: SourceOption, dataUrl: string): HydratedSourceOption {
+  return { ...option, sprite: dataUrl };
 }

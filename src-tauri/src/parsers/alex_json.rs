@@ -565,12 +565,12 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     use super::*;
-    use std::fs;
+    use crate::io::read_utf8_no_bom;
 
     #[test]
     fn parse_real_hegemony_faction_if_available() {
         let path = "J:/Starsector/starsector-core/data/world/factions/hegemony.faction";
-        if let Ok(content) = fs::read_to_string(path) {
+        if let Ok(content) = read_utf8_no_bom(std::path::Path::new(path)) {
             let result = parse_starsector_json(&content);
             assert!(
                 result.is_ok(),
@@ -585,7 +585,7 @@ mod integration_tests {
     #[test]
     fn parse_real_tritachyon_faction_if_available() {
         let path = "J:/Starsector/starsector-core/data/world/factions/tritachyon.faction";
-        if let Ok(content) = fs::read_to_string(path) {
+        if let Ok(content) = read_utf8_no_bom(std::path::Path::new(path)) {
             let result = parse_starsector_json(&content);
             assert!(
                 result.is_ok(),
@@ -601,7 +601,7 @@ mod integration_tests {
     fn parse_real_armaa_proj_if_available() {
         let path =
             "J:/Starsector/mods/ArmaArmatura_V3.2.5/data/weapons/proj/armaa_flamer_shot2.proj";
-        if let Ok(content) = fs::read_to_string(path) {
+        if let Ok(content) = read_utf8_no_bom(std::path::Path::new(path)) {
             let result = parse_starsector_json(&content);
             assert!(
                 result.is_ok(),

@@ -1,146 +1,102 @@
 import {
-  applyFileChangeSet as applyFileChangeSetApi,
-  createIndexedConfigEntity as createIndexedConfigEntityApi,
-  createSkinEntity as createSkinEntityApi,
-  createVariantEntity as createVariantEntityApi,
-  deleteIndexedConfigEntity as deleteIndexedConfigEntityApi,
-  deleteSkinEntity as deleteSkinEntityApi,
-  deleteVariantEntity as deleteVariantEntityApi,
-  saveCsvPatch as saveCsvPatchApi,
-  saveIndexedConfigEntity as saveIndexedConfigEntityApi,
-  saveJson as saveJsonApi,
-  saveModFiles as saveModFilesApi,
-  saveSkinEntity as saveSkinEntityApi,
-  saveTextFile as saveTextFileApi,
-  saveVariantEntity as saveVariantEntityApi,
-  uploadSprite as uploadSpriteApi,
-  type AssociatedFileChange,
-  type CsvRowPatch,
-  type DeleteIndexedConfigEntityPayload,
-  type DeleteSkinEntityPayload,
-  type DeleteVariantEntityPayload,
-  type FileChangeRecord,
-  type IndexedConfigEntityPayload,
-  type IndexedConfigEntityResult,
-  type SkinEntityPayload,
-  type SkinEntityResult,
-  type UploadResult,
-  type VariantEntityPayload,
-  type VariantEntityResult,
-  type WriteResult,
-} from '@/shared/api/write-api';
-import type { RowData, TableKey } from '@/shared/types';
-
-export type { AssociatedFileChange, CsvRowPatch, WriteResult };
-export type { FileChangeRecord };
-
-export type WriteResultWith<T> = WriteResult & T;
+  createIndexedConfigEntity,
+  createSkinEntity,
+  createVariantEntity,
+  deleteIndexedConfigEntity,
+  deleteSkinEntity,
+  deleteVariantEntity,
+  saveIndexedConfigEntity,
+  saveSkinEntity,
+  saveVariantEntity,
+} from '@/shared/api/config-entity-api';
+import { replayFileChangeSetOnDisk, saveEditorSpec, saveModFiles, saveTextFile } from '@/shared/api/files-api';
+import { saveCsvPatch } from '@/shared/api/tables-api';
+import { uploadSprite } from '@/shared/api/assets-api';
+import type {
+  AssociatedFileChange,
+  CsvRowPatch,
+  DeleteIndexedConfigEntityWrite,
+  DeleteSkinEntityWrite,
+  DeleteVariantEntityWrite,
+  FileChangeRecord,
+  FileChangeReplayDirection,
+  IndexedConfigEntityWrite,
+  RowData,
+  SkinEntityWrite,
+  SpriteSubfolder,
+  TableKey,
+  VariantEntityWrite,
+  WriteResult,
+} from '@/shared/types';
+import type { EditorSpecKind } from '@/shared/types/editor.types';
 
 export async function writeCsvPatch(
   sessionId: string,
   table: TableKey,
   patches: CsvRowPatch[],
-  associatedFiles: AssociatedFileChange[] = [],
+  associatedFiles: AssociatedFileChange[],
 ): Promise<WriteResult> {
-  const result = await saveCsvPatchApi(sessionId, table, patches, associatedFiles);
-  return normalizeWriteResult(result.changes, {
-    keyMap: result.keyMap,
-  });
+  return saveCsvPatch(sessionId, table, patches, associatedFiles);
 }
 
 export async function writeTextFile(path: string, text: string): Promise<WriteResult> {
-  return normalizeWriteResult(await saveTextFileApi(path, text));
+  return saveTextFile(path, text);
 }
 
-export async function writeJsonSpec(
-  modRoot: string,
-  relDir: string,
-  ext: string,
-  idKey: string,
-  id: string,
-  data: RowData,
-): Promise<WriteResult> {
-  return normalizeWriteResult(await saveJsonApi(modRoot, relDir, ext, idKey, id, data));
+export async function writeEditorSpec(modRoot: string, kind: EditorSpecKind, id: string, data: RowData): Promise<WriteResult> {
+  return saveEditorSpec(modRoot, kind, id, data);
 }
 
 export async function writeModFiles(modRoot: string, files: AssociatedFileChange[]): Promise<WriteResult> {
-  return normalizeWriteResult(await saveModFilesApi(modRoot, files));
+  return saveModFiles(modRoot, files);
 }
 
-export async function writeIndexedConfigEntity(payload: IndexedConfigEntityPayload): Promise<WriteResultWith<IndexedConfigEntityResult>> {
-  const result = await saveIndexedConfigEntityApi(payload);
-  return { ...result, ...normalizeWriteResult(result.changes, { refreshedEntity: result.entityPayload }) };
+export async function writeIndexedConfigEntity(write: IndexedConfigEntityWrite): Promise<WriteResult> {
+  return saveIndexedConfigEntity(write);
 }
 
-export async function createIndexedConfigEntity(payload: IndexedConfigEntityPayload): Promise<WriteResultWith<IndexedConfigEntityResult>> {
-  const result = await createIndexedConfigEntityApi(payload);
-  return { ...result, ...normalizeWriteResult(result.changes, { refreshedEntity: result.entityPayload }) };
+export async function writeCreateIndexedConfigEntity(write: IndexedConfigEntityWrite): Promise<WriteResult> {
+  return createIndexedConfigEntity(write);
 }
 
-export async function deleteIndexedConfigEntity(
-  payload: DeleteIndexedConfigEntityPayload,
-): Promise<WriteResultWith<IndexedConfigEntityResult>> {
-  const result = await deleteIndexedConfigEntityApi(payload);
-  return { ...result, ...normalizeWriteResult(result.changes, { refreshedEntity: result.entityPayload }) };
+export async function writeDeleteIndexedConfigEntity(write: DeleteIndexedConfigEntityWrite): Promise<WriteResult> {
+  return deleteIndexedConfigEntity(write);
 }
 
-export async function writeVariantEntity(payload: VariantEntityPayload): Promise<WriteResultWith<VariantEntityResult>> {
-  const result = await saveVariantEntityApi(payload);
-  return { ...result, ...normalizeWriteResult(result.changes, { refreshedEntity: result.variantFile as unknown as RowData }) };
+export async function writeVariantEntity(write: VariantEntityWrite): Promise<WriteResult> {
+  return saveVariantEntity(write);
 }
 
-export async function createVariantEntity(payload: VariantEntityPayload): Promise<WriteResultWith<VariantEntityResult>> {
-  const result = await createVariantEntityApi(payload);
-  return { ...result, ...normalizeWriteResult(result.changes, { refreshedEntity: result.variantFile as unknown as RowData }) };
+export async function writeCreateVariantEntity(write: VariantEntityWrite): Promise<WriteResult> {
+  return createVariantEntity(write);
 }
 
-export async function deleteVariantEntity(payload: DeleteVariantEntityPayload): Promise<WriteResult> {
-  return normalizeWriteResult(await deleteVariantEntityApi(payload));
+export async function writeDeleteVariantEntity(write: DeleteVariantEntityWrite): Promise<WriteResult> {
+  return deleteVariantEntity(write);
 }
 
-export async function writeSkinEntity(payload: SkinEntityPayload): Promise<WriteResultWith<SkinEntityResult>> {
-  const result = await saveSkinEntityApi(payload);
-  return { ...result, ...normalizeWriteResult(result.changes, { refreshedEntity: result.skinFile as unknown as RowData }) };
+export async function writeSkinEntity(write: SkinEntityWrite): Promise<WriteResult> {
+  return saveSkinEntity(write);
 }
 
-export async function createSkinEntity(payload: SkinEntityPayload): Promise<WriteResultWith<SkinEntityResult>> {
-  const result = await createSkinEntityApi(payload);
-  return { ...result, ...normalizeWriteResult(result.changes, { refreshedEntity: result.skinFile as unknown as RowData }) };
+export async function writeCreateSkinEntity(write: SkinEntityWrite): Promise<WriteResult> {
+  return createSkinEntity(write);
 }
 
-export async function deleteSkinEntity(payload: DeleteSkinEntityPayload): Promise<WriteResult> {
-  return normalizeWriteResult(await deleteSkinEntityApi(payload));
+export async function writeDeleteSkinEntity(write: DeleteSkinEntityWrite): Promise<WriteResult> {
+  return deleteSkinEntity(write);
 }
 
-export async function uploadSprite(
+export async function writeSpriteUpload(
   modRoot: string,
   filename: string,
   data: string,
-  subfolder: 'ships' | 'weapons' | 'missiles' | 'fx',
-  overwrite = false,
-): Promise<WriteResultWith<UploadResult>> {
-  const result = await uploadSpriteApi(modRoot, filename, data, subfolder, overwrite);
-  return { ...result, ...normalizeWriteResult(result.changes) };
+  subfolder: SpriteSubfolder,
+  overwrite: boolean,
+): Promise<WriteResult> {
+  return uploadSprite(modRoot, filename, data, subfolder, overwrite);
 }
 
-export async function applyFileChangeSet(direction: 'undo' | 'redo', changes: FileChangeRecord[]): Promise<WriteResult> {
-  await applyFileChangeSetApi(direction, changes);
-  return normalizeWriteResult(changes);
-}
-
-function normalizeWriteResult(
-  changes: FileChangeRecord[],
-  overrides: Partial<Omit<WriteResult, 'changes' | 'invalidatedPaths'>> = {},
-): WriteResult {
-  return {
-    changes,
-    invalidatedPaths: pathsFromChanges(changes),
-    keyMap: overrides.keyMap ?? [],
-    refreshedEntity: overrides.refreshedEntity ?? null,
-    warnings: overrides.warnings ?? [],
-  };
-}
-
-function pathsFromChanges(changes: FileChangeRecord[]): string[] {
-  return [...new Set(changes.map((change) => change.path).filter(Boolean))];
+export async function replayFileChangeSet(direction: FileChangeReplayDirection, changes: FileChangeRecord[]): Promise<WriteResult> {
+  return replayFileChangeSetOnDisk(direction, changes);
 }

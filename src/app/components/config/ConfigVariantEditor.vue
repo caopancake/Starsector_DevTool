@@ -24,6 +24,7 @@ import type { RowData, VariantFile } from '@/shared/types';
 import { deepClone } from '@/shared/lib/starsector';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { getSchema } from '@/domain/schema/schema-registry';
+import { useSchemaRuntimeContext } from '@/app/composables/use-schema-runtime-context';
 
 const props = defineProps<{
   variantId: string;
@@ -31,7 +32,7 @@ const props = defineProps<{
   saveVariant: (current: VariantFile, data: RowData) => Promise<VariantFile | null>;
   deleteVariant: (variant: VariantFile) => Promise<boolean>;
 }>();
-const emit = defineEmits<{ saved: [variantId: string] }>();
+const emit = defineEmits<{ saved: [variantId: string | null] }>();
 
 const project = useProjectStore();
 const feedback = useAppFeedback();
@@ -40,17 +41,13 @@ const localVariant = ref<RowData>({});
 const saving = ref(false);
 
 const schema = computed(() => getSchema('variant'));
-const schemaRuntimeContext = computed(() =>
-  project.activeManifest ? { modRoot: project.activeManifest.modRoot, sessionId: project.activeManifest.sessionId } : null,
-);
-const modData = computed(() => project.activeManifest);
-const modRoot = computed(() => modData.value?.modRoot ?? '');
+const schemaRuntimeContext = useSchemaRuntimeContext(() => project.activeManifest);
 const variants = computed(() => [...props.variants]);
 const selectedVariant = computed(() => variants.value.find((variant) => variant.variantId === props.variantId) ?? null);
 
 async function save() {
   const current = selectedVariant.value;
-  if (!current || !modRoot.value) return;
+  if (!current) return;
   saving.value = true;
   try {
     const saved = await props.saveVariant(current, localVariant.value);
@@ -79,10 +76,10 @@ function confirmDeleteVariant() {
 
 async function deleteCurrentVariant() {
   const current = selectedVariant.value;
-  if (!current || !modRoot.value) return false;
+  if (!current) return false;
   try {
     if (!(await props.deleteVariant(current))) return false;
-    const nextId = variants.value.find((variant) => variant.variantId !== current.variantId)?.variantId ?? '';
+    const nextId = variants.value.find((variant) => variant.variantId !== current.variantId)?.variantId ?? null;
     emit('saved', nextId);
   } catch (error) {
     feedback.error(error, '删除装配失败');

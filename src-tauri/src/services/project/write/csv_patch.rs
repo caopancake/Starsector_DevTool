@@ -1,48 +1,53 @@
 use super::super::cache::{
-    ensure_session_table_rows, session_for_mut, session_table, session_table_mut, sessions,
+    ensure_registered_session_table_rows, loaded_registered_csv_rows, registered_session_table,
+    registered_session_table_mut, session_for_mut, sessions,
 };
-use super::super::model::{SessionCsvRow, WriteResult};
+use super::super::model::SessionCsvRow;
 use crate::{
     errors::{AppError, AppResult},
     io::FileChangeSetBuilder,
     models::{
-        CsvRowKeyMapping, CsvRowPatchPayload, SaveCsvPatchResult, SaveCsvPatchWithHistoryPayload,
+        AssociatedFileChange, CsvRowKeyMapping, CsvRowPatch, CsvRowPatchAction, CsvTableKey,
+        WriteResult,
     },
     parsers::render_csv_text,
 };
 use serde_json::{Map, Value};
 use std::path::Path;
 
-pub fn save_csv_patch_for_command(
-    payload: SaveCsvPatchWithHistoryPayload,
-) -> AppResult<SaveCsvPatchResult> {
+pub fn save_csv_patch(
+    session_id: &str,
+    table: CsvTableKey,
+    patches: Vec<CsvRowPatch>,
+    associated_files: Vec<AssociatedFileChange>,
+) -> AppResult<WriteResult> {
     let mut guard = sessions()
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = session_for_mut(&mut guard, &payload.session_id)?;
-    ensure_session_table_rows(session, &payload.table)?;
+    let session = session_for_mut(&mut guard, session_id)?;
+    ensure_registered_session_table_rows(session, table)?;
     let (mod_root, rel_path, header, mut rows) = {
-        let table = session_table(session, &payload.table)?;
+        let table_data = registered_session_table(session, table)?;
         (
             session.manifest.mod_root.clone(),
-            table.path.clone(),
-            table.header.clone(),
-            table.rows.clone().unwrap_or_default(),
+            table_data.path.clone(),
+            table_data.header.clone(),
+            loaded_registered_csv_rows(session, table)?.to_vec(),
         )
     };
-    let key_map = apply_csv_row_patches(&payload.table, &mut rows, payload.patches)?;
+    let key_map = apply_csv_row_patches(table, &mut rows, patches)?;
     let row_values: Vec<Map<String, Value>> = rows.iter().map(|row| row.row.clone()).collect();
     let csv_text = render_csv_text(&header, &row_values)?;
     let mut builder = FileChangeSetBuilder::new(Path::new(&mod_root));
     builder.text_file(&rel_path, Some(csv_text))?;
-    for file in payload.associated_files {
+    for file in associated_files {
         builder.file(&file.rel_path, file.after_text, file.after_data_base64)?;
     }
     let changes = builder.apply()?;
     {
-        let table = session_table_mut(session, &payload.table)?;
-        table.rows = Some(rows);
-        table.header = header;
+        let table_data = registered_session_table_mut(session, table)?;
+        table_data.rows = Some(rows);
+        table_data.header = header;
     }
     let write_result: WriteResult<()> = WriteResult {
         changes,
@@ -57,30 +62,24 @@ pub fn save_csv_patch_for_command(
         .all(|path| !path.is_empty()));
     debug_assert!(write_result.refreshed_entity().is_none());
     debug_assert!(write_result.warnings().is_empty());
-    Ok(SaveCsvPatchResult {
-        changes: write_result.changes,
-        key_map: write_result.key_map,
-    })
+    Ok(write_result)
 }
 
 fn apply_csv_row_patches(
-    table: &str,
+    table: CsvTableKey,
     rows: &mut Vec<SessionCsvRow>,
-    patches: Vec<CsvRowPatchPayload>,
+    patches: Vec<CsvRowPatch>,
 ) -> AppResult<Vec<CsvRowKeyMapping>> {
+    let table_key = table.as_str();
     let mut key_map = Vec::new();
     for patch in patches {
-        match patch.action.as_str() {
-            "delete" => rows.retain(|row| row.row_key != patch.row_key),
-            "upsert" => {
+        match patch.action {
+            CsvRowPatchAction::Delete => rows.retain(|row| row.row_key != patch.row_key),
+            CsvRowPatchAction::Upsert => {
                 if let Some(row) = rows.iter_mut().find(|row| row.row_key == patch.row_key) {
                     row.row = patch.row;
-                } else {
-                    let next_key = if patch.row_key.contains(":new:") {
-                        format!("{table}:row:{}", rows.len())
-                    } else {
-                        patch.row_key.clone()
-                    };
+                } else if is_new_csv_row_key(table_key, &patch.row_key) {
+                    let next_key = format!("{table_key}:row:{}", rows.len());
                     key_map.push(CsvRowKeyMapping {
                         previous_key: patch.row_key,
                         next_key: next_key.clone(),
@@ -89,16 +88,23 @@ fn apply_csv_row_patches(
                         row_key: next_key,
                         row: patch.row,
                     });
+                } else {
+                    return Err(AppError::message(format!(
+                        "CSV upsert row key does not exist: {}",
+                        patch.row_key
+                    )));
                 }
-            }
-            other => {
-                return Err(AppError::message(format!(
-                    "unknown CSV row patch action: {other}"
-                )));
             }
         }
     }
     Ok(key_map)
+}
+
+fn is_new_csv_row_key(table_key: &str, row_key: &str) -> bool {
+    let Some(rest) = row_key.strip_prefix(&format!("{table_key}:new:")) else {
+        return false;
+    };
+    !rest.is_empty() && !rest.contains(':')
 }
 
 #[cfg(test)]
@@ -106,10 +112,10 @@ mod tests {
     use super::*;
     use crate::{
         io::{read_utf8_no_bom, write_utf8_no_bom},
-        models::{AssociatedFileChangePayload, CsvRowPatchPayload, CsvTableWindowPayload},
+        models::{AssociatedFileChange, CsvFactionFilter, CsvRowPatch, CsvRowPatchAction},
         services::project::{
-            query::query_csv_table_window_for_command,
-            session::{close_project_session_for_command, open_project_session_traced},
+            query::query_csv_table_window,
+            session::{close_project_session, open_project_session_traced},
         },
     };
     use serde_json::{Map, Value};
@@ -128,26 +134,26 @@ mod tests {
         row.insert("id".to_string(), Value::String("new_ship".to_string()));
         row.insert("name".to_string(), Value::String("New Ship".to_string()));
         let session_id = manifest.session_id.clone();
-        let result = save_csv_patch_for_command(SaveCsvPatchWithHistoryPayload {
-            session_id: session_id.clone(),
-            table: "ships".to_string(),
-            patches: vec![CsvRowPatchPayload {
+        let result = save_csv_patch(
+            &session_id,
+            CsvTableKey::Ships,
+            vec![CsvRowPatch {
                 row_key: "ships:new:1".to_string(),
-                action: "upsert".to_string(),
+                action: CsvRowPatchAction::Upsert,
                 row,
             }],
-            associated_files: vec![AssociatedFileChangePayload {
+            vec![AssociatedFileChange {
                 rel_path: "data/hulls/new_ship.ship".to_string(),
                 after_text: Some("{\r\n  \"hullId\": \"new_ship\"\r\n}".to_string()),
                 after_data_base64: None,
             }],
-        })
+        )
         .unwrap();
 
         let csv = read_utf8_no_bom(&root.join("data/hulls/ship_data.csv")).unwrap();
         let spec = read_utf8_no_bom(&root.join("data/hulls/new_ship.ship")).unwrap();
 
-        let _ = close_project_session_for_command(session_id);
+        let _ = close_project_session(session_id);
         let _ = std::fs::remove_dir_all(root);
         assert_eq!(result.changes.len(), 2);
         assert_eq!(result.key_map[0].previous_key, "ships:new:1");
@@ -173,39 +179,68 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
-        let window = query_csv_table_window_for_command(CsvTableWindowPayload {
-            session_id: manifest.session_id.clone(),
-            table: "weapons".to_string(),
-            start: 0,
-            count: 10,
-            search: None,
-            faction: None,
-        })
+        let window = query_csv_table_window(
+            &manifest.session_id,
+            CsvTableKey::Weapons,
+            0,
+            10,
+            None,
+            CsvFactionFilter::All,
+        )
         .unwrap();
-        let result = save_csv_patch_for_command(SaveCsvPatchWithHistoryPayload {
-            session_id: manifest.session_id.clone(),
-            table: "weapons".to_string(),
-            patches: vec![CsvRowPatchPayload {
+        let result = save_csv_patch(
+            &manifest.session_id,
+            CsvTableKey::Weapons,
+            vec![CsvRowPatch {
                 row_key: window.rows[0].row_key.clone(),
-                action: "delete".to_string(),
+                action: CsvRowPatchAction::Delete,
                 row: Map::new(),
             }],
-            associated_files: vec![AssociatedFileChangePayload {
+            vec![AssociatedFileChange {
                 rel_path: "data/weapons/old_weapon.wpn".to_string(),
                 after_text: None,
                 after_data_base64: None,
             }],
-        })
+        )
         .unwrap();
 
         let csv = read_utf8_no_bom(&root.join("data/weapons/weapon_data.csv")).unwrap();
         let spec_exists = root.join("data/weapons/old_weapon.wpn").exists();
 
-        let _ = close_project_session_for_command(manifest.session_id);
+        let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
         assert_eq!(result.changes.len(), 2);
         assert!(!csv.contains("old_weapon,Old Weapon"));
         assert!(!spec_exists);
+    }
+
+    #[test]
+    fn save_csv_patch_rejects_unknown_non_new_row_key() {
+        let root = temp_dir("save_csv_patch_unknown_row_key");
+        std::fs::create_dir_all(root.join("data/hulls")).unwrap();
+        write_utf8_no_bom(&root.join("data/hulls/ship_data.csv"), "id,name\r\n").unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
+        let mut row = Map::new();
+        row.insert("id".to_string(), Value::String("new_ship".to_string()));
+        let error = save_csv_patch(
+            &manifest.session_id,
+            CsvTableKey::Ships,
+            vec![CsvRowPatch {
+                row_key: "ships:row:missing:new:1".to_string(),
+                action: CsvRowPatchAction::Upsert,
+                row,
+            }],
+            Vec::new(),
+        )
+        .unwrap_err()
+        .to_string();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        assert!(error.contains("CSV upsert row key does not exist"));
     }
 
     fn temp_dir(name: &str) -> std::path::PathBuf {

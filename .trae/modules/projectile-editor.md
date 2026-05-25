@@ -9,15 +9,19 @@
 - `src/windows/editor.window.ts` 打开 `kind=projectile` 编辑器窗口。
 - `src/app/EditorWindowApp.vue` 只负责按窗口类型挂载编辑器根组件。
 - 编辑器 ViewModel 使用主窗口传入的 session 查询弹体数据和资源。
+- 编辑器 ViewModel 返回弹体窗口专用数据形状，不用其它编辑器字段的空对象表达“不适用”。
 - `src/app/components/editors/ProjectileEditor.vue` 承载弹体编辑 UI。
 - `src/services/editor.service.ts` 调用 spec 保存 API。
 - `src-tauri/src/services/project/projectiles.rs` 在 session/entity 查询链路中读取 projectile spec。
-- `src-tauri/src/services/editor_specs.rs` 定位并保存 `.proj` JSON-like spec。
+- `src-tauri/src/services/editor_specs.rs` 按编辑器 spec 类型定位并保存 `.proj` JSON-like spec。
 
 ## 规范
 
 - 弹体编辑器保存只写对应 `.proj`。
+- 编辑器 spec 保存入口必须使用正式 spec 类型模型，不得用裸字符串在 service 层解析。
+- 编辑器 spec 保存定位目标时，候选根不是目录、候选遍历失败、已存在候选 spec 的读取或解析失败都必须返回错误，不能跳过候选后写入默认新路径。
 - 弹体数据可来自 Mod 或原版资源回退。
+- 编辑器 service 从 entity query 读取弹体数据时，缺失 entity 或非对象 spec 必须作为加载错误暴露，不能压成空对象继续打开编辑器。
 - 保存动作由编辑器 ViewModel 调用 service/orchestrator 完成；组件不得直接调用 shared API。
 - 弹体窗口保存成功后通过 `editor-spec-saved` 同步主窗口和其它编辑器窗口。
 - 弹体窗口加载失败只影响当前窗口。
@@ -37,9 +41,9 @@
 
 1. 用户在 `ProjectileEditor.vue` 保存。
 2. 编辑器 ViewModel 调用 spec 保存 service。
-3. Rust `save_json_with_history` 定位目标 `.proj`。
+3. Rust `save_editor_spec` 按 `projectile + projectileId` 定位目标 `.proj`。
 4. Rust 写入 pretty JSON 文本。
-5. Rust 返回单文件 changeset。
+5. Rust 返回 `WriteResult`。
 6. `ProjectileEditor.vue` 触发 saved 事件。
 7. `EditorWindowApp` 发送 `editor-spec-saved`。
 8. 主窗口记录文件级 history 并失效对应 session cache。

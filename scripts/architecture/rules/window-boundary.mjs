@@ -11,8 +11,9 @@ export const windowBoundaryRule = {
       const current = classifyFrontendPath(file.rel);
       for (const imported of importedProjectPaths(file)) {
         if (imported.typeOnly) continue;
-        if (current.layer === 'windows' && /^src\/services\/app-config\.service(?:\.ts)?$/.test(imported.resolved)) {
-          failures.push(`${file.rel}: windows must receive settings by payload or events, not read app config`);
+        const target = classifyFrontendPath(imported.resolved);
+        if (current.layer === 'windows' && target.layer === 'services' && target.domain === 'app-config') {
+          failures.push(`${file.rel}: windows must receive settings by request data or events, not read app config`);
         }
       }
       if (current.layer === 'windows' && /\bopenProject\s*\(|\bopenProjectSession\s*\(/.test(file.text)) {
@@ -20,6 +21,9 @@ export const windowBoundaryRule = {
       }
       if (current.layer === 'windows' && /\bcreateDefault[A-Za-z0-9_]*Settings\b/.test(file.text)) {
         failures.push(`${file.rel}: window settings context must be received, not recreated`);
+      }
+      if (/export\s+interface\s+(?:EditorSpecSavedEvent|FileEditorSavedEvent)\s*\{[\s\S]*?\bchanges\s*:/m.test(file.text)) {
+        failures.push(`${file.rel}: window save events must carry WriteResult, not raw changes`);
       }
     }
     return failures;

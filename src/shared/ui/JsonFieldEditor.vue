@@ -46,6 +46,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { isInternalJsonFieldKey } from '@/shared/lib/json-fields';
 import type { JsonValue, RowData } from '@/shared/types';
 
 const props = defineProps<{
@@ -57,7 +58,7 @@ const emit = defineEmits<{ 'update:modelValue': [data: RowData] }>();
 
 const newKey = ref('');
 
-const extraKeys = computed(() => Object.keys(props.modelValue).filter((k) => !k.startsWith('_') && !props.knownKeys.includes(k)));
+const extraKeys = computed(() => Object.keys(props.modelValue).filter((k) => !isInternalJsonFieldKey(k) && !props.knownKeys.includes(k)));
 
 function updateField(key: string, value: JsonValue) {
   const updated = { ...props.modelValue, [key]: value };

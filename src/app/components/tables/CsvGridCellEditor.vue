@@ -10,10 +10,10 @@
       @keydown.enter.prevent="commitAndClose"
     />
     <template v-else>
-      <template v-if="isMultiControl">
+      <template v-if="isListControl">
         <span v-for="value in listValue" :key="value" class="csv-cell-tag">{{ value }}</span>
       </template>
-      <template v-else-if="column.schema?.control === 'reference'">
+      <template v-else-if="isReferenceControl">
         <img v-if="referenceMatch?.option.sprite" class="csv-cell-thumb" :src="referenceMatch.option.sprite" :alt="displayValue" />
         <span class="csv-cell-value">{{ displayValue }}</span>
       </template>
@@ -24,7 +24,7 @@
       <CsvCellPicker
         v-if="pickerAnchor"
         :anchor="pickerAnchor"
-        :multiple="isMultiControl"
+        :multiple="isListControl"
         :options="pickerOptions"
         :values="pickerValues"
         @close="$emit('close')"
@@ -37,16 +37,26 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { cell } from '@/shared/lib/starsector';
-import type { CsvGridColumn, CsvGridRow } from '@/domain/tables/csv-grid-model';
+import type { CsvWindowRow } from '@/shared/types';
+import type { CsvGridColumn } from '@/domain/tables/csv-grid-model';
 import type { CsvSourceIndex } from '@/domain/tables/csv-source-options';
 import { includeCurrentValue, includeCurrentValues, sourceOptions, sourceValue, sourceValueSet } from '@/domain/tables/csv-source-options';
+import {
+  csvBooleanOptions,
+  csvColumnControl,
+  csvControlUsesNativeInput,
+  csvListValues,
+  formatCsvListValue,
+  isCsvListControl,
+  isCsvReferenceControl,
+} from '@/domain/tables/csv-column-schema';
 import { useSettingsStore } from '@/stores/settings.store';
 import CsvCellPicker from '@/app/components/tables/CsvCellPicker.vue';
 
 const props = defineProps<{
   anchorElement: HTMLElement | null;
   column: CsvGridColumn;
-  row: CsvGridRow;
+  row: CsvWindowRow;
   sourceIndex: CsvSourceIndex;
 }>();
 
@@ -63,32 +73,24 @@ const pickerAnchor = ref<{ height: number; left: number; top: number; width: num
 // Local buffer for native input — only commits on blur/Enter, avoids reactive cascade during typing.
 const localInputValue = ref('');
 
-const booleanOptions = [
-  { label: 'TRUE', value: 'TRUE' },
-  { label: 'FALSE', value: 'FALSE' },
-];
-
 const rawValue = computed(() => cell(props.row.row[props.column.key]));
+const control = computed(() => csvColumnControl(props.column.schema));
 const usesNativeInput = computed(() => {
   if (plainMode.value) return true;
-  return ['number', 'path-image', 'color', 'text'].includes(props.column.schema?.control ?? 'text');
+  return csvControlUsesNativeInput(control.value);
 });
-const isMultiControl = computed(() => props.column.schema?.control === 'tags' || props.column.schema?.control === 'multi');
-const listValue = computed(() =>
-  rawValue.value
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean),
-);
+const isListControl = computed(() => isCsvListControl(control.value));
+const isReferenceControl = computed(() => isCsvReferenceControl(control.value));
+const listValue = computed(() => csvListValues(rawValue.value));
 const pickerOptions = computed(() => {
-  if (props.column.schema?.control === 'boolean') return booleanOptions;
-  if (props.column.schema?.control === 'enum') return props.column.enumOptions;
+  if (control.value === 'boolean') return csvBooleanOptions();
+  if (control.value === 'enum') return props.column.enumOptions;
   const options = sourceOptions(props.sourceIndex, props.column.schema?.source);
   const valueSet = sourceValueSet(props.sourceIndex, props.column.schema?.source);
-  if (isMultiControl.value) return includeCurrentValues(options, valueSet, listValue.value);
+  if (isListControl.value) return includeCurrentValues(options, valueSet, listValue.value);
   return includeCurrentValue(options, valueSet, rawValue.value);
 });
-const pickerValues = computed(() => (isMultiControl.value ? listValue.value : rawValue.value ? [rawValue.value] : []));
+const pickerValues = computed(() => (isListControl.value ? listValue.value : rawValue.value ? [rawValue.value] : []));
 const referenceMatch = computed(() => sourceValue(props.sourceIndex, props.column.schema?.source, rawValue.value));
 const displayValue = computed(() => referenceMatch.value?.option.label ?? rawValue.value);
 
@@ -119,6 +121,6 @@ function commitAndClose() {
 }
 
 function handlePickerUpdate(values: string[]) {
-  emit('update-cell', props.row.rowKey, props.column.key, isMultiControl.value ? values.join(', ') : (values[0] ?? ''));
+  emit('update-cell', props.row.rowKey, props.column.key, isListControl.value ? formatCsvListValue(values) : (values[0] ?? ''));
 }
 </script>

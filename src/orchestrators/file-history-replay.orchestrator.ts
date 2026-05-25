@@ -1,7 +1,7 @@
 import { h } from 'vue';
 import type { AppFeedback } from '@/shared/types';
-import { applyFileChangeSet, type FileChangeRecord } from '@/services/write.service';
-import { normalizeFsPath } from '@/shared/lib/paths';
+import { replayFileChangeSet } from '@/services/write.service';
+import { pathBelongsToRoot } from '@/shared/lib/paths';
 import { invalidateProject } from '@/services/session.service';
 import { invalidateQueryCacheByPaths } from '@/services/query-cache.service';
 import { invalidateResourceCacheByPaths } from '@/services/resource-cache.service';
@@ -11,31 +11,67 @@ import { WINDOW_EVENTS } from '@/windows/window.events';
 import { emitWindowEvent } from '@/windows/tauri.events';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import type { FileSaveHistoryEntry } from '@/shared/types/file-history.types';
+import type { FileChangeRecord, FileChangeReplayDirection, WriteResult } from '@/shared/types';
 
 type ProjectStore = ReturnType<typeof useProjectStore>;
 type TablesStore = ReturnType<typeof useTablesStore>;
-export type FileHistoryReplayDirection = 'undo' | 'redo';
+type FileHistoryStore = ReturnType<typeof useFileHistoryStore>;
+export type FileHistoryReplayDirection = FileChangeReplayDirection;
 
-export function replayNextFileHistoryEntry(
+interface FileHistoryReplayBehavior {
+  actionText: string;
+  commitEntry: (fileHistory: FileHistoryStore, entryId: string) => boolean;
+  hasBinaryContent: (change: FileChangeRecord) => boolean;
+  peekEntry: (fileHistory: FileHistoryStore) => FileSaveHistoryEntry | null;
+  textForChange: (change: FileChangeRecord) => string | null;
+}
+
+const FILE_HISTORY_REPLAY_BEHAVIOR: Record<FileHistoryReplayDirection, FileHistoryReplayBehavior> = {
+  undo: {
+    actionText: '撤销',
+    peekEntry: (fileHistory) => fileHistory.peekFileUndo(),
+    commitEntry: (fileHistory, entryId) => fileHistory.commitFileUndo(entryId),
+    textForChange: (change) => change.beforeText ?? null,
+    hasBinaryContent: (change) => Boolean(change.beforeDataBase64),
+  },
+  redo: {
+    actionText: '重做',
+    peekEntry: (fileHistory) => fileHistory.peekFileRedo(),
+    commitEntry: (fileHistory, entryId) => fileHistory.commitFileRedo(entryId),
+    textForChange: (change) => change.afterText ?? null,
+    hasBinaryContent: (change) => Boolean(change.afterDataBase64),
+  },
+};
+
+export function replayNextFileUndo(project: ProjectStore, tables: TablesStore, feedback: AppFeedback) {
+  return replayNextFileHistoryEntry('undo', project, tables, feedback);
+}
+
+export function replayNextFileRedo(project: ProjectStore, tables: TablesStore, feedback: AppFeedback) {
+  return replayNextFileHistoryEntry('redo', project, tables, feedback);
+}
+
+function replayNextFileHistoryEntry(
   direction: FileHistoryReplayDirection,
   project: ProjectStore,
   tables: TablesStore,
   feedback: AppFeedback,
 ) {
   const fileHistory = useFileHistoryStore();
-  const entry = direction === 'undo' ? fileHistory.peekFileUndo() : fileHistory.peekFileRedo();
+  const behavior = FILE_HISTORY_REPLAY_BEHAVIOR[direction];
+  const entry = behavior.peekEntry(fileHistory);
   if (!entry) return false;
-  confirmFileHistoryReplay(feedback, entry, direction, async () => {
+  confirmFileHistoryReplay(feedback, entry, behavior, async () => {
     try {
       await applyFileSaveHistoryEntry(entry, direction, project, tables);
-      const committed = direction === 'undo' ? fileHistory.commitFileUndo(entry.id) : fileHistory.commitFileRedo(entry.id);
+      const committed = behavior.commitEntry(fileHistory, entry.id);
       if (!committed) {
-        feedback.error(`${fileHistoryAction(direction)}文件历史失败：历史栈状态已变化`);
+        feedback.error(`${behavior.actionText}文件历史失败：历史栈状态已变化`);
         return;
       }
-      feedback.success(`文件历史已${fileHistoryAction(direction)}`);
+      feedback.success(`文件历史已${behavior.actionText}`);
     } catch (error) {
-      feedback.error(error, `${fileHistoryAction(direction)}文件历史失败`);
+      feedback.error(error, `${behavior.actionText}文件历史失败`);
     }
   });
   return true;
@@ -44,20 +80,19 @@ export function replayNextFileHistoryEntry(
 function confirmFileHistoryReplay(
   feedback: AppFeedback,
   entry: FileSaveHistoryEntry,
-  direction: FileHistoryReplayDirection,
+  behavior: FileHistoryReplayBehavior,
   onConfirm: () => Promise<void>,
 ) {
-  const action = fileHistoryAction(direction);
   feedback.confirmWarning({
-    title: `${action}文件历史`,
-    content: () => renderConfirmContent(entry, action),
-    actionText: action,
+    title: `${behavior.actionText}文件历史`,
+    content: () => renderConfirmContent(entry, behavior.actionText),
+    actionText: behavior.actionText,
     onConfirm,
   });
 }
 
 function renderConfirmContent(entry: FileSaveHistoryEntry, action: string) {
-  const paths = entry.changes.map((change) => change.path);
+  const paths = historyEntryPaths(entry);
   return h('div', { class: 'file-history-confirm' }, [
     h('p', `${action}会直接写回磁盘。`),
     h('p', `历史记录：${entry.label}`),
@@ -70,63 +105,51 @@ function renderConfirmContent(entry: FileSaveHistoryEntry, action: string) {
   ]);
 }
 
-function fileHistoryAction(direction: FileHistoryReplayDirection) {
-  return direction === 'undo' ? '撤销' : '重做';
-}
-
 async function applyFileSaveHistoryEntry(
   entry: FileSaveHistoryEntry,
   direction: FileHistoryReplayDirection,
   project: ProjectStore,
   tables: TablesStore,
 ) {
-  await applyFileChangeSet(direction, entry.changes);
+  const result = await replayFileChangeSet(direction, entry.changes);
   await notifyOpenWindows(entry.changes, direction);
-  await invalidateLoadedSessions(project, entry.changes);
-  refreshActiveTableIfAffected(project, tables, entry.changes);
+  await invalidateLoadedSessions(project, result);
+  refreshActiveTableIfAffected(project, tables, result.invalidatedPaths);
+}
+
+function historyEntryPaths(entry: FileSaveHistoryEntry): string[] {
+  return entry.changes.map((change) => change.path);
 }
 
 async function notifyOpenWindows(changes: FileChangeRecord[], direction: FileHistoryReplayDirection) {
+  const behavior = FILE_HISTORY_REPLAY_BEHAVIOR[direction];
   await Promise.all(
     changes.map(async (change) => {
       if (change.kind === 'directory') return;
-      const text = textForFileHistoryDirection(change, direction);
-      if (text === null && hasBinaryFileContent(change, direction)) return;
+      const text = behavior.textForChange(change);
+      if (text === null && behavior.hasBinaryContent(change)) return;
       await emitWindowEvent(WINDOW_EVENTS.fileEditorTextApplied, { path: change.path, text: text ?? '' });
     }),
   );
 }
 
-async function invalidateLoadedSessions(project: ProjectStore, changes: FileChangeRecord[]) {
-  const changedPaths = changes.map((change) => change.path);
+async function invalidateLoadedSessions(project: ProjectStore, result: WriteResult) {
+  const changedPaths = result.invalidatedPaths;
   await Promise.all(
     [...project.manifests.values()].map(async (manifest) => {
-      const sessionPaths = changedPaths.filter((path) => pathBelongsToRoot(path, manifest.modRoot));
+      const projectRoot = manifest.modRoot;
+      const sessionPaths = changedPaths.filter((path) => pathBelongsToRoot(path, projectRoot));
       if (sessionPaths.length === 0) return;
       await invalidateProject(manifest.sessionId, sessionPaths);
-      invalidateQueryCacheByPaths(manifest.sessionId);
-      invalidateResourceCacheByPaths(manifest.sessionId, sessionPaths);
+      invalidateQueryCacheByPaths(manifest, sessionPaths);
+      invalidateResourceCacheByPaths(manifest.sessionId, projectRoot, sessionPaths);
     }),
   );
 }
 
-function refreshActiveTableIfAffected(project: ProjectStore, tables: TablesStore, changes: FileChangeRecord[]) {
+function refreshActiveTableIfAffected(project: ProjectStore, tables: TablesStore, changedPaths: string[]) {
   const active = project.activeManifest;
   if (!active) return;
-  if (!changes.some((change) => pathBelongsToRoot(change.path, active.modRoot))) return;
-  tables.selectRowByKey('');
-}
-
-function pathBelongsToRoot(path: string, root: string) {
-  const normalizedPath = normalizeFsPath(path);
-  const normalizedRoot = normalizeFsPath(root);
-  return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`);
-}
-
-function textForFileHistoryDirection(change: FileChangeRecord, direction: FileHistoryReplayDirection): string | null {
-  return direction === 'undo' ? (change.beforeText ?? null) : (change.afterText ?? null);
-}
-
-function hasBinaryFileContent(change: FileChangeRecord, direction: FileHistoryReplayDirection): boolean {
-  return Boolean(direction === 'undo' ? change.beforeDataBase64 : change.afterDataBase64);
+  if (!changedPaths.some((path) => pathBelongsToRoot(path, active.modRoot))) return;
+  tables.selectRowByKey(null);
 }

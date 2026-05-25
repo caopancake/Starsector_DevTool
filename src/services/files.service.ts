@@ -1,11 +1,11 @@
-import { loadEditableFile as loadEditableFileApi } from '@/shared/api/write-api';
-import type { EditableFileData, WriteResult } from '@/shared/api/write-api';
+import { loadEditableFile } from '@/shared/api/files-api';
+import type { EditableFileData, WriteResult } from '@/shared/types';
 import { writeTextFile } from '@/services/write.service';
 
-export function loadEditableFile(path: string): Promise<EditableFileData> {
-  return loadEditableFileApi(path);
+export function loadEditableFileData(path: string): Promise<EditableFileData> {
+  return loadEditableFile(path);
 }
 
-export function saveTextFile(path: string, text: string): Promise<WriteResult> {
+export function writeEditableFileText(path: string, text: string): Promise<WriteResult> {
   return writeTextFile(path, text);
 }

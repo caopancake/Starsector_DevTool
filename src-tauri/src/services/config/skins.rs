@@ -2,25 +2,25 @@ use crate::{
     domain::config::{build_skin_file, skin_rel_path, validate_config_id},
     errors::{AppError, AppResult},
     io::{strip_internal_fields, FileChangeSetBuilder},
-    models::{
-        ConfigFileEntityPayload, DeleteSkinEntityPayload, SkinEntityPayload, SkinEntityResult,
-    },
+    models::WriteResult,
 };
+use serde_json::Value;
 use std::path::Path;
 
-pub fn save_skin_entity(input: SkinEntityPayload) -> AppResult<SkinEntityResult> {
-    let next_id = validate_config_id(&input.next_id, "无效舰船皮肤 ID")?.to_string();
-    let mod_root = Path::new(&input.mod_root);
-    let previous_id = input
-        .previous_id
-        .as_deref()
+pub fn save_skin_entity(
+    mod_root: &str,
+    previous_id: Option<&str>,
+    previous_rel_path: Option<&str>,
+    next_id: &str,
+    data: Value,
+) -> AppResult<WriteResult<Value>> {
+    let next_id = validate_config_id(next_id, "无效舰船皮肤 ID")?.to_string();
+    let mod_root = Path::new(mod_root);
+    let previous_id = previous_id
         .filter(|value| !value.trim().is_empty())
         .map(|value| validate_config_id(value, "无效舰船皮肤 ID").map(str::to_string))
         .transpose()?;
-    let previous_rel_path = input
-        .previous_rel_path
-        .as_deref()
-        .filter(|value| !value.trim().is_empty());
+    let previous_rel_path = previous_rel_path.filter(|value| !value.trim().is_empty());
     let next_rel_path = skin_rel_path(&next_id);
     let renamed = previous_id.as_deref().is_some_and(|id| id != next_id);
     let target = mod_root.join(&next_rel_path);
@@ -30,7 +30,7 @@ pub fn save_skin_entity(input: SkinEntityPayload) -> AppResult<SkinEntityResult>
         )));
     }
 
-    let clean = strip_internal_fields(&input.data);
+    let clean = strip_internal_fields(&data);
     let skin_file = build_skin_file(mod_root, &next_rel_path, &clean)?;
 
     let mut builder = FileChangeSetBuilder::new(mod_root);
@@ -41,24 +41,39 @@ pub fn save_skin_entity(input: SkinEntityPayload) -> AppResult<SkinEntityResult>
     builder.text_file(&next_rel_path, Some(serde_json::to_string_pretty(&clean)?))?;
     let changes = builder.apply()?;
 
-    Ok(SkinEntityResult { changes, skin_file })
-}
-
-pub fn create_skin_entity(input: SkinEntityPayload) -> AppResult<SkinEntityResult> {
-    save_skin_entity(ConfigFileEntityPayload {
-        previous_id: None,
-        previous_rel_path: None,
-        ..input
+    Ok(WriteResult {
+        invalidated_paths: changes.iter().map(|change| change.path.clone()).collect(),
+        changes,
+        key_map: Vec::new(),
+        refreshed_entity: Some(serde_json::to_value(skin_file)?),
+        warnings: Vec::new(),
     })
 }
 
+pub fn create_skin_entity(
+    mod_root: &str,
+    next_id: &str,
+    data: Value,
+) -> AppResult<WriteResult<Value>> {
+    save_skin_entity(mod_root, None, None, next_id, data)
+}
+
 pub fn delete_skin_entity(
-    input: DeleteSkinEntityPayload,
-) -> AppResult<Vec<crate::models::FileChangeRecord>> {
-    validate_config_id(&input.skin_hull_id, "无效舰船皮肤 ID")?;
-    let mut builder = FileChangeSetBuilder::new(Path::new(&input.mod_root));
-    builder.text_file(input.rel_path, None)?;
-    builder.apply()
+    mod_root: &str,
+    skin_hull_id: &str,
+    rel_path: &str,
+) -> AppResult<WriteResult> {
+    validate_config_id(skin_hull_id, "无效舰船皮肤 ID")?;
+    let mut builder = FileChangeSetBuilder::new(Path::new(mod_root));
+    builder.text_file(rel_path, None)?;
+    let changes = builder.apply()?;
+    Ok(WriteResult {
+        invalidated_paths: changes.iter().map(|change| change.path.clone()).collect(),
+        changes,
+        key_map: Vec::new(),
+        refreshed_entity: None,
+        warnings: Vec::new(),
+    })
 }
 
 #[cfg(test)]
@@ -66,7 +81,7 @@ mod tests {
     use super::*;
     use crate::{
         io::{read_utf8_no_bom, write_utf8_no_bom},
-        models::ApplyFileChangeSetPayload,
+        models::FileChangeReplayDirection,
         services::file_changes::apply_file_change_set,
     };
     use std::{
@@ -85,37 +100,31 @@ mod tests {
         )
         .unwrap();
 
-        let result = save_skin_entity(ConfigFileEntityPayload {
-            mod_root: root.to_string_lossy().to_string(),
-            previous_id: Some("old".to_string()),
-            previous_rel_path: Some("data/hulls/skins/old.skin".to_string()),
-            next_id: "new".to_string(),
-            data: serde_json::json!({
+        let result = save_skin_entity(
+            &root.to_string_lossy(),
+            Some("old"),
+            Some("data/hulls/skins/old.skin"),
+            "new",
+            serde_json::json!({
                 "skinHullId": "new",
                 "baseHullId": "base",
                 "builtInWeapons": {"WS 001": "demo_weapon"}
             }),
-        })
+        )
         .unwrap();
 
+        let skin_file: crate::models::SkinFile =
+            serde_json::from_value(result.refreshed_entity.clone().unwrap()).unwrap();
         assert!(!root.join("data/hulls/skins/old.skin").exists());
         assert!(root.join("data/hulls/skins/new.skin").exists());
-        assert_eq!(result.skin_file.skin_hull_id, "new");
-        assert_eq!(result.skin_file.built_in_weapon_count, 1);
+        assert_eq!(skin_file.skin_hull_id, "new");
+        assert_eq!(skin_file.built_in_weapon_count, 1);
 
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "undo".to_string(),
-            changes: result.changes.clone(),
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Undo, result.changes.clone()).unwrap();
         assert!(root.join("data/hulls/skins/old.skin").exists());
         assert!(!root.join("data/hulls/skins/new.skin").exists());
 
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "redo".to_string(),
-            changes: result.changes,
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Redo, result.changes).unwrap();
         let text = read_utf8_no_bom(&root.join("data/hulls/skins/new.skin")).unwrap();
         let _ = fs::remove_dir_all(root);
         assert!(text.contains("\"skinHullId\": \"new\""));
@@ -131,19 +140,15 @@ mod tests {
         )
         .unwrap();
 
-        let changes = delete_skin_entity(DeleteSkinEntityPayload {
-            mod_root: root.to_string_lossy().to_string(),
-            skin_hull_id: "demo".to_string(),
-            rel_path: "data/hulls/skins/demo.skin".to_string(),
-        })
+        let result = delete_skin_entity(
+            &root.to_string_lossy(),
+            "demo",
+            "data/hulls/skins/demo.skin",
+        )
         .unwrap();
 
         assert!(!root.join("data/hulls/skins/demo.skin").exists());
-        apply_file_change_set(ApplyFileChangeSetPayload {
-            direction: "undo".to_string(),
-            changes,
-        })
-        .unwrap();
+        apply_file_change_set(FileChangeReplayDirection::Undo, result.changes).unwrap();
         let text = read_utf8_no_bom(&root.join("data/hulls/skins/demo.skin")).unwrap();
         let _ = fs::remove_dir_all(root);
         assert!(text.contains("\"skinHullId\":\"demo\""));

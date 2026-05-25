@@ -1,4 +1,4 @@
-import { recordLogSilently } from '@/services/app-config.service';
+import { recordLogBestEffort } from '@/services/app-config.service';
 
 export interface PerformanceFields {
   [key: string]: number | string | boolean | null | undefined;
@@ -27,9 +27,11 @@ export function recordPerformance(name: string, ms: number, fields: PerformanceF
     .filter(([, value]) => value !== undefined && value !== null)
     .map(([key, value]) => `${key}=${sanitizePerformanceValue(String(value))}`)
     .join(' ');
-  recordLogSilently({
+  recordLogBestEffort({
     level: 'info',
     message: `PERF ${name} ms=${Math.round(ms)}${suffix ? ` ${suffix}` : ''}`,
+    path: null,
+    line: null,
   });
 }
 

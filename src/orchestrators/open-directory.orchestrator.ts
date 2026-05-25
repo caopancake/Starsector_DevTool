@@ -1,5 +1,6 @@
 import type { ModEntry, PersistedMod, ProjectManifest } from '@/shared/types';
 import { cell, formatModVersion } from '@/shared/lib/starsector';
+import { pathBasename } from '@/shared/lib/paths';
 import { useEditorsStore } from '@/stores/editors.store';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import { useProjectStore } from '@/stores/project.store';
@@ -10,16 +11,18 @@ import { detectWorkspaceDirectory, openProject } from '@/services/session.servic
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
 import { measurePerformance } from '@/services/performance.service';
 
-export interface OpenDirectoryOutcome {
-  type: 'game-overview' | 'mod-loaded' | 'unknown' | 'already-loaded';
-  modName?: string;
-  availableModCount?: number;
-  message?: string;
-  warnings?: string[];
-}
+export type OpenDirectoryOutcome =
+  | { type: 'game-overview'; availableModCount: number }
+  | { type: 'mod-loaded'; modName: string; warnings: string[] }
+  | { type: 'already-loaded'; modName: string }
+  | { type: 'unknown'; message: string };
 
-export async function openDetectedDirectory(path: string, fallbackStarsectorRoot: string | null): Promise<OpenDirectoryOutcome> {
-  const detected = await detectWorkspaceDirectory(path, fallbackStarsectorRoot);
+type LoadWorkspaceModResult =
+  | { alreadyLoaded: true; displayName: string }
+  | { alreadyLoaded: false; displayName: string; warnings: string[] };
+
+export async function openDetectedDirectory(path: string, knownStarsectorRoot: string | null): Promise<OpenDirectoryOutcome> {
+  const detected = await detectWorkspaceDirectory(path, knownStarsectorRoot);
   const workspace = useWorkspaceStore();
 
   if (detected.kind === 'game-root' && detected.overview) {
@@ -57,14 +60,14 @@ export async function loadModFromOverview(modRoot: string): Promise<OpenDirector
 }
 
 export async function restoreWorkspaceMod(mod: PersistedMod, starsectorRoot: string | null): Promise<ProjectManifest> {
-  const loaded = await loadProjectData(mod.modRoot, starsectorRoot);
+  const loaded = await openProjectManifest(mod.modRoot, starsectorRoot);
   measurePerformance('frontend.hydrateLoadedMod', { modRoot: mod.modRoot, activate: false }, () =>
     hydrateLoadedMod(mod.modRoot, loaded, false),
   );
   return loaded;
 }
 
-async function loadWorkspaceMod(modRoot: string, starsectorRoot: string | null, stayOnOverview: boolean) {
+async function loadWorkspaceMod(modRoot: string, starsectorRoot: string | null, stayOnOverview: boolean): Promise<LoadWorkspaceModResult> {
   const workspace = useWorkspaceStore();
   if (workspace.isModImported(modRoot)) {
     if (stayOnOverview) {
@@ -73,14 +76,14 @@ async function loadWorkspaceMod(modRoot: string, starsectorRoot: string | null, 
       workspace.setActiveMod(modRoot);
     }
     const entry = workspace.mods.get(modRoot);
-    return { alreadyLoaded: true, displayName: entry?.displayName ?? fallbackName(modRoot) };
+    return { alreadyLoaded: true, displayName: entry?.displayName ?? modFolderDisplayName(modRoot) };
   }
 
   workspace.registerMod(createLoadingEntry(modRoot));
   workspace.setActiveMod(modRoot);
 
   try {
-    const loaded = await loadProjectData(modRoot, starsectorRoot);
+    const loaded = await openProjectManifest(modRoot, starsectorRoot);
     const displayName = updateLoadedEntry(modRoot, loaded);
     measurePerformance('frontend.hydrateLoadedMod', { modRoot, activate: true }, () => hydrateLoadedMod(modRoot, loaded, true));
     if (stayOnOverview) workspace.navigateTo('overview');
@@ -91,7 +94,7 @@ async function loadWorkspaceMod(modRoot: string, starsectorRoot: string | null, 
   }
 }
 
-async function loadProjectData(modRoot: string, starsectorRoot: string | null): Promise<ProjectManifest> {
+async function openProjectManifest(modRoot: string, starsectorRoot: string | null): Promise<ProjectManifest> {
   const project = useProjectStore();
   project.setLoading(true);
   try {
@@ -118,7 +121,7 @@ function hydrateLoadedMod(modRoot: string, loaded: ProjectManifest, activate: bo
 
 function updateLoadedEntry(modRoot: string, loaded: ProjectManifest): string {
   const workspace = useWorkspaceStore();
-  const displayName = cell(loaded.modInfo?.name) || fallbackName(modRoot);
+  const displayName = cell(loaded.modInfo?.name) || modFolderDisplayName(modRoot);
   const version = formatModVersion(loaded.modInfo?.version) || '';
   workspace.updateModInfo(modRoot, displayName, version);
   workspace.updateModStatus(modRoot, 'ready');
@@ -144,12 +147,12 @@ function rollbackFailedModLoad(modRoot: string) {
 function createLoadingEntry(modRoot: string): ModEntry {
   return {
     modRoot,
-    displayName: fallbackName(modRoot),
+    displayName: modFolderDisplayName(modRoot),
     version: '',
     status: 'loading',
   };
 }
 
-function fallbackName(modRoot: string): string {
-  return modRoot.split(/[\\/]/).pop() || 'Mod';
+function modFolderDisplayName(modRoot: string): string {
+  return pathBasename(modRoot) || 'Mod';
 }

@@ -1,7 +1,7 @@
 use crate::{
     errors::{AppError, AppResult},
     io::{load_json_dir_by_id, read_csv_data},
-    models::{SkinFile, VariantFile, CSV_TABLES},
+    models::{CsvTableKey, SkinFile, VariantFile, CSV_TABLES},
 };
 use serde_json::Value;
 use std::{
@@ -26,7 +26,7 @@ pub(crate) fn core_cache_snapshot(starsector_root: &str) -> AppResult<CoreCache>
             ship_files: None,
             variant_files: None,
             skin_files: None,
-            wpn_files: None,
+            weapon_specs: None,
         })
         .clone())
 }
@@ -45,10 +45,11 @@ pub(crate) fn core_dir(starsector_root: &str) -> PathBuf {
 
 pub(crate) fn load_core_csv_table(
     starsector_root: &str,
-    table: &str,
+    table: CsvTableKey,
 ) -> AppResult<Option<SessionCsvTable>> {
+    let table_key = table.as_str();
     let mut cache = core_cache_snapshot(starsector_root)?;
-    if let Some(csv) = cache.csv_tables.get(table) {
+    if let Some(csv) = cache.csv_tables.get(table_key) {
         return Ok(Some(csv.clone()));
     }
     let Some(rel) = CSV_TABLES
@@ -71,7 +72,7 @@ pub(crate) fn load_core_csv_table(
                 .into_iter()
                 .enumerate()
                 .map(|(index, row)| SessionCsvRow {
-                    row_key: format!("core:{table}:row:{index}"),
+                    row_key: format!("core:{table_key}:row:{index}"),
                     row,
                 })
                 .collect(),
@@ -79,7 +80,7 @@ pub(crate) fn load_core_csv_table(
     };
     cache
         .csv_tables
-        .insert(table.to_string(), table_state.clone());
+        .insert(table_key.to_string(), table_state.clone());
     replace_core_cache(starsector_root, cache)?;
     Ok(Some(table_state))
 }
@@ -103,9 +104,9 @@ pub(crate) fn load_core_ship_files(starsector_root: &str) -> AppResult<BTreeMap<
     Ok(files)
 }
 
-pub(crate) fn load_core_weapon_files(starsector_root: &str) -> AppResult<BTreeMap<String, Value>> {
+pub(crate) fn load_core_weapon_specs(starsector_root: &str) -> AppResult<BTreeMap<String, Value>> {
     let mut cache = core_cache_snapshot(starsector_root)?;
-    if let Some(files) = cache.wpn_files.clone() {
+    if let Some(files) = cache.weapon_specs.clone() {
         return Ok(files);
     }
     let files = if core_dir(starsector_root).exists() {
@@ -113,7 +114,7 @@ pub(crate) fn load_core_weapon_files(starsector_root: &str) -> AppResult<BTreeMa
     } else {
         BTreeMap::new()
     };
-    cache.wpn_files = Some(files.clone());
+    cache.weapon_specs = Some(files.clone());
     replace_core_cache(starsector_root, cache)?;
     Ok(files)
 }
@@ -150,13 +151,13 @@ pub(crate) fn load_core_skin_files(starsector_root: &str) -> AppResult<Vec<SkinF
 
 pub(crate) fn load_core_source_data(
     starsector_root: &str,
-    table: &str,
+    table: CsvTableKey,
 ) -> AppResult<CoreSourceData> {
     let mut data = CoreSourceData::default();
     match table {
-        "ships" => data.ship_files = load_core_ship_files(starsector_root)?,
-        "weapons" => data.wpn_files = load_core_weapon_files(starsector_root)?,
-        "wings" => {
+        CsvTableKey::Ships => data.ship_files = load_core_ship_files(starsector_root)?,
+        CsvTableKey::Weapons => data.weapon_specs = load_core_weapon_specs(starsector_root)?,
+        CsvTableKey::Wings => {
             data.ship_files = load_core_ship_files(starsector_root)?;
             data.variant_files = load_core_variant_files(starsector_root)?;
         }

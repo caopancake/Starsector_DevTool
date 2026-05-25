@@ -62,8 +62,18 @@
           size="small"
           @update:value="emit('update', $event)"
         />
-        <n-input v-else-if="field.type === 'string-array'" :value="arrVal.join(', ')" size="small" @update:value="emitPlainStringArray" />
-        <n-input v-else-if="field.type === 'tag-select'" :value="tagSelectVal.join(', ')" size="small" @update:value="emitPlainTagSelect" />
+        <n-input
+          v-else-if="field.type === 'string-array'"
+          :value="formatSchemaCommaList(arrVal)"
+          size="small"
+          @update:value="emitPlainStringArray"
+        />
+        <n-input
+          v-else-if="field.type === 'tag-select'"
+          :value="formatSchemaCommaList(tagSelectVal)"
+          size="small"
+          @update:value="emitPlainTagSelect"
+        />
         <n-input
           v-else-if="field.type === 'key-value' || field.type === 'object' || field.type === 'array' || field.type === 'array-of-object'"
           :value="jsonVal"
@@ -245,7 +255,13 @@
               :is-nested="true"
               @update="updateKvValue(idx, $event)"
             />
-            <n-input v-else :value="formatKvVal(entry.val)" class="kv-value-input" size="small" @update:value="updateKvVal(idx, $event)" />
+            <n-input
+              v-else
+              :value="formatSchemaKeyValueText(entry.val)"
+              class="kv-value-input"
+              size="small"
+              @update:value="updateKvVal(idx, $event)"
+            />
             <n-button class="compact-icon-button" size="tiny" quaternary title="删除" @click="removeKvEntry(idx)">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M6 6l12 12M18 6 6 18" />
@@ -314,7 +330,7 @@
           <n-button size="tiny" @click="addArrayItem">+ 添加项</n-button>
         </div>
 
-        <!-- fallback: JSON textarea -->
+        <!-- default JSON textarea -->
         <n-input v-else :value="jsonVal" type="textarea" :autosize="{ minRows: 1, maxRows: 4 }" size="small" @update:value="emitParsed" />
       </template>
 
@@ -329,15 +345,40 @@
 import { computed, h, ref, watch } from 'vue';
 import { pickFileDialog } from '@/shared/runtime/dialog.runtime';
 import type { JsonValue, SchemaRuntimeContext } from '@/shared/types';
+import { normalizeRelPath, pathBelongsToRoot, relativePathFromRoot } from '@/shared/lib/paths';
 import type { FieldSchema } from '@/domain/schema/schema.types';
-import type { SelectOption } from '@/domain/schema/schema-registry';
+import {
+  appendSchemaKeyValueEntry,
+  flattenSelectOptions,
+  formatSchemaCommaList,
+  formatSchemaKeyValueText,
+  includeCurrentSelectOptions,
+  parseSchemaCommaList,
+  parseSchemaKeyValueText,
+  parseSchemaPlainBoolean,
+  parseSchemaPlainNumber,
+  schemaArrayStringValues,
+  schemaEnumSelectOptions,
+  schemaKeyValueEntries,
+  schemaKeyValueOutput,
+  schemaPathDisplayLabel,
+  schemaPlainBooleanText,
+  schemaSourceCurrentValues,
+  schemaSourceSelectOptions,
+  schemaStringValue,
+  schemaTagValues,
+  type SchemaKeyValueEntry,
+  selectOptionText,
+  type SelectOption,
+  wrapSchemaTagValues,
+} from '@/domain/schema/schema-registry';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import { useCoreGraphics } from '@/app/composables/use-core-graphics';
 import { useSettingsStore } from '@/stores/settings.store';
-import { queryTableSourceOptions } from '@/services/csv-table.service';
+import { isCsvSource } from '@/domain/tables/csv-source-options';
 
 const { graphicsPaths, loadGraphics } = useCoreGraphics();
-loadGraphics(); // Fire-and-forget, loads once and caches
+loadGraphics();
 
 const props = defineProps<{
   field: FieldSchema;
@@ -355,26 +396,18 @@ const plainMode = computed(() => settings.isPlainEditMode);
 
 // ─── Computed value converters ────────────────────────────────────────
 
-const strVal = computed(() => {
-  if (props.value == null) return '';
-  if (typeof props.value === 'object') return JSON.stringify(props.value);
-  return String(props.value);
-});
+const strVal = computed(() => schemaStringValue(props.value));
 const stringTextareaAutosize = { minRows: 1, maxRows: 6 };
 const stringInputType = computed(() => (strVal.value.includes('\n') || strVal.value.includes('\r') ? 'textarea' : 'text'));
 const stringInputAutosize = computed(() => (stringInputType.value === 'textarea' ? stringTextareaAutosize : undefined));
 
 const numVal = computed(() => (typeof props.value === 'number' ? props.value : parseFloat(String(props.value)) || 0));
 const plainNumberText = computed(() => (props.value === null || props.value === undefined ? '' : String(props.value)));
-const plainBooleanText = computed(() => {
-  if (props.value === true) return 'true';
-  if (props.value === false) return 'false';
-  return strVal.value;
-});
+const plainBooleanText = computed(() => schemaPlainBooleanText(props.value));
 
 const boolVal = computed(() => props.value === true);
 
-const arrVal = computed(() => (Array.isArray(props.value) ? props.value.map(String) : []));
+const arrVal = computed(() => schemaArrayStringValues(props.value));
 
 const jsonVal = computed(() => {
   if (props.value == null) return '';
@@ -386,80 +419,34 @@ const jsonVal = computed(() => {
 });
 
 // tag-select: value is { tags: string[] } or string[]
-const tagSelectVal = computed(() => {
-  const v = props.value;
-  if (Array.isArray(v)) return v.map(String);
-  if (v && typeof v === 'object' && 'tags' in (v as Record<string, unknown>)) {
-    const tags = (v as Record<string, unknown>).tags;
-    return Array.isArray(tags) ? tags.map(String) : [];
-  }
-  return [];
-});
+const tagSelectVal = computed(() => schemaTagValues(props.value));
 
 function wrapTags(tags: string[]): unknown {
-  // If original value was an object with tags, wrap back
-  const v = props.value;
-  if (v && typeof v === 'object' && !Array.isArray(v) && 'tags' in (v as Record<string, unknown>)) {
-    return { ...(v as Record<string, unknown>), tags };
-  }
-  return tags;
+  return wrapSchemaTagValues(props.value, tags);
 }
 
 function emitPlainNumber(raw: string, integer: boolean) {
-  const trimmed = raw.trim();
-  if (trimmed === '') {
-    emit('update', '');
-    return;
-  }
-  const parsed = integer ? parseInt(trimmed, 10) : Number(trimmed);
-  if (Number.isFinite(parsed)) {
-    emit('update', parsed);
-    return;
-  }
-  emit('update', raw);
+  emit('update', parseSchemaPlainNumber(raw, integer));
 }
 
 function emitPlainBoolean(raw: string) {
-  const normalized = raw.trim().toLowerCase();
-  if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) {
-    emit('update', true);
-    return;
-  }
-  if (['false', '0', 'no', 'n', 'off'].includes(normalized)) {
-    emit('update', false);
-    return;
-  }
-  emit('update', raw);
+  emit('update', parseSchemaPlainBoolean(raw));
 }
 
 function emitPlainStringArray(raw: string) {
-  emit(
-    'update',
-    raw
-      .split(',')
-      .map((part) => part.trim())
-      .filter(Boolean),
-  );
+  emit('update', parseSchemaCommaList(raw));
 }
 
 function emitPlainTagSelect(raw: string) {
-  const tags = raw
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean);
-  const v = props.value;
-  if (v && typeof v === 'object' && !Array.isArray(v) && 'tags' in (v as Record<string, unknown>)) {
-    emit('update', { ...(v as Record<string, unknown>), tags });
-    return;
-  }
-  emit('update', tags);
+  emit('update', wrapSchemaTagValues(props.value, parseSchemaCommaList(raw)));
 }
 
 // ─── Source / enum options ────────────────────────────────────────────
 
 const loadedSourceOptions = ref<SelectOption[]>([]);
 const sourceOptions = computed<SelectOption[]>(() => loadedSourceOptions.value);
-const isReferenceKeyValue = computed(() => props.field.type === 'key-value' && props.field.source?.startsWith('csv:'));
+const isReferenceKeyValue = computed(() => props.field.type === 'key-value' && isCsvSource(props.field.source));
+const sourceCurrentValues = computed(() => schemaSourceCurrentValues(props.field, props.value));
 const selectOpen = ref(false);
 const suppressNextSelectOpen = ref(false);
 const kvSelectOpen = ref<Record<number, boolean>>({});
@@ -470,66 +457,40 @@ const hasSprites = computed(() => optionsContainSprites(sourceOptions.value));
 
 // Render label with optional thumbnail for n-select options
 function renderSelectLabel(option: SelectOption & { label?: string; value?: string }) {
-  if (!option.sprite) return option.label ?? option.value ?? '';
+  if (!option.sprite) return selectOptionText(option);
   return h('span', { class: 'schema-select-option' }, [
     h('img', {
       src: option.sprite,
       class: 'schema-select-option-thumb',
     }),
-    h('span', { class: 'schema-select-option-label' }, option.label ?? option.value ?? ''),
+    h('span', { class: 'schema-select-option-label' }, selectOptionText(option)),
   ]);
 }
 
 function optionsContainSprites(options: SelectOption[]): boolean {
-  return options.some((option) => Boolean(option.sprite) || Boolean(option.children?.some((child) => child.sprite)));
+  return flattenSelectOptions(options).some((option) => Boolean(option.sprite));
 }
 
 const enumOptions = computed(() => {
-  if (props.field.options && props.field.options.length > 0) {
-    return props.field.options.map((o) => ({ label: o, value: o }));
-  }
-  return sourceOptions.value;
+  return schemaEnumSelectOptions(props.field, sourceOptions.value);
 });
 
 watch(
-  () =>
-    [
-      props.runtimeContext?.sessionId ?? '',
-      props.field.source ?? '',
-      strVal.value,
-      arrVal.value.join(','),
-      tagSelectVal.value.join(','),
-    ] as const,
+  () => [props.runtimeContext?.sessionId ?? null, props.field.source ?? null, sourceCurrentValues.value.join(',')] as const,
   async ([sessionId, source]) => {
-    if (!sessionId || !source?.startsWith('csv:')) {
+    if (!sessionId || !source || !isCsvSource(source)) {
       loadedSourceOptions.value = [];
       return;
     }
-    const currentValues = currentSourceValues();
-    const groups = await queryTableSourceOptions(sessionId, source, currentValues, undefined, 500);
-    loadedSourceOptions.value = groups.map((group) => ({
-      type: 'group',
-      label: group.label,
-      value: group.label,
-      children: group.options.map((option) => ({
-        label: option.label,
-        value: option.value,
-        sprite: option.sprite ?? undefined,
-        resourceRef: option.resourceRef ?? null,
-      })),
-    }));
+    const groups = await props.runtimeContext?.querySourceOptions?.(source, sourceCurrentValues.value, undefined, 500);
+    if (!groups) {
+      loadedSourceOptions.value = [];
+      return;
+    }
+    loadedSourceOptions.value = schemaSourceSelectOptions(groups);
   },
   { immediate: true },
 );
-
-function currentSourceValues(): string[] {
-  if (props.field.type === 'string-array') return arrVal.value;
-  if (props.field.type === 'tag-select') return tagSelectVal.value;
-  if (props.field.type === 'key-value' && props.value && typeof props.value === 'object' && !Array.isArray(props.value)) {
-    return Object.keys(props.value as Record<string, unknown>);
-  }
-  return strVal.value ? [strVal.value] : [];
-}
 
 // ─── path-image graphics options ─────────────────────────────────────
 
@@ -541,7 +502,7 @@ const graphicsOptions = computed(() => {
   for (const path of graphicsPaths.value) {
     if (!seen.has(path)) {
       seen.add(path);
-      options.push({ label: path.split('/').pop() ?? path, value: path });
+      options.push({ label: schemaPathDisplayLabel(path), value: path });
     }
   }
 
@@ -550,26 +511,18 @@ const graphicsOptions = computed(() => {
 
 function renderGraphicsLabel(option: SelectOption & { label?: string; value?: string }) {
   const path = option.value ?? '';
-  const filename = path.split('/').pop() ?? path;
+  const filename = schemaPathDisplayLabel(path);
   return h('span', { title: path, class: 'schema-select-option-label' }, filename);
 }
 
 // For key-value fields: merge source options with existing keys as candidates
 const kvKeyOptions = computed(() => {
   const source = sourceOptions.value;
-  const existing: SelectOption[] = [];
-  for (const entry of kvEntries.value) {
-    if (entry.key && !optionValueExists(source, entry.key) && !existing.some((option) => option.value === entry.key)) {
-      existing.push({ label: entry.key, value: entry.key });
-    }
-  }
-  if (existing.length === 0) return source;
-  return [{ type: 'group' as const, label: '当前值', value: '__existing', children: existing }, ...source];
+  return includeCurrentSelectOptions(
+    source,
+    kvEntries.value.map((entry) => entry.key),
+  );
 });
-
-function optionValueExists(options: SelectOption[], value: string): boolean {
-  return options.some((option) => option.value === value || Boolean(option.children?.some((child) => child.value === value)));
-}
 
 // ─── Nested object helpers ────────────────────────────────────────────
 
@@ -621,55 +574,10 @@ function removeArrayItem(idx: number) {
 
 // ─── Key-value helpers ────────────────────────────────────────────────
 
-interface KvEntry {
-  key: string;
-  val: unknown;
-}
+const kvEntries = computed<SchemaKeyValueEntry[]>(() => schemaKeyValueEntries(props.value, props.field.format));
 
-const kvEntries = computed<KvEntry[]>(() => {
-  if (props.field.format === 'array-of-entries' && Array.isArray(props.value)) {
-    return (props.value as Record<string, unknown>[]).map((item) => {
-      if (item && typeof item === 'object' && !Array.isArray(item)) {
-        const keys = Object.keys(item);
-        if (keys.length > 0) {
-          return { key: keys[0], val: item[keys[0]] };
-        }
-      }
-      return { key: '', val: '' };
-    });
-  }
-  if (props.value && typeof props.value === 'object' && !Array.isArray(props.value)) {
-    return Object.entries(props.value as Record<string, unknown>).map(([key, val]) => ({ key, val }));
-  }
-  return [];
-});
-
-function rebuildKvObject(entries: KvEntry[]): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const e of entries) {
-    if (e.key) {
-      if (typeof e.val === 'object' && e.val !== null) {
-        result[e.key] = e.val;
-      } else {
-        const str = String(e.val);
-        const num = Number(str);
-        result[e.key] = !isNaN(num) && str.trim() !== '' ? num : e.val;
-      }
-    }
-  }
-  return result;
-}
-
-function rebuildKvArray(entries: KvEntry[]): Record<string, unknown>[] {
-  return entries.filter((e) => e.key).map((e) => ({ [e.key]: e.val }));
-}
-
-function emitKvUpdate(entries: KvEntry[]) {
-  if (props.field.format === 'array-of-entries') {
-    emit('update', rebuildKvArray(entries));
-  } else {
-    emit('update', rebuildKvObject(entries));
-  }
+function emitKvUpdate(entries: SchemaKeyValueEntry[]) {
+  emit('update', schemaKeyValueOutput(entries, props.field.format));
 }
 
 function updateKvKey(idx: number, newKey: string) {
@@ -680,16 +588,7 @@ function updateKvKey(idx: number, newKey: string) {
 
 function updateKvVal(idx: number, newVal: string) {
   const entries = [...kvEntries.value];
-  let parsed: unknown = newVal;
-  const trimmed = newVal.trim();
-  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-    try {
-      parsed = JSON.parse(trimmed);
-    } catch {
-      // Keep as string
-    }
-  }
-  entries[idx] = { ...entries[idx], val: parsed };
+  entries[idx] = { ...entries[idx], val: parseSchemaKeyValueText(newVal) };
   emitKvUpdate(entries);
 }
 
@@ -713,25 +612,7 @@ function removeKvEntry(idx: number) {
 }
 
 function addKvEntry() {
-  if (props.field.format === 'array-of-entries') {
-    const current = Array.isArray(props.value) ? (props.value as Record<string, unknown>[]) : [];
-    let newKey = 'WS 000';
-    let i = 1;
-    const existingKeys = new Set(kvEntries.value.map((e) => e.key));
-    while (existingKeys.has(newKey)) {
-      newKey = `WS ${String(i++).padStart(3, '0')}`;
-    }
-    emit('update', [...current, { [newKey]: '' }]);
-  } else {
-    const current =
-      props.value && typeof props.value === 'object' && !Array.isArray(props.value) ? (props.value as Record<string, unknown>) : {};
-    let newKey = 'newField';
-    let i = 1;
-    while (newKey in current) {
-      newKey = `newField${i++}`;
-    }
-    emit('update', { ...current, [newKey]: '' });
-  }
+  emit('update', appendSchemaKeyValueEntry(kvEntries.value, props.field.format));
 }
 
 // ─── Generic array helpers ────────────────────────────────────────────
@@ -782,14 +663,6 @@ function emitStringOrObject(raw: string) {
   emit('update', raw);
 }
 
-// ─── Key-value value formatter (handles nested objects) ──────────────
-
-function formatKvVal(val: unknown): string {
-  if (val === null || val === undefined) return '';
-  if (typeof val === 'object') return JSON.stringify(val);
-  return String(val);
-}
-
 // ─── File picker for path / path-image fields ────────────────────────
 
 async function pickFile() {
@@ -803,16 +676,10 @@ async function pickFile() {
 
   if (!selected || typeof selected !== 'string') return;
 
-  // Calculate relative path from mod root
-  const normalized = selected.replace(/\\/g, '/');
-  const normalizedRoot = modRoot.replace(/\\/g, '/').replace(/\/$/, '');
-
-  if (normalized.startsWith(normalizedRoot + '/')) {
-    // File is inside mod directory — use relative path
-    emit('update', normalized.slice(normalizedRoot.length + 1));
+  if (pathBelongsToRoot(selected, modRoot)) {
+    emit('update', relativePathFromRoot(modRoot, selected));
   } else {
-    // File is outside mod directory — use as-is (absolute or relative to game root)
-    emit('update', normalized);
+    emit('update', normalizeRelPath(selected));
   }
 }
 

@@ -1,21 +1,33 @@
 use crate::{
-    models::{UploadSpritePayload, UploadSpriteResult},
+    models::{
+        command_payloads::{CoreScanPayload, UploadSpritePayload},
+        DiscoveredField, WriteResult,
+    },
     services,
 };
 use serde_json::Value;
 use std::collections::BTreeMap;
 
 #[tauri::command]
-pub fn upload_sprite(payload: UploadSpritePayload) -> Result<UploadSpriteResult, String> {
-    services::config::upload_sprite(payload).map_err(|e| e.to_string())
+pub fn upload_sprite(payload: UploadSpritePayload) -> Result<WriteResult<Value>, String> {
+    services::config::upload_sprite(
+        &payload.mod_root,
+        &payload.filename,
+        payload.data,
+        payload.subfolder,
+        payload.overwrite,
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn scan_core_fields(starsector_root: String) -> BTreeMap<String, Vec<Value>> {
-    services::config::scan_core_fields(&starsector_root)
+pub fn scan_core_fields(
+    payload: CoreScanPayload,
+) -> Result<BTreeMap<String, Vec<DiscoveredField>>, String> {
+    services::config::scan_core_fields(&payload.starsector_root).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn scan_core_graphics(starsector_root: String) -> Vec<String> {
-    services::config::scan_core_graphics(&starsector_root)
+pub fn scan_core_graphics(payload: CoreScanPayload) -> Result<Vec<String>, String> {
+    services::config::scan_core_graphics(&payload.starsector_root).map_err(|e| e.to_string())
 }

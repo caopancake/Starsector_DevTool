@@ -5,7 +5,7 @@ import type { MessageApiInjection } from 'naive-ui/es/message/src/MessageProvide
 import { extractFileReferenceFromError, formatError } from '@/shared/lib/errors';
 import type { AppFeedback, ConfirmOptions } from '@/shared/types/feedback.types';
 import { openFileEditorWindow } from '@/windows/file-editor.window';
-import { recordLogSilently } from '@/services/app-config.service';
+import { recordLogBestEffort } from '@/services/app-config.service';
 import { useSettingsStore } from '@/stores/settings.store';
 
 export function createAppFeedback(message: MessageApiInjection, dialog: DialogApiInjection): AppFeedback {
@@ -13,10 +13,10 @@ export function createAppFeedback(message: MessageApiInjection, dialog: DialogAp
     success: (text) => message.success(text),
     info: (text) => message.info(text),
     warning: (text) => {
-      recordLogSilently({ level: 'warning', message: text });
+      recordLogBestEffort({ level: 'warning', message: text, path: null, line: null });
       message.warning(text);
     },
-    error: (error, fallback) => showError(message, error, fallback),
+    error: (error, contextMessage) => showError(message, error, contextMessage),
     confirmDanger: (options) => showConfirm(dialog, 'error', options),
     confirmWarning: (options) => showConfirm(dialog, 'warning', options),
   };
@@ -32,14 +32,14 @@ function showConfirm(dialog: DialogApiInjection, type: 'error' | 'warning', opti
   });
 }
 
-function showError(message: MessageApiInjection, error: unknown, fallback?: string) {
-  const text = fallback ? `${fallback}：${formatError(error)}` : formatError(error);
+function showError(message: MessageApiInjection, error: unknown, contextMessage?: string) {
+  const text = contextMessage ? `${contextMessage}：${formatError(error)}` : formatError(error);
   const reference = extractFileReferenceFromError(error) ?? extractFileReferenceFromError(text);
-  recordLogSilently({
+  recordLogBestEffort({
     level: 'error',
     message: text,
-    path: reference?.path,
-    line: reference?.line,
+    path: reference?.path ?? null,
+    line: reference?.line ?? null,
   });
   if (!reference) {
     message.error(text);

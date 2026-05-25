@@ -1,44 +1,62 @@
 import { computed, ref } from 'vue';
-import type { EditorWindowKind } from '@/windows/editor.window';
+import type { EditorSpecSavedEvent } from '@/windows/editor.window';
+import type { UnlistenFn } from '@/windows/tauri.events';
 import { queryEditorEntityBundle, type EditorEntityBundle } from '@/services/editor.service';
-import type { RowData } from '@/shared/types';
-import type { FileChangeRecord } from '@/shared/api/write-api';
-import { defaultWeapon } from '@/shared/lib/starsector';
+import type { EditorSpecKind, EditorWindowKind, RowData } from '@/shared/types';
+import { deepClone, defaultWeapon } from '@/shared/lib/starsector';
 import { formatError } from '@/shared/lib/errors';
-import {
-  saveProjectileSpecWithUserAction,
-  saveShipSpecWithUserAction,
-  saveWeaponSpecWithUserAction,
-} from '@/orchestrators/editor-save.orchestrator';
+import { emitEditorSpecSaved, listenEditorSpecSaved } from '@/orchestrators/editor-window.orchestrator';
+import { saveEditorSpecByKind } from '@/services/editor.service';
+import { editorMissingTargetText } from '@/domain/editors/editor-kind-metadata';
 
-export function useEditorWindowViewModel(params: { sessionId: string; modRoot: string; id: string; kind: EditorWindowKind }) {
+interface EditorWindowTarget {
+  id: string;
+  modRoot: string;
+  sessionId: string;
+}
+
+export function useEditorWindowViewModel(params: {
+  sessionId: string | null;
+  modRoot: string | null;
+  id: string | null;
+  kind: EditorWindowKind;
+}) {
   const editorData = ref<EditorEntityBundle | null>(null);
   const loading = ref(true);
   const errorText = ref('');
+  let unlistenEditorSpecSaved: UnlistenFn | null = null;
 
-  const weaponForEditor = computed<RowData>(() => {
+  const shipEditorData = computed(() => (editorData.value?.kind === 'ship' ? editorData.value : null));
+  const weaponEditorData = computed(() => (editorData.value?.kind === 'weapon' ? editorData.value : null));
+  const projectileEditorData = computed(() => (editorData.value?.kind === 'projectile' ? editorData.value : null));
+  const weaponPreviewData = computed(() => (editorData.value?.kind === 'weapon-preview' ? editorData.value : null));
+  const weaponLikeEditorData = computed(() => {
     const data = editorData.value;
-    if (!data) return {};
-    return data.weaponFiles[params.id] || defaultWeapon(params.id, data.weaponRow);
+    return data?.kind === 'weapon' || data?.kind === 'weapon-preview' ? data : null;
   });
-  const shipSpriteForEditor = computed(() => editorData.value?.shipSpriteData ?? '');
+  const weaponForEditor = computed<RowData>(() => {
+    const data = weaponLikeEditorData.value;
+    const target = editorWindowTarget();
+    if (!data || !target) return {};
+    return Object.keys(data.weapon).length > 0 ? data.weapon : defaultWeapon(target.id, data.weaponCsvRow);
+  });
+  const shipSpriteForEditor = computed(() => shipEditorData.value?.shipSpriteData ?? '');
 
   const missingEditorText = computed(() => {
-    if (!params.modRoot || !params.id) return '缺少 Mod 路径或目标 id。';
-    if (params.kind === 'ship') return `找不到 ${params.id}.ship。`;
-    if (params.kind === 'weapon') return `找不到 ${params.id}.wpn。`;
-    if (params.kind === 'projectile') return `找不到 ${params.id}.proj。`;
-    return `找不到 ${params.id} 的预览数据。`;
+    const target = editorWindowTarget();
+    if (!target) return '缺少 Mod 路径或目标 id。';
+    return editorMissingTargetText(params.kind, target.id);
   });
 
   async function queryEditorData() {
-    if (!params.sessionId || !params.modRoot || !params.id) {
+    const target = editorWindowTarget();
+    if (!target) {
       errorText.value = '缺少 Mod 路径或目标 id。';
       loading.value = false;
       return;
     }
     try {
-      editorData.value = await queryEditorEntityBundle(params.sessionId, params.kind, params.id);
+      editorData.value = await queryEditorEntityBundle(target.sessionId, params.kind, target.id);
     } catch (error) {
       errorText.value = formatError(error);
     } finally {
@@ -46,20 +64,77 @@ export function useEditorWindowViewModel(params: { sessionId: string; modRoot: s
     }
   }
 
-  function saveEditorSpec(kind: Extract<EditorWindowKind, 'ship' | 'weapon' | 'projectile'>, data: RowData): Promise<FileChangeRecord[]> {
-    if (kind === 'ship') return saveShipSpecWithUserAction(params.modRoot, params.id, data);
-    if (kind === 'weapon') return saveWeaponSpecWithUserAction(params.modRoot, params.id, data);
-    return saveProjectileSpecWithUserAction(params.modRoot, params.id, data);
+  async function saveEditorData(kind: EditorSpecKind, data: RowData): Promise<void> {
+    const target = editorWindowTarget();
+    if (!target) return;
+    const result = await saveEditorSpecByKind(target.modRoot, kind, target.id, data);
+    applySavedSpec(kind, target.id, data);
+    await emitEditorSpecSaved({ kind, modRoot: target.modRoot, id: target.id, spec: deepClone(data), writeResult: result });
+  }
+
+  async function initializeEditorWindow() {
+    unlistenEditorSpecSaved = await listenEditorSpecSaved(handleEditorSpecSaved);
+    void queryEditorData();
+  }
+
+  function disposeEditorWindow() {
+    unlistenEditorSpecSaved?.();
+    unlistenEditorSpecSaved = null;
+  }
+
+  function handleEditorSpecSaved(event: EditorSpecSavedEvent) {
+    const target = editorWindowTarget();
+    if (!target || event.modRoot !== target.modRoot || !editorData.value) return;
+    if (!shouldApplySavedSpec(editorData.value, target, event)) return;
+    applySavedSpec(event.kind, event.id, event.spec);
+  }
+
+  function applySavedSpec(kind: EditorSpecKind, id: string, data: RowData) {
+    if (!editorData.value) return;
+    const spec = deepClone(data);
+    editorData.value = applySavedSpecToBundle(editorData.value, kind, id, spec);
+  }
+
+  function editorWindowTarget(): EditorWindowTarget | null {
+    if (!params.sessionId || !params.modRoot || !params.id) return null;
+    return { sessionId: params.sessionId, modRoot: params.modRoot, id: params.id };
   }
 
   return {
     editorData,
+    shipEditorData,
+    weaponEditorData,
+    projectileEditorData,
+    weaponPreviewData,
     loading,
     errorText,
     weaponForEditor,
     shipSpriteForEditor,
     missingEditorText,
-    queryEditorData,
-    saveEditorSpec,
+    initializeEditorWindow,
+    disposeEditorWindow,
+    saveEditorData,
   };
+}
+
+function shouldApplySavedSpec(bundle: EditorEntityBundle, target: EditorWindowTarget, event: EditorSpecSavedEvent): boolean {
+  if (event.kind === 'ship') return bundle.kind === 'ship' && event.id === target.id;
+  if (event.kind === 'weapon') return (bundle.kind === 'weapon' || bundle.kind === 'weapon-preview') && event.id === target.id;
+  if (event.kind === 'projectile') {
+    if (bundle.kind === 'projectile') return event.id === target.id;
+    if (bundle.kind === 'weapon' || bundle.kind === 'weapon-preview') return event.id in bundle.projectileSpecs;
+  }
+  return false;
+}
+
+function applySavedSpecToBundle(bundle: EditorEntityBundle, kind: EditorSpecKind, id: string, spec: RowData): EditorEntityBundle {
+  if (kind === 'ship' && bundle.kind === 'ship') return { ...bundle, ship: spec };
+  if (kind === 'weapon' && (bundle.kind === 'weapon' || bundle.kind === 'weapon-preview')) return { ...bundle, weapon: spec };
+  if (kind === 'projectile' && bundle.kind === 'projectile') {
+    return { ...bundle, projectile: spec, projectileSpecs: { ...bundle.projectileSpecs, [id]: spec } };
+  }
+  if (kind === 'projectile' && (bundle.kind === 'weapon' || bundle.kind === 'weapon-preview')) {
+    return { ...bundle, projectileSpecs: { ...bundle.projectileSpecs, [id]: spec } };
+  }
+  return bundle;
 }

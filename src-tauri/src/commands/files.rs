@@ -1,32 +1,27 @@
 use crate::{
-    models::{
-        ApplyFileChangeSetPayload, EditableFileData, FileChangeRecord, SaveJsonWithHistoryPayload,
-        SaveModFilesWithHistoryPayload, SaveTextFileWithHistoryPayload,
+    models::command_payloads::{
+        ApplyFileChangeSetPayload, LoadEditableFilePayload, SaveEditorSpecPayload,
+        SaveModFilesPayload, SaveTextFilePayload,
     },
+    models::{EditableFileData, WriteResult},
     services,
 };
 
 #[tauri::command]
-pub fn load_editable_file(path: String) -> Result<EditableFileData, String> {
-    services::file_changes::load_editable_file(path).map_err(|e| e.to_string())
+pub fn load_editable_file(payload: LoadEditableFilePayload) -> Result<EditableFileData, String> {
+    services::file_changes::load_editable_file(payload.path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn save_text_file_with_history(
-    payload: SaveTextFileWithHistoryPayload,
-) -> Result<Vec<FileChangeRecord>, String> {
+pub fn save_text_file(payload: SaveTextFilePayload) -> Result<WriteResult, String> {
     services::file_changes::save_text_file(&payload.path, payload.text).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn save_json_with_history(
-    payload: SaveJsonWithHistoryPayload,
-) -> Result<Vec<FileChangeRecord>, String> {
-    services::editor_specs::save_json_spec(
+pub fn save_editor_spec(payload: SaveEditorSpecPayload) -> Result<WriteResult, String> {
+    services::editor_specs::save_editor_spec(
         &payload.mod_root,
-        &payload.rel_dir,
-        &payload.ext,
-        &payload.id_key,
+        payload.kind,
         &payload.id,
         payload.data,
     )
@@ -34,14 +29,13 @@ pub fn save_json_with_history(
 }
 
 #[tauri::command]
-pub fn save_mod_files_with_history(
-    payload: SaveModFilesWithHistoryPayload,
-) -> Result<Vec<FileChangeRecord>, String> {
+pub fn save_mod_files(payload: SaveModFilesPayload) -> Result<WriteResult, String> {
     services::file_changes::save_mod_files(&payload.mod_root, payload.files)
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn apply_file_change_set(payload: ApplyFileChangeSetPayload) -> Result<(), String> {
-    services::file_changes::apply_file_change_set(payload).map_err(|e| e.to_string())
+pub fn apply_file_change_set(payload: ApplyFileChangeSetPayload) -> Result<WriteResult, String> {
+    services::file_changes::apply_file_change_set(payload.direction, payload.changes)
+        .map_err(|e| e.to_string())
 }

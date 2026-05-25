@@ -6,5 +6,5 @@ export function loadWorkspace(): Promise<PersistedWorkspace> {
 }
 
 export function saveWorkspace(state: PersistedWorkspace): Promise<void> {
-  return invoke('save_workspace', { state });
+  return invoke('save_workspace', { payload: { state } });
 }

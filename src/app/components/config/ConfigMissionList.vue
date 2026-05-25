@@ -49,58 +49,40 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref, watch } from 'vue';
+import { h, onMounted, ref, watch } from 'vue';
 import { NCheckbox } from 'naive-ui';
-import { useProjectStore } from '@/stores/project.store';
-import type { JsonValue, RowData } from '@/shared/types';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 
 const props = defineProps<{
-  selectedId: string;
+  selectedId: string | null;
   refreshToken: number;
-  missionRows: RowData[];
+  missions: Array<{ id: string }>;
   missionIcons: Record<string, string>;
-  modRoot: string | null;
-  sessionId: string | null;
-  queryMissions: () => Promise<void>;
+  refreshMissionList: () => Promise<void>;
   createMission: (id: string) => Promise<boolean>;
   deleteMission: (id: string, deleteDirectory: boolean) => Promise<boolean>;
+  missionExists: (id: string) => boolean;
+  isValidMissionId: (id: string) => boolean;
 }>();
-const emit = defineEmits<{ select: [missionId: string] }>();
+const emit = defineEmits<{ select: [missionId: string | null] }>();
 
-const project = useProjectStore();
 const feedback = useAppFeedback();
 
 const showCreateDialog = ref(false);
 const newMissionId = ref('');
 const deleteMissionDirectory = ref(false);
-const pendingDeleteMission = ref('');
-
-const missions = computed(() =>
-  props.missionRows
-    .map((row) => missionId(row))
-    .filter(Boolean)
-    .map((id) => ({ id })),
-);
-
-function cellValue(value: JsonValue | undefined): string {
-  return value === null || value === undefined ? '' : String(value);
-}
-
-function missionId(row: RowData): string {
-  return cellValue(row.mission).trim();
-}
+const pendingDeleteMission = ref<string | null>(null);
 
 function missionIcon(id: string): string {
   return props.missionIcons[id] ?? '';
 }
 
-async function loadFileList() {
+async function refreshList() {
   try {
-    await props.queryMissions();
-    syncMissionCount();
-    if (!props.selectedId && missions.value[0]) emit('select', missions.value[0].id);
-    if (props.selectedId && !missions.value.some((mission) => mission.id === props.selectedId)) emit('select', missions.value[0]?.id ?? '');
+    await props.refreshMissionList();
+    if (!props.selectedId && props.missions[0]) emit('select', props.missions[0].id);
+    if (props.selectedId && !props.missions.some((mission) => mission.id === props.selectedId))
+      emit('select', props.missions[0]?.id ?? null);
   } catch (error) {
     feedback.error(error, '加载战役列表失败');
   }
@@ -117,19 +99,18 @@ async function doCreateMission() {
     feedback.warning('战役 ID 不能为空');
     return false;
   }
-  if (!isValidMissionId(id)) {
+  if (!props.isValidMissionId(id)) {
     feedback.error('战役 ID 不能包含路径分隔符或 ..');
     return false;
   }
-  if (missions.value.some((mission) => mission.id === id)) {
+  if (props.missionExists(id)) {
     feedback.warning(`战役 "${id}" 已存在`);
     return false;
   }
   try {
     if (!(await props.createMission(id))) return false;
-    syncMissionCount();
     showCreateDialog.value = false;
-    await loadFileList();
+    await refreshList();
     emit('select', id);
   } catch (error) {
     feedback.error(error, '创建战役失败');
@@ -167,43 +148,21 @@ async function deletePendingMission() {
   try {
     const deleted = pendingDeleteMission.value;
     await props.deleteMission(deleted, deleteMissionDirectory.value);
-    await loadFileList();
-    pendingDeleteMission.value = '';
-    const nextId = missions.value[0]?.id ?? '';
+    await refreshList();
+    pendingDeleteMission.value = null;
+    const nextId = props.missions[0]?.id ?? null;
     if (props.selectedId === deleted) emit('select', nextId);
   } catch (error) {
     feedback.error(error, '删除战役失败');
   }
 }
 
-function syncMissionCount() {
-  const manifest = project.activeManifest;
-  if (!manifest) return;
-  project.updateManifest(manifest.modRoot, {
-    entitySummaries: {
-      ...manifest.entitySummaries,
-      missions: missions.value.length,
-    },
-  });
-}
-
-function isValidMissionId(id: string): boolean {
-  return id.length > 0 && !id.includes('/') && !id.includes('\\') && id !== '.' && id !== '..' && !id.includes('..');
-}
-
 onMounted(() => {
-  loadFileList();
+  refreshList();
 });
 
 watch(
-  () => project.activeModRoot,
-  () => {
-    loadFileList();
-  },
-);
-
-watch(
   () => props.refreshToken,
-  () => loadFileList(),
+  () => refreshList(),
 );
 </script>

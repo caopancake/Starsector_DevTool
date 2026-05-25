@@ -36,11 +36,11 @@
             <n-collapse-item title="基础属性" name="basic">
               <div class="form-grid">
                 <label>id</label><n-input :value="weaponId" disabled /> <label>specClass</label
-                ><n-select v-model:value="localWeapon.specClass" :options="opts(['projectile', 'beam'])" /> <label>type</label
+                ><n-select v-model:value="localWeapon.specClass" :options="toOptions(['projectile', 'beam'])" /> <label>type</label
                 ><n-select
                   v-model:value="localWeapon.type"
                   :options="
-                    opts([
+                    toOptions([
                       'BALLISTIC',
                       'ENERGY',
                       'MISSILE',
@@ -54,7 +54,7 @@
                     ])
                   "
                 />
-                <label>size</label><n-select v-model:value="localWeapon.size" :options="opts(['SMALL', 'MEDIUM', 'LARGE'])" />
+                <label>size</label><n-select v-model:value="localWeapon.size" :options="toOptions(['SMALL', 'MEDIUM', 'LARGE'])" />
               </div>
             </n-collapse-item>
             <n-collapse-item title="炮塔贴图" name="turretSprites">
@@ -128,7 +128,7 @@
                   <span>[{{ offsetsFor('turret')[i * 2] }}, {{ offsetsFor('turret')[i * 2 + 1] }}] {{ anglesFor('turret')[i] || 0 }}°</span>
                 </button>
               </div>
-              <div v-if="viewMode === 'turret' && selected >= 0" class="form-grid">
+              <div v-if="viewMode === 'turret' && selected !== null" class="form-grid">
                 <label>X</label><n-input-number :value="offsets[selected * 2]" @update:value="setOffset(0, $event)" /> <label>Y</label
                 ><n-input-number :value="offsets[selected * 2 + 1]" @update:value="setOffset(1, $event)" /> <label>角度偏移</label
                 ><n-input-number :value="angles[selected] || 0" @update:value="setAngle($event)" />
@@ -154,7 +154,7 @@
                   >
                 </button>
               </div>
-              <div v-if="viewMode === 'hardpoint' && selected >= 0" class="form-grid">
+              <div v-if="viewMode === 'hardpoint' && selected !== null" class="form-grid">
                 <label>X</label><n-input-number :value="offsets[selected * 2]" @update:value="setOffset(0, $event)" /> <label>Y</label
                 ><n-input-number :value="offsets[selected * 2 + 1]" @update:value="setOffset(1, $event)" /> <label>角度偏移</label
                 ><n-input-number :value="angles[selected] || 0" @update:value="setAngle($event)" />
@@ -166,7 +166,7 @@
             </n-collapse-item>
             <n-collapse-item title="发射模式" name="barrelMode">
               <div class="form-grid">
-                <label>barrelMode</label><n-select v-model:value="localWeapon.barrelMode" :options="opts(['ALTERNATING', 'LINKED'])" />
+                <label>barrelMode</label><n-select v-model:value="localWeapon.barrelMode" :options="toOptions(['ALTERNATING', 'LINKED'])" />
               </div>
             </n-collapse-item>
             <n-collapse-item v-if="localWeapon.specClass === 'projectile'" title="动画" name="anim">
@@ -174,7 +174,7 @@
                 <label>animationType</label
                 ><n-select
                   v-model:value="localWeapon.animationType"
-                  :options="opts(['NONE', 'MUZZLE_FLASH', 'SMOKE', 'GLOW_AND_FLASH', 'GLOW'])"
+                  :options="toOptions(['NONE', 'MUZZLE_FLASH', 'SMOKE', 'GLOW_AND_FLASH', 'GLOW'])"
                 />
                 <label>visualRecoil</label><n-input-number v-model:value="localWeapon.visualRecoil" />
               </div>
@@ -197,7 +197,7 @@
               <ColorPicker label="glowColor" v-model="glowColor" />
               <div class="form-grid">
                 <label>width</label><n-input-number v-model:value="localWeapon.width" /> <label>textureType</label
-                ><n-select :options="opts(['ROUGH', 'SMOOTH', 'NONE'])" v-model:value="localWeapon.textureType" />
+                ><n-select :options="toOptions(['ROUGH', 'SMOOTH', 'NONE'])" v-model:value="localWeapon.textureType" />
                 <label>textureScrollSpeed</label><n-input-number v-model:value="localWeapon.textureScrollSpeed" />
                 <label>pixelsPerTexel</label><n-input-number v-model:value="localWeapon.pixelsPerTexel" /> <label>convergeOnPoint</label
                 ><n-checkbox v-model:checked="localWeapon.convergeOnPoint" /> <label>darkCore</label
@@ -232,7 +232,6 @@ import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import EditorInspector from '@/app/components/editors/common/EditorInspector.vue';
 import ObjectEditor from '@/app/components/editors/common/ObjectEditor.vue';
-import type { FileChangeRecord } from '@/shared/api/write-api';
 import type { RowData } from '@/shared/types';
 import { arr, str } from '@/shared/lib/starsector';
 import { normalizeWeaponSpec } from '@/domain/editors/lib/normalize';
@@ -242,19 +241,17 @@ import { useHistory } from '@/app/composables/use-history';
 import { useEditorShortcuts } from '@/app/composables/use-editor-shortcuts';
 import { useObjectField } from '@/app/composables/use-object-field';
 import { useSpriteUpload } from '@/app/composables/use-sprite-upload';
-import { editorCollapseTheme, snapToStep, toOptions as opts } from '@/domain/editors/lib/editor-constants';
+import { editorCollapseTheme, snapToStep, toOptions } from '@/domain/editors/lib/editor-constants';
 import { drawBarrelVisual, drawCrossMarker } from '@/domain/editors/lib/canvas-visuals';
+import {
+  HARDPOINT_WEAPON_SPRITE_FIELDS,
+  TURRET_WEAPON_SPRITE_FIELDS,
+  WEAPON_SPRITE_DRAW_ORDER,
+  WEAPON_SPRITE_FIELDS,
+  type WeaponSpriteField,
+  type WeaponViewMode,
+} from '@/domain/editors/lib/weapon-sprite-fields';
 
-type WeaponViewMode = 'turret' | 'hardpoint';
-type SpriteField =
-  | 'turretSprite'
-  | 'turretGunSprite'
-  | 'turretGlowSprite'
-  | 'turretUnderSprite'
-  | 'hardpointSprite'
-  | 'hardpointGunSprite'
-  | 'hardpointGlowSprite'
-  | 'hardpointUnderSprite';
 type InspectorSection =
   | 'basic'
   | 'turretSprites'
@@ -275,11 +272,10 @@ const props = defineProps<{
   spriteData?: Record<string, string>;
   projectiles: Record<string, RowData>;
   projectileOptions: { label: string; value: string }[];
-  saveSpec: (weapon: RowData) => Promise<FileChangeRecord[]>;
 }>();
 const emit = defineEmits<{
   close: [];
-  saved: [id: string, weapon: RowData, changes: FileChangeRecord[]];
+  'save-requested': [weapon: RowData];
   editProjectile: [id: string];
   preview: [id: string];
 }>();
@@ -289,33 +285,29 @@ const stageRef = ref<HTMLElement>();
 const canvasRef = ref<HTMLCanvasElement>();
 const localWeapon = ref<RowData>(normalizeWeaponSpec(props.weapon));
 const viewMode = ref<WeaponViewMode>('turret');
-const selected = ref(-1);
+const selected = ref<number | null>(null);
 const expandedSections = ref<InspectorSection[]>(['basic']);
 const viewport = useCanvasViewport(canvasRef, 2, 20);
 const { scale } = viewport;
 const dragging = ref(false);
 const angleDragging = ref(false);
-const hovered = ref(-1);
-const activeBarrel = ref(-1);
-const inspectorLock = ref(-1);
+const hovered = ref<number | null>(null);
+const activeBarrel = ref<number | null>(null);
+const inspectorLock = ref<number | null>(null);
 const inspectorRevealInProgress = ref(false);
 const hoverPreview = ref<BarrelPreview>(null);
 const panning = ref(false);
 const pointerInside = ref(false);
 const localSpriteData = ref<Record<string, string>>({ ...(props.spriteData || {}) });
 const spriteImages = new Map<string, InstanceType<typeof Image>>();
-const spriteInputRefs = new Map<SpriteField, HTMLInputElement>();
+const spriteInputRefs = new Map<WeaponSpriteField, HTMLInputElement>();
 let last = { x: 0, y: 0 };
 const history = useHistory(() => localWeapon.value);
 const drawing = useCanvasDrawing();
 const { bindObjectField } = useObjectField(localWeapon);
-const { uploadSpriteFile } = useSpriteUpload();
-const turretSpriteFields: SpriteField[] = ['turretSprite', 'turretGunSprite', 'turretGlowSprite', 'turretUnderSprite'];
-const hardpointSpriteFields: SpriteField[] = ['hardpointSprite', 'hardpointGunSprite', 'hardpointGlowSprite', 'hardpointUnderSprite'];
-const spriteDrawOrder: Record<WeaponViewMode, SpriteField[]> = {
-  turret: ['turretUnderSprite', 'turretSprite', 'turretGunSprite', 'turretGlowSprite'],
-  hardpoint: ['hardpointUnderSprite', 'hardpointSprite', 'hardpointGunSprite', 'hardpointGlowSprite'],
-};
+const { uploadSpriteFromInput } = useSpriteUpload();
+const turretSpriteFields = TURRET_WEAPON_SPRITE_FIELDS;
+const hardpointSpriteFields = HARDPOINT_WEAPON_SPRITE_FIELDS;
 const spriteOriginRatio: Record<WeaponViewMode, { x: number; y: number }> = {
   turret: { x: 0.5, y: 0.5 },
   hardpoint: { x: 0.5, y: 0.75 },
@@ -356,20 +348,20 @@ function doUndo() {
   const previous = history.undo(localWeapon.value);
   if (!previous) return;
   localWeapon.value = normalizeWeaponSpec(previous);
-  selected.value = -1;
-  hovered.value = -1;
-  activeBarrel.value = -1;
-  inspectorLock.value = -1;
+  selected.value = null;
+  hovered.value = null;
+  activeBarrel.value = null;
+  inspectorLock.value = null;
   draw();
 }
 function doRedo() {
   const next = history.redo(localWeapon.value);
   if (!next) return;
   localWeapon.value = normalizeWeaponSpec(next);
-  selected.value = -1;
-  hovered.value = -1;
-  activeBarrel.value = -1;
-  inspectorLock.value = -1;
+  selected.value = null;
+  hovered.value = null;
+  activeBarrel.value = null;
+  inspectorLock.value = null;
   draw();
 }
 useEditorShortcuts({ onKeyDown: handleEditorShortcut, redo: doRedo, scope: editorWindowRef, undo: doUndo });
@@ -397,10 +389,10 @@ function handleEditorShortcut(event: KeyboardEvent) {
 }
 function setView(v: WeaponViewMode) {
   viewMode.value = v;
-  selected.value = -1;
-  hovered.value = -1;
-  activeBarrel.value = -1;
-  inspectorLock.value = -1;
+  selected.value = null;
+  hovered.value = null;
+  activeBarrel.value = null;
+  inspectorLock.value = null;
   draw();
 }
 function selectBarrel(mode: WeaponViewMode, index: number) {
@@ -452,24 +444,24 @@ function currentBarrelSection(): InspectorSection {
 }
 async function revealCurrentBarrelSection() {
   const section = currentBarrelSection();
-  if (activeBarrel.value >= 0) inspectorLock.value = activeBarrel.value;
+  if (activeBarrel.value !== null) inspectorLock.value = activeBarrel.value;
   inspectorRevealInProgress.value = true;
   expandedSections.value = [section];
   await nextTick();
   inspectorRevealInProgress.value = false;
-  if (selected.value < 0) return;
+  if (selected.value === null) return;
   editorWindowRef.value
     ?.querySelector<HTMLElement>(`[data-inspector-target="${viewMode.value}-barrel-${selected.value}"]`)
     ?.scrollIntoView({ block: 'nearest' });
 }
 function onExpandedSectionsUpdate() {
   if (inspectorRevealInProgress.value) return;
-  inspectorLock.value = -1;
+  inspectorLock.value = null;
 }
-function spriteDataFor(field: SpriteField) {
+function spriteDataFor(field: WeaponSpriteField) {
   return localSpriteData.value[field] || '';
 }
-function setSpriteImage(field: SpriteField, dataUrl: string) {
+function setSpriteImage(field: WeaponSpriteField, dataUrl: string) {
   if (!dataUrl) {
     spriteImages.delete(field);
     draw();
@@ -481,13 +473,13 @@ function setSpriteImage(field: SpriteField, dataUrl: string) {
   spriteImages.set(field, image);
 }
 function loadAllSpriteImages() {
-  for (const field of [...turretSpriteFields, ...hardpointSpriteFields]) setSpriteImage(field, spriteDataFor(field));
+  for (const field of WEAPON_SPRITE_FIELDS) setSpriteImage(field, spriteDataFor(field));
 }
-function loadSpriteField(field: SpriteField) {
+function loadSpriteField(field: WeaponSpriteField) {
   setSpriteImage(field, spriteDataFor(field));
   draw();
 }
-function setSpriteInputRef(field: SpriteField, element: unknown) {
+function setSpriteInputRef(field: WeaponSpriteField, element: unknown) {
   const input = element instanceof window.HTMLInputElement ? element : null;
   if (input) {
     spriteInputRefs.set(field, input);
@@ -495,7 +487,7 @@ function setSpriteInputRef(field: SpriteField, element: unknown) {
     spriteInputRefs.delete(field);
   }
 }
-function openSpriteInput(field: SpriteField) {
+function openSpriteInput(field: WeaponSpriteField) {
   spriteInputRefs.get(field)?.click();
 }
 function drawSpriteLayer(ctx: CanvasRenderingContext2D, image: InstanceType<typeof Image>) {
@@ -542,7 +534,7 @@ function pointAngle(origin: { x: number; y: number }, point: { x: number; y: num
   return rounded < 0 ? rounded + 360 : rounded;
 }
 function previewAngle(mx: number, my: number) {
-  if (selected.value < 0) return 0;
+  if (selected.value === null) return 0;
   const origin = { x: offsets.value[selected.value * 2] || 0, y: offsets.value[selected.value * 2 + 1] || 0 };
   return pointAngle(origin, rawToWeapon(mx, my));
 }
@@ -551,7 +543,7 @@ function updateHoverPreview(mx: number, my: number, modifiers: Pick<MouseEvent |
     hoverPreview.value = { kind: 'add', coord: toWeapon(mx, my) };
     return;
   }
-  if (modifiers.ctrlKey && selected.value >= 0) {
+  if (modifiers.ctrlKey && selected.value !== null) {
     hoverPreview.value = { kind: 'angle', angle: previewAngle(mx, my) };
     return;
   }
@@ -574,7 +566,7 @@ function drawHoverPreview(ctx: CanvasRenderingContext2D) {
       selected: true,
     });
   }
-  if (preview.kind === 'angle' && selected.value >= 0) {
+  if (preview.kind === 'angle' && selected.value !== null) {
     drawBarrelVisual(ctx, {
       angle: preview.angle,
       hovered: true,
@@ -593,7 +585,7 @@ function draw() {
   drawing.clear(ctx, c.width, c.height);
   drawing.drawGrid(ctx, { center: cc, height: c.height, scale: scale.value, width: c.width });
   ctx.globalAlpha = 0.72;
-  for (const field of spriteDrawOrder[viewMode.value]) {
+  for (const field of WEAPON_SPRITE_DRAW_ORDER[viewMode.value]) {
     const image = spriteImages.get(field);
     if (image) drawSpriteLayer(ctx, image);
   }
@@ -630,7 +622,7 @@ function nearestTarget(mx: number, my: number) {
     .sort((a, b) => a.distance - b.distance)[0];
   if (nearby) return nearby;
   if (locked) return locked;
-  if (inspectorLock.value < 0) return targets.sort((a, b) => a.distance - b.distance)[0] ?? null;
+  if (inspectorLock.value === null) return targets.sort((a, b) => a.distance - b.distance)[0] ?? null;
   return null;
 }
 function hitTarget(mx: number, my: number) {
@@ -648,14 +640,14 @@ function syncSelection(target: { i: number; distance: number } | null) {
   return changed;
 }
 function clearCanvasSelection() {
-  const changed = hovered.value !== -1 || selected.value !== -1 || activeBarrel.value !== -1;
-  hovered.value = -1;
-  selected.value = -1;
-  activeBarrel.value = -1;
+  const changed = hovered.value !== null || selected.value !== null || activeBarrel.value !== null;
+  hovered.value = null;
+  selected.value = null;
+  activeBarrel.value = null;
   return changed;
 }
-function selectIdentityTarget(index: number) {
-  if (index < 0 || index >= barrelCount.value) return null;
+function selectIdentityTarget(index: number | null) {
+  if (index === null || index < 0 || index >= barrelCount.value) return null;
   const point = toCanvas(offsets.value[index * 2] || 0, offsets.value[index * 2 + 1] || 0);
   const target = { i: index, distance: Math.hypot(last.x - point.x, last.y - point.y) };
   syncSelection(target);
@@ -685,9 +677,9 @@ function onDown(e: MouseEvent) {
     draw();
     return;
   }
-  if (e.ctrlKey && selected.value >= 0) {
+  if (e.ctrlKey && selected.value !== null) {
     selectIdentityTarget(inspectorLock.value) ?? selectIdentityTarget(activeBarrel.value) ?? selectForPointer(last.x, last.y);
-    if (selected.value < 0) return;
+    if (selected.value === null) return;
     pushUndo();
     angleDragging.value = true;
     angles.value[selected.value] = previewAngle(last.x, last.y);
@@ -714,13 +706,13 @@ function onMove(e: MouseEvent) {
     draw();
     return;
   }
-  if (angleDragging.value && selected.value >= 0) {
+  if (angleDragging.value && selected.value !== null) {
     angles.value[selected.value] = previewAngle(mx, my);
     updateHoverPreview(mx, my, e);
     draw();
     return;
   }
-  if (!dragging.value || selected.value < 0) {
+  if (!dragging.value || selected.value === null) {
     if (e.shiftKey || e.ctrlKey) {
       updateHoverPreview(mx, my, e);
       draw();
@@ -762,8 +754,8 @@ function onLeave() {
   angleDragging.value = false;
   panning.value = false;
   pointerInside.value = false;
-  hovered.value = -1;
-  activeBarrel.value = -1;
+  hovered.value = null;
+  activeBarrel.value = null;
   clearHoverPreview();
   draw();
 }
@@ -772,12 +764,12 @@ function onWheel(e: WheelEvent) {
   draw();
 }
 function setOffset(axis: 0 | 1, value: number | null) {
-  if (selected.value < 0) return;
+  if (selected.value === null) return;
   offsets.value[selected.value * 2 + axis] = value || 0;
   draw();
 }
 function setAngle(value: number | null) {
-  if (selected.value < 0) return;
+  if (selected.value === null) return;
   angles.value[selected.value] = value || 0;
   draw();
 }
@@ -795,36 +787,38 @@ function addBarrelAt(mode: WeaponViewMode, coord: { x: number; y: number }) {
   selected.value = barrelCountFor(mode) - 1;
   hovered.value = selected.value;
   activeBarrel.value = selected.value;
-  inspectorLock.value = -1;
+  inspectorLock.value = null;
 }
 function deleteBarrelFor(mode: WeaponViewMode) {
-  if (viewMode.value !== mode || selected.value < 0) return;
+  if (viewMode.value !== mode || selected.value === null) return;
   pushUndo();
   deleteSelectedBarrelData(mode);
   draw();
 }
 function deleteSelectedBarrel() {
-  if (selected.value < 0) return;
+  if (selected.value === null) return;
   pushUndo();
   deleteSelectedBarrelData(viewMode.value);
   draw();
 }
 function deleteSelectedBarrelData(mode: WeaponViewMode) {
-  offsetsFor(mode).splice(selected.value * 2, 2);
-  anglesFor(mode).splice(selected.value, 1);
-  selected.value = -1;
-  hovered.value = -1;
-  activeBarrel.value = -1;
-  inspectorLock.value = -1;
+  if (selected.value === null) return;
+  const selectedIndex = selected.value;
+  offsetsFor(mode).splice(selectedIndex * 2, 2);
+  anglesFor(mode).splice(selectedIndex, 1);
+  selected.value = null;
+  hovered.value = null;
+  activeBarrel.value = null;
+  inspectorLock.value = null;
 }
-async function uploadSpriteField(field: SpriteField, event: Event) {
+async function uploadSpriteField(field: WeaponSpriteField, event: Event) {
   try {
-    await uploadSpriteFile(event, {
+    await uploadSpriteFromInput(event, {
       feedback,
       modRoot: props.modRoot,
       subfolder: 'weapons',
       onUploaded: (result, dataUrl) => {
-        localWeapon.value[field] = result.path;
+        localWeapon.value[field] = result.state.path;
         localSpriteData.value[field] = dataUrl;
         setSpriteImage(field, dataUrl);
         feedback.success('贴图已上传');
@@ -834,22 +828,17 @@ async function uploadSpriteField(field: SpriteField, event: Event) {
     feedback.error(error, '上传贴图失败');
   }
 }
-async function save() {
-  try {
-    const changes = await props.saveSpec(localWeapon.value);
-    emit('saved', props.weaponId, localWeapon.value, changes);
-  } catch (error) {
-    feedback.error(error, '保存武器失败');
-  }
+function save() {
+  emit('save-requested', localWeapon.value);
 }
 watch(
   () => props.weapon,
   (weapon) => {
     localWeapon.value = normalizeWeaponSpec(weapon);
-    selected.value = -1;
-    hovered.value = -1;
-    activeBarrel.value = -1;
-    inspectorLock.value = -1;
+    selected.value = null;
+    hovered.value = null;
+    activeBarrel.value = null;
+    inspectorLock.value = null;
     hoverPreview.value = null;
   },
   { deep: true },

@@ -1,5 +1,6 @@
 use crate::{
     errors::{AppError, AppResult},
+    io::{read_utf8_no_bom, write_utf8_no_bom},
     models::PersistedWorkspace,
     services::app_paths,
 };
@@ -7,12 +8,12 @@ use std::{fs, path::Path};
 
 const WORKSPACE_FILE: &str = "workspace.json";
 
-pub fn load_workspace_for_app(app_handle: tauri::AppHandle) -> AppResult<PersistedWorkspace> {
+pub fn load_app_workspace(app_handle: tauri::AppHandle) -> AppResult<PersistedWorkspace> {
     let app_data = app_paths::app_data_dir(app_handle)?;
-    Ok(load_workspace(&app_data))
+    load_workspace(&app_data)
 }
 
-pub fn save_workspace_for_app(
+pub fn save_app_workspace(
     app_handle: tauri::AppHandle,
     state: PersistedWorkspace,
 ) -> AppResult<()> {
@@ -20,15 +21,18 @@ pub fn save_workspace_for_app(
     save_workspace(&app_data, &state)
 }
 
-pub fn load_workspace(app_data_dir: &Path) -> PersistedWorkspace {
+pub fn load_workspace(app_data_dir: &Path) -> AppResult<PersistedWorkspace> {
     let path = app_data_dir.join(WORKSPACE_FILE);
     if !path.exists() {
-        return PersistedWorkspace::default();
+        return Ok(PersistedWorkspace::default());
     }
-    match fs::read_to_string(&path) {
-        Ok(text) => serde_json::from_str(&text).unwrap_or_default(),
-        Err(_) => PersistedWorkspace::default(),
-    }
+    let text = read_utf8_no_bom(&path)?;
+    serde_json::from_str::<PersistedWorkspace>(&text).map_err(|error| {
+        AppError::context(
+            format!("解析工作区状态文件失败 ({})", path.display()),
+            error.into(),
+        )
+    })
 }
 
 pub fn save_workspace(app_data_dir: &Path, state: &PersistedWorkspace) -> AppResult<()> {
@@ -40,25 +44,23 @@ pub fn save_workspace(app_data_dir: &Path, state: &PersistedWorkspace) -> AppRes
     })?;
     let path = app_data_dir.join(WORKSPACE_FILE);
     let json = serde_json::to_string_pretty(state)?;
-    fs::write(&path, json.as_bytes()).map_err(|error| {
-        AppError::context(
-            format!("写入工作区状态失败 ({})", path.display()),
-            error.into(),
-        )
-    })?;
+    write_utf8_no_bom(&path, &json)?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::PersistedMod;
+    use crate::{
+        io::write_utf8_no_bom,
+        models::{PersistedMod, WorkspaceView},
+    };
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn load_returns_default_when_file_missing() {
         let dir = temp_dir("ws_missing");
-        let result = load_workspace(&dir);
+        let result = load_workspace(&dir).unwrap();
         let _ = fs::remove_dir_all(&dir);
         assert!(result.mods.is_empty());
         assert!(result.active_mod_root.is_none());
@@ -74,14 +76,14 @@ mod tests {
                 version: "1.0".to_string(),
             }],
             active_mod_root: Some("D:/mods/test".to_string()),
-            current_view: Some("table".to_string()),
+            current_view: Some(WorkspaceView::Table),
             expanded_mods: vec!["D:/mods/test".to_string()],
             starsector_root: Some("D:/Starsector".to_string()),
             game_mods: vec![],
             game_warnings: vec![],
         };
         save_workspace(&dir, &state).unwrap();
-        let loaded = load_workspace(&dir);
+        let loaded = load_workspace(&dir).unwrap();
         let _ = fs::remove_dir_all(&dir);
         assert_eq!(loaded.mods.len(), 1);
         assert_eq!(loaded.mods[0].display_name, "Test Mod");
@@ -89,13 +91,13 @@ mod tests {
     }
 
     #[test]
-    fn load_handles_corrupted_json() {
+    fn load_reports_corrupted_json() {
         let dir = temp_dir("ws_corrupted");
         fs::create_dir_all(&dir).unwrap();
-        fs::write(dir.join("workspace.json"), "not valid json{{{").unwrap();
+        write_utf8_no_bom(&dir.join("workspace.json"), "not valid json{{{").unwrap();
         let result = load_workspace(&dir);
         let _ = fs::remove_dir_all(&dir);
-        assert!(result.mods.is_empty());
+        assert!(result.is_err());
     }
 
     fn temp_dir(name: &str) -> std::path::PathBuf {

@@ -32,8 +32,8 @@ import type { JsonValue, RowData, SchemaRuntimeContext } from '@/shared/types';
 import type { FileSchema } from '@/domain/schema/schema.types';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { useCoreSchema } from '@/app/composables/use-core-schema';
-import { aggregateSchemaSources } from '@/domain/schema/schema-registry';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
+import { configFactionEditorModel } from '@/domain/config/config-entities';
 
 const props = defineProps<{
   factionId: string;
@@ -43,7 +43,7 @@ const props = defineProps<{
   saveFaction: (previousId: string, local: RowData, schema: FileSchema) => Promise<string>;
   deleteFaction: (id: string, deleteFile: boolean) => Promise<boolean>;
 }>();
-const emit = defineEmits<{ saved: [factionId: string] }>();
+const emit = defineEmits<{ saved: [factionId: string | null] }>();
 
 const { getMergedSchema, loadCoreFields } = useCoreSchema();
 loadCoreFields();
@@ -62,9 +62,9 @@ watch(
   () => props.factionId,
   (id) => {
     if (props.factions[id]) {
-      local.value = aggregateSchemaSources({ file: deepClone(props.factions[id]) });
+      local.value = configFactionEditorModel(deepClone(props.factions[id]));
     } else {
-      local.value = aggregateSchemaSources({ file: { id } });
+      local.value = configFactionEditorModel({ id });
     }
   },
   { immediate: true },
@@ -123,7 +123,7 @@ async function deleteCurrentFaction() {
   if (!props.factionId) return false;
   try {
     await props.deleteFaction(props.factionId, true);
-    emit('saved', '');
+    emit('saved', null);
   } catch (error) {
     feedback.error(error, '删除势力失败');
     return false;

@@ -3,7 +3,7 @@ import { nextTick, onUpdated, ref, watch, type Ref } from 'vue';
 type SelectableRowElement = { classList: { add: (name: string) => void; remove: (name: string) => void } };
 type SelectableBodyElement = { querySelector: (selector: string) => SelectableRowElement | null };
 
-export function useTableDomSelection(bodyRef: Ref<SelectableBodyElement | null>, selectedRowKey: Ref<string>) {
+export function useTableDomSelection(bodyRef: Ref<SelectableBodyElement | null>, selectedRowKey: Ref<string | null>) {
   const selectedDomRow = ref<SelectableRowElement | null>(null);
 
   function handleRowClick(rowKey: string, event: MouseEvent, selectRow: (rowKey: string) => void) {

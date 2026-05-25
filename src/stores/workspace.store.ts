@@ -10,6 +10,7 @@ import type {
   WorkspaceView,
 } from '@/shared/types';
 import { getNextActiveKeyAfterRemoval } from '@/shared/lib/store-utils';
+import { gameModsDirectoryPath } from '@/shared/lib/paths';
 
 export const useWorkspaceStore = defineStore('workspace', () => {
   const mods = ref<Map<string, ModEntry>>(new Map());
@@ -108,7 +109,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     setGameOverview({
       starsectorRoot,
       coreAvailable,
-      modsDir: `${starsectorRoot.replace(/[\\/]+$/, '')}/mods`,
+      modsDir: gameModsDirectoryPath(starsectorRoot),
       mods,
       warnings,
     });
@@ -129,9 +130,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       gameOverview.value = {
         starsectorRoot: persisted.starsectorRoot,
         coreAvailable: true,
-        modsDir: `${persisted.starsectorRoot.replace(/[\\/]+$/, '')}/mods`,
-        mods: persisted.gameMods ?? [],
-        warnings: persisted.gameWarnings ?? [],
+        modsDir: gameModsDirectoryPath(persisted.starsectorRoot),
+        mods: persisted.gameMods,
+        warnings: persisted.gameWarnings,
       };
     }
   }
