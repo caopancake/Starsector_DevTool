@@ -1,7 +1,7 @@
 [
   { "key": "name", "label": "名称", "control": "text" },
   { "key": "id", "label": "ID", "control": "text" },
-  { "key": "designation", "label": "定位", "control": "text" },
+  { "key": "designation", "label": "定位", "control": "reference", "source": "csv:ships.designation" },
   { "key": "tech/manufacturer", "label": "制造商", "control": "text" },
   { "key": "system id", "label": "战术系统", "control": "reference", "source": "csv:shipSystems.id" },
   { "key": "fleet pts", "label": "舰队点", "control": "number", "step": 1 },
