@@ -1,6 +1,7 @@
 import { computed, ref, watch } from 'vue';
 import { useProjectStore } from '@/stores/project.store';
 import { useTablesStore } from '@/stores/tables.store';
+import { useWorkspaceStore } from '@/stores/workspace.store';
 import { createCsvGridModel } from '@/domain/tables/csv-grid-model';
 import { csvColumnSchemaFor } from '@/domain/tables/csv-column-schema';
 import { recordPerformance } from '@/services/performance.service';
@@ -10,6 +11,7 @@ import type { SelectOption } from '@/domain/schema/schema-registry';
 export function useCsvTableViewModel() {
   const tables = useTablesStore();
   const project = useProjectStore();
+  const workspace = useWorkspaceStore();
   const loadedWindowKeys = ref(new Set<string>());
   const loadedSourceOptions = ref(new Map<string, SelectOption[]>());
   const columnWidthOverrides = ref<Record<string, number>>({});
@@ -48,7 +50,8 @@ export function useCsvTableViewModel() {
       loadedSourceOptions.value = new Map();
       if (table !== lastWidthTable) {
         lockedColumnWidths.value = {};
-        columnWidthOverrides.value = {};
+        const modRoot = tables.activeModRoot;
+        columnWidthOverrides.value = modRoot ? (workspace.getColumnWidths(modRoot, table) ?? {}) : {};
         lastWidthTable = table;
       }
       await loadTableWindow(0, 240);
@@ -58,8 +61,9 @@ export function useCsvTableViewModel() {
   );
 
   watch(
-    () => gridModel.value.columns,
-    (columns) => {
+    () => gridModel.value.columns.map((c) => c.key).join(','),
+    () => {
+      const columns = gridModel.value.columns;
       const hasLocked = Object.keys(lockedColumnWidths.value).length > 0;
       if (!hasLocked) {
         const widths: Record<string, number> = {};
@@ -78,6 +82,10 @@ export function useCsvTableViewModel() {
 
   function setColumnWidth(key: string, width: number) {
     columnWidthOverrides.value = { ...columnWidthOverrides.value, [key]: Math.max(40, width) };
+    const modRoot = tables.activeModRoot;
+    if (modRoot) {
+      workspace.setColumnWidths(modRoot, tables.currentTab, columnWidthOverrides.value);
+    }
   }
 
   async function loadTableWindow(start: number, count: number) {

@@ -19,6 +19,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const configView = ref<ConfigView>('mod-overview');
   const expandedMods = ref<Set<string>>(new Set());
   const gameOverview = ref<GameOverviewData | null>(null);
+  const columnWidths = ref<Record<string, Record<string, number>>>({});
 
   const activeMod = computed(() => (activeModRoot.value ? (mods.value.get(activeModRoot.value) ?? null) : null));
   const loadedModList = computed(() => [...mods.value.values()]);
@@ -64,6 +65,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function removeMod(modRoot: string) {
     mods.value.delete(modRoot);
     expandedMods.value.delete(modRoot);
+    cleanupColumnWidthsForMod(modRoot);
     activeModRoot.value = getNextActiveKeyAfterRemoval(activeModRoot.value, [...mods.value.keys()], modRoot, null);
     if (!activeModRoot.value) currentView.value = 'overview';
   }
@@ -126,6 +128,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     currentView.value = 'overview';
     configView.value = 'mod-overview';
     expandedMods.value = new Set(persisted.expandedMods);
+    columnWidths.value = persisted.columnWidths ?? {};
     if (persisted.starsectorRoot) {
       gameOverview.value = {
         starsectorRoot: persisted.starsectorRoot,
@@ -148,7 +151,28 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       starsectorRoot: gameOverview.value?.starsectorRoot ?? null,
       gameMods: gameOverview.value?.mods ?? [],
       gameWarnings: gameOverview.value?.warnings ?? [],
+      columnWidths: columnWidths.value,
     };
+  }
+
+  function getColumnWidths(modRoot: string, table: string): Record<string, number> | undefined {
+    return columnWidths.value[`${modRoot}:${table}`];
+  }
+
+  function setColumnWidths(modRoot: string, table: string, widths: Record<string, number>) {
+    columnWidths.value = { ...columnWidths.value, [`${modRoot}:${table}`]: widths };
+  }
+
+  function cleanupColumnWidthsForMod(modRoot: string) {
+    const prefix = `${modRoot}:`;
+    const current = columnWidths.value;
+    const hasEntries = Object.keys(current).some((key) => key.startsWith(prefix));
+    if (!hasEntries) return;
+    const next: Record<string, Record<string, number>> = {};
+    for (const [key, value] of Object.entries(current)) {
+      if (!key.startsWith(prefix)) next[key] = value;
+    }
+    columnWidths.value = next;
   }
 
   return {
@@ -168,12 +192,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     modCount,
     modList,
     mods,
+    getColumnWidths,
     isModImported,
     navigateTo,
     registerMod,
     removeMod,
     restoreFrom,
     setActiveConfig,
+    setColumnWidths,
     setGameOverview,
     setGameWorkspace,
     setActiveMod,

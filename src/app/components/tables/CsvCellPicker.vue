@@ -1,6 +1,12 @@
 <template>
   <div class="csv-cell-picker" :style="pickerStyle" tabindex="-1" @mousedown.stop @keydown.esc.prevent="$emit('close')">
-    <input ref="searchRef" v-model="query" class="csv-cell-picker-search" placeholder="搜索" />
+    <input
+      ref="searchRef"
+      v-model="query"
+      class="csv-cell-picker-search"
+      placeholder="搜索或输入自定义值"
+      @keydown.enter.prevent="submitCustom"
+    />
     <div class="csv-cell-picker-list">
       <template v-for="group in filteredGroups" :key="group.key">
         <div v-if="group.label" class="csv-cell-picker-group">{{ group.label }}</div>
@@ -77,6 +83,19 @@ function selectOption(value: string) {
   if (next.has(value)) next.delete(value);
   else next.add(value);
   emit('update', [...next]);
+}
+
+function submitCustom() {
+  const trimmed = query.value.trim();
+  if (!trimmed) return;
+  if (props.multiple) {
+    const next = new Set(props.values);
+    next.add(trimmed);
+    emit('update', [...next]);
+  } else {
+    emit('update', [trimmed]);
+    emit('close');
+  }
 }
 
 function handleDocumentMouseDown(event: MouseEvent) {

@@ -48,4 +48,5 @@ export interface PersistedWorkspace {
   starsectorRoot: string | null;
   gameMods: GameModSummary[];
   gameWarnings: GameScanWarning[];
+  columnWidths?: Record<string, Record<string, number>>;
 }
