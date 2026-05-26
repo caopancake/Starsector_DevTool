@@ -57,8 +57,7 @@ const showMenu = ref(false);
 
 const hasDirtyChanges = computed(() => tables.hasModDirtyChanges(props.mod.modRoot));
 const manifest = computed(() => project.getManifest(props.mod.modRoot));
-const tableRowCounts = computed(() => tables.getModTotalRows(props.mod.modRoot));
-const moduleSections = computed(() => buildModTreeModuleSections(manifest.value, tableRowCounts.value));
+const moduleSections = computed(() => buildModTreeModuleSections(manifest.value));
 
 function isModuleActive(item: ModTreeModuleItem): boolean {
   return isModTreeModuleActive(item, workspace.currentView, workspace.configView, tables.currentTab);
