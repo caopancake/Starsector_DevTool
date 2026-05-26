@@ -1,9 +1,16 @@
 [
   { "key": "id", "label": "ID", "control": "text" },
   { "key": "name", "label": "名称", "control": "text" },
-  { "key": "icon", "label": "图标", "control": "path-image" },
-  { "key": "description", "label": "描述", "control": "text" },
-  { "key": "aptitude", "label": "分类", "control": "text" },
+  { "key": "order", "label": "排序", "control": "number", "step": 1 },
   { "key": "tier", "label": "层级", "control": "number", "step": 1 },
-  { "key": "tags", "label": "标签", "control": "tags", "source": "csv:skills.tags" }
+  { "key": "reqPoints", "label": "所需点数", "control": "number", "step": 1 },
+  { "key": "reqPointsPerExtraSkill", "label": "额外技能点数", "control": "number", "step": 1 },
+  { "key": "description", "label": "描述", "control": "text" },
+  { "key": "author", "label": "作者", "control": "text" },
+  { "key": "combat officer", "label": "战斗军官", "control": "boolean" },
+  { "key": "admiral", "label": "指挥官", "control": "boolean" },
+  { "key": "admin", "label": "行政官", "control": "boolean" },
+  { "key": "tags", "label": "标签", "control": "tags", "source": "csv:skills.tags" },
+  { "key": "icon", "label": "图标", "control": "path-image" },
+  { "key": "aptitude", "label": "分类", "control": "text" }
 ]
