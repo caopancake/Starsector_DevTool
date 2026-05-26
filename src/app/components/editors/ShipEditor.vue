@@ -34,9 +34,17 @@
               <div class="form-grid">
                 <label>hullId</label><n-input v-model:value="localShip.hullId" /> <label>hullName</label
                 ><n-input v-model:value="localShip.hullName" /> <label>hullSize</label
-                ><n-select v-model:value="localShip.hullSize" :options="toOptions(['FRIGATE', 'DESTROYER', 'CRUISER', 'CAPITAL_SHIP'])" />
+                ><n-select
+                  v-model:value="localShip.hullSize"
+                  :options="toOptions(['FRIGATE', 'DESTROYER', 'CRUISER', 'CAPITAL_SHIP', 'FIGHTER'])"
+                />
                 <label>style</label
-                ><n-select v-model:value="localShip.style" :options="toOptions(['LOW_TECH', 'MIDLINE', 'HIGH_TECH', 'CUSTOM'])" />
+                ><n-select
+                  v-model:value="localShip.style"
+                  filterable
+                  tag
+                  :options="toOptions(['LOW_TECH', 'MIDLINE', 'HIGH_TECH', 'OMEGA', 'CUSTOM'])"
+                />
                 <label>width</label><n-input-number v-model:value="localShip.width" @update:value="draw" /> <label>height</label
                 ><n-input-number v-model:value="localShip.height" @update:value="draw" />
               </div>
