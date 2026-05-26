@@ -74,6 +74,16 @@ pub fn scan_game_overview(starsector_root: &Path) -> GameOverviewData {
                 .to_string(),
             message: "缺少 starsector-core，原版资源回退不可用".to_string(),
         });
+    } else {
+        let core_dir = starsector_root.join("starsector-core");
+        mods.push(GameModSummary {
+            mod_root: core_dir.to_string_lossy().to_string(),
+            id: "starsector-core".to_string(),
+            name: "Starsector Core".to_string(),
+            version: String::new(),
+            description: "原版游戏核心数据".to_string(),
+            has_mod_info: false,
+        });
     }
 
     match fs::read_dir(&mods_dir) {
@@ -270,9 +280,11 @@ mod tests {
 
         let _ = fs::remove_dir_all(&root);
         assert!(overview.core_available);
-        assert_eq!(overview.mods.len(), 1);
+        assert_eq!(overview.mods.len(), 2);
         assert_eq!(overview.mods[0].id, "demo");
         assert_eq!(overview.mods[0].version, "1.2.3");
+        assert_eq!(overview.mods[1].id, "starsector-core");
+        assert!(!overview.mods[1].has_mod_info);
         assert!(overview.warnings.is_empty());
     }
 
@@ -316,7 +328,7 @@ mod tests {
                 .overview
                 .as_ref()
                 .map(|overview| overview.mods.len()),
-            Some(2)
+            Some(3)
         );
     }
 
