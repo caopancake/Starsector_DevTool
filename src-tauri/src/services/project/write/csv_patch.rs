@@ -40,12 +40,38 @@ pub fn save_csv_patch(
     let csv_text = render_csv_text(&header, &row_values)?;
     let associated_rel_paths: Vec<String> = associated_files
         .iter()
-        .map(|f| f.rel_path.clone())
+        .flat_map(|f| {
+            let mut paths = vec![f.rel_path.clone()];
+            if let Some(prev) = &f.previous_rel_path {
+                paths.push(prev.clone());
+            }
+            paths
+        })
         .collect();
     let mut builder = FileChangeSetBuilder::new(Path::new(&mod_root));
     builder.text_file(&rel_path, Some(csv_text))?;
-    for file in associated_files {
-        builder.file(&file.rel_path, file.after_text, file.after_data_base64)?;
+    for file in &associated_files {
+        if let Some(prev_path) = &file.previous_rel_path {
+            let prev_full = Path::new(&mod_root).join(prev_path);
+            let content = if prev_full.exists() {
+                let text = crate::io::read_utf8_no_bom(&prev_full)?;
+                let new_id = Path::new(&file.rel_path)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or_default();
+                update_spec_id_in_text(&text, new_id)
+            } else {
+                file.after_text.clone().unwrap_or_default()
+            };
+            builder.text_file(prev_path, None)?;
+            builder.text_file(&file.rel_path, Some(content))?;
+        } else {
+            builder.file(
+                &file.rel_path,
+                file.after_text.clone(),
+                file.after_data_base64.clone(),
+            )?;
+        }
     }
     let changes = builder.apply()?;
     {
@@ -113,6 +139,33 @@ fn is_new_csv_row_key(table_key: &str, row_key: &str) -> bool {
     !rest.is_empty() && !rest.contains(':')
 }
 
+fn update_spec_id_in_text(text: &str, new_id: &str) -> String {
+    let id_fields = ["hullId", "id"];
+    let mut result = text.to_string();
+    for field in id_fields {
+        let pattern = format!("\"{field}\"");
+        if let Some(key_pos) = result.find(&pattern) {
+            let after_key = key_pos + pattern.len();
+            if let Some(colon_offset) = result[after_key..].find(':') {
+                let after_colon = after_key + colon_offset + 1;
+                let trimmed_start = result[after_colon..]
+                    .find(|c: char| !c.is_whitespace())
+                    .unwrap_or(0)
+                    + after_colon;
+                if result[trimmed_start..].starts_with('"') {
+                    let value_start = trimmed_start + 1;
+                    if let Some(value_end) = result[value_start..].find('"') {
+                        let end = value_start + value_end;
+                        result.replace_range(value_start..end, new_id);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -152,6 +205,7 @@ mod tests {
                 rel_path: "data/hulls/new_ship.ship".to_string(),
                 after_text: Some("{\r\n  \"hullId\": \"new_ship\"\r\n}".to_string()),
                 after_data_base64: None,
+                previous_rel_path: None,
             }],
         )
         .unwrap();
@@ -206,6 +260,7 @@ mod tests {
                 rel_path: "data/weapons/old_weapon.wpn".to_string(),
                 after_text: None,
                 after_data_base64: None,
+                previous_rel_path: None,
             }],
         )
         .unwrap();

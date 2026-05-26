@@ -158,7 +158,11 @@ fn source_options_from_rows(
         let values: Vec<&str> = if is_id_column {
             vec![cell_value]
         } else {
-            cell_value.split(',').map(|v| v.trim()).filter(|v| !v.is_empty()).collect()
+            cell_value
+                .split(',')
+                .map(|v| v.trim())
+                .filter(|v| !v.is_empty())
+                .collect()
         };
         for value in values {
             if !context.search.is_empty() && !value.to_lowercase().contains(context.search) {

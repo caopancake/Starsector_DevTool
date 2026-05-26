@@ -168,7 +168,12 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
             try {
               const selected = candidates
                 .filter((candidate) => selectedAssociatedFileKeys.value.has(candidate.key))
-                .map(({ relPath, afterText, afterDataBase64 }) => ({ relPath, afterText, afterDataBase64 }));
+                .map(({ relPath, afterText, afterDataBase64, previousRelPath }) => ({
+                  relPath,
+                  afterText,
+                  afterDataBase64,
+                  previousRelPath,
+                }));
               const result = await saveActiveTableChanges(project.activeManifest, selected);
               showSaveResult(result);
             } catch (err) {

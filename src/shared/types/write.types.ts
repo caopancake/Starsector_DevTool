@@ -33,6 +33,7 @@ export interface AssociatedFileChange {
   relPath: string;
   afterText: string | null;
   afterDataBase64: string | null;
+  previousRelPath: string | null;
 }
 
 export type CsvRowPatchAction = 'upsert' | 'delete';

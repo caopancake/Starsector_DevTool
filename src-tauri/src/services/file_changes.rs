@@ -85,11 +85,13 @@ mod tests {
                     rel_path: "mod_info.json".to_string(),
                     after_text: Some("{\"id\":\"new\"}".to_string()),
                     after_data_base64: None,
+                    previous_rel_path: None,
                 },
                 AssociatedFileChange {
                     rel_path: "data/missions/demo/mission_text.txt".to_string(),
                     after_text: Some("text".to_string()),
                     after_data_base64: None,
+                    previous_rel_path: None,
                 },
             ],
         )
@@ -116,6 +118,7 @@ mod tests {
                 rel_path: "../outside.txt".to_string(),
                 after_text: Some("bad".to_string()),
                 after_data_base64: None,
+                previous_rel_path: None,
             }],
         );
 

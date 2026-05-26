@@ -19,6 +19,9 @@
 ## 规范
 
 - 舰船编辑器保存只写对应 `.ship`。
+- 舰船编辑器检查器覆盖所有原版 `.ship` 顶层字段：hullId、hullName、hullSize、style、width、height、spriteName、center、collisionRadius、shieldCenter、shieldRadius、weaponSlots、engineSlots、bounds、builtInMods、builtInWeapons、builtInWings、viewOffset、coversColor、moduleAnchor。
+- hullSize 下拉包含 FRIGATE、DESTROYER、CRUISER、CAPITAL_SHIP、FIGHTER 五种尺寸。
+- style 和引擎 style 使用 filterable tag 模式：提供常用选项 + 支持输入自定义值。
 - 编辑器 spec 保存入口必须使用正式 spec 类型模型，不得用裸字符串在 service 层解析。
 - 编辑器 spec 保存定位目标时，候选根不是目录、候选遍历失败、已存在候选 spec 的读取或解析失败都必须返回错误，不能跳过候选后写入默认新路径。
 - 舰船编辑器不隐式保存 `ship_data.csv`。

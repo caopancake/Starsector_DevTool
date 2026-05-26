@@ -120,7 +120,9 @@ export async function listSkinEntities(sessionId: ProjectSessionId): Promise<Ski
 }
 
 export function saveModInfo(modRoot: string, data: RowData): Promise<WriteResult> {
-  return writeModFiles(modRoot, [{ relPath: 'mod_info.json', afterText: JSON.stringify(data, null, 2), afterDataBase64: null }]);
+  return writeModFiles(modRoot, [
+    { relPath: 'mod_info.json', afterText: JSON.stringify(data, null, 2), afterDataBase64: null, previousRelPath: null },
+  ]);
 }
 
 export function saveIndexedConfigEntity(write: IndexedConfigEntityWrite): Promise<WriteResult> {

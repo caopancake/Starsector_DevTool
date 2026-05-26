@@ -53,12 +53,16 @@ CSV 表格系统负责展示和编辑已注册的 Starsector CSV 表，并按 CS
 - CSV Grid 只能给已加载真实行分配 rowKey；占位渲染 slot 不能进入选择、编辑、dirty、详情或保存链路。
 - CSV Grid 常态显示和激活编辑必须共用同一个单元格视觉 frame；激活只替换 frame 内部内容，不得产生内容偏移。
 - CSV Grid 的智能选择使用 CSV 专用 picker，不使用 Naive select 作为单元格控件。
-- CSV Grid 列宽按列内容与表头计算并固定，不能在滚动过程中变化。
+- CSV picker 的搜索框支持按 Enter 提交自定义文本作为值，使增强模式下 reference 和 tags 列均可输入自由文本。
+- CSV Grid 列宽在首次加载时按列内容与表头计算并锁定，编辑单元格不触发列宽重新计算；用户可通过表头拖拽手动调整列宽，调整结果按 Mod + 表持久化到 workspace 状态。
+- CSV Grid 列宽持久化由 workspace store 管理，view model 在切换表时恢复持久化宽度；Mod 移除时清理对应列宽数据。
 - CSV Grid 的业务编辑、选择和 dirty row 状态必须以 row key 为索引。
 - CSV Grid 虚拟滚动中缺失的编辑行索引必须以 `null` 表达，不能用负数索引表示。
 - CSV dirty row 必须使用显式 `upsert` / `delete` 模型；删除状态不能伪装成 CSV 单元格字段值。
 - 顶部“撤销”“重做”和“保存”只作用于当前表，不得跨表恢复、重做或保存其它 dirty CSV。
 - CSV source 选项必须通过后端 `query_csv_source_options` 获取；前端不得从完整项目数据或原版引用全集派生。
+- CSV source 选项查询在非 `id` 列时必须按逗号拆分单元格值为独立候选项；`id` 列保持整值作为一个选项。
+- CSV source 选项的 label 对 `id` 列使用 `名称 (id)` 格式，对非 `id` 列直接使用值本身，并附加已知标签中文说明（硬编码 + 势力蓝图推导）。
 - CSV source 选项查询必须校验 source 声明列存在于 CSV header；缺失列不能返回空候选项伪装为合法 source。
 - 右侧字段速览可以读取 CSV 列 schema 增强展示，但不得修改单元格、dirty 或保存状态。
 - 右侧字段速览必须消费 CSV ViewModel / GridModel 已构建的 source 索引，不能在组件内重建缺少已加载选项的 source index。

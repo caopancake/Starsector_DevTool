@@ -32,6 +32,8 @@ pub struct AssociatedFileChange {
     pub after_text: Option<String>,
     #[serde(deserialize_with = "required_nullable")]
     pub after_data_base64: Option<String>,
+    #[serde(default, deserialize_with = "required_nullable")]
+    pub previous_rel_path: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

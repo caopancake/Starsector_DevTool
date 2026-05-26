@@ -14,6 +14,7 @@ export interface AssociatedFileCandidate {
   relPath: string;
   afterText: string | null;
   afterDataBase64: string | null;
+  previousRelPath: string | null;
 }
 
 export function associatedRelPath(table: TableKey, id: string): string | null {
@@ -49,6 +50,7 @@ export function getAssociatedFileCandidates(
         relPath,
         afterText: null,
         afterDataBase64: null,
+        previousRelPath: null,
         label: `删除 ${relPath}`,
       });
       continue;
@@ -57,7 +59,34 @@ export function getAssociatedFileCandidates(
     const originalExists = state.originalTables[table].some(
       (row, index) => isLoadedCsvTableRow(row) && rowKeyForTab(table, row, index) === rowKey,
     );
-    if (originalExists) continue;
+    if (originalExists) {
+      const original = state.originalTables[table].find(
+        (row, index): row is RowData => isLoadedCsvTableRow(row) && rowKeyForTab(table, row, index) === rowKey,
+      );
+      const current = state.tables[table].find(
+        (candidate, index): candidate is RowData => isLoadedCsvTableRow(candidate) && rowKeyForTab(table, candidate, index) === rowKey,
+      );
+      const oldId = original ? rowSpecId(original, table) : '';
+      const newId = current ? rowSpecId(current, table) : '';
+      if (oldId && newId && oldId !== newId && current) {
+        const oldRelPath = associatedRelPath(table, oldId);
+        const newRelPath = associatedRelPath(table, newId);
+        if (oldRelPath && newRelPath) {
+          result.push({
+            key: `${table}:rename:${oldId}:${newId}`,
+            table,
+            action: 'create',
+            id: newId,
+            relPath: newRelPath,
+            afterText: associatedSpecCreateText(table, newId, current),
+            afterDataBase64: null,
+            previousRelPath: oldRelPath,
+            label: `重命名 ${oldRelPath} → ${newRelPath}`,
+          });
+        }
+      }
+      continue;
+    }
     const row = state.tables[table].find(
       (candidate, index): candidate is RowData => isLoadedCsvTableRow(candidate) && rowKeyForTab(table, candidate, index) === rowKey,
     );
@@ -72,6 +101,7 @@ export function getAssociatedFileCandidates(
       relPath,
       afterText: associatedSpecCreateText(table, id, row),
       afterDataBase64: null,
+      previousRelPath: null,
       label: `创建 ${relPath}`,
     });
   }

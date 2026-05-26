@@ -26,6 +26,7 @@
 - 恢复完成后主窗口进入总览视图。
 - 启动恢复期间自动保存必须暂停；恢复结束后必须等待当前 workspace 状态写回工具私有 workspace 文件。
 - 移除 Mod 时必须同时移除 workspace、project cache、tables、编辑器引用、CSV 草稿历史和文件级 history。
+- 移除 Mod 时必须清理该 Mod 的持久化列宽数据。
 - 移除 Mod 时必须显式关闭对应 ProjectSession，并清理该 session 的前端资源缓存；移除动作必须等待 ProjectSession 关闭完成。
 - 关闭工作区时必须清空游戏目录概览、所有已加载 Mod、project cache、tables、编辑器引用、CSV 草稿历史和文件级 history，并等待 Starsector root 的 core cache 失效完成。
 - 游戏目录概览和已打开 ProjectSession 是不同状态；概览中的 Mod 不等于已加载 Mod。
