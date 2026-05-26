@@ -4,7 +4,9 @@
   </colgroup>
   <thead>
     <tr>
-      <th v-for="column in columns" :key="column.key" :class="column.className">{{ column.key }}</th>
+      <th v-for="column in columns" :key="column.key" :class="column.className" :title="column.key">
+        {{ column.schema?.label ?? column.key }}
+      </th>
     </tr>
   </thead>
 </template>

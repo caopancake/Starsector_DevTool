@@ -89,7 +89,8 @@ function createCsvGridColumn(table: TableKey, key: string): CsvGridColumn {
 }
 
 function columnWidthPx(column: CsvGridColumn, rows: CsvLoadedRowSlot[], sourceIndex: CsvSourceIndex): number {
-  const headerWidth = textWidthPx(column.key, 'header');
+  const headerText = column.schema?.label ?? column.key;
+  const headerWidth = textWidthPx(headerText, 'header');
   const control = column.schema?.control ?? 'text';
   const contentWidth = maxColumnContentWidthPx(column.key, rows);
 

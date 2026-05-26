@@ -18,6 +18,7 @@ This audit examined all `WriteResult` constructions in the codebase to identify 
 **File:** `src-tauri/src/models/write.rs` (lines 124-130)
 
 The WriteResult struct contains:
+
 - `changes`: Vec<FileChangeRecord> - All file operations
 - `invalidated_paths`: Vec<String> - File paths that need cache refresh
 - `key_map`: Vec<CsvRowKeyMapping> - Row ID mappings
@@ -31,6 +32,7 @@ The WriteResult struct contains:
 ### 1. ✅ write_result() helper - src-tauri/src/services/file_changes.rs:51
 
 Extracts path from each FileChangeRecord. Used by:
+
 - save_text_file() - 1 file
 - save_mod_files() - N files via builder
 - apply_file_change_set() - N files
@@ -40,6 +42,7 @@ Extracts path from each FileChangeRecord. Used by:
 ### 2. ✅ save_editor_spec() - src-tauri/src/services/editor_specs.rs:22
 
 Writes 1 spec file (.ship/.wpn/.proj)
+
 - Changes: 1
 - Invalidated paths: 1
 
@@ -48,6 +51,7 @@ Writes 1 spec file (.ship/.wpn/.proj)
 ### 3. ✅ save_csv_patch() - src-tauri/src/services/project/write/csv_patch.rs:58
 
 Writes CSV + associated files
+
 - Lines 56-57: Builds invalidated_paths from CSV + associated files
 - Extends with associated_rel_paths (line 57)
 
@@ -56,6 +60,7 @@ Writes CSV + associated files
 ### 4. ✅ save_variant_entity() - src-tauri/src/services/config/variants.rs:44
 
 Extracts paths from all changes:
+
 - Writes 1-2 files depending on rename
 - invalidated_paths includes all
 
@@ -64,6 +69,7 @@ Extracts paths from all changes:
 ### 5. ✅ delete_variant_entity() - src-tauri/src/services/config/variants.rs:70
 
 Extracts paths from all changes:
+
 - Writes 1 file (deletion)
 - invalidated_paths includes 1 path
 
@@ -72,6 +78,7 @@ Extracts paths from all changes:
 ### 6. ✅ save_skin_entity() - src-tauri/src/services/config/skins.rs:44
 
 Same pattern as variants.rs
+
 - Writes 1-2 files
 - All paths included
 
@@ -80,6 +87,7 @@ Same pattern as variants.rs
 ### 7. ✅ delete_skin_entity() - src-tauri/src/services/config/skins.rs:70
 
 Same pattern as delete_variant_entity()
+
 - Writes 1 file
 - All paths included
 
@@ -88,6 +96,7 @@ Same pattern as delete_variant_entity()
 ### 8. ✅ save_indexed_config_entity() - src-tauri/src/services/config/indexed_entities.rs:80
 
 Complex multi-file operations:
+
 - Updates index CSV
 - Saves faction/mission files
 - May copy/delete directories
@@ -98,6 +107,7 @@ Complex multi-file operations:
 ### 9. ✅ delete_indexed_config_entity() - src-tauri/src/services/config/indexed_entities.rs:129
 
 Updates index CSV and optionally deletes target
+
 - Line 130: All changes mapped
 - 1-2 changes total
 
@@ -106,6 +116,7 @@ Updates index CSV and optionally deletes target
 ### 10. ✅ upload_sprite() - src-tauri/src/services/config/assets.rs:28 & 45
 
 Two cases:
+
 - File exists + no overwrite: Returns empty WriteResult
 - Normal: Writes 1 binary file
 
@@ -136,6 +147,7 @@ No hardcoded invalidated_paths lists found that could miss files.
 ## FileChangeSetBuilder Guarantee
 
 The builder's apply() method returns ALL FileChangeRecords created, ensuring:
+
 - No files are accidentally written without tracking
 - Directory operations (copy_directory, delete_directory) are tracked
 - Each FileChangeRecord has a complete path field
@@ -144,15 +156,15 @@ The builder's apply() method returns ALL FileChangeRecords created, ensuring:
 
 ## Verification Results
 
-| Location | Files Written | Changes | Status |
-|----------|---|---|---|
-| file_changes.rs | Variable | Extracted from changes | ✅ |
-| editor_specs.rs | 1 spec | 1 | ✅ |
-| csv_patch.rs | CSV + assoc | 1+N | ✅ FIXED |
-| variants.rs | 1-2 | 1-2 | ✅ |
-| skins.rs | 1-2 | 1-2 | ✅ |
-| indexed_entities.rs | 2-5 | 2-5 | ✅ |
-| assets.rs | 0-1 | 0-1 | ✅ |
+| Location            | Files Written | Changes                | Status   |
+| ------------------- | ------------- | ---------------------- | -------- |
+| file_changes.rs     | Variable      | Extracted from changes | ✅       |
+| editor_specs.rs     | 1 spec        | 1                      | ✅       |
+| csv_patch.rs        | CSV + assoc   | 1+N                    | ✅ FIXED |
+| variants.rs         | 1-2           | 1-2                    | ✅       |
+| skins.rs            | 1-2           | 1-2                    | ✅       |
+| indexed_entities.rs | 2-5           | 2-5                    | ✅       |
+| assets.rs           | 0-1           | 0-1                    | ✅       |
 
 ---
 
@@ -161,4 +173,3 @@ The builder's apply() method returns ALL FileChangeRecords created, ensuring:
 ✅ **AUDIT COMPLETE - NO ISSUES FOUND**
 
 All WriteResult constructions properly include ALL written file paths in invalidated_paths. The codebase is safe and the csv_patch fix is comprehensive. No other similar bugs exist.
-
