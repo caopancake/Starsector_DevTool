@@ -146,21 +146,30 @@ fn source_options_from_rows(
     context: SourceOptionsContext<'_>,
 ) -> AppResult<Vec<crate::models::SourceOption>> {
     let tag_labels = context.session.map(build_tag_label_map);
-    rows.iter()
-        .filter(|row| !is_comment_row(&row.row))
-        .filter_map(|row| {
-            row.row
-                .get(column)
-                .and_then(serde_json::Value::as_str)
-                .map(|value| (row, value))
-        })
-        .filter(|(_, value)| !value.trim().is_empty())
-        .filter(|(_, value)| {
-            context.search.is_empty() || value.to_lowercase().contains(context.search)
-        })
-        .filter(|(_, value)| context.seen.insert((*value).to_string()))
-        .take(context.limit)
-        .map(|(row, value)| {
+    let is_id_column = column == "id";
+    let mut options = Vec::new();
+    for row in rows.iter().filter(|row| !is_comment_row(&row.row)) {
+        let Some(cell_value) = row.row.get(column).and_then(serde_json::Value::as_str) else {
+            continue;
+        };
+        if cell_value.trim().is_empty() {
+            continue;
+        }
+        let values: Vec<&str> = if is_id_column {
+            vec![cell_value]
+        } else {
+            cell_value.split(',').map(|v| v.trim()).filter(|v| !v.is_empty()).collect()
+        };
+        for value in values {
+            if !context.search.is_empty() && !value.to_lowercase().contains(context.search) {
+                continue;
+            }
+            if !context.seen.insert(value.to_string()) {
+                continue;
+            }
+            if options.len() >= context.limit {
+                break;
+            }
             let label = source_option_label(row, column, value, tag_labels.as_ref());
             let resource_ref = source_option_resource_ref(
                 resource_source,
@@ -170,14 +179,18 @@ fn source_options_from_rows(
                 context.core.as_ref(),
                 context.session,
             )?;
-            Ok(crate::models::SourceOption {
+            options.push(crate::models::SourceOption {
                 label,
                 value: value.to_string(),
                 resource_ref,
                 origin: resource_source.into(),
-            })
-        })
-        .collect()
+            });
+        }
+        if options.len() >= context.limit {
+            break;
+        }
+    }
+    Ok(options)
 }
 
 fn source_option_label(
