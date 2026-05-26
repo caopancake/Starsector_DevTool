@@ -42,9 +42,9 @@ const searchRef = ref<HTMLInputElement | null>(null);
 const selectedValues = computed(() => new Set(props.values));
 const pickerStyle = computed(() => ({
   left: `${props.anchor.left}px`,
-  minWidth: `${Math.max(props.anchor.width, 180)}px`,
+  minWidth: `${Math.max(props.anchor.width, 220)}px`,
   top: `${props.anchor.top + props.anchor.height + 2}px`,
-  width: `${Math.min(Math.max(props.anchor.width, 260), 460)}px`,
+  width: `${Math.min(Math.max(props.anchor.width, 300), 600)}px`,
 }));
 const groups = computed(() => groupSelectOptions(props.options));
 const filteredGroups = computed(() => {

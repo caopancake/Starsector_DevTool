@@ -263,7 +263,8 @@
 }
 
 .csv-cell-picker-value {
-  flex: 0 1 42%;
+  flex: 0 0 auto;
+  max-width: 40%;
   color: var(--color-muted);
   font-size: 11px;
 }
