@@ -12,7 +12,9 @@ export function useCsvTableViewModel() {
   const project = useProjectStore();
   const loadedWindowKeys = ref(new Set<string>());
   const loadedSourceOptions = ref(new Map<string, SelectOption[]>());
+  const columnWidthOverrides = ref<Record<string, number>>({});
   let windowRequestId = 0;
+  let lastWidthTable = '';
 
   const gridModel = computed(() =>
     createCsvGridModel(
@@ -26,6 +28,16 @@ export function useCsvTableViewModel() {
   );
   const sourceIndex = computed(() => gridModel.value.sourceIndex);
 
+  const lockedColumnWidths = ref<Record<string, number>>({});
+
+  const effectiveColumns = computed(() =>
+    gridModel.value.columns.map((col) => ({
+      ...col,
+      widthPx: columnWidthOverrides.value[col.key] ?? lockedColumnWidths.value[col.key] ?? col.widthPx,
+    })),
+  );
+  const effectiveTotalWidthPx = computed(() => effectiveColumns.value.reduce((sum, col) => sum + col.widthPx, 0));
+
   watch(
     () => [project.activeSessionId, tables.currentTab, tables.searchText, tables.currentFactionOptionValue] as const,
     async ([sessionId, table]) => {
@@ -34,11 +46,39 @@ export function useCsvTableViewModel() {
       tables.resetTableWindow(table);
       loadedWindowKeys.value = new Set();
       loadedSourceOptions.value = new Map();
+      if (table !== lastWidthTable) {
+        lockedColumnWidths.value = {};
+        columnWidthOverrides.value = {};
+        lastWidthTable = table;
+      }
       await loadTableWindow(0, 240);
       await loadSourceOptionsForVisibleColumns();
     },
     { immediate: true },
   );
+
+  watch(
+    () => gridModel.value.columns,
+    (columns) => {
+      const hasLocked = Object.keys(lockedColumnWidths.value).length > 0;
+      if (!hasLocked) {
+        const widths: Record<string, number> = {};
+        for (const col of columns) widths[col.key] = col.widthPx;
+        lockedColumnWidths.value = widths;
+      } else {
+        for (const col of columns) {
+          if (!(col.key in lockedColumnWidths.value)) {
+            lockedColumnWidths.value[col.key] = col.widthPx;
+          }
+        }
+      }
+    },
+    { immediate: true },
+  );
+
+  function setColumnWidth(key: string, width: number) {
+    columnWidthOverrides.value = { ...columnWidthOverrides.value, [key]: Math.max(40, width) };
+  }
 
   async function loadTableWindow(start: number, count: number) {
     const sessionId = project.activeSessionId;
@@ -102,9 +142,12 @@ export function useCsvTableViewModel() {
   return {
     tables,
     gridModel,
+    effectiveColumns,
+    effectiveTotalWidthPx,
     sourceIndex,
     loadTableWindow,
     querySelectedRowPreview,
+    setColumnWidth,
   };
 }
 

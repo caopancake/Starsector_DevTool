@@ -1,7 +1,7 @@
 <template>
   <div ref="panelRef" class="table-panel" @scroll="handleScroll">
     <table class="data-table" :style="{ width: `${model.totalWidthPx}px`, minWidth: `${model.totalWidthPx}px` }">
-      <CsvGridHeader :columns="model.columns" />
+      <CsvGridHeader :columns="model.columns" @resize-column="forwardResizeColumn" />
       <CsvGridBody
         :active-cell="activeCellKey"
         :after-height="afterHeight"
@@ -44,6 +44,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'request-window': [start: number, count: number];
+  'resize-column': [key: string, width: number];
   'select-row': [rowKey: string];
   'update-cell': [rowKey: string, column: string, value: string];
 }>();
@@ -110,5 +111,9 @@ function forwardSelectRow(rowKey: string) {
 
 function forwardUpdateCell(rowKey: string, column: string, value: string) {
   performanceLogger.measure('frontend.csvGrid.updateCell', { column, rowKey }, () => emit('update-cell', rowKey, column, value));
+}
+
+function forwardResizeColumn(key: string, width: number) {
+  emit('resize-column', key, width);
 }
 </script>

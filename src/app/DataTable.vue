@@ -2,9 +2,10 @@
   <CsvGrid
     :editing="csvTable.tables.editing"
     :is-dirty="csvTable.tables.isDirty"
-    :model="gridModel"
+    :model="effectiveGridModel"
     :selected-row-key="csvTable.tables.selectedRowKey"
     @request-window="csvTable.loadTableWindow"
+    @resize-column="csvTable.setColumnWidth"
     @select-row="csvTable.tables.selectRowByKey"
     @update-cell="csvTable.tables.updateCellValueByKey"
   />
@@ -22,5 +23,9 @@ import CsvGrid from '@/app/components/tables/CsvGrid.vue';
 import type { CsvTableViewModel } from '@/app/composables/use-csv-table-view-model';
 
 const props = defineProps<{ csvTable: CsvTableViewModel }>();
-const gridModel = computed(() => props.csvTable.gridModel.value);
+const effectiveGridModel = computed(() => ({
+  ...props.csvTable.gridModel.value,
+  columns: props.csvTable.effectiveColumns.value,
+  totalWidthPx: props.csvTable.effectiveTotalWidthPx.value,
+}));
 </script>
