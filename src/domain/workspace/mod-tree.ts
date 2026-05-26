@@ -26,7 +26,10 @@ const SECONDARY_TABLE_KEYS: TableKey[] = [
   'marketConditions',
 ];
 
-export function buildModTreeModuleSections(manifest: ProjectManifest | null | undefined): ModTreeModuleSection[] {
+export function buildModTreeModuleSections(
+  manifest: ProjectManifest | null | undefined,
+  tableRowCounts: Partial<Record<TableKey, number>> | null = null,
+): ModTreeModuleSection[] {
   return [
     {
       id: 'workspace',
@@ -39,18 +42,18 @@ export function buildModTreeModuleSections(manifest: ProjectManifest | null | un
     {
       id: 'combat',
       items: [
-        ...PRIMARY_TABLE_KEYS.map((key) => tableModule(key, manifest)),
+        ...PRIMARY_TABLE_KEYS.map((key) => tableModule(key, manifest, tableRowCounts)),
         configModule('skins', '舰船皮肤', manifest?.entitySummaries.skins ?? 0),
         configModule('variants', '装配', manifest?.entitySummaries.variants ?? 0),
-        tableModule('simOpponents', manifest),
-        tableModule('descriptions', manifest),
+        tableModule('simOpponents', manifest, tableRowCounts),
+        tableModule('descriptions', manifest, tableRowCounts),
       ],
     },
     {
       id: 'campaign',
       items: [
         configModule('factions', '势力', manifest?.entitySummaries.factions ?? 0),
-        ...SECONDARY_TABLE_KEYS.map((key) => tableModule(key, manifest)),
+        ...SECONDARY_TABLE_KEYS.map((key) => tableModule(key, manifest, tableRowCounts)),
         configModule('mission', '战役', manifest?.entitySummaries.missions ?? 0),
       ],
     },
@@ -76,11 +79,16 @@ function configModule(view: ConfigView, label: string, count: number | null = nu
   };
 }
 
-function tableModule(table: TableKey, manifest: ProjectManifest | null | undefined): ModTreeModuleItem {
+function tableModule(
+  table: TableKey,
+  manifest: ProjectManifest | null | undefined,
+  tableRowCounts: Partial<Record<TableKey, number>> | null = null,
+): ModTreeModuleItem {
+  const count = tableRowCounts?.[table] ?? manifest?.tableEntitySummaries[table] ?? 0;
   return {
     id: `table:${table}`,
     label: MODULE_LABELS[table],
-    count: manifest?.tableEntitySummaries[table] ?? 0,
+    count,
     target: { type: 'table', table },
   };
 }

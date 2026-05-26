@@ -209,6 +209,10 @@ export const useTablesStore = defineStore('tables', () => {
     return TABLE_KEYS.some((key) => Object.keys(state.dirty[key]).length > 0);
   }
 
+  function getModTotalRows(modRoot: string): Record<TableKey, number> | null {
+    return stateMap.get(modRoot)?.totalRows ?? null;
+  }
+
   // --- Existing API ---
 
   function rowsFor(tab: TableKey): CsvTableRows {
@@ -496,6 +500,7 @@ export const useTablesStore = defineStore('tables', () => {
     deleteSelected,
     finishCellEdit,
     getActiveModTableState,
+    getModTotalRows,
     hasModDirtyChanges,
     hydrate,
     hydrateWithoutActivate,

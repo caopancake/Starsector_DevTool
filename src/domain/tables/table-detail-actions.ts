@@ -4,6 +4,7 @@ import type { EditorWindowKind, RowData, TableKey } from '@/shared/types';
 import { isCsvCommentRow } from '@/domain/tables/csv-comment-row';
 import { associatedSpecEditorKinds, associatedSpecRelPath } from '@/domain/tables/associated-specs';
 import { editorWindowLabel } from '@/domain/editors/editor-kind-metadata';
+import { isUnsavedNewRow } from '@/domain/tables/table-row-key';
 
 export type TableDetailAction =
   | { type: 'file-editor'; path: string; title: string; contextLabel: string; message: string }
@@ -12,6 +13,7 @@ export type TableDetailAction =
 export function detailActionsForRow(modRoot: string, table: TableKey, row: RowData | null | undefined): TableDetailAction[] {
   if (!row) return [];
   if (isCsvCommentRow(row, table)) return [];
+  if (isUnsavedNewRow(row)) return [];
   const id = rowSpecId(row, table);
   if (!id) return [];
   const relPath = associatedSpecRelPath(table, id);
