@@ -87,5 +87,6 @@ ProjectSession 系统是打开 Mod 后的运行态项目边界。Rust 持有项�
 
 1. 移除已加载 Mod 时，前端清理该 session 的资源缓存并调用 `close_project_session`。
 2. 保存、窗口保存事件、history 回放和贴图上传后，前端按 changed paths 清理 query cache 和资源缓存，并调用 `invalidate_project_session`。
-3. 关闭工作区或切换 Starsector root 时，前端按 root 调用 core cache 失效入口。
-4. core cache 失效不替代 session 关闭；session 关闭不替代 core cache 失效。
+3. `invalidate_project_session` 返回刷新后的 `ProjectManifest`；前端必须用返回值更新 project store 中对应 Mod 的 manifest，保证侧栏计数和摘要与后端一致。
+4. 关闭工作区或切换 Starsector root 时，前端按 root 调用 core cache 失效入口。
+5. core cache 失效不替代 session 关闭；session 关闭不替代 core cache 失效。

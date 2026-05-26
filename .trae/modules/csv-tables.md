@@ -41,6 +41,9 @@ CSV 表格系统负责展示和编辑已注册的 Starsector CSV 表，并按 CS
 - `#` 开头行只允许 CSV 内容编辑；右侧详情不得提供引用预览、文件编辑器或专用编辑器动作。
 - CSV 列 schema 是文件资产，不得把字段 schema 内联在组件、store 或 domain 代码常量中。
 - CSV 列 schema 只覆盖确定类型、确定引用和确定多值语义；未覆盖列继续作为普通文本单元格编辑。
+- CSV Grid 表头显示 `schema.label`（中文名），没有 schema 时回退显示英文原始 `key`；原始 key 通过 `title` 属性保留在 tooltip 中供查阅。
+- CSV Grid 列宽计算基于实际显示文本（label 或 key），确保中文表头不溢出。
+- CSV 列 schema 的 label 只影响 UI 显示层，不影响数据读写、保存、patch、dirty、搜索或任何后端链路。
 - CSV 列控件的显示名、原生输入、picker、引用、布尔选项、布尔显示、多值判断和多值拆分写回归属 CSV schema domain，组件不得各自维护控件类型集合或字段值解释规则。
 - 新增 CSV 表默认接入通用表格体系；只有存在明确专用语义时才允许新增详情动作或专用编辑器。
 - 表到关联 spec 文件、默认创建内容和编辑器窗口 kind 的映射只能归属关联 spec 注册表，组件、保存编排和详情动作不得各自维护表名分支。

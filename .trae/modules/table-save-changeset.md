@@ -28,6 +28,7 @@
 - 关联 spec 创建或删除必须通过确认弹窗显式勾选后才进入 associated file changes。
 - 关联文件 change 必须显式提交 `afterText` 和 `afterDataBase64`，未使用的一侧提交 null，不能用缺省字段表达写入语义。
 - CSV 和关联文件必须在同一个 Rust changeset 中写盘。
+- `WriteResult.invalidatedPaths` 必须包含 CSV 路径和所有关联文件路径；后端 session 刷新依赖完整路径列表触发对应 spec 缓存重新加载。
 - 保存成功后才能更新 original tables、清空 dirty、清空 CSV 草稿 history 和记录文件级 history。
 - 后端必须拒绝绝对路径和 `..` 关联文件路径。
 
@@ -43,7 +44,8 @@
 8. Rust project service 构建 CSV 文件 change。
 9. Rust project service 构建关联文件 changes。
 10. Rust `apply_file_change_set` 以 redo 写盘。
-11. Rust 返回 `WriteResult`，包含 changes、invalidatedPaths 和新建行 key 映射。
+11. Rust 返回 `WriteResult`，包含 changes、invalidatedPaths（CSV 路径 + 关联文件路径）和新建行 key 映射。
 12. orchestrator 标记当前表 saved。
 13. orchestrator 清空当前表 CSV 草稿历史。
 14. orchestrator 记录一条文件级 history。
+15. orchestrator 调用 `invalidateWriteResultForMod`，传递所有 invalidatedPaths 触发后端 session 缓存刷新和前端 manifest 更新。
