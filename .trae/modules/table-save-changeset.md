@@ -26,7 +26,9 @@
 - CSV row patch 必须显式提交 row 数据；删除 patch 提交空 row，不能依赖缺省字段表达 patch 内容。
 - 关联 spec 创建或删除只有进入 associated file changes 时才写盘。
 - 关联 spec 创建或删除必须通过确认弹窗显式勾选后才进入 associated file changes。
-- 关联文件 change 必须显式提交 `afterText` 和 `afterDataBase64`，未使用的一侧提交 null，不能用缺省字段表达写入语义。
+- 关联文件 change 必须显式提交 `afterText`、`afterDataBase64` 和 `previousRelPath`，未使用的字段提交 null，不能用缺省字段表达写入语义。
+- 关联文件 change 的 `previousRelPath` 非 null 表示重命名操作：后端读取旧文件内容、更新 ID 字段、写入新路径、删除旧路径；旧文件不存在时回退使用 `afterText`。
+- 已存在行的 ID 变更必须被 `getAssociatedFileCandidates` 检测为重命名候选，不能因为行已存在就跳过关联文件变更检测。
 - CSV 和关联文件必须在同一个 Rust changeset 中写盘。
 - `WriteResult.invalidatedPaths` 必须包含 CSV 路径和所有关联文件路径；后端 session 刷新依赖完整路径列表触发对应 spec 缓存重新加载。
 - 保存成功后才能更新 original tables、清空 dirty、清空 CSV 草稿 history 和记录文件级 history。
@@ -36,8 +38,8 @@
 
 1. 用户触发保存当前表。
 2. `table-save.orchestrator.ts` 结束当前单元格编辑。
-3. orchestrator 检查当前表 dirty，并只收集当前表的关联文件候选。
-4. 需要创建或删除当前表关联 spec 文件时，前端弹出确认并要求用户勾选对应文件操作。
+3. orchestrator 检查当前表 dirty，并只收集当前表的关联文件候选（包含创建、删除和 ID 变更导致的重命名）。
+4. 需要创建、删除或重命名当前表关联 spec 文件时，前端弹出确认并要求用户勾选对应文件操作。
 5. orchestrator 传入用户确认的 associated files。
 6. `csv-table.service.ts` 调用 `saveCsvPatch()`。
 7. Rust project service 用 session baseline 和 rowKey patch 合成 CSV 文本。
