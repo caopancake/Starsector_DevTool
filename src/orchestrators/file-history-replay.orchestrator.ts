@@ -140,7 +140,8 @@ async function invalidateLoadedSessions(project: ProjectStore, result: WriteResu
       const projectRoot = manifest.modRoot;
       const sessionPaths = changedPaths.filter((path) => pathBelongsToRoot(path, projectRoot));
       if (sessionPaths.length === 0) return;
-      await invalidateProject(manifest.sessionId, sessionPaths);
+      const updatedManifest = await invalidateProject(manifest.sessionId, sessionPaths);
+      project.updateManifest(projectRoot, updatedManifest);
       invalidateQueryCacheByPaths(manifest, sessionPaths);
       invalidateResourceCacheByPaths(manifest.sessionId, projectRoot, sessionPaths);
     }),

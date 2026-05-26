@@ -50,5 +50,6 @@ export async function invalidateWriteResultForMod(modRoot: string, result: Write
   const projectRoot = manifest.modRoot;
   invalidateQueryCacheByPaths(manifest, paths);
   invalidateResourceCacheByPaths(manifest.sessionId, projectRoot, paths);
-  await invalidateProject(manifest.sessionId, paths);
+  const updatedManifest = await invalidateProject(manifest.sessionId, paths);
+  project.updateManifest(modRoot, updatedManifest);
 }

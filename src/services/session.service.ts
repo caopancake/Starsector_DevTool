@@ -36,7 +36,7 @@ export function closeProject(sessionId: string): Promise<void> {
   return closeProjectSession(sessionId);
 }
 
-export function invalidateProject(sessionId: string, changedPaths: string[]): Promise<void> {
+export function invalidateProject(sessionId: string, changedPaths: string[]): Promise<ProjectManifest> {
   return invalidateProjectSession(sessionId, changedPaths);
 }
 

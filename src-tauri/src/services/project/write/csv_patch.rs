@@ -38,6 +38,10 @@ pub fn save_csv_patch(
     let key_map = apply_csv_row_patches(table, &mut rows, patches)?;
     let row_values: Vec<Map<String, Value>> = rows.iter().map(|row| row.row.clone()).collect();
     let csv_text = render_csv_text(&header, &row_values)?;
+    let associated_rel_paths: Vec<String> = associated_files
+        .iter()
+        .map(|f| f.rel_path.clone())
+        .collect();
     let mut builder = FileChangeSetBuilder::new(Path::new(&mod_root));
     builder.text_file(&rel_path, Some(csv_text))?;
     for file in associated_files {
@@ -49,9 +53,11 @@ pub fn save_csv_patch(
         table_data.rows = Some(rows);
         table_data.header = header;
     }
+    let mut invalidated_paths = vec![rel_path];
+    invalidated_paths.extend(associated_rel_paths);
     let write_result: WriteResult<()> = WriteResult {
         changes,
-        invalidated_paths: vec![rel_path],
+        invalidated_paths,
         key_map,
         refreshed_entity: None,
         warnings: Vec::new(),

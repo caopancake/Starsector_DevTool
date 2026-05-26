@@ -9,7 +9,7 @@ export function closeProjectSession(sessionId: ProjectSessionId): Promise<void> 
   return invoke('close_project_session', { payload: { sessionId } });
 }
 
-export function invalidateProjectSession(sessionId: ProjectSessionId, changedPaths: string[]): Promise<void> {
+export function invalidateProjectSession(sessionId: ProjectSessionId, changedPaths: string[]): Promise<ProjectManifest> {
   return invoke('invalidate_project_session', { payload: { sessionId, changedPaths } });
 }
 

@@ -27,7 +27,10 @@ pub fn close_project_session(session_id: String) -> AppResult<()> {
     Ok(())
 }
 
-pub fn invalidate_project_session(session_id: &str, changed_paths: Vec<String>) -> AppResult<()> {
+pub fn invalidate_project_session(
+    session_id: &str,
+    changed_paths: Vec<String>,
+) -> AppResult<ProjectManifest> {
     let mut guard = sessions()
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?;
@@ -35,7 +38,7 @@ pub fn invalidate_project_session(session_id: &str, changed_paths: Vec<String>) 
     for changed_path in changed_paths {
         invalidate_session_path(session, &changed_path)?;
     }
-    Ok(())
+    Ok(session.manifest.clone())
 }
 
 pub fn invalidate_core_cache(starsector_root: &str) -> AppResult<()> {
