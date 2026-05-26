@@ -171,7 +171,12 @@
                 ><n-input-number v-model:value="selectedEngine.width" @update:value="draw" /> <label>length</label
                 ><n-input-number v-model:value="selectedEngine.length" @update:value="draw" /> <label>contrailSize</label
                 ><n-input-number v-model:value="selectedEngine.contrailSize" /> <label>style</label
-                ><n-select v-model:value="selectedEngine.style" :options="toOptions(['LOW_TECH', 'MIDLINE', 'HIGH_TECH', 'CUSTOM'])" />
+                ><n-select
+                  v-model:value="selectedEngine.style"
+                  filterable
+                  tag
+                  :options="toOptions(['LOW_TECH', 'MIDLINE', 'HIGH_TECH', 'OMEGA', 'CUSTOM'])"
+                />
                 <label>loc X</label><n-input-number :value="engineLoc[0]" @update:value="setEngineLoc(0, $event)" /> <label>loc Y</label
                 ><n-input-number :value="engineLoc[1]" @update:value="setEngineLoc(1, $event)" />
               </div>
@@ -195,6 +200,14 @@
               </div>
               <div class="action-row button-row">
                 <n-button @click="addBound">添加点</n-button><n-button type="error" ghost @click="deleteSelected">删除点</n-button>
+              </div>
+            </n-collapse-item>
+            <n-collapse-item title="高级属性" name="advanced">
+              <div class="form-grid">
+                <label>viewOffset</label><n-input-number v-model:value="localShip.viewOffset" /> <label>coversColor</label
+                ><n-input v-model:value="localShip.coversColor" placeholder="R,G,B,A (如 255,255,255,255)" /> <label>moduleAnchor X</label
+                ><n-input-number :value="moduleAnchor[0]" @update:value="setArray('moduleAnchor', 0, $event)" />
+                <label>moduleAnchor Y</label><n-input-number :value="moduleAnchor[1]" @update:value="setArray('moduleAnchor', 1, $event)" />
               </div>
             </n-collapse-item>
             <n-collapse-item title="内置装备" name="builtins">
@@ -282,7 +295,7 @@ type ShipDragKind =
   | 'weaponArc'
   | 'engineAngle'
   | 'engineSize';
-type InspectorSection = 'basic' | 'sprite' | 'props' | 'weapons' | 'launchBays' | 'engines' | 'bounds' | 'builtins';
+type InspectorSection = 'basic' | 'sprite' | 'props' | 'weapons' | 'launchBays' | 'engines' | 'bounds' | 'advanced' | 'builtins';
 type ModifierState = Pick<MouseEvent | KeyboardEvent, 'altKey' | 'ctrlKey' | 'shiftKey'>;
 type HoverPreview =
   | { kind: 'collisionRadius'; radius: number }
@@ -332,6 +345,7 @@ const bounds = computed<number[]>(() => (Array.isArray(localShip.value.bounds) ?
 const boundPairs = computed(() => Array.from({ length: Math.floor(bounds.value.length / 2) }));
 const center = computed(() => arr(localShip.value.center, [0, 0]));
 const shieldCenter = computed(() => arr(localShip.value.shieldCenter, [0, 0]));
+const moduleAnchor = computed(() => arr(localShip.value.moduleAnchor, [0, 0]));
 const selectedSlot = computed(() => (selected.value === null ? null : weaponSlots.value[selected.value]));
 const selectedEngine = computed(() => (selected.value === null ? null : engineSlots.value[selected.value]));
 const slotLoc = computed(() => arr(selectedSlot.value?.locations, [0, 0]));

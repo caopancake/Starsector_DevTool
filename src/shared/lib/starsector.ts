@@ -255,6 +255,8 @@ export function defaultShip(id: string): RowData {
     shieldRadius: 60,
     spriteName: '',
     viewOffset: 0,
+    coversColor: '',
+    moduleAnchor: [0, 0],
     weaponSlots: [],
     engineSlots: [],
     bounds: [-60, -30, -60, 30, 60, 30, 60, -30],
