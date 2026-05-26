@@ -145,6 +145,7 @@ fn source_options_from_rows(
     column: &str,
     context: SourceOptionsContext<'_>,
 ) -> AppResult<Vec<crate::models::SourceOption>> {
+    let tag_labels = context.session.map(build_tag_label_map);
     rows.iter()
         .filter(|row| !is_comment_row(&row.row))
         .filter_map(|row| {
@@ -160,7 +161,7 @@ fn source_options_from_rows(
         .filter(|(_, value)| context.seen.insert((*value).to_string()))
         .take(context.limit)
         .map(|(row, value)| {
-            let label = source_option_label(row, column, value);
+            let label = source_option_label(row, column, value, tag_labels.as_ref());
             let resource_ref = source_option_resource_ref(
                 resource_source,
                 context.table,
@@ -179,23 +180,94 @@ fn source_options_from_rows(
         .collect()
 }
 
-fn source_option_label(row: &super::super::model::SessionCsvRow, column: &str, value: &str) -> String {
-    if column != "id" {
-        return value.to_string();
-    }
-    let name = row
-        .row
-        .get("name")
-        .or_else(|| row.row.get("hullName"))
-        .or_else(|| row.row.get("displayName"))
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or_default();
-    if name.trim().is_empty() || name == value {
-        value.to_string()
+fn source_option_label(
+    row: &super::super::model::SessionCsvRow,
+    column: &str,
+    value: &str,
+    tag_labels: Option<&std::collections::HashMap<String, String>>,
+) -> String {
+    if column == "id" {
+        let name = row
+            .row
+            .get("name")
+            .or_else(|| row.row.get("hullName"))
+            .or_else(|| row.row.get("displayName"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        if name.trim().is_empty() || name == value {
+            value.to_string()
+        } else {
+            format!("{name} ({value})")
+        }
+    } else if let Some(desc) = tag_labels.and_then(|m| m.get(value)) {
+        format!("{value} ({desc})")
     } else {
-        format!("{name} ({value})")
+        value.to_string()
     }
 }
+
+fn build_tag_label_map(
+    session: &super::super::model::ProjectSession,
+) -> std::collections::HashMap<String, String> {
+    use std::collections::HashMap;
+    let mut labels: HashMap<String, String> = WELL_KNOWN_TAG_LABELS
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    for (tag, faction_id) in &session.tag_map {
+        if labels.contains_key(tag) {
+            continue;
+        }
+        let faction_name = session
+            .faction_files
+            .get(faction_id)
+            .and_then(|v| v.get("displayName"))
+            .or_else(|| {
+                session
+                    .faction_files
+                    .get(faction_id)
+                    .and_then(|v| v.get("displayNameLong"))
+            })
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or(faction_id);
+        labels.insert(tag.clone(), format!("{faction_name}蓝图"));
+    }
+    labels
+}
+
+static WELL_KNOWN_TAG_LABELS: &[(&str, &str)] = &[
+    ("base_bp", "基础蓝图"),
+    ("rare_bp", "稀有蓝图"),
+    ("no_bp", "无蓝图"),
+    ("no_drop", "不可掉落"),
+    ("restricted", "受限"),
+    ("hullmod_dontlearn", "不可学习"),
+    ("hullmod_underpowered", "低功耗"),
+    ("automated", "自动化"),
+    ("no_autofit", "不自动装配"),
+    ("no_sell", "不可出售"),
+    ("no_dealer", "不可交易"),
+    ("fighter", "战斗机"),
+    ("interceptor", "截击机"),
+    ("bomber", "轰炸机"),
+    ("support", "支援机"),
+    ("merc", "雇佣兵"),
+    ("bounty", "悬赏"),
+    ("derelict", "遗弃"),
+    ("station", "空间站"),
+    ("lowtech_bp", "低科蓝图"),
+    ("midline_bp", "中线蓝图"),
+    ("hightech_bp", "高科蓝图"),
+    ("pirate_bp", "海盗蓝图"),
+    ("missile_bp", "导弹蓝图"),
+    ("XIV_bp", "XIV蓝图"),
+    ("LP_bp", "卢德教会蓝图"),
+    ("comp_armor", "复合装甲"),
+    ("comp_shields", "复合护盾"),
+    ("comp_weapons", "复合武器"),
+    ("comp_storage", "复合存储"),
+    ("no_dissassemble", "不可拆解"),
+];
 
 #[cfg(test)]
 mod tests {
