@@ -37,7 +37,7 @@
   { "key": "proj hitpoints", "label": "弹体结构", "control": "number", "step": 1 },
   { "key": "autofireAccBonus", "label": "自动开火精度加成", "control": "number", "step": 0.1 },
   { "key": "extraArcForAI", "label": "AI 额外射界", "control": "number", "step": 1 },
-  { "key": "hints", "label": "提示", "control": "tags" },
+  { "key": "hints", "label": "提示", "control": "tags", "source": "csv:weapons.hints" },
   { "key": "tags", "label": "标签", "control": "tags", "source": "csv:weapons.tags" },
   { "key": "groupTag", "label": "分组标签", "control": "text" },
   { "key": "tech/manufacturer", "label": "制造商", "control": "text" },

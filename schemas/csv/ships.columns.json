@@ -45,7 +45,7 @@
   { "key": "f/f", "label": "坠毁/燃料", "control": "number", "step": 1 },
   { "key": "crew/s", "label": "船员/补给", "control": "number", "step": 1 },
   { "key": "crew/f", "label": "船员/燃料", "control": "number", "step": 1 },
-  { "key": "hints", "label": "提示标记", "control": "tags" },
+  { "key": "hints", "label": "提示标记", "control": "tags", "source": "csv:ships.hints" },
   { "key": "tags", "label": "标签", "control": "tags", "source": "csv:ships.tags" },
   { "key": "logistics n/a reason", "label": "后勤不适用原因", "control": "text" },
   { "key": "codex variant id", "label": "百科装配", "control": "text" },
