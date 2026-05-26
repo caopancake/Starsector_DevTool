@@ -160,7 +160,7 @@ fn source_options_from_rows(
         .filter(|(_, value)| context.seen.insert((*value).to_string()))
         .take(context.limit)
         .map(|(row, value)| {
-            let label = source_option_label(row, value);
+            let label = source_option_label(row, column, value);
             let resource_ref = source_option_resource_ref(
                 resource_source,
                 context.table,
@@ -179,7 +179,10 @@ fn source_options_from_rows(
         .collect()
 }
 
-fn source_option_label(row: &super::super::model::SessionCsvRow, value: &str) -> String {
+fn source_option_label(row: &super::super::model::SessionCsvRow, column: &str, value: &str) -> String {
+    if column != "id" {
+        return value.to_string();
+    }
     let name = row
         .row
         .get("name")
