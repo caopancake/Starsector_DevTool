@@ -194,7 +194,6 @@
 }
 
 .projectile-body {
-  height: 100%;
   min-width: 0;
   min-height: 0;
   padding: var(--space-3);
