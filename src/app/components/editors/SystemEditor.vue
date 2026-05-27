@@ -6,56 +6,56 @@
         <n-collapse v-model:expanded-names="expandedSections" :theme-overrides="editorCollapseTheme">
           <n-collapse-item title="基础信息" name="basic">
             <div class="form-grid">
-              <label>id</label><n-input :value="systemId" disabled /> <label>type</label
-              ><n-select :value="systemType" :options="toOptions([...SYSTEM_TYPES])" @update:value="onTypeChange" /> <label>aiType</label
-              ><n-select v-model:value="localSystem.aiType" :options="toOptions([...AI_TYPES])" filterable tag /> <label>statsScript</label
-              ><n-input v-model:value="localSystem.statsScript" />
-              <template v-if="aiType === 'CUSTOM'"> <label>aiScript</label><n-input v-model:value="localSystem.aiScript" /> </template>
+              <label>系统 ID</label><n-input :value="systemId" disabled /> <label>系统类型</label
+              ><n-select :value="systemType" :options="toOptions([...SYSTEM_TYPES])" @update:value="onTypeChange" />
+              <label>AI 行为类型</label><n-select v-model:value="localSystem.aiType" :options="toOptions([...AI_TYPES])" filterable tag />
+              <label>效果脚本</label><n-input v-model:value="localSystem.statsScript" />
+              <template v-if="aiType === 'CUSTOM'"> <label>AI 脚本</label><n-input v-model:value="localSystem.aiScript" /> </template>
             </div>
           </n-collapse-item>
 
           <n-collapse-item title="行为标志" name="behavior">
             <div class="form-grid">
-              <label>runScriptWhilePaused</label><n-switch v-model:value="localSystem.runScriptWhilePaused" />
-              <label>runScriptWhileIdle</label><n-switch v-model:value="localSystem.runScriptWhileIdle" />
-              <label>blockActionsWhileChargingDown</label><n-switch v-model:value="localSystem.blockActionsWhileChargingDown" />
-              <label>canNotCauseOverload</label><n-switch v-model:value="localSystem.canNotCauseOverload" />
-              <label>canUseWhileRightClickSystemOn</label><n-switch v-model:value="localSystem.canUseWhileRightClickSystemOn" />
-              <label>clampTurnRateAfter</label><n-switch v-model:value="localSystem.clampTurnRateAfter" /> <label>clampMaxSpeedAfter</label
-              ><n-switch v-model:value="localSystem.clampMaxSpeedAfter" /> <label>alwaysAccelerate</label
-              ><n-switch v-model:value="localSystem.alwaysAccelerate" /> <label>flameoutOnImpactChance</label
-              ><n-input-number v-model:value="localSystem.flameoutOnImpactChance" :step="0.1" />
-              <label>fadeActivationSoundOnChargedown</label><n-switch v-model:value="localSystem.fadeActivationSoundOnChargedown" />
-              <label>activatingShieldsCancels</label><n-switch v-model:value="localSystem.activatingShieldsCancels" />
+              <label>暂停时运行脚本</label><n-switch v-model:value="localSystem.runScriptWhilePaused" /> <label>闲置时运行脚本</label
+              ><n-switch v-model:value="localSystem.runScriptWhileIdle" /> <label>充能降低时阻止动作</label
+              ><n-switch v-model:value="localSystem.blockActionsWhileChargingDown" /> <label>不会导致过载</label
+              ><n-switch v-model:value="localSystem.canNotCauseOverload" /> <label>右键系统开启时可用</label
+              ><n-switch v-model:value="localSystem.canUseWhileRightClickSystemOn" /> <label>效果后限制转向</label
+              ><n-switch v-model:value="localSystem.clampTurnRateAfter" /> <label>效果后限制速度</label
+              ><n-switch v-model:value="localSystem.clampMaxSpeedAfter" /> <label>持续加速</label
+              ><n-switch v-model:value="localSystem.alwaysAccelerate" /> <label>撞击失控概率</label
+              ><n-input-number v-model:value="localSystem.flameoutOnImpactChance" :step="0.1" /> <label>充能降低时淡出音效</label
+              ><n-switch v-model:value="localSystem.fadeActivationSoundOnChargedown" /> <label>开盾时取消系统</label
+              ><n-switch v-model:value="localSystem.activatingShieldsCancels" />
             </div>
           </n-collapse-item>
 
           <n-collapse-item title="音效" name="sound">
             <div class="form-grid">
-              <label>useSound</label><n-input v-model:value="localSystem.useSound" /> <label>loopSound</label
-              ><n-input v-model:value="localSystem.loopSound" /> <label>deactivateSound</label
-              ><n-input v-model:value="localSystem.deactivateSound" /> <label>outOfUsesSound</label
-              ><n-input v-model:value="localSystem.outOfUsesSound" /> <label>soundFilterType</label
-              ><n-select v-model:value="localSystem.soundFilterType" :options="toOptions(['LOWPASS'])" clearable />
-              <label>soundFilterGain</label><n-input-number v-model:value="localSystem.soundFilterGain" :step="0.05" />
-              <label>soundFilterGainHF</label><n-input-number v-model:value="localSystem.soundFilterGainHF" :step="0.05" />
+              <label>激活音效</label><n-input v-model:value="localSystem.useSound" /> <label>循环音效</label
+              ><n-input v-model:value="localSystem.loopSound" /> <label>关闭音效</label
+              ><n-input v-model:value="localSystem.deactivateSound" /> <label>用尽音效</label
+              ><n-input v-model:value="localSystem.outOfUsesSound" /> <label>滤波类型</label
+              ><n-select v-model:value="localSystem.soundFilterType" :options="toOptions(['LOWPASS'])" clearable /> <label>滤波增益</label
+              ><n-input-number v-model:value="localSystem.soundFilterGain" :step="0.05" /> <label>高频滤波增益</label
+              ><n-input-number v-model:value="localSystem.soundFilterGainHF" :step="0.05" />
             </div>
           </n-collapse-item>
 
           <n-collapse-item v-if="showEngineSection" title="引擎视觉" name="engine">
             <div class="form-grid">
-              <label>engineGlowLengthMult</label><n-input-number v-model:value="localSystem.engineGlowLengthMult" :step="0.1" />
-              <label>engineGlowWidthMult</label><n-input-number v-model:value="localSystem.engineGlowWidthMult" :step="0.1" />
-              <label>engineGlowGlowMult</label><n-input-number v-model:value="localSystem.engineGlowGlowMult" :step="0.1" />
+              <label>光柱长度倍率</label><n-input-number v-model:value="localSystem.engineGlowLengthMult" :step="0.1" />
+              <label>光柱宽度倍率</label><n-input-number v-model:value="localSystem.engineGlowWidthMult" :step="0.1" />
+              <label>辉光强度倍率</label><n-input-number v-model:value="localSystem.engineGlowGlowMult" :step="0.1" />
             </div>
-            <ColorPicker label="engineGlowColor" v-model="engineGlowColor" />
-            <ColorPicker label="engineGlowContrailColor" v-model="engineGlowContrailColor" />
+            <ColorPicker label="引擎发光颜色" v-model="engineGlowColor" />
+            <ColorPicker label="引擎尾迹颜色" v-model="engineGlowContrailColor" />
           </n-collapse-item>
 
           <n-collapse-item title="武器发光" name="weaponGlow">
-            <ColorPicker label="weaponGlowColor" v-model="weaponGlowColor" />
+            <ColorPicker label="武器发光颜色" v-model="weaponGlowColor" />
             <div class="form-grid">
-              <label>weaponTypes</label
+              <label>受影响武器类型</label
               ><n-select
                 v-model:value="localSystem.weaponTypes"
                 :options="toOptions(['ENERGY', 'BALLISTIC', 'MISSILE', 'SYSTEM'])"
@@ -65,70 +65,69 @@
           </n-collapse-item>
 
           <n-collapse-item title="抖动效果" name="jitter">
-            <ColorPicker label="jitterColor" v-model="jitterColor" />
+            <ColorPicker label="抖动颜色" v-model="jitterColor" />
             <div class="form-grid">
-              <label>jitterCopies</label><n-input-number v-model:value="localSystem.jitterCopies" /> <label>jitterMinRange</label
-              ><n-input-number v-model:value="localSystem.jitterMinRange" /> <label>jitterRange</label
-              ><n-input-number v-model:value="localSystem.jitterRange" /> <label>jitterRangeRadiusFraction</label
+              <label>抖动副本数</label><n-input-number v-model:value="localSystem.jitterCopies" /> <label>最小范围</label
+              ><n-input-number v-model:value="localSystem.jitterMinRange" /> <label>抖动范围</label
+              ><n-input-number v-model:value="localSystem.jitterRange" /> <label>范围半径比例</label
               ><n-input-number v-model:value="localSystem.jitterRangeRadiusFraction" :step="0.1" />
             </div>
-            <ColorPicker label="jitterUnderColor" v-model="jitterUnderColor" />
+            <ColorPicker label="底层抖动颜色" v-model="jitterUnderColor" />
             <div class="form-grid">
-              <label>jitterUnderCopies</label><n-input-number v-model:value="localSystem.jitterUnderCopies" />
-              <label>jitterUnderMinRange</label><n-input-number v-model:value="localSystem.jitterUnderMinRange" />
-              <label>jitterUnderRange</label><n-input-number v-model:value="localSystem.jitterUnderRange" />
-              <label>jitterUnderRangeRadiusFraction</label
+              <label>底层副本数</label><n-input-number v-model:value="localSystem.jitterUnderCopies" /> <label>底层最小范围</label
+              ><n-input-number v-model:value="localSystem.jitterUnderMinRange" /> <label>底层抖动范围</label
+              ><n-input-number v-model:value="localSystem.jitterUnderRange" /> <label>底层范围半径比例</label
               ><n-input-number v-model:value="localSystem.jitterUnderRangeRadiusFraction" :step="0.1" />
             </div>
           </n-collapse-item>
 
           <n-collapse-item v-if="showPhaseSection" title="相位视觉" name="phase">
-            <ColorPicker label="effectColor1" v-model="effectColor1" />
-            <ColorPicker label="effectColor2" v-model="effectColor2" />
+            <ColorPicker label="效果颜色 1" v-model="effectColor1" />
+            <ColorPicker label="效果颜色 2" v-model="effectColor2" />
             <div class="form-grid">
-              <label>phaseHighlight</label><n-input v-model:value="localSystem.phaseHighlight" /> <label>phaseDiffuse</label
-              ><n-input v-model:value="localSystem.phaseDiffuse" /> <label>shipAlpha</label
+              <label>高光贴图后缀</label><n-input v-model:value="localSystem.phaseHighlight" /> <label>漫射贴图后缀</label
+              ><n-input v-model:value="localSystem.phaseDiffuse" /> <label>舰船透明度</label
               ><n-input-number v-model:value="localSystem.shipAlpha" :step="0.05" />
             </div>
           </n-collapse-item>
 
           <n-collapse-item v-if="showShieldSection" title="护盾视觉" name="shield">
-            <ColorPicker label="shieldRingColor" v-model="shieldRingColor" />
-            <ColorPicker label="shieldInnerColor" v-model="shieldInnerColor" />
+            <ColorPicker label="护盾环颜色" v-model="shieldRingColor" />
+            <ColorPicker label="护盾内部颜色" v-model="shieldInnerColor" />
             <div class="form-grid">
-              <label>shieldThicknessMult</label><n-input-number v-model:value="localSystem.shieldThicknessMult" :step="0.1" />
-              <label>shieldFluctuationMult</label><n-input-number v-model:value="localSystem.shieldFluctuationMult" :step="0.1" />
+              <label>护盾厚度倍率</label><n-input-number v-model:value="localSystem.shieldThicknessMult" :step="0.1" />
+              <label>护盾波动倍率</label><n-input-number v-model:value="localSystem.shieldFluctuationMult" :step="0.1" />
             </div>
           </n-collapse-item>
 
           <n-collapse-item v-if="showDisplacerSection" title="位移器参数" name="displacer">
             <div class="form-grid">
-              <label>range</label><n-input-number v-model:value="localSystem.range" /> <label>randomRange</label
-              ><n-input-number v-model:value="localSystem.randomRange" /> <label>renderCopyDuringTeleport</label
+              <label>位移距离</label><n-input-number v-model:value="localSystem.range" /> <label>随机偏移</label
+              ><n-input-number v-model:value="localSystem.randomRange" /> <label>传送时渲染副本</label
               ><n-switch v-model:value="localSystem.renderCopyDuringTeleport" />
             </div>
           </n-collapse-item>
 
           <n-collapse-item v-if="showWeaponSection" title="武器系统" name="weaponSystem">
-            <div class="form-grid"><label>weaponDataId</label><n-input v-model:value="localSystem.weaponDataId" /></div>
+            <div class="form-grid"><label>关联武器 ID</label><n-input v-model:value="localSystem.weaponDataId" /></div>
           </n-collapse-item>
 
           <n-collapse-item v-if="showDroneSection" title="无人机参数" name="drone">
             <div class="form-grid">
-              <label>droneVariant</label><n-input v-model:value="localSystem.droneVariant" /> <label>allowFreeRoam</label
-              ><n-switch v-model:value="localSystem.allowFreeRoam" /> <label>launchSpeed</label
-              ><n-input-number v-model:value="localSystem.launchSpeed" /> <label>launchDelay</label
-              ><n-input-number v-model:value="localSystem.launchDelay" :step="0.1" /> <label>maxDrones</label
+              <label>无人机装配 ID</label><n-input v-model:value="localSystem.droneVariant" /> <label>允许自由漫游</label
+              ><n-switch v-model:value="localSystem.allowFreeRoam" /> <label>发射速度</label
+              ><n-input-number v-model:value="localSystem.launchSpeed" /> <label>发射延迟</label
+              ><n-input-number v-model:value="localSystem.launchDelay" :step="0.1" /> <label>最大无人机数</label
               ><n-input-number v-model:value="localSystem.maxDrones" />
             </div>
-            <h4 style="margin: 8px 0 4px">droneBehavior</h4>
+            <h4 style="margin: 8px 0 4px">无人机行为定义</h4>
             <ObjectEditor v-model="droneBehaviorJson" />
           </n-collapse-item>
 
           <n-collapse-item title="伤害（AI 理解用）" name="damage">
             <div class="form-grid">
-              <label>empDamage</label><n-input-number v-model:value="localSystem.empDamage" /> <label>damage</label
-              ><n-input-number v-model:value="localSystem.damage" /> <label>damageType</label
+              <label>EMP 伤害</label><n-input-number v-model:value="localSystem.empDamage" /> <label>伤害值</label
+              ><n-input-number v-model:value="localSystem.damage" /> <label>伤害类型</label
               ><n-select
                 v-model:value="localSystem.damageType"
                 :options="toOptions(['ENERGY', 'KINETIC', 'HIGH_EXPLOSIVE', 'FRAGMENTATION'])"
