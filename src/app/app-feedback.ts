@@ -3,7 +3,7 @@ import { NButton, NSpace, NText } from 'naive-ui';
 import type { DialogApiInjection } from 'naive-ui/es/dialog/src/DialogProvider';
 import type { MessageApiInjection } from 'naive-ui/es/message/src/MessageProvider';
 import { extractFileReferenceFromError, formatError } from '@/shared/lib/errors';
-import type { AppFeedback, ConfirmOptions } from '@/shared/types/feedback.types';
+import type { AppFeedback, ChooseOptions, ConfirmOptions } from '@/shared/types/feedback.types';
 import { openFileEditorWindow } from '@/windows/file-editor.window';
 import { recordLogBestEffort } from '@/services/app-config.service';
 import { useSettingsStore } from '@/stores/settings.store';
@@ -19,6 +19,7 @@ export function createAppFeedback(message: MessageApiInjection, dialog: DialogAp
     error: (error, contextMessage) => showError(message, error, contextMessage),
     confirmDanger: (options) => showConfirm(dialog, 'error', options),
     confirmWarning: (options) => showConfirm(dialog, 'warning', options),
+    choose: (options) => showChoose(dialog, options),
   };
 }
 
@@ -77,4 +78,63 @@ function showError(message: MessageApiInjection, error: unknown, contextMessage?
       ),
     { duration: 10000, closable: true },
   );
+}
+
+function showChoose(dialog: DialogApiInjection, options: ChooseOptions): Promise<string | null> {
+  return new Promise((resolve) => {
+    let resolved = false;
+    const instance = dialog.create({
+      type: 'info',
+      title: options.title,
+      content: options.content,
+      closable: true,
+      showIcon: false,
+      action: () =>
+        h(
+          NSpace,
+          { justify: 'end', size: 'small' },
+          {
+            default: () => [
+              ...options.choices.map((choice) =>
+                h(
+                  NButton,
+                  {
+                    type: choice.type ?? 'default',
+                    size: 'small',
+                    onClick: () => {
+                      resolved = true;
+                      instance.destroy();
+                      resolve(choice.value);
+                    },
+                  },
+                  { default: () => choice.label },
+                ),
+              ),
+              h(
+                NButton,
+                {
+                  size: 'small',
+                  onClick: () => {
+                    resolved = true;
+                    instance.destroy();
+                    resolve(null);
+                  },
+                },
+                { default: () => '取消' },
+              ),
+            ],
+          },
+        ),
+      onClose: () => {
+        if (!resolved) resolve(null);
+      },
+      onMaskClick: () => {
+        if (!resolved) {
+          resolved = true;
+          instance.destroy();
+          resolve(null);
+        }
+      },
+    });
+  });
 }

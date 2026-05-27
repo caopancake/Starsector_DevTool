@@ -1,13 +1,16 @@
 import { computed, ref } from 'vue';
 import type { EditorSpecSavedEvent } from '@/windows/editor.window';
 import type { UnlistenFn } from '@/windows/tauri.events';
-import { queryEditorEntityBundle, type EditorEntityBundle } from '@/services/editor.service';
+import { queryEditorEntityBundle, loadImportedSpecFile, type EditorEntityBundle } from '@/services/editor.service';
 import type { EditorSpecKind, EditorWindowKind, RowData } from '@/shared/types';
 import { deepClone, defaultWeapon } from '@/shared/lib/starsector';
 import { formatError } from '@/shared/lib/errors';
 import { emitEditorSpecSaved, listenEditorSpecSaved } from '@/orchestrators/editor-window.orchestrator';
 import { saveEditorSpecByKind } from '@/services/editor.service';
-import { editorMissingTargetText } from '@/domain/editors/editor-kind-metadata';
+import { editorMissingTargetText, editorSpecExtension } from '@/domain/editors/editor-kind-metadata';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
+import { pickEditorSpecFile } from '@/shared/runtime/dialog.runtime';
+import { closeCurrentWindow } from '@/windows/current.window';
 
 interface EditorWindowTarget {
   id: string;
@@ -58,10 +61,58 @@ export function useEditorWindowViewModel(params: {
     }
     try {
       editorData.value = await queryEditorEntityBundle(target.sessionId, params.kind, target.id);
+      if (editorData.value && editorData.value.isNew && params.kind !== 'weapon-preview') {
+        const choice = await handleMissingSpec(params.kind, target);
+        if (choice === 'cancel') {
+          void closeCurrentWindow();
+          return;
+        }
+      }
     } catch (error) {
       errorText.value = formatError(error);
     } finally {
       loading.value = false;
+    }
+  }
+
+  async function handleMissingSpec(kind: EditorWindowKind, target: EditorWindowTarget): Promise<'create' | 'import' | 'cancel'> {
+    const feedback = useAppFeedback();
+    const specKind = kind as EditorSpecKind;
+    const ext = editorSpecExtension(specKind);
+    const choice = await feedback.choose({
+      title: `找不到 ${target.id}.${ext}`,
+      content: '目标文件不存在，请选择操作：',
+      choices: [
+        { label: '新建文件', value: 'create', type: 'primary' },
+        { label: '导入已有文件', value: 'import' },
+      ],
+    });
+    if (!choice) return 'cancel';
+    if (choice === 'import') {
+      const path = await pickEditorSpecFile(ext);
+      if (!path) return 'cancel';
+      try {
+        const data = await loadImportedSpecFile(path);
+        applyImportedSpec(kind, target.id, data);
+        return 'import';
+      } catch {
+        feedback.error(null, `无法读取或解析所选文件`);
+        return 'cancel';
+      }
+    }
+    return 'create';
+  }
+
+  function applyImportedSpec(kind: EditorWindowKind, id: string, data: RowData) {
+    if (!editorData.value) return;
+    if (kind === 'ship' && editorData.value.kind === 'ship') {
+      editorData.value = { ...editorData.value, ship: data, isNew: false };
+    } else if (kind === 'weapon' && editorData.value.kind === 'weapon') {
+      editorData.value = { ...editorData.value, weapon: data, isNew: false };
+    } else if (kind === 'projectile' && editorData.value.kind === 'projectile') {
+      editorData.value = { ...editorData.value, projectile: data, projectileSpecs: { [id]: data }, isNew: false };
+    } else if (kind === 'system' && editorData.value.kind === 'system') {
+      editorData.value = { ...editorData.value, system: data, isNew: false };
     }
   }
 

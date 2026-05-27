@@ -6,6 +6,7 @@ import { WEAPON_SPRITE_FIELDS } from '@/domain/editors/lib/weapon-sprite-fields'
 import { editorSpecExtension } from '@/domain/editors/editor-kind-metadata';
 import { requireRowData } from '@/shared/lib/row-data';
 import { defaultShip } from '@/shared/lib/starsector';
+import { loadEditableFile } from '@/shared/api/files-api';
 import type {
   EditorSpecKind,
   EditorWindowKind,
@@ -32,6 +33,7 @@ export interface ShipEditorEntityBundle {
   kind: 'ship';
   ship: RowData;
   shipSpriteData: string;
+  isNew: boolean;
 }
 
 export interface WeaponEditorEntityBundle {
@@ -41,6 +43,7 @@ export interface WeaponEditorEntityBundle {
   projectileSpecs: Record<string, RowData>;
   projectileOptions: EditorSelectOption[];
   weaponSpriteData: Record<string, string>;
+  isNew: boolean;
 }
 
 export interface WeaponPreviewEntityBundle {
@@ -49,17 +52,20 @@ export interface WeaponPreviewEntityBundle {
   weaponCsvRow: RowData;
   projectileSpecs: Record<string, RowData>;
   weaponSpriteData: Record<string, string>;
+  isNew: boolean;
 }
 
 export interface ProjectileEditorEntityBundle {
   kind: 'projectile';
   projectile: RowData;
   projectileSpecs: Record<string, RowData>;
+  isNew: boolean;
 }
 
 export interface SystemEditorEntityBundle {
   kind: 'system';
   system: RowData;
+  isNew: boolean;
 }
 
 export async function queryEditorEntityBundle(
@@ -85,6 +91,7 @@ async function queryShipEditorBundle(sessionId: ProjectSessionId, id: string): P
     kind: 'ship',
     ship: shipSpec,
     shipSpriteData: ship ? await querySpriteData(sessionId, ship.resourceRefs.sprite ?? null) : '',
+    isNew: !ship,
   };
 }
 
@@ -112,11 +119,13 @@ async function queryWeaponLikeBundle(
   const weaponEntity = requireEditorRowData(weapon.data, `武器 ${id} 数据无效`);
   const weaponSpec = requireEditorRowData(weaponEntity.spec, `武器 ${id} spec 数据无效`);
   const weaponCsvRow = requireEditorRowData(weaponEntity.csvRow, `武器 ${id} CSV 数据无效`);
+  const isNew = Object.keys(weaponSpec).length === 0;
   const projectileId = typeof weaponSpec.projectileSpecId === 'string' ? weaponSpec.projectileSpecId : '';
   const weaponProjectile = projectileId ? await querySessionEntity(sessionId, 'projectile', projectileId) : null;
   return {
     weapon: weaponSpec,
     weaponCsvRow,
+    isNew,
     projectileSpecs: weaponProjectile
       ? { [projectileId]: requireEditorRowData(weaponProjectile.data, `弹体 ${projectileId} 数据无效`) }
       : {},
@@ -131,6 +140,7 @@ async function queryProjectileEditorBundle(sessionId: ProjectSessionId, id: stri
     kind: 'projectile',
     projectile: spec,
     projectileSpecs: { [id]: spec },
+    isNew: !projectile,
   };
 }
 
@@ -139,6 +149,7 @@ async function querySystemEditorBundle(sessionId: ProjectSessionId, id: string):
   return {
     kind: 'system',
     system: system ? requireEditorRowData(system.data, `战术系统 ${id} 数据无效`) : defaultSystemSpec(id),
+    isNew: !system,
   };
 }
 
@@ -159,6 +170,11 @@ const EDITOR_SPEC_ID_FIELDS: Record<EditorSpecKind, string> = {
   projectile: 'id',
   system: 'id',
 };
+
+export async function loadImportedSpecFile(path: string): Promise<RowData> {
+  const file = await loadEditableFile(path);
+  return JSON.parse(file.text) as RowData;
+}
 
 export function uploadEditorSprite(modRoot: string, filename: string, data: string, subfolder: SpriteSubfolder, overwrite: boolean) {
   return writeSpriteUpload(modRoot, filename, data, subfolder, overwrite).then(

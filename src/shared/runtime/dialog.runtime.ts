@@ -11,3 +11,13 @@ export async function pickFileDialog(options: { defaultPath?: string; title: str
   if (!picked || Array.isArray(picked)) return null;
   return picked;
 }
+
+export async function pickEditorSpecFile(extension: string): Promise<string | null> {
+  const picked = await open({
+    multiple: false,
+    title: `选择 .${extension} 文件`,
+    filters: [{ name: `${extension} 文件`, extensions: [extension] }],
+  });
+  if (!picked || Array.isArray(picked)) return null;
+  return picked;
+}
