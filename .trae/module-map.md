@@ -36,7 +36,6 @@
 - [舰船编辑器模块](modules/ship-editor.md)：追踪舰船 spec 独立窗口 ViewModel、entity query、资源加载、保存和同步。
 - [武器编辑器模块](modules/weapon-editor.md)：追踪武器 spec 独立窗口 ViewModel、候选 source、资源加载、弹体和预览入口。
 - [弹体编辑器模块](modules/projectile-editor.md)：追踪弹体 spec 独立窗口 ViewModel、entity query、保存和同步。
-- [战术系统编辑器模块](modules/system-editor.md)：追踪战术系统 spec 独立窗口 ViewModel、entity query、type 条件区段、保存和同步。
 - [发射预览模块](modules/weapon-preview.md)：说明武器发射预览窗口的读取和非保存边界。
 - [舰船皮肤编辑模块](modules/skin-editor.md)：说明 `.skin` 列表、schema 表单、新建、保存和删除链路。
 - [装配编辑模块](modules/variant-editor.md)：说明 `.variant` 列表、schema 表单、新建、保存和删除链路。
