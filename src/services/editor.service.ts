@@ -5,6 +5,7 @@ import { writeEditorSpec, writeSpriteUpload } from '@/services/write.service';
 import { WEAPON_SPRITE_FIELDS } from '@/domain/editors/lib/weapon-sprite-fields';
 import { editorSpecExtension } from '@/domain/editors/editor-kind-metadata';
 import { requireRowData } from '@/shared/lib/row-data';
+import { defaultShip } from '@/shared/lib/starsector';
 import type {
   EditorSpecKind,
   EditorWindowKind,
@@ -78,12 +79,12 @@ const EDITOR_ENTITY_BUNDLE_LOADERS: Record<EditorWindowKind, (sessionId: Project
 };
 
 async function queryShipEditorBundle(sessionId: ProjectSessionId, id: string): Promise<ShipEditorEntityBundle> {
-  const ship = requireEditorEntity(await querySessionEntity(sessionId, 'ship', id), 'ship', id);
-  const shipSpec = requireEditorRowData(ship.data, `舰船 ${id} 数据无效`);
+  const ship = await querySessionEntity(sessionId, 'ship', id);
+  const shipSpec = ship ? requireEditorRowData(ship.data, `舰船 ${id} 数据无效`) : defaultShipSpec(id);
   return {
     kind: 'ship',
     ship: shipSpec,
-    shipSpriteData: await querySpriteData(sessionId, ship.resourceRefs.sprite ?? null),
+    shipSpriteData: ship ? await querySpriteData(sessionId, ship.resourceRefs.sprite ?? null) : '',
   };
 }
 
@@ -124,19 +125,20 @@ async function queryWeaponLikeBundle(
 }
 
 async function queryProjectileEditorBundle(sessionId: ProjectSessionId, id: string): Promise<ProjectileEditorEntityBundle> {
-  const projectile = requireEditorEntity(await querySessionEntity(sessionId, 'projectile', id), 'projectile', id);
+  const projectile = await querySessionEntity(sessionId, 'projectile', id);
+  const spec = projectile ? requireEditorRowData(projectile.data, `弹体 ${id} 数据无效`) : defaultProjectileSpec(id);
   return {
     kind: 'projectile',
-    projectile: requireEditorRowData(projectile.data, `弹体 ${id} 数据无效`),
-    projectileSpecs: { [id]: requireEditorRowData(projectile.data, `弹体 ${id} 数据无效`) },
+    projectile: spec,
+    projectileSpecs: { [id]: spec },
   };
 }
 
 async function querySystemEditorBundle(sessionId: ProjectSessionId, id: string): Promise<SystemEditorEntityBundle> {
-  const system = requireEditorEntity(await querySessionEntity(sessionId, 'system', id), 'system', id);
+  const system = await querySessionEntity(sessionId, 'system', id);
   return {
     kind: 'system',
-    system: requireEditorRowData(system.data, `战术系统 ${id} 数据无效`),
+    system: system ? requireEditorRowData(system.data, `战术系统 ${id} 数据无效`) : defaultSystemSpec(id),
   };
 }
 
@@ -218,4 +220,16 @@ function ensureSpecContext(modRoot: string, id: string, extension: string) {
   if (!id) {
     throw new AppError(`缺少 .${extension} 保存 id`, { action: 'save-spec' });
   }
+}
+
+function defaultShipSpec(id: string): RowData {
+  return defaultShip(id);
+}
+
+function defaultProjectileSpec(id: string): RowData {
+  return { id, specClass: 'projectile' };
+}
+
+function defaultSystemSpec(id: string): RowData {
+  return { id, type: 'STAT_MOD' };
 }
