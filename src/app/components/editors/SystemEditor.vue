@@ -2,7 +2,7 @@
   <div class="modal-backdrop">
     <div class="projectile-window">
       <EditorHeader title="战术系统编辑器" :subtitle="systemId" />
-      <div class="projectile-body">
+      <div class="projectile-body" style="overflow-y: auto; max-height: calc(100vh - 108px)">
         <n-collapse v-model:expanded-names="expandedSections" :theme-overrides="editorCollapseTheme">
           <n-collapse-item title="基础信息" name="basic">
             <div class="form-grid">
