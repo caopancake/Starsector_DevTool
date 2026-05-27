@@ -27,6 +27,7 @@ export function useEditorWindowViewModel(params: {
   const editorData = ref<EditorEntityBundle | null>(null);
   const loading = ref(true);
   const errorText = ref('');
+  const feedback = useAppFeedback();
   let unlistenEditorSpecSaved: UnlistenFn | null = null;
 
   const shipEditorData = computed(() => (editorData.value?.kind === 'ship' ? editorData.value : null));
@@ -76,7 +77,6 @@ export function useEditorWindowViewModel(params: {
   }
 
   async function handleMissingSpec(kind: EditorWindowKind, target: EditorWindowTarget): Promise<'create' | 'import' | 'cancel'> {
-    const feedback = useAppFeedback();
     const specKind = kind as EditorSpecKind;
     const ext = editorSpecExtension(specKind);
     const choice = await feedback.choose({
