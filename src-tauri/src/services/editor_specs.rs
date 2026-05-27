@@ -35,6 +35,9 @@ fn find_editor_spec_target(mod_root: &Path, kind: EditorSpecKind, id: &str) -> A
         EditorSpecKind::Projectile => {
             find_json_target(mod_root, "data/weapons/proj", "proj", "id", id)
         }
+        EditorSpecKind::System => {
+            find_json_target(mod_root, "data/shipsystems", "system", "id", id)
+        }
     }?;
     Ok(target)
 }

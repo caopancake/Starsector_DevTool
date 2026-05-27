@@ -30,6 +30,7 @@ export function useEditorWindowViewModel(params: {
   const weaponEditorData = computed(() => (editorData.value?.kind === 'weapon' ? editorData.value : null));
   const projectileEditorData = computed(() => (editorData.value?.kind === 'projectile' ? editorData.value : null));
   const weaponPreviewData = computed(() => (editorData.value?.kind === 'weapon-preview' ? editorData.value : null));
+  const systemEditorData = computed(() => (editorData.value?.kind === 'system' ? editorData.value : null));
   const weaponLikeEditorData = computed(() => {
     const data = editorData.value;
     return data?.kind === 'weapon' || data?.kind === 'weapon-preview' ? data : null;
@@ -106,6 +107,7 @@ export function useEditorWindowViewModel(params: {
     weaponEditorData,
     projectileEditorData,
     weaponPreviewData,
+    systemEditorData,
     loading,
     errorText,
     weaponForEditor,
@@ -124,6 +126,7 @@ function shouldApplySavedSpec(bundle: EditorEntityBundle, target: EditorWindowTa
     if (bundle.kind === 'projectile') return event.id === target.id;
     if (bundle.kind === 'weapon' || bundle.kind === 'weapon-preview') return event.id in bundle.projectileSpecs;
   }
+  if (event.kind === 'system') return bundle.kind === 'system' && event.id === target.id;
   return false;
 }
 
@@ -136,5 +139,6 @@ function applySavedSpecToBundle(bundle: EditorEntityBundle, kind: EditorSpecKind
   if (kind === 'projectile' && (bundle.kind === 'weapon' || bundle.kind === 'weapon-preview')) {
     return { ...bundle, projectileSpecs: { ...bundle.projectileSpecs, [id]: spec } };
   }
+  if (kind === 'system' && bundle.kind === 'system') return { ...bundle, system: spec };
   return bundle;
 }

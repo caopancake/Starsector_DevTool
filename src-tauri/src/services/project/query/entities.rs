@@ -129,7 +129,17 @@ pub fn query_entity_list(session_id: &str, kind: EntityKind) -> AppResult<Vec<En
                 data: data.clone(),
             })
             .collect(),
-        EntityKind::System | EntityKind::Skill => Vec::new(),
+        EntityKind::System => session
+            .system_files
+            .iter()
+            .map(|(id, data)| EntityData {
+                kind,
+                id: id.clone(),
+                resource_refs: entity_resource_refs(session, kind, id, data),
+                data: data.clone(),
+            })
+            .collect(),
+        EntityKind::Skill => Vec::new(),
     };
     Ok(items)
 }

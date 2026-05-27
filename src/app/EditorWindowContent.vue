@@ -38,6 +38,14 @@
       @close="closeWindow"
       @save-requested="saveEditorData('projectile', $event)"
     />
+    <SystemEditor
+      v-else-if="systemEditorData && target"
+      :mod-root="target.modRoot"
+      :system-id="target.id"
+      :system="systemEditorData.system"
+      @close="closeWindow"
+      @save-requested="saveEditorData('system', $event)"
+    />
     <WeaponFirePreview
       v-else-if="weaponPreviewData && target"
       :weapon-id="target.id"
@@ -60,6 +68,7 @@ import ShipEditor from '@/app/components/editors/ShipEditor.vue';
 import WeaponEditor from '@/app/components/editors/WeaponEditor.vue';
 import ProjectileEditor from '@/app/components/editors/ProjectileEditor.vue';
 import WeaponFirePreview from '@/app/components/editors/WeaponFirePreview.vue';
+import SystemEditor from '@/app/components/editors/SystemEditor.vue';
 import { openProjectileEditorWindow, openWeaponPreviewWindow } from '@/windows/editor.window';
 import { useSettingsStore } from '@/stores/settings.store';
 import { closeCurrentWindow } from '@/windows/current.window';
@@ -81,6 +90,7 @@ const {
   weaponEditorData,
   projectileEditorData,
   weaponPreviewData,
+  systemEditorData,
   loading,
   errorText,
   weaponForEditor,

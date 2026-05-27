@@ -25,3 +25,12 @@ export function normalizeProjectileSpec(projectile: RowData): RowData {
   normalized.engineSlots = Array.isArray(normalized.engineSlots) ? normalized.engineSlots : [];
   return normalized;
 }
+
+export function normalizeSystemSpec(system: RowData): RowData {
+  const normalized = deepClone(system);
+  normalized.type = normalized.type || 'STAT_MOD';
+  normalized.droneBehavior = Array.isArray(normalized.droneBehavior) ? normalized.droneBehavior : [];
+  normalized.aiHints = normalized.aiHints && typeof normalized.aiHints === 'object' ? normalized.aiHints : {};
+  normalized.weaponTypes = Array.isArray(normalized.weaponTypes) ? normalized.weaponTypes : [];
+  return normalized;
+}

@@ -21,7 +21,7 @@ const ASSOCIATED_SPEC_DEFINITIONS: Partial<Record<TableKey, AssociatedSpecDefini
   shipSystems: {
     relPath: (id) => `data/shipsystems/${id}.system`,
     createText: (id) => JSON.stringify({ id }, null, 2),
-    editorKinds: [],
+    editorKinds: ['system'],
   },
   skills: {
     relPath: (id) => `data/characters/skills/${id}.skill`,

@@ -17,6 +17,7 @@ const EDITOR_WINDOW_SIZES: Record<EditorWindowKind, ManagedWindowSize> = {
   ship: { width: 1160, height: 760, minWidth: 860, minHeight: 560 },
   weapon: { width: 1160, height: 760, minWidth: 860, minHeight: 560 },
   projectile: { width: 900, height: 760, minWidth: 720, minHeight: 520 },
+  system: { width: 900, height: 760, minWidth: 720, minHeight: 520 },
   'weapon-preview': { width: 1120, height: 760, minWidth: 760, minHeight: 520 },
 };
 
@@ -48,6 +49,10 @@ export function openWeaponEditorWindow(request: Omit<EditorWindowRequest, 'kind'
 
 export function openProjectileEditorWindow(request: Omit<EditorWindowRequest, 'kind'>): Promise<void> {
   return openEditorWindow({ ...request, kind: 'projectile' });
+}
+
+export function openSystemEditorWindow(request: Omit<EditorWindowRequest, 'kind'>): Promise<void> {
+  return openEditorWindow({ ...request, kind: 'system' });
 }
 
 export function openWeaponPreviewWindow(request: Omit<EditorWindowRequest, 'kind'>): Promise<void> {

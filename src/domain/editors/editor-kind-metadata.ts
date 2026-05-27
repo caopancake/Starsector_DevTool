@@ -4,6 +4,7 @@ const EDITOR_WINDOW_LABELS: Record<EditorWindowKind, string> = {
   ship: '舰船编辑器',
   weapon: '武器编辑器',
   projectile: '弹体编辑器',
+  system: '战术系统编辑器',
   'weapon-preview': '发射预览',
 };
 
@@ -11,6 +12,7 @@ const EDITOR_SPEC_EXTENSIONS: Record<EditorSpecKind, string> = {
   ship: 'ship',
   weapon: 'wpn',
   projectile: 'proj',
+  system: 'system',
 };
 
 export function isEditorWindowKind(value: string | null): value is EditorWindowKind {

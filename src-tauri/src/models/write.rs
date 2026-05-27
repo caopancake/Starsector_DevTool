@@ -82,6 +82,7 @@ pub enum EditorSpecKind {
     Ship,
     Weapon,
     Projectile,
+    System,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

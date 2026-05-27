@@ -24,6 +24,7 @@ export type EditorEntityBundle =
   | ShipEditorEntityBundle
   | WeaponEditorEntityBundle
   | ProjectileEditorEntityBundle
+  | SystemEditorEntityBundle
   | WeaponPreviewEntityBundle;
 
 export interface ShipEditorEntityBundle {
@@ -55,6 +56,11 @@ export interface ProjectileEditorEntityBundle {
   projectileSpecs: Record<string, RowData>;
 }
 
+export interface SystemEditorEntityBundle {
+  kind: 'system';
+  system: RowData;
+}
+
 export async function queryEditorEntityBundle(
   sessionId: ProjectSessionId,
   kind: EditorWindowKind,
@@ -67,6 +73,7 @@ const EDITOR_ENTITY_BUNDLE_LOADERS: Record<EditorWindowKind, (sessionId: Project
   ship: queryShipEditorBundle,
   weapon: (sessionId, id) => queryWeaponEditorBundle(sessionId, id),
   projectile: queryProjectileEditorBundle,
+  system: querySystemEditorBundle,
   'weapon-preview': queryWeaponPreviewBundle,
 };
 
@@ -125,6 +132,14 @@ async function queryProjectileEditorBundle(sessionId: ProjectSessionId, id: stri
   };
 }
 
+async function querySystemEditorBundle(sessionId: ProjectSessionId, id: string): Promise<SystemEditorEntityBundle> {
+  const system = requireEditorEntity(await querySessionEntity(sessionId, 'system', id), 'system', id);
+  return {
+    kind: 'system',
+    system: requireEditorRowData(system.data, `战术系统 ${id} 数据无效`),
+  };
+}
+
 export async function saveEditorSpecByKind(modRoot: string, kind: EditorSpecKind, id: string, data: RowData): Promise<WriteResult> {
   const extension = editorSpecExtension(kind);
   ensureSpecContext(modRoot, id, extension);
@@ -140,6 +155,7 @@ const EDITOR_SPEC_ID_FIELDS: Record<EditorSpecKind, string> = {
   ship: 'hullId',
   weapon: 'id',
   projectile: 'id',
+  system: 'id',
 };
 
 export function uploadEditorSprite(modRoot: string, filename: string, data: string, subfolder: SpriteSubfolder, overwrite: boolean) {
