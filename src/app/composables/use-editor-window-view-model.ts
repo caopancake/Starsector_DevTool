@@ -95,8 +95,8 @@ export function useEditorWindowViewModel(params: {
         const data = await loadImportedSpecFile(path);
         applyImportedSpec(kind, target.id, data);
         return 'import';
-      } catch {
-        feedback.error(null, `无法读取或解析所选文件`);
+      } catch (error) {
+        feedback.error(error, '无法读取或解析所选文件');
         return 'cancel';
       }
     }

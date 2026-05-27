@@ -22,7 +22,7 @@
 - 编辑器 spec 保存入口必须使用正式 spec 类型模型（`EditorSpecKind::System`），不得用裸字符串在 service 层解析。
 - 编辑器 spec 保存定位目标时，候选根不是目录、候选遍历失败、已存在候选 spec 的读取或解析失败都必须返回错误，不能跳过候选后写入默认新路径。
 - 系统数据来自 Mod 目录 `data/shipsystems/*.system`，不含原版资源回退。
-- 当 entity query 返回空（`.system` 文件不存在）时，编辑器以默认模板 `{ id, type: 'STAT_MOD' }` 打开，保存后自动创建文件。
+- 当 entity query 返回空（`.system` 文件不存在）时，编辑器 ViewModel 弹出选择对话框（新建 / 导入 / 取消）；此行为由所有 spec 编辑器（ship / weapon / projectile / system）共用。
 - 保存动作由编辑器 ViewModel 调用 service/orchestrator 完成；组件不得直接调用 shared API。
 - 系统窗口保存成功后通过 `editor-spec-saved` 同步主窗口和其它编辑器窗口。
 - 系统窗口加载失败只影响当前窗口。
@@ -36,8 +36,12 @@
 3. 多窗口机制按 `system + modRoot + systemId` 单例化窗口。
 4. 新窗口挂载 `EditorWindowApp` → `EditorWindowContent`。
 5. 编辑器 ViewModel 使用 `sessionId + systemId` 查询 system entity。
-6. 若 entity 存在，取 spec；若不存在，使用默认模板。
-7. `EditorWindowContent` 挂载 `SystemEditor`。
+6. 若 entity 存在（`isNew: false`），直接加载 spec 到编辑器。
+7. 若 entity 不存在（`isNew: true`），弹出选择对话框：
+   - 新建文件：以默认模板 `{ id, type: 'STAT_MOD' }` 打开。
+   - 导入已有文件：打开文件选择器（限 `.system`），通过 Rust `load_json_spec_file` 以宽松 JSON 解析，加载内容到编辑器。
+   - 取消：关闭编辑器窗口。
+8. `EditorWindowContent` 挂载 `SystemEditor`。
 
 ## 链路：保存战术系统 spec
 
