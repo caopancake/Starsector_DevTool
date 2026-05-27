@@ -414,3 +414,19 @@
 - [ ] 更新 `.trae/module-map.md`、`.trae/modules/`、`.trae/frontend-guidelines.md`、`.trae/backend-guidelines.md` 和 `README.md`。
 - [ ] 跑前后端全套检查，并补最关键的回归清单。
 - [ ] 记录仍然存在但可接受的技术债和后续改进方向。
+
+## 已知问题
+
+### 侧边栏 mod-tree 点击错位
+
+- **现象**：左侧导航 `.mod-tree` 中，滚动后立即点击模块按钮时命中错误项；在 Mod 交界处点击也会错位；停留后点击偶现错位。
+- **已排除方向**：
+  - CSS 嵌套滚动容器（移除 `.nav-pane` 的 `overflow: auto`，错位反而加剧）
+  - CSS Grid 高度约束 / `height: 100%` / `min-height: 0`（无效果）
+  - WebView2 合成层提升（`transform: translateZ(0)` / `will-change: scroll-position` / `overscroll-behavior: contain`，均无效果）
+- **怀疑方向**：
+  - Tauri `decorations: false` + WebView2 在 Windows 上的指针坐标偏移（已知类问题，与自定义标题栏和 `startDragging()` 相关）
+  - WebView2 compositor 在滚动动画结束后对 hit-test 坐标的延迟同步
+  - 可能需要事件委托方案：在 `.mod-tree` 容器层用 `clientY` + `scrollTop` 手动计算命中项，绕过浏览器原生 hit-test
+- **涉及文件**：`src/app/components/NavSidebar.vue`、`src/app/components/ModTreeItem.vue`、`src/styles/workspace.css`、`src/styles/app-shell.css`
+- **复现条件**：多个 Mod 已加载并展开，滚动 mod-tree 后在模组交界处或滚动刚停止时点击。

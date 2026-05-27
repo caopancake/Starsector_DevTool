@@ -121,7 +121,11 @@
               ><n-input-number v-model:value="localSystem.maxDrones" />
             </div>
             <h4 style="margin: 8px 0 4px">无人机行为定义</h4>
-            <ObjectEditor v-model="droneBehaviorJson" />
+            <textarea
+              :value="droneBehaviorJson"
+              @change="applyDroneBehavior(($event.target as HTMLTextAreaElement).value)"
+              style="width: 100%; min-height: 160px; font-family: monospace; font-size: 12px"
+            />
           </n-collapse-item>
 
           <n-collapse-item title="伤害（AI 理解用）" name="damage">
@@ -269,7 +273,15 @@ const shieldInnerColor = computed({
 });
 
 const aiHintsJson = bindObjectField('aiHints');
-const droneBehaviorJson = bindObjectField('droneBehavior');
+const droneBehaviorJson = computed(() => JSON.stringify(localSystem.value.droneBehavior ?? [], null, 2));
+
+function applyDroneBehavior(value: string) {
+  try {
+    localSystem.value.droneBehavior = JSON.parse(value);
+  } catch {
+    // ignore invalid JSON during editing
+  }
+}
 
 const KNOWN_FIELDS = new Set([
   'id',
