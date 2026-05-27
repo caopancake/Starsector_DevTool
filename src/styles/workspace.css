@@ -61,8 +61,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  overscroll-behavior: contain;
-  will-change: scroll-position;
+  transform: translateZ(0);
 }
 
 .mod-tree-item {
