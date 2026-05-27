@@ -1,13 +1,15 @@
 use crate::{
     errors::AppResult,
     io::{
-        apply_changes, build_text_change, read_utf8_no_bom, ChangeDirection, FileChangeSetBuilder,
+        apply_changes, build_text_change, read_json_file, read_utf8_no_bom, ChangeDirection,
+        FileChangeSetBuilder,
     },
     models::{
         AssociatedFileChange, EditableFileData, FileChangeRecord, FileChangeReplayDirection,
         WriteResult,
     },
 };
+use serde_json::Value;
 use std::path::Path;
 
 pub fn save_text_file(path: &str, text: String) -> AppResult<WriteResult> {
@@ -23,6 +25,10 @@ pub fn load_editable_file(path: String) -> AppResult<EditableFileData> {
         path: target.display().to_string(),
         text,
     })
+}
+
+pub fn load_json_spec_file(path: String) -> AppResult<Value> {
+    read_json_file(Path::new(&path))
 }
 
 pub fn save_mod_files(mod_root: &str, files: Vec<AssociatedFileChange>) -> AppResult<WriteResult> {

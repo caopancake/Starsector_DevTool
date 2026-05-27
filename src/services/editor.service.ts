@@ -6,7 +6,7 @@ import { WEAPON_SPRITE_FIELDS } from '@/domain/editors/lib/weapon-sprite-fields'
 import { editorSpecExtension } from '@/domain/editors/editor-kind-metadata';
 import { requireRowData } from '@/shared/lib/row-data';
 import { defaultShip } from '@/shared/lib/starsector';
-import { loadEditableFile } from '@/shared/api/files-api';
+import { loadJsonSpecFile } from '@/shared/api/files-api';
 import type {
   EditorSpecKind,
   EditorWindowKind,
@@ -172,8 +172,7 @@ const EDITOR_SPEC_ID_FIELDS: Record<EditorSpecKind, string> = {
 };
 
 export async function loadImportedSpecFile(path: string): Promise<RowData> {
-  const file = await loadEditableFile(path);
-  return JSON.parse(file.text) as RowData;
+  return loadJsonSpecFile(path);
 }
 
 export function uploadEditorSprite(modRoot: string, filename: string, data: string, subfolder: SpriteSubfolder, overwrite: boolean) {

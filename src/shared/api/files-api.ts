@@ -13,6 +13,10 @@ export function loadEditableFile(path: string): Promise<EditableFileData> {
   return invoke('load_editable_file', { payload: { path } });
 }
 
+export function loadJsonSpecFile(path: string): Promise<RowData> {
+  return invoke('load_json_spec_file', { path });
+}
+
 export function saveTextFile(path: string, text: string): Promise<WriteResult> {
   return invoke('save_text_file', { payload: { path, text } });
 }

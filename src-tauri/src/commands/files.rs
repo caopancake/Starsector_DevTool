@@ -6,10 +6,16 @@ use crate::{
     models::{EditableFileData, WriteResult},
     services,
 };
+use serde_json::Value;
 
 #[tauri::command]
 pub fn load_editable_file(payload: LoadEditableFilePayload) -> Result<EditableFileData, String> {
     services::file_changes::load_editable_file(payload.path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn load_json_spec_file(path: String) -> Result<Value, String> {
+    services::file_changes::load_json_spec_file(path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
