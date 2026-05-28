@@ -66,6 +66,7 @@ export interface SourceOptionGroup {
 export interface SourceOption {
   label: string;
   value: string;
+  description: string | null;
   resourceRef: ResourceRef | null;
   origin: SourceOptionOrigin;
 }

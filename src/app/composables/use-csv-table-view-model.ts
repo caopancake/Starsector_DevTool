@@ -56,6 +56,7 @@ export function useCsvTableViewModel() {
       }
       await loadTableWindow(0, 240);
       await loadSourceOptionsForVisibleColumns();
+      lockColumnWidthsForLoadedModel();
     },
     { immediate: true },
   );
@@ -63,19 +64,7 @@ export function useCsvTableViewModel() {
   watch(
     () => gridModel.value.columns.map((c) => c.key).join(','),
     () => {
-      const columns = gridModel.value.columns;
-      const hasLocked = Object.keys(lockedColumnWidths.value).length > 0;
-      if (!hasLocked) {
-        const widths: Record<string, number> = {};
-        for (const col of columns) widths[col.key] = col.widthPx;
-        lockedColumnWidths.value = widths;
-      } else {
-        for (const col of columns) {
-          if (!(col.key in lockedColumnWidths.value)) {
-            lockedColumnWidths.value[col.key] = col.widthPx;
-          }
-        }
-      }
+      lockColumnWidthsForLoadedModel();
     },
     { immediate: true },
   );
@@ -86,6 +75,23 @@ export function useCsvTableViewModel() {
     if (modRoot) {
       workspace.setColumnWidths(modRoot, tables.currentTab, columnWidthOverrides.value);
     }
+  }
+
+  function lockColumnWidthsForLoadedModel() {
+    const model = gridModel.value;
+    const hasLoadedRows = model.rows.some((row) => row.kind === 'row');
+    if (!hasLoadedRows && tables.filteredRowCount > 0) return;
+    const hasLocked = Object.keys(lockedColumnWidths.value).length > 0;
+    if (!hasLocked) {
+      const widths: Record<string, number> = {};
+      for (const col of model.columns) widths[col.key] = col.widthPx;
+      lockedColumnWidths.value = widths;
+      return;
+    }
+    lockedColumnWidths.value = {
+      ...lockedColumnWidths.value,
+      ...Object.fromEntries(model.columns.filter((col) => !(col.key in lockedColumnWidths.value)).map((col) => [col.key, col.widthPx])),
+    };
   }
 
   async function loadTableWindow(start: number, count: number) {
@@ -119,6 +125,7 @@ export function useCsvTableViewModel() {
           children: group.options.map((option) => ({
             label: option.label,
             value: option.value,
+            description: option.description,
             sprite: option.sprite,
             resourceRef: option.resourceRef ?? null,
           })),

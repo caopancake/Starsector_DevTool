@@ -27,6 +27,7 @@
 - core 字段和图像索引扫描 command 必须返回读取、遍历、解析和字段源结构错误，不能用空集合或跳过文件伪装扫描成功。
 - 原版引用数据只用于下拉选择和缩略图，不注册为可编辑 Mod，也不参与保存。
 - source option 和 hull reference option 不携带 data URL；需要缩略图时必须批量查询 `ResourceRef`。
+- CSV source option 只有实体 ID 语义能携带 `ResourceRef`；从非 ID 列拆出的 token 不属于行实体资源，不能继承行图标。
 - 前端需要给 source option 附加缩略图时必须转换为 hydrated source option，不能把 data URL 写回后端 source option wire 模型。
 - 前端需要给 hull reference option 附加缩略图时必须从 option 的 `ResourceRef` 批量查询 data URL，不能读取或补造不存在的 `sprite` wire 字段。
 - Hull reference query 的目标集合必须命名为 reference ids，因为该集合同时覆盖 ship hull id 和 skin hull id，不能用 hull ids 掩盖引用类型边界。

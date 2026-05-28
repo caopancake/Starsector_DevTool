@@ -14,6 +14,7 @@
           v-for="option in group.options"
           :key="option.value"
           :class="['csv-cell-picker-option', { selected: selectedValues.has(option.value) }]"
+          :title="option.description ?? undefined"
           type="button"
           @click="selectOption(option.value)"
         >

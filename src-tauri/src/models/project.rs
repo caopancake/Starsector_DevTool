@@ -203,6 +203,7 @@ pub struct SourceOptionGroup {
 pub struct SourceOption {
     pub label: String,
     pub value: String,
+    pub description: Option<String>,
     pub resource_ref: Option<ResourceRef>,
     pub origin: SourceOptionOrigin,
 }

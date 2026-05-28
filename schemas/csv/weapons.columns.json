@@ -40,8 +40,8 @@
   { "key": "hints", "label": "提示", "control": "tags", "source": "csv:weapons.hints" },
   { "key": "tags", "label": "标签", "control": "tags", "source": "csv:weapons.tags" },
   { "key": "groupTag", "label": "分组标签", "control": "text" },
-  { "key": "tech/manufacturer", "label": "制造商", "control": "text" },
-  { "key": "for weapon tooltip>>", "label": "以下为提示文本", "control": "text" },
+  { "key": "tech/manufacturer", "label": "设计类型", "control": "text" },
+  { "key": "for weapon tooltip>>", "label": "此后为提示文本", "control": "text" },
   { "key": "primaryRoleStr", "label": "主要用途", "control": "text" },
   { "key": "speedStr", "label": "速度描述", "control": "text" },
   { "key": "trackingStr", "label": "追踪描述", "control": "text" },
@@ -51,6 +51,6 @@
   { "key": "customPrimaryHL", "label": "主文本高亮", "control": "text" },
   { "key": "customAncillary", "label": "自定义副文本", "control": "text" },
   { "key": "customAncillaryHL", "label": "副文本高亮", "control": "text" },
-  { "key": "noDPSInTooltip", "label": "隐藏DPS", "control": "boolean" },
+  { "key": "noDPSInTooltip", "label": "隐藏 DPS", "control": "boolean" },
   { "key": "number", "label": "编号", "control": "number", "step": 1 }
 ]

@@ -3,7 +3,7 @@
     <span class="csv-cell-value">{{ rawValue }}</span>
   </template>
   <template v-else-if="isListControl">
-    <span v-for="value in listValues" :key="value" class="csv-cell-tag">{{ value }}</span>
+    <span v-for="value in listValues" :key="value" class="csv-cell-tag" :title="listValueDescription(value)">{{ value }}</span>
   </template>
   <template v-else-if="isReferenceControl">
     <img v-if="referenceMatch?.option.sprite" class="csv-cell-thumb" :src="referenceMatch.option.sprite" :alt="displayValue" />
@@ -51,4 +51,8 @@ const listValues = computed(() => csvListValues(rawValue.value));
 const referenceMatch = computed(() => sourceValue(props.sourceIndex, props.column.schema?.source, rawValue.value));
 const showsPickerCaret = computed(() => csvControlUsesPicker(control.value) && !isListControl.value && !isReferenceControl.value);
 const displayValue = computed(() => referenceMatch.value?.option.label ?? rawValue.value);
+
+function listValueDescription(value: string): string | undefined {
+  return sourceValue(props.sourceIndex, props.column.schema?.source, value)?.option.description ?? undefined;
+}
 </script>

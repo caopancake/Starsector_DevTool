@@ -35,7 +35,7 @@
         :mod="mod"
         :is-active="workspace.activeModRoot === mod.modRoot"
         :is-expanded="workspace.expandedMods.has(mod.modRoot)"
-        @select="workspace.setActiveMod(mod.modRoot)"
+        @select="navigation.navigateToModOverview(mod.modRoot)"
         @toggle="workspace.toggleExpanded(mod.modRoot)"
         @switch-tab="onSwitchTab"
         @switch-config="onSwitchConfig"
@@ -49,24 +49,23 @@
 <script setup lang="ts">
 import ModTreeItem from '@/app/components/ModTreeItem.vue';
 import { useWorkspaceStore } from '@/stores/workspace.store';
-import { useTablesStore } from '@/stores/tables.store';
 import type { ConfigView, TableKey } from '@/shared/types';
 import { usePerformanceLogger } from '@/app/composables/use-performance-logger';
+import { useWorkspaceNavigationActions } from '@/app/composables/use-workspace-navigation-actions';
 
 defineEmits<{ 'remove-mod': [modRoot: string] }>();
 
 const workspace = useWorkspaceStore();
-const tables = useTablesStore();
 const performanceLogger = usePerformanceLogger();
+const navigation = useWorkspaceNavigationActions();
 
 function onSwitchTab(modRoot: string, tab: TableKey) {
   performanceLogger.measure('frontend.table.switchTab', { modRoot, table: tab }, () => {
-    workspace.setActiveTable(modRoot);
-    tables.switchTab(tab);
+    navigation.navigateToModTable(modRoot, tab);
   });
 }
 
 function onSwitchConfig(modRoot: string, view: ConfigView) {
-  workspace.setActiveConfig(modRoot, view);
+  navigation.navigateToModConfig(modRoot, view);
 }
 </script>

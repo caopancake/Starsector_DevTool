@@ -1,6 +1,6 @@
 <template>
   <div class="schema-field" :class="{ 'nested-row': isNested }">
-    <span class="field-label" :title="field.description ?? undefined">{{ field.label }}</span>
+    <span class="field-label" :title="fieldTitle">{{ field.label }}</span>
     <div class="field-control">
       <template v-if="plainMode">
         <n-input
@@ -146,7 +146,7 @@
           :show="selectOpen"
           :value="strVal"
           :options="enumOptions"
-          :render-label="hasSprites ? renderSelectLabel : undefined"
+          :render-label="renderSelectLabel"
           size="small"
           clearable
           @mousedown.capture="closeOpenSelectOnFieldClick"
@@ -205,7 +205,7 @@
           :show="selectOpen"
           :value="arrVal"
           :options="sourceOptions.length > 0 ? sourceOptions : arrVal.map((v) => ({ label: v, value: v }))"
-          :render-label="hasSprites ? renderSelectLabel : undefined"
+          :render-label="renderSelectLabel"
           multiple
           filterable
           tag
@@ -221,7 +221,7 @@
           :show="selectOpen"
           :value="tagSelectVal"
           :options="sourceOptions"
-          :render-label="hasSprites ? renderSelectLabel : undefined"
+          :render-label="renderSelectLabel"
           multiple
           filterable
           tag
@@ -238,7 +238,7 @@
               :show="kvSelectOpen[idx]"
               :value="entry.key"
               :options="kvKeyOptions"
-              :render-label="optionsContainSprites(kvKeyOptions) ? renderSelectLabel : undefined"
+              :render-label="renderSelectLabel"
               filterable
               tag
               size="small"
@@ -349,7 +349,6 @@ import { normalizeRelPath, pathBelongsToRoot, relativePathFromRoot } from '@/sha
 import type { FieldSchema } from '@/domain/schema/schema.types';
 import {
   appendSchemaKeyValueEntry,
-  flattenSelectOptions,
   formatSchemaCommaList,
   formatSchemaKeyValueText,
   includeCurrentSelectOptions,
@@ -393,6 +392,7 @@ const emit = defineEmits<{
 
 const settings = useSettingsStore();
 const plainMode = computed(() => settings.isPlainEditMode);
+const fieldTitle = computed(() => [props.field.key, props.field.description ?? ''].filter(Boolean).join('\n'));
 
 // ─── Computed value converters ────────────────────────────────────────
 
@@ -452,23 +452,23 @@ const suppressNextSelectOpen = ref(false);
 const kvSelectOpen = ref<Record<number, boolean>>({});
 const suppressNextKvSelectOpen = ref<Record<number, boolean>>({});
 
-// Check if any source option has a sprite — enables thumbnail rendering
-const hasSprites = computed(() => optionsContainSprites(sourceOptions.value));
-
-// Render label with optional thumbnail for n-select options
+// Render label with optional thumbnail for n-select options.
 function renderSelectLabel(option: SelectOption & { label?: string; value?: string }) {
-  if (!option.sprite) return selectOptionText(option);
-  return h('span', { class: 'schema-select-option' }, [
+  const label = h('span', { class: 'schema-select-option-label' }, selectOptionText(option));
+  if (!option.sprite) return h('span', { title: selectOptionTitle(option) }, [label]);
+  return h('span', { class: 'schema-select-option', title: selectOptionTitle(option) }, [
     h('img', {
       src: option.sprite,
       class: 'schema-select-option-thumb',
     }),
-    h('span', { class: 'schema-select-option-label' }, selectOptionText(option)),
+    label,
   ]);
 }
 
-function optionsContainSprites(options: SelectOption[]): boolean {
-  return flattenSelectOptions(options).some((option) => Boolean(option.sprite));
+function selectOptionTitle(option: SelectOption & { label?: string; value?: string }): string | undefined {
+  const value = option.value ?? '';
+  const label = selectOptionText(option);
+  return [value, label !== value ? label : '', option.description ?? ''].filter(Boolean).join('\n') || undefined;
 }
 
 const enumOptions = computed(() => {

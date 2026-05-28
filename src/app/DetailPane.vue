@@ -32,19 +32,21 @@
         <div class="panel-section-title">字段速览</div>
         <div class="schema-preview-list">
           <div v-for="item in summaryItems" :key="item.key" class="schema-preview-row">
-            <span class="schema-preview-label">{{ item.label }}</span>
+            <span class="schema-preview-label" :title="item.key">{{ item.label }}</span>
             <div class="schema-preview-value">
               <template v-if="item.kind === 'tags' || item.kind === 'multi'">
-                <span v-for="tag in item.values" :key="tag" class="schema-preview-tag">{{ tag }}</span>
+                <span v-for="tag in item.values" :key="tag" class="schema-preview-tag" :title="previewTagTitle(item, tag)">
+                  {{ tag }}
+                </span>
                 <span v-if="item.values.length === 0" class="schema-preview-empty">-</span>
               </template>
               <template v-else-if="item.kind === 'color'">
                 <span class="schema-preview-swatch" :style="{ background: item.value }"></span>
-                <strong>{{ item.value || '-' }}</strong>
+                <strong :title="previewValueTitle(item)">{{ item.value || '-' }}</strong>
               </template>
               <template v-else>
                 <img v-if="showReferenceDecorations && item.sprite" class="schema-preview-sprite" :src="item.sprite" :alt="item.display" />
-                <strong>{{ item.display || '-' }}</strong>
+                <strong :title="previewValueTitle(item)">{{ item.display || '-' }}</strong>
                 <small v-if="showReferenceDecorations && item.meta">{{ item.meta }}</small>
               </template>
             </div>
@@ -125,6 +127,7 @@ interface SchemaPreviewItem {
   label: string;
   meta: string;
   sprite: string;
+  source: string | undefined;
   value: string;
   values: string[];
 }
@@ -196,6 +199,7 @@ function schemaPreviewItem(schema: CsvColumnSchema, row: RowData): SchemaPreview
     label: schema.label ?? schema.key,
     meta: csvColumnControlLabel(schema.control),
     sprite: '',
+    source: schema.source,
     value,
     values: [],
   };
@@ -242,6 +246,7 @@ function plainPreviewItem(column: string, row: RowData): SchemaPreviewItem {
     label: column,
     meta: '',
     sprite: '',
+    source: undefined,
     value,
     values: [],
   };
@@ -251,5 +256,17 @@ function findSourceOption(source: string | undefined, value: string): { group: s
   if (!value) return { group: '', option: null };
   if (!source) return { group: '', option: null };
   return sourceValue(props.sourceIndex, source, value) ?? { group: '', option: null };
+}
+
+function previewTagTitle(item: SchemaPreviewItem, value: string): string | undefined {
+  const match = findSourceOption(item.source, value);
+  if (!match.option) return value || undefined;
+  return [match.option.value, match.option.label !== match.option.value ? match.option.label : '', match.option.description ?? '']
+    .filter(Boolean)
+    .join('\n');
+}
+
+function previewValueTitle(item: SchemaPreviewItem): string | undefined {
+  return item.value || undefined;
 }
 </script>

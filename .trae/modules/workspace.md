@@ -11,6 +11,7 @@
 - `src/app/composables/use-workspace-shell-actions.ts` 是主窗口 workspace 级组合入口，承接打开目录、保存表格、移除 Mod、窗口事件和详情动作。
 - `src/orchestrators/workspace-persistence.orchestrator.ts` 负责 workspace 自动保存和启动恢复。
 - `src/orchestrators/open-directory.orchestrator.ts` 负责打开目录后的前端编排。
+- `src/orchestrators/workspace-navigation.orchestrator.ts` 负责主侧栏 Mod 导航动作的跨 store 同步。
 - `src/shared/api/workspace-api.ts` 调用 Rust workspace command。
 - `src-tauri/src/commands/workspace.rs` 暴露 `load_workspace` 和 `save_workspace`。
 - `src-tauri/src/services/app_paths.rs` 解析 Tauri app data 目录。
@@ -31,6 +32,7 @@
 - 关闭工作区时必须清空游戏目录概览、所有已加载 Mod、project cache、tables、编辑器引用、CSV 草稿历史和文件级 history，并等待 Starsector root 的 core cache 失效完成。
 - 游戏目录概览和已打开 ProjectSession 是不同状态；概览中的 Mod 不等于已加载 Mod。
 - 主侧栏 Mod 树只能渲染 workspace domain 生成的模块导航模型，不能在组件模板中直接维护表格 key 分组、配置 view 分组、计数来源或激活判定。
+- 主侧栏 Mod 导航组件必须通过 workspace navigation composable 调用 workspace navigation orchestrator；orchestrator 同步 workspace、project、tables、编辑器引用和文件级 history 的活动 Mod，再切换目标视图或目标表。
 - workspace store 生成游戏目录派生路径时必须使用共享路径工具，不得在 store 内自行拼接路径分隔符。
 - workspace 持久化的 currentView 必须使用正式 WorkspaceView 枚举，不得用裸字符串承载主视图语义。
 - workspace 持久化模型由 Rust 返回完整结构；前端共享类型不得把已由 Rust 默认化或显式返回的字段建模成可缺省字段。
@@ -65,6 +67,15 @@
 5. Rust workspace command 调用 workspace service。
 6. workspace service 通过 app paths service 取得工具私有目录。
 7. Rust workspace service 写入工具私有 workspace 文件。
+
+## 链路：主侧栏 Mod 导航
+
+1. 用户在主侧栏点击已加载 Mod 或其模块入口。
+2. `NavSidebar.vue` 调用 workspace navigation composable。
+3. workspace navigation composable 调用 workspace navigation orchestrator。
+4. workspace navigation orchestrator 同步 workspace active mod、project active mod、tables active state、编辑器引用和文件级 history。
+5. 点击表格模块时，workspace navigation orchestrator 切换主视图到 CSV 表格并调用 tables store 切换当前表。
+6. 点击配置模块时，workspace navigation orchestrator 切换主视图到配置页并设置配置子视图。
 
 ## 链路：关闭工作区
 

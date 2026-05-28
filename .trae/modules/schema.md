@@ -24,6 +24,8 @@ Schema 系统为配置页面和 CSV 表格提供字段定义、分组、枚举�
 - Schema 路径字段选择文件时只能通过共享路径工具计算 Mod 相对路径，组件不得自行维护路径前缀规则。
 - Schema 字段的普通文本值、plain 模式布尔/数字解析、逗号多值解析、tag-select 包装和路径显示名归属 schema domain，字段组件不得各自解释这些值语义。
 - Schema source query 的当前值提取、后端 source option 到表单 SelectOption 的映射和 enum 静态选项生成归属 schema domain。
+- Schema 字段 label 必须用原始字段 key 作为悬浮提示；存在字段说明时悬浮提示同时包含 key 和说明。
+- Schema 智能控件的 source / enum 选项必须用原始 value 作为悬浮提示；存在 label 或说明时悬浮提示同时包含 value、label 和说明。
 - Schema source query 的 runtime context 缺失必须以 null 表达，不能用空字符串伪装为 session 或 source。
 - 多来源字段必须通过 schema service 聚合和拆分。
 - 多来源字段拆分必须保留非法 source 原值并交由配置 domain 校验，不能把缺失、非对象或非文本 source 压成空对象或空文本。

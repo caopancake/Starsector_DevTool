@@ -107,6 +107,7 @@ export function splitSchemaSources(model: RowData, schema: FileSchema): Record<s
 export interface SelectOption {
   label: string;
   value: string;
+  description?: string | null;
   sprite?: string; // data URL for thumbnail preview
   resourceRef?: ResourceRef | null;
   type?: 'group';
@@ -115,6 +116,7 @@ export interface SelectOption {
 }
 
 export interface FlatSelectOption {
+  description?: string | null;
   label: string;
   sprite?: string;
   value: string;
@@ -219,6 +221,7 @@ export function schemaSourceSelectOptions(groups: HydratedSourceOptionGroup[]): 
     children: group.options.map((option) => ({
       label: option.label,
       value: option.value,
+      description: option.description,
       sprite: option.sprite,
       resourceRef: option.resourceRef ?? null,
     })),
@@ -362,6 +365,7 @@ function nextSchemaKeyValueKey(entries: SchemaKeyValueEntry[], format: FieldSche
 function flatSelectOption(option: SelectOption): FlatSelectOption {
   return {
     label: selectOptionText(option),
+    description: option.description ?? null,
     sprite: option.sprite,
     value: option.value,
   };

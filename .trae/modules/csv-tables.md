@@ -62,9 +62,12 @@ CSV 表格系统负责展示和编辑已注册的 Starsector CSV 表，并按 CS
 - 顶部“撤销”“重做”和“保存”只作用于当前表，不得跨表恢复、重做或保存其它 dirty CSV。
 - CSV source 选项必须通过后端 `query_csv_source_options` 获取；前端不得从完整项目数据或原版引用全集派生。
 - CSV source 选项查询在非 `id` 列时必须按逗号拆分单元格值为独立候选项；`id` 列保持整值作为一个选项。
-- CSV source 选项的 label 对 `id` 列使用 `名称 (id)` 格式，对非 `id` 列直接使用值本身，并附加已知标签中文说明（硬编码 + 势力蓝图推导）。
+- CSV source 选项的 label 对 `id` 列使用 `名称 (id)` 格式；`tags` 列只使用已知标签说明、specialItems 蓝图包推导和势力蓝图推导；`hints` 列只使用已知提示说明；其它非 `id` 列直接使用值本身。
+- CSV source 选项可携带独立说明文本，CSV picker 选项和已选多值 chip 使用该说明作为悬浮提示；说明文本不得拼入 `value`。
+- CSV source 选项只有 `id` 列能携带实体资源引用；非 `id` 列拆出的标签、提示或其它 token 不得继承所在行的图标资源。
 - CSV source 选项查询必须校验 source 声明列存在于 CSV header；缺失列不能返回空候选项伪装为合法 source。
 - 右侧字段速览可以读取 CSV 列 schema 增强展示，但不得修改单元格、dirty 或保存状态。
+- 右侧字段速览字段 label 必须用原始列 key 作为悬浮提示；翻译后的引用值必须用原始单元格值作为悬浮提示。
 - 右侧字段速览必须消费 CSV ViewModel / GridModel 已构建的 source 索引，不能在组件内重建缺少已加载选项的 source index。
 - 右侧预览资源查询必须使用当前选中 rowKey，不得把整行传给 service 再读取内部 `_rowKey` 字段。
 - 没有业务 ID 的行不能显示 spec 文件编辑入口。

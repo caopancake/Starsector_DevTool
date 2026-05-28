@@ -11,7 +11,7 @@
     />
     <template v-else>
       <template v-if="isListControl">
-        <span v-for="value in listValue" :key="value" class="csv-cell-tag">{{ value }}</span>
+        <span v-for="value in listValue" :key="value" class="csv-cell-tag" :title="listValueDescription(value)">{{ value }}</span>
       </template>
       <template v-else-if="isReferenceControl">
         <img v-if="referenceMatch?.option.sprite" class="csv-cell-thumb" :src="referenceMatch.option.sprite" :alt="displayValue" />
@@ -122,5 +122,9 @@ function commitAndClose() {
 
 function handlePickerUpdate(values: string[]) {
   emit('update-cell', props.row.rowKey, props.column.key, isListControl.value ? formatCsvListValue(values) : (values[0] ?? ''));
+}
+
+function listValueDescription(value: string): string | undefined {
+  return sourceValue(props.sourceIndex, props.column.schema?.source, value)?.option.description ?? undefined;
 }
 </script>
