@@ -36,7 +36,7 @@ export function saveModFiles(sessionId: ProjectSessionId, modRoot: string, files
   return invoke('save_mod_files', { payload: { sessionId, modRoot, files } });
 }
 
-export function replayFileChangeSetOnDisk(
+export function applyFileChangeSet(
   sessionId: ProjectSessionId,
   modRoot: string,
   direction: FileChangeReplayDirection,

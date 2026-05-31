@@ -15,6 +15,7 @@ use serde_json::{Map, Value};
 #[serde(rename_all = "camelCase")]
 pub struct SaveCsvPatchPayload {
     pub session_id: ProjectSessionId,
+    pub mod_root: String,
     pub table: CsvTableKey,
     pub patches: Vec<CsvRowPatch>,
     pub associated_files: Vec<AssociatedFileChange>,
@@ -517,8 +518,21 @@ mod tests {
     fn save_csv_patch_payload_requires_explicit_associated_files() {
         let result = serde_json::from_value::<SaveCsvPatchPayload>(json!({
             "sessionId": "session-1",
+            "modRoot": "C:/mods/test",
             "table": "ships",
             "patches": []
+        }));
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn save_csv_patch_payload_requires_mod_root() {
+        let result = serde_json::from_value::<SaveCsvPatchPayload>(json!({
+            "sessionId": "session-1",
+            "table": "ships",
+            "patches": [],
+            "associatedFiles": []
         }));
 
         assert!(result.is_err());
@@ -528,6 +542,7 @@ mod tests {
     fn save_csv_patch_payload_requires_explicit_patch_row() {
         let result = serde_json::from_value::<SaveCsvPatchPayload>(json!({
             "sessionId": "session-1",
+            "modRoot": "C:/mods/test",
             "table": "ships",
             "patches": [{
                 "rowKey": "ships:row:0",

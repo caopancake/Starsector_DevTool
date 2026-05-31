@@ -9,7 +9,7 @@ import {
   saveSkinEntity,
   saveVariantEntity,
 } from '@/shared/api/config-entity-api';
-import { replayFileChangeSetOnDisk, saveEditorSpec, saveModFiles, saveTextFile } from '@/shared/api/files-api';
+import { applyFileChangeSet, saveEditorSpec, saveModFiles, saveTextFile } from '@/shared/api/files-api';
 import { saveCsvPatch } from '@/shared/api/tables-api';
 import { uploadSprite } from '@/shared/api/assets-api';
 import type {
@@ -32,11 +32,12 @@ import type { EditorSpecKind } from '@/shared/types/editor.types';
 
 export async function writeCsvPatch(
   sessionId: string,
+  modRoot: string,
   table: TableKey,
   patches: CsvRowPatch[],
   associatedFiles: AssociatedFileChange[],
 ): Promise<WriteResult> {
-  return saveCsvPatch(sessionId, table, patches, associatedFiles);
+  return saveCsvPatch(sessionId, modRoot, table, patches, associatedFiles);
 }
 
 export async function writeTextFile(sessionId: string, modRoot: string, path: string, text: string): Promise<WriteResult> {
@@ -110,5 +111,5 @@ export async function replayFileChangeSet(
   direction: FileChangeReplayDirection,
   changes: FileChangeRecord[],
 ): Promise<WriteResult> {
-  return replayFileChangeSetOnDisk(sessionId, modRoot, direction, changes);
+  return applyFileChangeSet(sessionId, modRoot, direction, changes);
 }

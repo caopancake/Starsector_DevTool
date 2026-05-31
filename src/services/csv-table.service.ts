@@ -57,11 +57,12 @@ export async function queryTableSourceOptions(
 
 export function saveTablePatch(
   sessionId: ProjectSessionId,
+  modRoot: string,
   table: TableKey,
   patches: CsvRowPatch[],
   associatedFiles: AssociatedFileChange[],
 ): Promise<WriteResult> {
-  return writeCsvPatch(sessionId, table, patches, associatedFiles);
+  return writeCsvPatch(sessionId, modRoot, table, patches, associatedFiles);
 }
 
 export async function queryTableRowPreviewDataUrl(sessionId: ProjectSessionId, table: TableKey, rowKey: string): Promise<string> {

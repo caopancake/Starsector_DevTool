@@ -3,9 +3,10 @@ import type { AssociatedFileChange, CsvRowPatch, ProjectSessionId, TableKey, Wri
 
 export function saveCsvPatch(
   sessionId: ProjectSessionId,
+  modRoot: string,
   table: TableKey,
   patches: CsvRowPatch[],
   associatedFiles: AssociatedFileChange[],
 ): Promise<WriteResult> {
-  return invoke('save_csv_patch', { payload: { sessionId, table, patches, associatedFiles } });
+  return invoke('save_csv_patch', { payload: { sessionId, modRoot, table, patches, associatedFiles } });
 }

@@ -127,7 +127,7 @@ async function applyFileSaveHistoryEntry(
   const result = await replayFileChangeSet(sessionId, modRoot, direction, entry.changes);
   await notifyOpenWindows(modRoot, entry.changes, direction);
   const invalidatedSessions = await invalidateLoadedProjectSessionsForWriteResult(result, modRoot);
-  refreshActiveTableIfAffected(project, tables, invalidatedSessions);
+  refreshActiveTableIfAffected(project, tables, modRoot, invalidatedSessions);
 }
 
 function historyEntryPaths(entry: FileSaveHistoryEntry): string[] {
@@ -149,10 +149,10 @@ async function notifyOpenWindows(modRoot: string, changes: FileChangeRecord[], d
 function refreshActiveTableIfAffected(
   project: ProjectStore,
   tables: TablesStore,
+  targetModRoot: string,
   invalidatedSessions: Awaited<ReturnType<typeof invalidateLoadedProjectSessionsForWriteResult>>,
 ) {
-  const active = project.activeManifest;
-  if (!active) return;
-  if (!invalidatedSessions.some((event) => event.manifest.modRoot === active.modRoot)) return;
+  if (!invalidatedSessions.some((event) => event.manifest.modRoot === targetModRoot)) return;
+  if (project.activeModRoot !== targetModRoot) return;
   tables.selectRowByKey(null);
 }

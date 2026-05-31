@@ -76,7 +76,7 @@ export function useConfigFactionViewModel() {
       deletePreviousTarget: false,
     });
     feedback.success(`势力 "${id}" 已创建`);
-    if (project.activeManifest?.modRoot !== createModRoot) return true;
+    if (project.activeManifest?.modRoot !== createModRoot || project.activeManifest.sessionId !== createSessionId) return true;
     selectedFaction.value = id;
     await loadFactions();
     return true;

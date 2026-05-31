@@ -124,6 +124,17 @@
 - 问题：配置保存 orchestrator 虽然会向 Rust 提交 `sessionId + modRoot`，但部分配置创建、保存和删除动作仍由 orchestrator 按 `modRoot` 重新读取当前 store 中的 session；旧确认框或旧编辑器在同一路径 Mod 被重载后可能拿到新 session，导致发起时会话边界失效。
   - 解决：配置写入 action 不再自行按 `modRoot` 取 session；`mod_info`、Faction、Mission、Variant 和 Skin 的保存按钮、新建弹窗与删除确认框都在发起时捕获 `sessionId + modRoot` 并显式贯穿 ViewModel、config save orchestrator、shared API 和 Rust command，异步返回后也按同一 session 校验后才刷新界面状态。
 
+- 问题：`createFaction` 异步完成后只验证 `modRoot`，缺少 `sessionId` 校验；同一路径 Mod 被关闭重载后，旧创建回调会把选中和列表刷新错误应用到新 ProjectSession 的界面。
+  - 解决：`createFaction` 完成后同时比对 `modRoot` 和 `sessionId`，与同文件 `saveFaction`、`deleteFaction` 保持一致的后验证模式。
+- 问题：文件 history 回放的 `refreshActiveTableIfAffected` 在两个 `await` 之后读取 `project.activeManifest` 确定是否清空表格选中行；回放期间用户切换活跃 Mod 时，可能清空与本次回放无关的表格选中状态。
+  - 解决：`refreshActiveTableIfAffected` 改为接收已捕获的 `targetModRoot`，先检查失效列表包含目标 Mod，再验证当前活跃 Mod 仍为目标后才清空选中行。
+- 问题：`loadWorkspaceMod` 在 `await openProjectManifest` 之后无条件执行 `hydrateLoadedMod(modRoot, loaded, true)`；加载期间用户切换活跃 Mod 时，旧加载完成会强制激活表格、编辑器和文件历史到已不再是活跃 Mod 的目标。
+  - 解决：`await` 之后检查 `workspace.activeModRoot` 是否仍为当前 `modRoot`，据此决定 hydrate 的 `activate` 参数，用户已切换时只执行数据注册不激活 UI 状态。
+- 问题：`save_csv_patch` 是唯一不携带 `modRoot` 且后端不执行 `ensure_project_session_mod_root` 校验的写操作；所有其他写命令（`save_text_file`、`save_editor_spec`、`save_mod_files`、`apply_file_change_set`、`upload_sprite`、config entity 系列）都在 command 层验证 `sessionId + modRoot` 一致性后才写盘，CSV 保存链路安全保障与其他写操作不一致。
+  - 解决：`SaveCsvPatchPayload` 增加 `mod_root` 字段，`save_csv_patch` command 在写盘前复用 `ensure_project_session_mod_root` 校验；前端 `saveCsvPatch` → `writeCsvPatch` → `saveTablePatch` 全链路增加 `modRoot` 参数，table-save orchestrator 把已捕获的 `modRoot` 传入保存调用；补充 `modRoot` 缺失 payload 反例测试。
+- 问题：`shared/api/files-api.ts` 中 `replayFileChangeSetOnDisk` 函数名与后端 `apply_file_change_set` 命令名语义不匹配；API 层作为 Tauri command 的薄包装应反映后端命令语义，而非领域级行为别名。
+  - 解决：API 层重命名为 `applyFileChangeSet`，service 层保留 `replayFileChangeSet`（领域语义），import 和调用同步更新。
+
 ## 已验证
 
 - `npm.cmd run typecheck` 通过。

@@ -51,7 +51,7 @@ export async function saveCapturedTableChanges(
     const csvEditHistory = useTablesEditHistoryStore();
     const tableAssociatedFiles = associatedFiles.filter((file) => isAssociatedFileForTable(table, file.relPath));
     const patches = buildCurrentTablePatches(state, table);
-    const result = await saveTablePatch(manifest.sessionId, table, patches, tableAssociatedFiles);
+    const result = await saveTablePatch(manifest.sessionId, modRoot, table, patches, tableAssociatedFiles);
     if (!isCapturedTableSaveTargetCurrent(target)) return 'saved';
     tables.applySavedRowKeyMapForMod(modRoot, table, result.keyMap);
     tables.markTableSavedForMod(modRoot, table);

@@ -85,7 +85,10 @@ async function loadWorkspaceMod(modRoot: string, starsectorRoot: string | null, 
   try {
     const loaded = await openProjectManifest(modRoot, starsectorRoot);
     const displayName = updateLoadedEntry(modRoot, loaded);
-    measurePerformance('frontend.hydrateLoadedMod', { modRoot, activate: true }, () => hydrateLoadedMod(modRoot, loaded, true));
+    const stillActive = workspace.activeModRoot === modRoot;
+    measurePerformance('frontend.hydrateLoadedMod', { modRoot, activate: stillActive }, () =>
+      hydrateLoadedMod(modRoot, loaded, stillActive),
+    );
     if (stayOnOverview) workspace.navigateTo('overview');
     return { alreadyLoaded: false, displayName, warnings: formatLoadWarnings(loaded) };
   } catch (error) {
