@@ -10,6 +10,7 @@ static BOOL_LITERAL_RE: OnceLock<Regex> = OnceLock::new();
 static LEADING_DOT_NUMBER_RE: OnceLock<Regex> = OnceLock::new();
 static FLOAT_SUFFIX_RE: OnceLock<Regex> = OnceLock::new();
 static LEADING_ZERO_INT_RE: OnceLock<Regex> = OnceLock::new();
+static LEADING_PLUS_RE: OnceLock<Regex> = OnceLock::new();
 
 pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
     let trailing_re = TRAILING_COMMA_RE
@@ -25,6 +26,10 @@ pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
     let bool_literal_re = BOOL_LITERAL_RE.get_or_init(|| {
         Regex::new(r#"(?m)([:,\[]\s*)(True|TRUE|False|FALSE)\b"#).expect("valid bool literal regex")
     });
+
+    // Matches leading-plus numbers (+100, +0.5) that Java/Starsector parsers accept but JSON rejects.
+    let leading_plus_re = LEADING_PLUS_RE
+        .get_or_init(|| Regex::new(r"([:,\[]\s*)\+(\d)").expect("valid leading-plus regex"));
 
     // Matches Starsector-style leading-dot decimals after JSON separators: .5, -.5, .0f.
     let leading_dot_number_re = LEADING_DOT_NUMBER_RE.get_or_init(|| {
@@ -71,6 +76,11 @@ pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
     // Quote unquoted ALL_CAPS identifier values (enum-like values in Starsector)
     cleaned = replace_outside_strings(&cleaned, |segment| {
         value_re.replace_all(segment, "$1\"$2\"").to_string()
+    });
+
+    // Strip leading plus signs (+100 → 100, +0.5 → 0.5) that Java parsers accept.
+    cleaned = replace_outside_strings(&cleaned, |segment| {
+        leading_plus_re.replace_all(segment, "$1$2").to_string()
     });
 
     // Normalize leading-dot decimals (.5 → 0.5, -.5 → -0.5) before strict JSON parsing.
@@ -559,6 +569,22 @@ mod tests {
         assert_eq!(parsed["custom"]["offersCommissions"], true);
         assert_eq!(parsed["custom"]["AICoreValueMult"], 1);
         assert_eq!(parsed["custom"]["officerSkillsShuffleProbability"], 1);
+    }
+
+    #[test]
+    fn strips_leading_plus_from_numbers() {
+        let text = r#"{
+            "renderOrderMod":+100,
+            "offset": [+0.5, +3],
+            "negative": -5,
+            "plusInString": "value is +10"
+        }"#;
+        let parsed = parse_starsector_json(text).unwrap();
+        assert_eq!(parsed["renderOrderMod"], 100);
+        assert_eq!(parsed["offset"][0], 0.5);
+        assert_eq!(parsed["offset"][1], 3);
+        assert_eq!(parsed["negative"], -5);
+        assert_eq!(parsed["plusInString"], "value is +10");
     }
 }
 

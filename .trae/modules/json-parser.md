@@ -12,7 +12,7 @@
 
 ## 规范
 
-- parser 支持 `#` 注释、尾逗号、未加引号对象 key、全大写未加引号 enum、无前导零小数、Java float suffix、前导零整数、分号条目结束和单引号字符串。
+- parser 支持 `#` 注释、尾逗号、未加引号对象 key、全大写未加引号 enum、前导正号数值、无前导零小数、Java float suffix、前导零整数、分号条目结束和单引号字符串。
 - parser 的清洗必须只作用于字符串外区域。
 - parser 必须保留负例测试，避免接受明显错误格式。
 - 保存 JSON-like 文件时写出 pretty JSON，不保留原注释和尾逗号。
@@ -27,9 +27,10 @@
 5. parser 移除尾逗号。
 6. parser 给未加引号 key 加双引号。
 7. parser 给全大写 enum 值加双引号。
-8. parser 规范化无前导零小数。
-9. parser 移除 Java float suffix。
-10. parser 规范化前导零整数。
-11. parser 截取第一个 JSON object 结束位置。
-12. parser 调用 `serde_json::from_str()`。
-13. filesystem 层把错误附加文件路径后返回。
+8. parser 移除前导正号（+100 → 100）。
+9. parser 规范化无前导零小数。
+10. parser 移除 Java float suffix。
+11. parser 规范化前导零整数。
+12. parser 截取第一个 JSON object 结束位置。
+13. parser 调用 `serde_json::from_str()`。
+14. filesystem 层把错误附加文件路径后返回。
