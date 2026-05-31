@@ -28,9 +28,12 @@
 - 启动恢复期间自动保存必须暂停；恢复结束后必须等待当前 workspace 状态写回工具私有 workspace 文件。
 - 移除 Mod 时必须同时移除 workspace、project cache、tables、编辑器引用、CSV 草稿历史和文件级 history。
 - 移除 Mod 时必须清理该 Mod 的持久化列宽数据。
+- workspace 持久化列宽必须使用 `modRoot -> table -> column -> width` 的结构化模型，不能用分隔符拼接 Mod 根目录和表 key。
 - 移除 Mod 时必须显式关闭对应 ProjectSession，并清理该 session 的前端资源缓存；移除动作必须等待 ProjectSession 关闭完成。
 - 关闭工作区时必须清空游戏目录概览、所有已加载 Mod、project cache、tables、编辑器引用、CSV 草稿历史和文件级 history，并等待 Starsector root 的 core cache 失效完成。
+- 关闭工作区确认必须捕获确认打开时的已加载 Mod roots、游戏目录 root 和需要失效的 Starsector roots；确认回调不能重新读取当前 workspace 决定关闭目标。
 - 游戏目录概览和已打开 ProjectSession 是不同状态；概览中的 Mod 不等于已加载 Mod。
+- ProjectManifest 写入不得隐式切换活动 Mod；活动 Mod 由 workspace 导航、恢复和打开 Mod 编排显式同步到 project、tables、编辑器引用和文件级 history。
 - 主侧栏 Mod 树只能渲染 workspace domain 生成的模块导航模型，不能在组件模板中直接维护表格 key 分组、配置 view 分组、计数来源或激活判定。
 - 主侧栏 Mod 导航组件必须通过 workspace navigation composable 调用 workspace navigation orchestrator；orchestrator 同步 workspace、project、tables、编辑器引用和文件级 history 的活动 Mod，再切换目标视图或目标表。
 - workspace store 生成游戏目录派生路径时必须使用共享路径工具，不得在 store 内自行拼接路径分隔符。
@@ -80,8 +83,8 @@
 ## 链路：关闭工作区
 
 1. 用户在工作区总览点击关闭工作区。
-2. 前端确认关闭；如果存在未保存 CSV 修改，确认文案必须明确修改会丢失。
-3. `use-workspace-shell-actions.ts` 逐个移除已加载 Mod 的所有前端状态并关闭对应 ProjectSession。
-4. 前端按 Starsector root 调用 core cache 失效入口。
+2. 前端捕获本次关闭目标并确认关闭；如果存在未保存 CSV 修改，确认文案必须明确修改会丢失。
+3. `use-workspace-shell-actions.ts` 逐个移除捕获目标内已加载 Mod 的所有前端状态并关闭对应 ProjectSession。
+4. 前端按捕获的 Starsector root 调用 core cache 失效入口。
 5. workspace store 清空 `gameOverview` 并回到 `overview`。
 6. project、tables、editor、CSV 草稿历史和文件级 history 不再保留该工作区的 Mod 状态。

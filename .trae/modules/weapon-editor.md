@@ -18,7 +18,9 @@
 
 - 武器编辑器保存只写对应 `.wpn`。
 - 编辑器 spec 保存入口必须使用正式 spec 类型模型，不得用裸字符串在 service 层解析。
+- 编辑器 spec 保存入口必须在候选目录扫描、目标路径构造和 changeset 构建前校验目标 ID 是可移植文件名 ID。
 - 编辑器 spec 保存定位目标时，候选根不是目录、候选遍历失败、已存在候选 spec 的读取或解析失败都必须返回错误，不能跳过候选后写入默认新路径。
+- 导入已有编辑器 spec 文件必须提交正式 spec 类型和文件路径，Rust 按类型校验扩展名并拒绝包含 `..` 的路径后再读取。
 - 武器编辑器不隐式保存 `weapon_data.csv`。
 - 武器 entity 列表和详情查询以 `weapon_data.csv` 注册行为准；未注册 ID 必须返回 null，`.wpn` 缺失只表示由注册 CSV 行生成默认武器 spec。
 - 武器 entity 查询中 `weapon_data.csv` 的空行和注释行不产生实体；非注释注册行缺少正式 weapon id 必须返回错误，不能静默跳过。
@@ -30,7 +32,9 @@
 - 武器贴图字段和绘制顺序归属 domain 纯模型；编辑器 ViewModel、`WeaponEditor` 和发射预览必须复用同一字段定义。
 - 武器窗口局部 undo/redo 只处理窗口内编辑状态。
 - 武器窗口接收已加载弹体的 `editor-spec-saved` 同步事件，不能依赖空弹体字段或重新查询整个窗口数据。
-- 保存成功后的主窗口同步和文件级 history 记录方式与舰船编辑器相同。
+- 保存成功后必须发送携带 `sessionId + modRoot + kind + id + WriteResult` 的 `editor-spec-saved`，主窗口同步和文件级 history 记录方式与舰船编辑器相同。
+- 武器窗口收到主窗口广播的 session 路径失效后，必须清理本窗口 query/resource cache；武器 spec、武器 CSV 或已加载弹体 spec query 失效才重新查询当前武器 bundle，贴图资源 data URL 失效只刷新 `weaponSpriteData`，不得重置本地 `.wpn` 草稿。
+- 武器窗口的 projectile entity-list 失效只刷新 `projectileOptions`；已加载 projectile detail 失效只刷新 `projectileSpecs`，不得为派生依赖变化重查 weapon spec。
 
 ## 链路：打开武器编辑器
 

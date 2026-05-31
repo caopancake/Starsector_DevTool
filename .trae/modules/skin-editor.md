@@ -26,9 +26,12 @@
 - 舰船皮肤列表缩略图优先使用 `.skin` 的 `spriteName`，没有时按 `baseHullId` 读取舰船贴图；前端只能用 query 返回的 `ResourceRef` 批量加载图片，读取不到时显示占位图标。
 - 保存允许修改 `skinHullId`；修改后必须在同一个 changeset 中删除旧文件并创建新文件。
 - 新建路径固定为 `data/hulls/skins/{skinHullId}.skin`。
+- 删除和重命名旧目标时，Rust 必须校验 relPath 属于 `data/hulls/skins/*.skin`，且文件内容的 `skinHullId` 匹配被操作实体。
+- 保存写入的 `.skin` 数据内 `skinHullId` 必须与保存目标 `skinHullId` 一致。
 - 新建、保存、重命名和删除都必须进入文件级 history。
 - 前端不能直接用文件批量保存拼 `.skin` 文件操作，必须走 `saveSkinAction`、`createSkinAction` 或 `deleteSkinAction`。
 - Skin 组件只消费 ViewModel 暴露的状态和动作，不直接调用 query service、resource cache、write service 或保存 orchestrator。
+- Skin schema 表单的 runtime context 必须使用 Skin ViewModel 暴露的当前目标 `modRoot + sessionId`，字段 source query 和路径选择不得重新绑定 active manifest。
 
 ## 链路：读取舰船皮肤
 

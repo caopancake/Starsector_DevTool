@@ -37,7 +37,7 @@
       </li>
     </ul>
     <footer class="variant-list-footer config-entity-list-footer">
-      <n-button size="small" block @click="showCreateDialog = true">新建装配</n-button>
+      <n-button size="small" block @click="openCreateDialog">新建装配</n-button>
     </footer>
 
     <n-modal
@@ -77,8 +77,10 @@ const props = defineProps<{
   variants: VariantFile[];
   variantSprites: Record<string, string>;
   hullOptions: SelectOption[];
-  createVariant: (hullId: string, variantId: string) => Promise<boolean>;
-  deleteVariant: (variant: VariantFile) => Promise<boolean>;
+  modRoot: string | null;
+  sessionId: string | null;
+  createVariant: (sessionId: string, modRoot: string, hullId: string, variantId: string) => Promise<boolean>;
+  deleteVariant: (sessionId: string, modRoot: string, variant: Pick<VariantFile, 'relPath' | 'variantId'>) => Promise<boolean>;
 }>();
 const emit = defineEmits<{ select: [variantId: string | null] }>();
 
@@ -88,11 +90,23 @@ const feedback = useAppFeedback();
 const showCreateDialog = ref(false);
 const newHullId = ref('');
 const newVariantId = ref('');
+const createModRoot = ref<string | null>(null);
+const createSessionId = ref<string | null>(null);
 
 const variants = computed(() => [...props.variants].sort(compareVariants));
 
+function openCreateDialog() {
+  createModRoot.value = props.modRoot;
+  createSessionId.value = props.sessionId;
+  if (!createModRoot.value || !createSessionId.value) return;
+  showCreateDialog.value = true;
+}
+
 async function submitCreateVariant() {
-  const created = await props.createVariant(newHullId.value.trim(), newVariantId.value.trim());
+  const targetModRoot = createModRoot.value;
+  const targetSessionId = createSessionId.value;
+  if (!targetModRoot || !targetSessionId) return false;
+  const created = await props.createVariant(targetSessionId, targetModRoot, newHullId.value.trim(), newVariantId.value.trim());
   if (!created) {
     return false;
   }
@@ -100,17 +114,21 @@ async function submitCreateVariant() {
   showCreateDialog.value = false;
   newHullId.value = '';
   newVariantId.value = '';
-  emit('select', variantId);
+  if (props.modRoot === targetModRoot && props.sessionId === targetSessionId) emit('select', variantId);
   return true;
 }
 
 function confirmDeleteVariant(variant: VariantFile) {
+  const deleteModRoot = props.modRoot;
+  const deleteSessionId = props.sessionId;
+  if (!deleteModRoot || !deleteSessionId) return;
+  const deleteTarget = { relPath: variant.relPath, variantId: variant.variantId };
   feedback.confirmDanger({
     title: '删除装配',
-    content: `确定要删除装配 "${variant.variantId}" 吗？`,
+    content: `确定要删除装配 "${deleteTarget.variantId}" 吗？`,
     actionText: '删除',
     onConfirm: async () => {
-      await props.deleteVariant(variant);
+      await props.deleteVariant(deleteSessionId, deleteModRoot, deleteTarget);
     },
   });
 }

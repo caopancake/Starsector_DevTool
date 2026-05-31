@@ -66,6 +66,7 @@ import { computed, ref, watch } from 'vue';
 import { useTablesStore } from '@/stores/tables.store';
 import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
+import { useWorkspaceStore } from '@/stores/workspace.store';
 import { cell, MODULE_LABELS, rowDisplayId } from '@/shared/lib/starsector';
 import { detailActionKey, detailActionLabel, detailActionsForRow, type TableDetailAction } from '@/domain/tables/table-detail-actions';
 import { isCsvCommentRow } from '@/domain/tables/csv-comment-row';
@@ -80,10 +81,10 @@ import {
 } from '@/domain/tables/csv-column-schema';
 import { sourceValue, type CsvSourceIndex } from '@/domain/tables/csv-source-options';
 import type { SelectOption } from '@/domain/schema/schema-registry';
-import type { RowData, TableKey } from '@/shared/types';
+import type { CsvRowPreviewTarget, RowData, TableKey } from '@/shared/types';
 
 const props = defineProps<{
-  queryRowPreview: (rowKey: string) => Promise<string>;
+  queryRowPreview: (target: CsvRowPreviewTarget) => Promise<string>;
   sourceIndex: CsvSourceIndex;
 }>();
 
@@ -94,6 +95,7 @@ defineEmits<{
 const tables = useTablesStore();
 const project = useProjectStore();
 const settings = useSettingsStore();
+const workspace = useWorkspaceStore();
 const showReferenceDecorations = computed(() => settings.editMode === 'smart');
 
 const displayName = computed(() => {
@@ -117,7 +119,17 @@ const summaryItems = computed<SchemaPreviewItem[]>(() => {
 const detailActions = computed<TableDetailAction[]>(() => {
   const row = tables.selectedRow;
   const data = project.activeManifest;
-  return data ? detailActionsForRow(data.modRoot, tables.currentTab, row) : [];
+  return data
+    ? detailActionsForRow(
+        {
+          modRoot: data.modRoot,
+          sessionId: data.sessionId,
+          starsectorRoot: data.starsectorRoot ?? workspace.gameOverview?.starsectorRoot ?? settings.starsectorRoot ?? null,
+        },
+        tables.currentTab,
+        row,
+      )
+    : [];
 });
 
 interface SchemaPreviewItem {
@@ -186,8 +198,11 @@ async function loadPreviewResource() {
   const row = tables.selectedRow;
   const rowKey = tables.selectedRowKey;
   if (!manifest || !row || !rowKey || isCommentRow.value) return;
-  const dataUrl = await props.queryRowPreview(rowKey);
-  if (tables.selectedRowKey === rowKey) previewSrc.value = dataUrl;
+  const target = { rowKey, sessionId: manifest.sessionId, table: tables.currentTab };
+  const dataUrl = await props.queryRowPreview(target);
+  if (project.activeSessionId === target.sessionId && tables.currentTab === target.table && tables.selectedRowKey === target.rowKey) {
+    previewSrc.value = dataUrl;
+  }
 }
 
 function schemaPreviewItem(schema: CsvColumnSchema, row: RowData): SchemaPreviewItem {

@@ -415,6 +415,10 @@ export const useTablesStore = defineStore('tables', () => {
     return getActiveState();
   }
 
+  function getModTableState(modRoot: string): ModTableState | undefined {
+    return stateMap.get(modRoot);
+  }
+
   function replaceTableForMod(modRoot: string, tab: TableKey, rows: RowData[]) {
     const state = stateMap.get(modRoot);
     if (!state) return;
@@ -435,15 +439,15 @@ export const useTablesStore = defineStore('tables', () => {
     }
   }
 
-  function markTableSaved(tab: TableKey) {
-    const state = getActiveState();
+  function markTableSavedForMod(modRoot: string, tab: TableKey) {
+    const state = stateMap.get(modRoot);
     if (!state) return;
     state.originalTables[tab] = deepClone(state.tables[tab]);
     state.dirty[tab] = {};
   }
 
-  function applySavedRowKeyMap(tab: TableKey, keyMap: CsvRowKeyMapping[]) {
-    const state = getActiveState();
+  function applySavedRowKeyMapForMod(modRoot: string, tab: TableKey, keyMap: CsvRowKeyMapping[]) {
+    const state = stateMap.get(modRoot);
     if (!state || keyMap.length === 0) return;
     const mapped = new Map(keyMap.map((item) => [item.previousKey, item.nextKey]));
     for (const row of state.tables[tab]) {
@@ -496,10 +500,11 @@ export const useTablesStore = defineStore('tables', () => {
     deleteSelected,
     finishCellEdit,
     getActiveModTableState,
+    getModTableState,
     hasModDirtyChanges,
     hydrate,
     hydrateWithoutActivate,
-    markTableSaved,
+    markTableSavedForMod,
     removeModState,
     replaceTableForMod,
     resetTableWindow,
@@ -510,7 +515,7 @@ export const useTablesStore = defineStore('tables', () => {
     startCellEditByKey,
     setEditingValue,
     switchTab,
-    applySavedRowKeyMap,
+    applySavedRowKeyMapForMod,
     applyTableWindow,
     tableRowKey,
     undoCurrentTableEdit,

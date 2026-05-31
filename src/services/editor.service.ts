@@ -6,7 +6,7 @@ import { WEAPON_SPRITE_FIELDS } from '@/domain/editors/lib/weapon-sprite-fields'
 import { editorSpecExtension } from '@/domain/editors/editor-kind-metadata';
 import { requireRowData } from '@/shared/lib/row-data';
 import { defaultShip } from '@/shared/lib/starsector';
-import { loadJsonSpecFile } from '@/shared/api/files-api';
+import { loadImportedEditorSpecFile } from '@/shared/api/files-api';
 import type {
   EditorSpecKind,
   EditorWindowKind,
@@ -32,6 +32,7 @@ export type EditorEntityBundle =
 export interface ShipEditorEntityBundle {
   kind: 'ship';
   ship: RowData;
+  resourceRefs: ResourceRef[];
   shipSpriteData: string;
   isNew: boolean;
 }
@@ -42,6 +43,7 @@ export interface WeaponEditorEntityBundle {
   weaponCsvRow: RowData;
   projectileSpecs: Record<string, RowData>;
   projectileOptions: EditorSelectOption[];
+  resourceRefs: ResourceRef[];
   weaponSpriteData: Record<string, string>;
   isNew: boolean;
 }
@@ -51,6 +53,7 @@ export interface WeaponPreviewEntityBundle {
   weapon: RowData;
   weaponCsvRow: RowData;
   projectileSpecs: Record<string, RowData>;
+  resourceRefs: ResourceRef[];
   weaponSpriteData: Record<string, string>;
   isNew: boolean;
 }
@@ -76,6 +79,42 @@ export async function queryEditorEntityBundle(
   return EDITOR_ENTITY_BUNDLE_LOADERS[kind](sessionId, id);
 }
 
+export async function refreshEditorBundleResourceData(
+  sessionId: ProjectSessionId,
+  bundle: EditorEntityBundle,
+): Promise<EditorEntityBundle> {
+  if (bundle.kind === 'ship') {
+    return {
+      ...bundle,
+      shipSpriteData: await querySpriteData(sessionId, bundle.resourceRefs.find((resource) => resource.key === 'sprite') ?? null),
+    };
+  }
+  if (bundle.kind === 'weapon' || bundle.kind === 'weapon-preview') {
+    return { ...bundle, weaponSpriteData: await queryWeaponSprites(sessionId, resourceRefsByKey(bundle.resourceRefs)) };
+  }
+  return bundle;
+}
+
+export async function refreshEditorBundleProjectileDependencies(
+  sessionId: ProjectSessionId,
+  bundle: EditorEntityBundle,
+  options: { projectileSpecs: boolean; projectileOptions: boolean },
+): Promise<EditorEntityBundle> {
+  if (bundle.kind !== 'weapon' && bundle.kind !== 'weapon-preview') return bundle;
+  const nextProjectileSpecs = options.projectileSpecs ? await queryLoadedProjectileSpecs(sessionId, bundle.projectileSpecs) : null;
+  if (bundle.kind === 'weapon') {
+    return {
+      ...bundle,
+      projectileSpecs: nextProjectileSpecs ?? bundle.projectileSpecs,
+      projectileOptions: options.projectileOptions ? await queryProjectileOptions(sessionId) : bundle.projectileOptions,
+    };
+  }
+  return {
+    ...bundle,
+    projectileSpecs: nextProjectileSpecs ?? bundle.projectileSpecs,
+  };
+}
+
 const EDITOR_ENTITY_BUNDLE_LOADERS: Record<EditorWindowKind, (sessionId: ProjectSessionId, id: string) => Promise<EditorEntityBundle>> = {
   ship: queryShipEditorBundle,
   weapon: (sessionId, id) => queryWeaponEditorBundle(sessionId, id),
@@ -90,6 +129,7 @@ async function queryShipEditorBundle(sessionId: ProjectSessionId, id: string): P
   return {
     kind: 'ship',
     ship: shipSpec,
+    resourceRefs: ship ? Object.values(ship.resourceRefs) : [],
     shipSpriteData: ship ? await querySpriteData(sessionId, ship.resourceRefs.sprite ?? null) : '',
     isNew: !ship,
   };
@@ -129,6 +169,7 @@ async function queryWeaponLikeBundle(
     projectileSpecs: weaponProjectile
       ? { [projectileId]: requireEditorRowData(weaponProjectile.data, `弹体 ${projectileId} 数据无效`) }
       : {},
+    resourceRefs: Object.values(weapon.resourceRefs),
     weaponSpriteData: await queryWeaponSprites(sessionId, weapon.resourceRefs),
   };
 }
@@ -153,12 +194,18 @@ async function querySystemEditorBundle(sessionId: ProjectSessionId, id: string):
   };
 }
 
-export async function saveEditorSpecByKind(modRoot: string, kind: EditorSpecKind, id: string, data: RowData): Promise<WriteResult> {
+export async function saveEditorSpecByKind(
+  sessionId: string,
+  modRoot: string,
+  kind: EditorSpecKind,
+  id: string,
+  data: RowData,
+): Promise<WriteResult> {
   const extension = editorSpecExtension(kind);
   ensureSpecContext(modRoot, id, extension);
   data[EDITOR_SPEC_ID_FIELDS[kind]] = data[EDITOR_SPEC_ID_FIELDS[kind]] || id;
   try {
-    return await writeEditorSpec(modRoot, kind, id, data);
+    return await writeEditorSpec(sessionId, modRoot, kind, id, data);
   } catch (error) {
     throw withCause(`保存 ${id}.${extension} 失败`, error, `save-${kind}-spec`);
   }
@@ -171,12 +218,19 @@ const EDITOR_SPEC_ID_FIELDS: Record<EditorSpecKind, string> = {
   system: 'id',
 };
 
-export async function loadImportedSpecFile(path: string): Promise<RowData> {
-  return loadJsonSpecFile(path);
+export async function loadImportedSpecFile(kind: EditorSpecKind, path: string): Promise<RowData> {
+  return loadImportedEditorSpecFile(kind, path);
 }
 
-export function uploadEditorSprite(modRoot: string, filename: string, data: string, subfolder: SpriteSubfolder, overwrite: boolean) {
-  return writeSpriteUpload(modRoot, filename, data, subfolder, overwrite).then(
+export function uploadEditorSprite(
+  sessionId: string,
+  modRoot: string,
+  filename: string,
+  data: string,
+  subfolder: SpriteSubfolder,
+  overwrite: boolean,
+) {
+  return writeSpriteUpload(sessionId, modRoot, filename, data, subfolder, overwrite).then(
     (write): SpriteUploadResult => ({
       state: spriteUploadStateFromEntity(write.refreshedEntity),
       write,
@@ -203,9 +257,26 @@ async function querySpriteData(sessionId: ProjectSessionId, resource: ResourceRe
   return (await queryResourceDataUrls(sessionId, [resource]))[0] ?? '';
 }
 
+function resourceRefsByKey(resources: ResourceRef[]): Record<string, ResourceRef> {
+  return Object.fromEntries(resources.map((resource) => [resource.key, resource]));
+}
+
 async function queryProjectileOptions(sessionId: ProjectSessionId): Promise<EditorSelectOption[]> {
   const projectiles = await querySessionEntityList(sessionId, 'projectile');
   return projectiles.map((projectile) => ({ label: projectile.id, value: projectile.id }));
+}
+
+async function queryLoadedProjectileSpecs(
+  sessionId: ProjectSessionId,
+  currentSpecs: Record<string, RowData>,
+): Promise<Record<string, RowData>> {
+  const entries = await Promise.all(
+    Object.keys(currentSpecs).map(async (id) => {
+      const projectile = await querySessionEntity(sessionId, 'projectile', id);
+      return projectile ? ([id, requireEditorRowData(projectile.data, `弹体 ${id} 数据无效`)] as const) : null;
+    }),
+  );
+  return Object.fromEntries(entries.filter((entry): entry is [string, RowData] => entry !== null));
 }
 
 function requireEditorEntity(entity: EntityData | null, kind: EditorSpecKind, id: string): EntityData {

@@ -33,6 +33,7 @@ export type {
   CsvLoadedRowSlot,
   CsvPlaceholderRowSlot,
   CsvRowPreview,
+  CsvRowPreviewTarget,
   CsvTableRows,
   CsvTableWindow,
   CsvWindowRow,
@@ -72,5 +73,13 @@ export type {
 export { RESOURCE_OWNER_KINDS, RESOURCE_SOURCES } from '@/shared/types/query.types';
 export type { EditableFileData, EditorKind, EditorSpecKind, EditorWindowKind } from '@/shared/types/editor.types';
 export { EDITOR_KINDS, EDITOR_WINDOW_KINDS } from '@/shared/types/editor.types';
-export type { ConfigView, ModEntry, ModTableState, PersistedMod, PersistedWorkspace, WorkspaceView } from '@/shared/types/workspace.types';
+export type {
+  ConfigView,
+  ModEntry,
+  ModTableState,
+  PersistedMod,
+  PersistedWorkspace,
+  WorkspaceColumnWidths,
+  WorkspaceView,
+} from '@/shared/types/workspace.types';
 export type { AppFeedback, ConfirmOptions } from '@/shared/types/feedback.types';

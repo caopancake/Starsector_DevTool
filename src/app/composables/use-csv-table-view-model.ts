@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { useProjectStore } from '@/stores/project.store';
 import { useTablesStore } from '@/stores/tables.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
@@ -7,6 +7,13 @@ import { csvColumnSchemaFor } from '@/domain/tables/csv-column-schema';
 import { recordPerformance } from '@/services/performance.service';
 import { queryTableRowPreviewDataUrl, queryTableSourceOptions, queryTableWindow } from '@/services/csv-table.service';
 import type { SelectOption } from '@/domain/schema/schema-registry';
+import {
+  queryCacheInvalidationIncludes,
+  queryCacheInvalidationIncludesResourceIdentity,
+  subscribeQueryCacheInvalidation,
+} from '@/services/query-cache.service';
+import { isResourceRef } from '@/shared/lib/resource-ref';
+import type { CsvRowPreviewTarget, ResourceRef } from '@/shared/types';
 
 export function useCsvTableViewModel() {
   const tables = useTablesStore();
@@ -16,6 +23,7 @@ export function useCsvTableViewModel() {
   const loadedSourceOptions = ref(new Map<string, SelectOption[]>());
   const columnWidthOverrides = ref<Record<string, number>>({});
   let windowRequestId = 0;
+  let sourceOptionsRequestId = 0;
   let lastWidthTable = '';
 
   const gridModel = computed(() =>
@@ -43,11 +51,15 @@ export function useCsvTableViewModel() {
   watch(
     () => [project.activeSessionId, tables.currentTab, tables.searchText, tables.currentFactionOptionValue] as const,
     async ([sessionId, table]) => {
-      if (!sessionId) return;
       windowRequestId += 1;
+      clearLocalQueryState();
+      if (!sessionId) {
+        lockedColumnWidths.value = {};
+        columnWidthOverrides.value = {};
+        lastWidthTable = '';
+        return;
+      }
       tables.resetTableWindow(table);
-      loadedWindowKeys.value = new Set();
-      loadedSourceOptions.value = new Map();
       if (table !== lastWidthTable) {
         lockedColumnWidths.value = {};
         const modRoot = tables.activeModRoot;
@@ -55,14 +67,14 @@ export function useCsvTableViewModel() {
         lastWidthTable = table;
       }
       await loadTableWindow(0, 240);
-      await loadSourceOptionsForVisibleColumns();
+      await reloadSourceOptionsForVisibleColumns();
       lockColumnWidthsForLoadedModel();
     },
     { immediate: true },
   );
 
   watch(
-    () => gridModel.value.columns.map((c) => c.key).join(','),
+    () => JSON.stringify(gridModel.value.columns.map((column) => column.key)),
     () => {
       lockColumnWidthsForLoadedModel();
     },
@@ -75,6 +87,40 @@ export function useCsvTableViewModel() {
     if (modRoot) {
       workspace.setColumnWidths(modRoot, tables.currentTab, columnWidthOverrides.value);
     }
+  }
+
+  const unsubscribeQueryCacheInvalidation = subscribeQueryCacheInvalidation((event) => {
+    if (event.sessionId !== project.activeSessionId) return;
+    const tableWindowChanged = queryCacheInvalidationIncludes(
+      event,
+      'csv-table-window',
+      (parameters) => parameters.table === tables.currentTab,
+    );
+    if (tableWindowChanged) void reloadCurrentTableWindow();
+    const sources = visibleSourceIds();
+    const optionsChanged = queryCacheInvalidationIncludes(event, 'csv-source-options', (parameters) => {
+      const source = parameters.source;
+      return typeof source === 'string' && sources.has(source);
+    });
+    const resourcesChanged = queryCacheInvalidationIncludesResourceIdentity(event, loadedSourceOptionResourceRefs());
+    if (!optionsChanged && !resourcesChanged) return;
+    void reloadSourceOptionsForVisibleColumns();
+  });
+  onUnmounted(unsubscribeQueryCacheInvalidation);
+
+  function clearLocalQueryState() {
+    loadedWindowKeys.value = new Set();
+    loadedSourceOptions.value = new Map();
+  }
+
+  async function reloadCurrentTableWindow() {
+    const table = tables.currentTab;
+    windowRequestId += 1;
+    clearLocalQueryState();
+    tables.resetTableWindow(table);
+    await loadTableWindow(0, 240);
+    await reloadSourceOptionsForVisibleColumns();
+    lockColumnWidthsForLoadedModel();
   }
 
   function lockColumnWidthsForLoadedModel() {
@@ -98,23 +144,34 @@ export function useCsvTableViewModel() {
     const sessionId = project.activeSessionId;
     if (!sessionId || count <= 0) return;
     const table = tables.currentTab;
+    const searchText = tables.searchText;
+    const faction = tables.currentFaction;
+    const factionOptionValue = tables.currentFactionOptionValue;
     const requestId = windowRequestId;
     const alignedStart = Math.max(0, Math.floor(start / 80) * 80);
     const windowCount = Math.max(160, Math.ceil(count / 80) * 80);
-    const key = `${sessionId}:${table}:${tables.searchText}:${tables.currentFactionOptionValue}:${alignedStart}:${windowCount}`;
+    const key = JSON.stringify([sessionId, table, searchText, factionOptionValue, alignedStart, windowCount]);
     if (loadedWindowKeys.value.has(key)) return;
     loadedWindowKeys.value.add(key);
-    const window = await queryTableWindow(sessionId, table, alignedStart, windowCount, tables.searchText, tables.currentFaction);
-    if (requestId !== windowRequestId || table !== tables.currentTab) return;
+    const window = await queryTableWindow(sessionId, table, alignedStart, windowCount, searchText, faction);
+    if (
+      requestId !== windowRequestId ||
+      sessionId !== project.activeSessionId ||
+      table !== tables.currentTab ||
+      searchText !== tables.searchText ||
+      factionOptionValue !== tables.currentFactionOptionValue
+    ) {
+      return;
+    }
     tables.applyTableWindow(window);
   }
 
-  async function loadSourceOptionsForVisibleColumns() {
+  async function reloadSourceOptionsForVisibleColumns() {
     const sessionId = project.activeSessionId;
     if (!sessionId) return;
-    const sources = [
-      ...new Set(tables.visibleColumns.map((column) => csvColumnSchemaFor(tables.currentTab, column)?.source).filter(isSourceId)),
-    ];
+    const requestId = ++sourceOptionsRequestId;
+    const table = tables.currentTab;
+    const sources = [...visibleSourceIds()];
     const entries = await Promise.all(
       sources.map(async (source) => {
         const groups = await queryTableSourceOptions(sessionId, source, [], null, 500);
@@ -133,12 +190,22 @@ export function useCsvTableViewModel() {
         return [source, options] as const;
       }),
     );
+    if (requestId !== sourceOptionsRequestId || sessionId !== project.activeSessionId || table !== tables.currentTab) return;
     loadedSourceOptions.value = new Map(entries);
   }
 
-  function querySelectedRowPreview(rowKey: string): Promise<string> {
-    const sessionId = project.activeSessionId;
-    return sessionId ? queryTableRowPreviewDataUrl(sessionId, tables.currentTab, rowKey) : Promise.resolve('');
+  function visibleSourceIds(): Set<string> {
+    return new Set(tables.visibleColumns.map((column) => csvColumnSchemaFor(tables.currentTab, column)?.source).filter(isSourceId));
+  }
+
+  function loadedSourceOptionResourceRefs(): ResourceRef[] {
+    return [...loadedSourceOptions.value.values()].flatMap((options) =>
+      options.flatMap((option) => (option.children ?? [option]).map((entry) => entry.resourceRef).filter(isResourceRef)),
+    );
+  }
+
+  function querySelectedRowPreview(target: CsvRowPreviewTarget): Promise<string> {
+    return queryTableRowPreviewDataUrl(target.sessionId, target.table, target.rowKey);
   }
 
   watch(

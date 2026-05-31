@@ -32,8 +32,8 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     stateMap.delete(modRoot);
   }
 
-  function getActiveState(): FileHistoryState | undefined {
-    return activeRoot.value ? stateMap.get(activeRoot.value) : undefined;
+  function getState(modRoot: string | null): FileHistoryState | undefined {
+    return modRoot ? stateMap.get(modRoot) : undefined;
   }
 
   function getOrCreateState(modRoot: string): FileHistoryState {
@@ -45,10 +45,10 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     return state;
   }
 
-  const canUndoFileSave = computed(() => Boolean(peekFileUndo()));
-  const canRedoFileSave = computed(() => Boolean(peekFileRedo()));
-  const activeUndoStack = computed(() => getActiveState()?.undoStack ?? []);
-  const activeRedoStack = computed(() => getActiveState()?.redoStack ?? []);
+  const canUndoFileSave = computed(() => Boolean(peekFileUndo(activeRoot.value)));
+  const canRedoFileSave = computed(() => Boolean(peekFileRedo(activeRoot.value)));
+  const activeUndoStack = computed(() => getState(activeRoot.value)?.undoStack ?? []);
+  const activeRedoStack = computed(() => getState(activeRoot.value)?.redoStack ?? []);
   const activeHistoryCount = computed(() => activeUndoStack.value.length + activeRedoStack.value.length);
 
   function pushFileSaveEntry(modRoot: string, changes: FileChangeRecord[], label: string) {
@@ -59,8 +59,8 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     trimToLimit(state, historyLimit.value);
   }
 
-  function peekFileUndo(): FileSaveHistoryEntry | null {
-    const state = getActiveState();
+  function peekFileUndo(modRoot: string | null): FileSaveHistoryEntry | null {
+    const state = getState(modRoot);
     if (!state) return null;
     for (let index = state.undoStack.length - 1; index >= 0; index--) {
       const item = state.undoStack[index];
@@ -69,8 +69,8 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     return null;
   }
 
-  function peekFileRedo(): FileSaveHistoryEntry | null {
-    const state = getActiveState();
+  function peekFileRedo(modRoot: string | null): FileSaveHistoryEntry | null {
+    const state = getState(modRoot);
     if (!state) return null;
     for (let index = state.redoStack.length - 1; index >= 0; index--) {
       const item = state.redoStack[index];
@@ -79,16 +79,16 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     return null;
   }
 
-  function commitFileUndo(entryId: string): boolean {
-    const state = getActiveState();
+  function commitFileUndo(modRoot: string | null, entryId: string): boolean {
+    const state = getState(modRoot);
     if (!state) return false;
-    return moveEntry(state.undoStack, state.redoStack, entryId);
+    return moveCurrentFileSaveEntry(state.undoStack, state.redoStack, entryId);
   }
 
-  function commitFileRedo(entryId: string): boolean {
-    const state = getActiveState();
+  function commitFileRedo(modRoot: string | null, entryId: string): boolean {
+    const state = getState(modRoot);
     if (!state) return false;
-    return moveEntry(state.redoStack, state.undoStack, entryId);
+    return moveCurrentFileSaveEntry(state.redoStack, state.undoStack, entryId);
   }
 
   function clearForMod(modRoot: string) {
@@ -106,14 +106,12 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     };
   }
 
-  function moveEntry(from: FileHistoryItem[], to: FileHistoryItem[], entryId: string): boolean {
-    while (from.length > 0) {
-      const item = from[from.length - 1];
-      from.pop();
-      to.push(item);
-      if (isFileSaveEntry(item) && item.id === entryId) return true;
-    }
-    return false;
+  function moveCurrentFileSaveEntry(from: FileHistoryItem[], to: FileHistoryItem[], entryId: string): boolean {
+    const item = from[from.length - 1];
+    if (!item || !isFileSaveEntry(item) || item.id !== entryId) return false;
+    from.pop();
+    to.push(item);
+    return true;
   }
 
   function trimToLimit(state: FileHistoryState, limit: number) {
@@ -136,6 +134,7 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     canRedoFileSave,
     canUndoFileSave,
     activeHistoryCount,
+    activeRoot,
     activeRedoStack,
     activeUndoStack,
     activateFor,

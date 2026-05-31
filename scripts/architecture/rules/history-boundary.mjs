@@ -32,6 +32,9 @@ export const historyBoundaryRule = {
           failures.push(`${file.rel}: file history replay must apply Rust changeset before committing stack movement`);
         }
       }
+      if (current.layer !== 'stores' && /\bcommitFile(?:Undo|Redo)\s*\(\s*(?:entryId|[^,\n)]+\s*\))/.test(file.text)) {
+        failures.push(`${file.rel}: file history commit must pass the captured modRoot explicitly`);
+      }
     }
     return failures;
   },

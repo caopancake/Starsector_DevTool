@@ -1,4 +1,4 @@
-use crate::models::{CsvTableKey, GameScanWarning, ProjectManifest, SkinFile, VariantFile};
+use crate::models::{GameScanWarning, ProjectManifest, SkinFile, VariantFile};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, HashMap};
 
@@ -60,15 +60,6 @@ pub(super) struct CoreCache {
     pub variant_files: Option<Vec<VariantFile>>,
     pub skin_files: Option<Vec<SkinFile>>,
     pub weapon_specs: Option<BTreeMap<String, Value>>,
-}
-
-pub(super) struct SourceOptionsContext<'a> {
-    pub core: Option<CoreSourceData>,
-    pub limit: usize,
-    pub search: &'a str,
-    pub seen: &'a mut std::collections::BTreeSet<String>,
-    pub session: Option<&'a ProjectSession>,
-    pub table: CsvTableKey,
 }
 
 #[derive(Clone, Default)]

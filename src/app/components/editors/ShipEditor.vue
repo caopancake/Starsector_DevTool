@@ -247,6 +247,7 @@ import { drawBoundsVisual, drawEngineVisual, drawRadiusField, drawWeaponSlotVisu
 
 const props = defineProps<{
   modRoot: string;
+  sessionId: string;
   hullId: string;
   ship: RowData;
   spriteData?: string;
@@ -464,6 +465,11 @@ function updateSpriteSize() {
 }
 function loadSprite() {
   spriteSize.value = { width: 0, height: 0 };
+  img.onload = () => {
+    updateSpriteSize();
+    if (img.width) scale.value = Math.min(1, 500 / Math.max(img.width, img.height));
+    draw();
+  };
   img.src = props.spriteData || '';
   if (str(localShip.value.spriteName) && !props.spriteData) img.src = '';
   draw();
@@ -1402,6 +1408,7 @@ async function uploadShipSprite(event: Event) {
     await uploadSpriteFromInput(event, {
       feedback,
       modRoot: props.modRoot,
+      sessionId: props.sessionId,
       subfolder: 'ships',
       onUploaded: (result, dataUrl) => {
         localShip.value.spriteName = result.state.path;
@@ -1433,6 +1440,7 @@ watch(
   { deep: true },
 );
 watch(localShip, draw, { deep: true });
+watch(() => props.spriteData, loadSprite);
 onMounted(() => {
   window.addEventListener('resize', resizeCanvas);
   window.addEventListener('keydown', onKeyDown);
@@ -1440,14 +1448,7 @@ onMounted(() => {
   nextTick(() => {
     editorWindowRef.value?.focus({ preventScroll: true });
     resizeCanvas();
-    if (props.spriteData) {
-      img.src = props.spriteData;
-      img.onload = () => {
-        updateSpriteSize();
-        if (img.width) scale.value = Math.min(1, 500 / Math.max(img.width, img.height));
-        draw();
-      };
-    }
+    if (props.spriteData) loadSprite();
   });
 });
 onUnmounted(() => {

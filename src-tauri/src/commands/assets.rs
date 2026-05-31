@@ -10,6 +10,8 @@ use std::collections::BTreeMap;
 
 #[tauri::command]
 pub fn upload_sprite(payload: UploadSpritePayload) -> Result<WriteResult<Value>, String> {
+    services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)
+        .map_err(|e| e.to_string())?;
     services::config::upload_sprite(
         &payload.mod_root,
         &payload.filename,

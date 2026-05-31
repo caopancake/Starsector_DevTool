@@ -1,4 +1,5 @@
 import type { RowData } from '@/shared/types/json.types';
+import type { ProjectSessionId } from '@/shared/types/query.types';
 import type { ResourceRef } from '@/shared/types/query.types';
 
 export const TABLE_KEYS = [
@@ -59,4 +60,10 @@ export type CsvGridRowSlot = CsvLoadedRowSlot | CsvPlaceholderRowSlot;
 
 export interface CsvRowPreview {
   resourceRef: ResourceRef | null;
+}
+
+export interface CsvRowPreviewTarget {
+  rowKey: string;
+  sessionId: ProjectSessionId;
+  table: TableKey;
 }

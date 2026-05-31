@@ -15,7 +15,7 @@ CSV 草稿历史记录未保存的表格内编辑，包括单元格修改、新�
 ## 规范
 
 - CSV 草稿历史不能包含文件 changeset。
-- CSV 草稿历史按 `modRoot + tableKey` 隔离。
+- CSV 草稿历史按结构化 `modRoot -> tableKey` 隔离，不能用分隔符拼接字符串 key。
 - 保存当前 CSV 成功后必须清空当前 `modRoot + tableKey` 的 CSV 草稿历史。
 - 草稿 undo/redo 失败时不能移动草稿历史栈。
 - 草稿 history 的 `_rowKey` 必须通过 `table-row-key.ts` 解析。

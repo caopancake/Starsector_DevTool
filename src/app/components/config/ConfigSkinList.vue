@@ -37,7 +37,7 @@
       </li>
     </ul>
     <footer class="skin-list-footer config-entity-list-footer">
-      <n-button size="small" block @click="showCreateDialog = true">新建舰船皮肤</n-button>
+      <n-button size="small" block @click="openCreateDialog">新建舰船皮肤</n-button>
     </footer>
 
     <n-modal
@@ -77,8 +77,10 @@ const props = defineProps<{
   skins: SkinFile[];
   skinSprites: Record<string, string>;
   hullOptions: SelectOption[];
-  createSkin: (baseHullId: string, skinHullId: string) => Promise<boolean>;
-  deleteSkin: (skin: SkinFile) => Promise<boolean>;
+  modRoot: string | null;
+  sessionId: string | null;
+  createSkin: (sessionId: string, modRoot: string, baseHullId: string, skinHullId: string) => Promise<boolean>;
+  deleteSkin: (sessionId: string, modRoot: string, skin: Pick<SkinFile, 'relPath' | 'skinHullId'>) => Promise<boolean>;
 }>();
 const emit = defineEmits<{ select: [skinHullId: string | null] }>();
 
@@ -88,11 +90,23 @@ const feedback = useAppFeedback();
 const showCreateDialog = ref(false);
 const newBaseHullId = ref('');
 const newSkinHullId = ref('');
+const createModRoot = ref<string | null>(null);
+const createSessionId = ref<string | null>(null);
 
 const skins = computed(() => [...props.skins].sort(compareSkins));
 
+function openCreateDialog() {
+  createModRoot.value = props.modRoot;
+  createSessionId.value = props.sessionId;
+  if (!createModRoot.value || !createSessionId.value) return;
+  showCreateDialog.value = true;
+}
+
 async function submitCreateSkin() {
-  const created = await props.createSkin(newBaseHullId.value.trim(), newSkinHullId.value.trim());
+  const targetModRoot = createModRoot.value;
+  const targetSessionId = createSessionId.value;
+  if (!targetModRoot || !targetSessionId) return false;
+  const created = await props.createSkin(targetSessionId, targetModRoot, newBaseHullId.value.trim(), newSkinHullId.value.trim());
   if (!created) {
     return false;
   }
@@ -100,17 +114,21 @@ async function submitCreateSkin() {
   showCreateDialog.value = false;
   newBaseHullId.value = '';
   newSkinHullId.value = '';
-  emit('select', skinHullId);
+  if (props.modRoot === targetModRoot && props.sessionId === targetSessionId) emit('select', skinHullId);
   return true;
 }
 
 function confirmDeleteSkin(skin: SkinFile) {
+  const deleteModRoot = props.modRoot;
+  const deleteSessionId = props.sessionId;
+  if (!deleteModRoot || !deleteSessionId) return;
+  const deleteTarget = { relPath: skin.relPath, skinHullId: skin.skinHullId };
   feedback.confirmDanger({
     title: '删除舰船皮肤',
-    content: `确定要删除舰船皮肤 "${skin.skinHullId}" 吗？`,
+    content: `确定要删除舰船皮肤 "${deleteTarget.skinHullId}" 吗？`,
     actionText: '删除',
     onConfirm: async () => {
-      await props.deleteSkin(skin);
+      await props.deleteSkin(deleteSessionId, deleteModRoot, deleteTarget);
     },
   });
 }

@@ -1,17 +1,14 @@
 import { h } from 'vue';
 import type { AppFeedback } from '@/shared/types';
 import { replayFileChangeSet } from '@/services/write.service';
-import { pathBelongsToRoot } from '@/shared/lib/paths';
-import { invalidateProject } from '@/services/session.service';
-import { invalidateQueryCacheByPaths } from '@/services/query-cache.service';
-import { invalidateResourceCacheByPaths } from '@/services/resource-cache.service';
 import type { useProjectStore } from '@/stores/project.store';
 import type { useTablesStore } from '@/stores/tables.store';
 import { WINDOW_EVENTS } from '@/windows/window.events';
 import { emitWindowEvent } from '@/windows/tauri.events';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import type { FileSaveHistoryEntry } from '@/shared/types/file-history.types';
-import type { FileChangeRecord, FileChangeReplayDirection, WriteResult } from '@/shared/types';
+import type { FileChangeRecord, FileChangeReplayDirection } from '@/shared/types';
+import { invalidateLoadedProjectSessionsForWriteResult } from '@/orchestrators/project-session-invalidation.orchestrator';
 
 type ProjectStore = ReturnType<typeof useProjectStore>;
 type TablesStore = ReturnType<typeof useTablesStore>;
@@ -20,24 +17,24 @@ export type FileHistoryReplayDirection = FileChangeReplayDirection;
 
 interface FileHistoryReplayBehavior {
   actionText: string;
-  commitEntry: (fileHistory: FileHistoryStore, entryId: string) => boolean;
+  commitEntry: (fileHistory: FileHistoryStore, modRoot: string, entryId: string) => boolean;
   hasBinaryContent: (change: FileChangeRecord) => boolean;
-  peekEntry: (fileHistory: FileHistoryStore) => FileSaveHistoryEntry | null;
+  peekEntry: (fileHistory: FileHistoryStore, modRoot: string) => FileSaveHistoryEntry | null;
   textForChange: (change: FileChangeRecord) => string | null;
 }
 
 const FILE_HISTORY_REPLAY_BEHAVIOR: Record<FileHistoryReplayDirection, FileHistoryReplayBehavior> = {
   undo: {
     actionText: '撤销',
-    peekEntry: (fileHistory) => fileHistory.peekFileUndo(),
-    commitEntry: (fileHistory, entryId) => fileHistory.commitFileUndo(entryId),
+    peekEntry: (fileHistory, modRoot) => fileHistory.peekFileUndo(modRoot),
+    commitEntry: (fileHistory, modRoot, entryId) => fileHistory.commitFileUndo(modRoot, entryId),
     textForChange: (change) => change.beforeText ?? null,
     hasBinaryContent: (change) => Boolean(change.beforeDataBase64),
   },
   redo: {
     actionText: '重做',
-    peekEntry: (fileHistory) => fileHistory.peekFileRedo(),
-    commitEntry: (fileHistory, entryId) => fileHistory.commitFileRedo(entryId),
+    peekEntry: (fileHistory, modRoot) => fileHistory.peekFileRedo(modRoot),
+    commitEntry: (fileHistory, modRoot, entryId) => fileHistory.commitFileRedo(modRoot, entryId),
     textForChange: (change) => change.afterText ?? null,
     hasBinaryContent: (change) => Boolean(change.afterDataBase64),
   },
@@ -58,13 +55,27 @@ function replayNextFileHistoryEntry(
   feedback: AppFeedback,
 ) {
   const fileHistory = useFileHistoryStore();
+  const modRoot = project.activeModRoot;
+  if (!modRoot) return false;
+  const sessionId = project.getSessionId(modRoot);
+  if (!sessionId) return false;
   const behavior = FILE_HISTORY_REPLAY_BEHAVIOR[direction];
-  const entry = behavior.peekEntry(fileHistory);
+  const entry = behavior.peekEntry(fileHistory, modRoot);
   if (!entry) return false;
   confirmFileHistoryReplay(feedback, entry, behavior, async () => {
     try {
-      await applyFileSaveHistoryEntry(entry, direction, project, tables);
-      const committed = behavior.commitEntry(fileHistory, entry.id);
+      const currentEntry = behavior.peekEntry(fileHistory, modRoot);
+      if (currentEntry?.id !== entry.id) {
+        feedback.error(`${behavior.actionText}文件历史失败：历史栈状态已变化`);
+        return;
+      }
+      const currentSessionId = project.getSessionId(modRoot);
+      if (currentSessionId !== sessionId) {
+        feedback.error(`${behavior.actionText}文件历史失败：ProjectSession 已变化`);
+        return;
+      }
+      await applyFileSaveHistoryEntry(sessionId, modRoot, entry, direction, project, tables);
+      const committed = behavior.commitEntry(fileHistory, modRoot, entry.id);
       if (!committed) {
         feedback.error(`${behavior.actionText}文件历史失败：历史栈状态已变化`);
         return;
@@ -106,51 +117,42 @@ function renderConfirmContent(entry: FileSaveHistoryEntry, action: string) {
 }
 
 async function applyFileSaveHistoryEntry(
+  sessionId: string,
+  modRoot: string,
   entry: FileSaveHistoryEntry,
   direction: FileHistoryReplayDirection,
   project: ProjectStore,
   tables: TablesStore,
 ) {
-  const result = await replayFileChangeSet(direction, entry.changes);
-  await notifyOpenWindows(entry.changes, direction);
-  await invalidateLoadedSessions(project, result);
-  refreshActiveTableIfAffected(project, tables, result.invalidatedPaths);
+  const result = await replayFileChangeSet(sessionId, modRoot, direction, entry.changes);
+  await notifyOpenWindows(modRoot, entry.changes, direction);
+  const invalidatedSessions = await invalidateLoadedProjectSessionsForWriteResult(result, modRoot);
+  refreshActiveTableIfAffected(project, tables, invalidatedSessions);
 }
 
 function historyEntryPaths(entry: FileSaveHistoryEntry): string[] {
   return entry.changes.map((change) => change.path);
 }
 
-async function notifyOpenWindows(changes: FileChangeRecord[], direction: FileHistoryReplayDirection) {
+async function notifyOpenWindows(modRoot: string, changes: FileChangeRecord[], direction: FileHistoryReplayDirection) {
   const behavior = FILE_HISTORY_REPLAY_BEHAVIOR[direction];
   await Promise.all(
     changes.map(async (change) => {
       if (change.kind === 'directory') return;
       const text = behavior.textForChange(change);
       if (text === null && behavior.hasBinaryContent(change)) return;
-      await emitWindowEvent(WINDOW_EVENTS.fileEditorTextApplied, { path: change.path, text: text ?? '' });
+      await emitWindowEvent(WINDOW_EVENTS.fileEditorTextApplied, { modRoot, path: change.path, text: text ?? '' });
     }),
   );
 }
 
-async function invalidateLoadedSessions(project: ProjectStore, result: WriteResult) {
-  const changedPaths = result.invalidatedPaths;
-  await Promise.all(
-    [...project.manifests.values()].map(async (manifest) => {
-      const projectRoot = manifest.modRoot;
-      const sessionPaths = changedPaths.filter((path) => pathBelongsToRoot(path, projectRoot));
-      if (sessionPaths.length === 0) return;
-      const updatedManifest = await invalidateProject(manifest.sessionId, sessionPaths);
-      project.updateManifest(projectRoot, updatedManifest);
-      invalidateQueryCacheByPaths(manifest, sessionPaths);
-      invalidateResourceCacheByPaths(manifest.sessionId, projectRoot, sessionPaths);
-    }),
-  );
-}
-
-function refreshActiveTableIfAffected(project: ProjectStore, tables: TablesStore, changedPaths: string[]) {
+function refreshActiveTableIfAffected(
+  project: ProjectStore,
+  tables: TablesStore,
+  invalidatedSessions: Awaited<ReturnType<typeof invalidateLoadedProjectSessionsForWriteResult>>,
+) {
   const active = project.activeManifest;
   if (!active) return;
-  if (!changedPaths.some((path) => pathBelongsToRoot(path, active.modRoot))) return;
+  if (!invalidatedSessions.some((event) => event.manifest.modRoot === active.modRoot)) return;
   tables.selectRowByKey(null);
 }

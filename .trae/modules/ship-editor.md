@@ -23,14 +23,17 @@
 - hullSize 下拉包含 FRIGATE、DESTROYER、CRUISER、CAPITAL_SHIP、FIGHTER 五种尺寸。
 - style 和引擎 style 使用 filterable tag 模式：提供常用选项 + 支持输入自定义值。
 - 编辑器 spec 保存入口必须使用正式 spec 类型模型，不得用裸字符串在 service 层解析。
+- 编辑器 spec 保存入口必须在候选目录扫描、目标路径构造和 changeset 构建前校验目标 ID 是可移植文件名 ID。
 - 编辑器 spec 保存定位目标时，候选根不是目录、候选遍历失败、已存在候选 spec 的读取或解析失败都必须返回错误，不能跳过候选后写入默认新路径。
+- 导入已有编辑器 spec 文件必须提交正式 spec 类型和文件路径，Rust 按类型校验扩展名并拒绝包含 `..` 的路径后再读取。
 - 舰船编辑器不隐式保存 `ship_data.csv`。
 - 舰船窗口局部 undo/redo 只处理窗口内编辑状态。
 - 舰船编辑器运行态缺失的选中项、悬停项和拖拽目标必须使用 `null`，不能用空字符串或负数索引表示。
 - 编辑器 service 从 entity query 读取舰船数据时，缺失 entity 或非对象 spec 必须作为加载错误暴露，不能压成空对象继续打开编辑器。
 - 保存动作由编辑器 ViewModel 调用 service/orchestrator 完成；组件不得直接调用 shared API。
-- 保存成功后必须发送 `editor-spec-saved`。
+- 保存成功后必须发送携带 `sessionId + modRoot + kind + id + WriteResult` 的 `editor-spec-saved`。
 - 主窗口已加载该 Mod 时记录文件级 history 并按变更路径失效 session cache。
+- 编辑器窗口收到主窗口广播的 session 路径失效后，必须清理本窗口 query/resource cache；舰船 entity/spec query 失效才重新查询当前编辑目标 bundle，贴图资源 data URL 失效只刷新 `spriteData`，不得重置本地 `.ship` 草稿。
 
 ## 链路：打开舰船编辑器
 

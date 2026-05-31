@@ -4,6 +4,8 @@
       :selected-id="selectedFaction"
       :factions="factions"
       :faction-crests="factionCrests"
+      :mod-root="modRoot"
+      :session-id="sessionId"
       :create-faction="createFaction"
       :delete-faction="deleteFaction"
       @select="selectedFaction = $event"
@@ -12,7 +14,11 @@
       v-if="selectedFaction"
       :key="selectedFaction"
       :faction-id="selectedFaction"
+      :data-revision="factionDataRevision"
+      :preview-revision="factionPreviewRevision"
       :factions="factions"
+      :mod-root="modRoot"
+      :session-id="sessionId"
       :query-preview-images="queryFactionPreviewImages"
       :schema-runtime-context="schemaRuntimeContext"
       :save-faction="saveFaction"
@@ -30,8 +36,12 @@ import { useConfigFactionViewModel } from '@/app/composables/use-config-faction-
 
 const {
   selectedFaction,
+  factionDataRevision,
+  factionPreviewRevision,
   factions,
   factionCrests,
+  modRoot,
+  sessionId,
   schemaRuntimeContext,
   createFaction,
   deleteFaction,

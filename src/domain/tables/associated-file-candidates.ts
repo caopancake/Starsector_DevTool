@@ -43,7 +43,7 @@ export function getAssociatedFileCandidates(
       const relPath = associatedRelPath(table, id);
       if (!id || !relPath) continue;
       result.push({
-        key: `${table}:delete:${id}`,
+        key: associatedFileCandidateKey(table, 'delete', id),
         table,
         action: 'delete',
         id,
@@ -73,7 +73,7 @@ export function getAssociatedFileCandidates(
         const newRelPath = associatedRelPath(table, newId);
         if (oldRelPath && newRelPath) {
           result.push({
-            key: `${table}:rename:${oldId}:${newId}`,
+            key: associatedFileCandidateKey(table, 'rename', oldId, newId),
             table,
             action: 'create',
             id: newId,
@@ -94,7 +94,7 @@ export function getAssociatedFileCandidates(
     const relPath = associatedRelPath(table, id);
     if (!row || !id || !relPath) continue;
     result.push({
-      key: `${table}:create:${id}`,
+      key: associatedFileCandidateKey(table, 'create', id),
       table,
       action: 'create',
       id,
@@ -106,4 +106,8 @@ export function getAssociatedFileCandidates(
     });
   }
   return result;
+}
+
+function associatedFileCandidateKey(table: TableKey, action: 'create' | 'delete' | 'rename', ...ids: string[]): string {
+  return JSON.stringify([table, action, ids]);
 }

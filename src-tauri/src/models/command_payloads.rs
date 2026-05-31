@@ -149,6 +149,7 @@ pub struct InvalidateCoreCachePayload {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UploadSpritePayload {
+    pub session_id: ProjectSessionId,
     pub mod_root: String,
     pub filename: String,
     pub data: String,
@@ -159,6 +160,7 @@ pub struct UploadSpritePayload {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexedConfigEntityPayload {
+    pub session_id: ProjectSessionId,
     pub mod_root: String,
     pub kind: IndexedConfigKind,
     #[serde(deserialize_with = "required_nullable")]
@@ -172,6 +174,7 @@ pub struct IndexedConfigEntityPayload {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeleteIndexedConfigEntityPayload {
+    pub session_id: ProjectSessionId,
     pub mod_root: String,
     pub kind: IndexedConfigKind,
     pub id: String,
@@ -181,6 +184,7 @@ pub struct DeleteIndexedConfigEntityPayload {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigFileEntityPayload {
+    pub session_id: ProjectSessionId,
     pub mod_root: String,
     #[serde(deserialize_with = "required_nullable")]
     pub previous_id: Option<String>,
@@ -196,6 +200,7 @@ pub type SkinEntityPayload = ConfigFileEntityPayload;
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeleteVariantEntityPayload {
+    pub session_id: ProjectSessionId,
     pub mod_root: String,
     pub variant_id: String,
     pub rel_path: String,
@@ -204,6 +209,7 @@ pub struct DeleteVariantEntityPayload {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeleteSkinEntityPayload {
+    pub session_id: ProjectSessionId,
     pub mod_root: String,
     pub skin_hull_id: String,
     pub rel_path: String,
@@ -212,6 +218,8 @@ pub struct DeleteSkinEntityPayload {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveTextFilePayload {
+    pub session_id: ProjectSessionId,
+    pub mod_root: String,
     pub path: String,
     pub text: String,
 }
@@ -219,12 +227,22 @@ pub struct SaveTextFilePayload {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoadEditableFilePayload {
+    pub session_id: ProjectSessionId,
+    pub mod_root: String,
+    pub path: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadImportedEditorSpecPayload {
+    pub kind: EditorSpecKind,
     pub path: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveModFilesPayload {
+    pub session_id: ProjectSessionId,
     pub mod_root: String,
     pub files: Vec<AssociatedFileChange>,
 }
@@ -232,6 +250,7 @@ pub struct SaveModFilesPayload {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveEditorSpecPayload {
+    pub session_id: ProjectSessionId,
     pub mod_root: String,
     pub kind: EditorSpecKind,
     pub id: String,
@@ -241,6 +260,8 @@ pub struct SaveEditorSpecPayload {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApplyFileChangeSetPayload {
+    pub session_id: ProjectSessionId,
+    pub mod_root: String,
     pub direction: FileChangeReplayDirection,
     pub changes: Vec<FileChangeRecord>,
 }
@@ -253,6 +274,7 @@ mod tests {
     #[test]
     fn indexed_config_entity_payload_uses_entity_data_wire_field() {
         let payload: IndexedConfigEntityPayload = serde_json::from_value(json!({
+            "sessionId": "session-1",
             "modRoot": "D:/mods/demo",
             "kind": "faction",
             "previousId": null,
@@ -365,6 +387,7 @@ mod tests {
     #[test]
     fn indexed_config_entity_payload_requires_explicit_delete_flag() {
         let result = serde_json::from_value::<IndexedConfigEntityPayload>(json!({
+            "sessionId": "session-1",
             "modRoot": "D:/mods/demo",
             "kind": "faction",
             "previousId": null,
@@ -379,6 +402,7 @@ mod tests {
     #[test]
     fn config_file_entity_payload_requires_explicit_nullable_previous_path() {
         let result = serde_json::from_value::<ConfigFileEntityPayload>(json!({
+            "sessionId": "session-1",
             "modRoot": "D:/mods/demo",
             "previousId": null,
             "nextId": "demo",
@@ -391,6 +415,7 @@ mod tests {
     #[test]
     fn delete_indexed_config_entity_payload_requires_explicit_delete_flag() {
         let result = serde_json::from_value::<DeleteIndexedConfigEntityPayload>(json!({
+            "sessionId": "session-1",
             "modRoot": "D:/mods/demo",
             "kind": "faction",
             "id": "demo"
@@ -402,10 +427,87 @@ mod tests {
     #[test]
     fn upload_sprite_payload_requires_explicit_subfolder() {
         let result = serde_json::from_value::<UploadSpritePayload>(json!({
+            "sessionId": "session-1",
             "modRoot": "D:/mods/demo",
             "filename": "demo.png",
             "data": "AA==",
             "overwrite": false
+        }));
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn upload_sprite_payload_requires_session_id() {
+        let result = serde_json::from_value::<UploadSpritePayload>(json!({
+            "modRoot": "D:/mods/demo",
+            "filename": "demo.png",
+            "data": "AA==",
+            "subfolder": "ships",
+            "overwrite": false
+        }));
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn save_text_file_payload_requires_mod_root() {
+        let result = serde_json::from_value::<SaveTextFilePayload>(json!({
+            "sessionId": "session-1",
+            "path": "D:/mods/demo/mod_info.json",
+            "text": "{}"
+        }));
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn save_text_file_payload_requires_session_id() {
+        let result = serde_json::from_value::<SaveTextFilePayload>(json!({
+            "modRoot": "D:/mods/demo",
+            "path": "D:/mods/demo/mod_info.json",
+            "text": "{}"
+        }));
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn load_editable_file_payload_requires_mod_root() {
+        let result = serde_json::from_value::<LoadEditableFilePayload>(json!({
+            "sessionId": "session-1",
+            "path": "D:/mods/demo/mod_info.json"
+        }));
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn load_imported_editor_spec_payload_requires_kind() {
+        let result = serde_json::from_value::<LoadImportedEditorSpecPayload>(json!({
+            "path": "D:/mods/demo/data/weapons/demo.wpn"
+        }));
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn apply_file_change_set_payload_requires_mod_root() {
+        let result = serde_json::from_value::<ApplyFileChangeSetPayload>(json!({
+            "sessionId": "session-1",
+            "direction": "undo",
+            "changes": []
+        }));
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn apply_file_change_set_payload_requires_session_id() {
+        let result = serde_json::from_value::<ApplyFileChangeSetPayload>(json!({
+            "modRoot": "D:/mods/demo",
+            "direction": "undo",
+            "changes": []
         }));
 
         assert!(result.is_err());

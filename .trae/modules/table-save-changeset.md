@@ -26,19 +26,23 @@
 - CSV row patch 必须显式提交 row 数据；删除 patch 提交空 row，不能依赖缺省字段表达 patch 内容。
 - 关联 spec 创建或删除只有进入 associated file changes 时才写盘。
 - 关联 spec 创建或删除必须通过确认弹窗显式勾选后才进入 associated file changes。
+- 关联 spec 确认候选的 UI key 必须保留 table、动作类型和业务 ID 的结构边界，不能用分隔符拼接。
+- 关联 spec 确认弹窗的勾选状态必须归属于本次捕获的保存目标，不能复用跨确认框的共享状态。
 - 关联文件 change 必须显式提交 `afterText`、`afterDataBase64` 和 `previousRelPath`，未使用的字段提交 null，不能用缺省字段表达写入语义。
-- 关联文件 change 的 `previousRelPath` 非 null 表示重命名操作：后端读取旧文件内容、更新 ID 字段、写入新路径、删除旧路径；旧文件不存在时回退使用 `afterText`。
+- 关联文件 change 的 `previousRelPath` 非 null 表示重命名操作：后端读取旧文件内容，通过 JSON-like parser 解析并按当前表的正式 ID 字段写入新 ID，再写入新路径并删除旧路径；旧文件不存在时必须使用非 null `afterText`。
 - 已存在行的 ID 变更必须被 `getAssociatedFileCandidates` 检测为重命名候选，不能因为行已存在就跳过关联文件变更检测。
+- 前端必须在进入关联文件确认前结束当前单元格编辑，并捕获本次保存的 manifest、`modRoot` 和表 key；确认回调只能保存该捕获目标，不能重新读取当前 active Mod 或当前表作为保存目标。
 - CSV 和关联文件必须在同一个 Rust changeset 中写盘。
 - `WriteResult.invalidatedPaths` 必须包含 CSV 路径和所有关联文件路径；后端 session 刷新依赖完整路径列表触发对应 spec 缓存重新加载。
 - 保存成功后才能更新 original tables、清空 dirty、清空 CSV 草稿 history 和记录文件级 history。
+- 保存写盘前和写盘返回后都必须确认捕获的 `modRoot + sessionId` 仍是当前加载的同一 ProjectSession，且表格状态对象仍是发起保存时的对象；目标已移除或重载时不得把旧保存结果应用到新运行态。
 - 后端必须拒绝绝对路径和 `..` 关联文件路径。
 
 ## 链路：保存当前表
 
 1. 用户触发保存当前表。
-2. `table-save.orchestrator.ts` 结束当前单元格编辑。
-3. orchestrator 检查当前表 dirty，并只收集当前表的关联文件候选（包含创建、删除和 ID 变更导致的重命名）。
+2. `table-save.orchestrator.ts` 结束当前单元格编辑，并捕获当前 manifest、`modRoot` 和表 key。
+3. orchestrator 检查捕获表 dirty，并只收集捕获表的关联文件候选（包含创建、删除和 ID 变更导致的重命名）。
 4. 需要创建、删除或重命名当前表关联 spec 文件时，前端弹出确认并要求用户勾选对应文件操作。
 5. orchestrator 传入用户确认的 associated files。
 6. `csv-table.service.ts` 调用 `saveCsvPatch()`。
@@ -50,4 +54,4 @@
 12. orchestrator 标记当前表 saved。
 13. orchestrator 清空当前表 CSV 草稿历史。
 14. orchestrator 记录一条文件级 history。
-15. orchestrator 调用 `invalidateWriteResultForMod`，传递所有 invalidatedPaths 触发后端 session 缓存刷新和前端 manifest 更新。
+15. orchestrator 调用 ProjectSession 失效编排入口，传递所有 invalidatedPaths 触发后端 session 缓存刷新和前端 manifest 更新。

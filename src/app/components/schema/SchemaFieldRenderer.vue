@@ -342,7 +342,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, ref, watch } from 'vue';
+import { computed, h, onUnmounted, ref, watch } from 'vue';
 import { pickFileDialog } from '@/shared/runtime/dialog.runtime';
 import type { JsonValue, SchemaRuntimeContext } from '@/shared/types';
 import { normalizeRelPath, pathBelongsToRoot, relativePathFromRoot } from '@/shared/lib/paths';
@@ -366,6 +366,7 @@ import {
   schemaSourceSelectOptions,
   schemaStringValue,
   schemaTagValues,
+  selectOptionResourceRefs,
   type SchemaKeyValueEntry,
   selectOptionText,
   type SelectOption,
@@ -447,10 +448,13 @@ const loadedSourceOptions = ref<SelectOption[]>([]);
 const sourceOptions = computed<SelectOption[]>(() => loadedSourceOptions.value);
 const isReferenceKeyValue = computed(() => props.field.type === 'key-value' && isCsvSource(props.field.source));
 const sourceCurrentValues = computed(() => schemaSourceCurrentValues(props.field, props.value));
+const sourceCurrentValuesIdentity = computed(() => JSON.stringify(sourceCurrentValues.value));
 const selectOpen = ref(false);
 const suppressNextSelectOpen = ref(false);
 const kvSelectOpen = ref<Record<number, boolean>>({});
 const suppressNextKvSelectOpen = ref<Record<number, boolean>>({});
+let sourceOptionsRequestId = 0;
+let unsubscribeSourceOptionInvalidation: (() => void) | null = null;
 
 // Render label with optional thumbnail for n-select options.
 function renderSelectLabel(option: SelectOption & { label?: string; value?: string }) {
@@ -476,21 +480,47 @@ const enumOptions = computed(() => {
 });
 
 watch(
-  () => [props.runtimeContext?.sessionId ?? null, props.field.source ?? null, sourceCurrentValues.value.join(',')] as const,
-  async ([sessionId, source]) => {
-    if (!sessionId || !source || !isCsvSource(source)) {
-      loadedSourceOptions.value = [];
-      return;
-    }
-    const groups = await props.runtimeContext?.querySourceOptions?.(source, sourceCurrentValues.value, undefined, 500);
-    if (!groups) {
-      loadedSourceOptions.value = [];
-      return;
-    }
-    loadedSourceOptions.value = schemaSourceSelectOptions(groups);
+  () => [props.runtimeContext?.sessionId ?? null, props.field.source ?? null, sourceCurrentValuesIdentity.value] as const,
+  () => {
+    void reloadSourceOptions();
   },
   { immediate: true },
 );
+
+watch(
+  () => [props.runtimeContext, props.field.source ?? ''] as const,
+  ([runtimeContext, source]) => {
+    unsubscribeSourceOptionInvalidation?.();
+    unsubscribeSourceOptionInvalidation =
+      runtimeContext?.subscribeSourceOptionInvalidation?.(source, loadedSourceOptionResourceRefs, () => {
+        void reloadSourceOptions();
+      }) ?? null;
+  },
+  { immediate: true },
+);
+onUnmounted(() => unsubscribeSourceOptionInvalidation?.());
+
+async function reloadSourceOptions() {
+  const requestId = ++sourceOptionsRequestId;
+  const sessionId = props.runtimeContext?.sessionId ?? null;
+  const source = props.field.source ?? null;
+  if (!sessionId || !source || !isCsvSource(source)) {
+    loadedSourceOptions.value = [];
+    return;
+  }
+  const currentValues = sourceCurrentValues.value;
+  const groups = await props.runtimeContext?.querySourceOptions?.(source, currentValues, undefined, 500);
+  if (requestId !== sourceOptionsRequestId || sessionId !== props.runtimeContext?.sessionId || source !== props.field.source) return;
+  if (!groups) {
+    loadedSourceOptions.value = [];
+    return;
+  }
+  loadedSourceOptions.value = schemaSourceSelectOptions(groups);
+}
+
+function loadedSourceOptionResourceRefs() {
+  return selectOptionResourceRefs(loadedSourceOptions.value);
+}
 
 // ─── path-image graphics options ─────────────────────────────────────
 

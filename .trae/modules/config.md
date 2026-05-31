@@ -36,8 +36,19 @@
 - 配置组件不能直接调用资源缓存服务；资源补图必须由 ViewModel 或配置 service 提供。
 - 配置概览页的统计分组、合计和原版资源路径文本归属配置 domain，组件不得自行维护统计清单、切片下标或本地路径拼接。
 - Faction、Mission、Variant 和 Skin 的 view 容器必须通过对应 `useConfig*ViewModel()` 取得列表状态、选中状态和刷新动作。
+- 配置 ViewModel 持有的列表、缩略图和引用选项只是 entity query、hull reference query 和资源 data URL 的本地派生结果；底层 query 或资源失效时必须按对应 query 身份重新加载。
+- 配置详情编辑器的本地草稿只能由实体数据失效或选中实体变化重置；资源 data URL 失效只能刷新预览图，不得覆盖未保存草稿。
+- Skin / Variant 详情编辑器必须通过当前选中实体的数据 revision 重载本地草稿；同类列表刷新生成的新对象不能单独作为重载依据。
+- 配置 ViewModel 的异步创建、保存和删除必须使用发起时捕获的 `sessionId + modRoot`；写入完成后只有当前 active Mod 仍是同一 `sessionId + modRoot` 时，才允许刷新本地列表或改写选中项。
+- 配置保存 orchestrator 记录 history 和触发 ProjectSession 失效时必须使用写入发起时捕获的 session；目标 Mod 已移除或重载为新 session 时，不得把旧写入结果应用到新运行态。
+- 配置写入 shared API 和 Rust command payload 必须携带 `sessionId + modRoot`；Rust 写盘前必须校验两者仍匹配同一 ProjectSession，不能只在写盘返回后由前端拒绝旧 session 结果。
+- 配置组件在异步创建、保存或删除完成后，也必须确认当前 props 中的 `modRoot` 仍是发起时捕获的目标，才能 emit 选中项或重置本地编辑状态。
+- 配置详情异步读取和预览补图必须使用发起时捕获的 `sessionId + entity id`，返回后仍按同一目标校验，不能在请求期间重新读取 active session 决定查询或回写目标。
+- 配置详情 schema runtime context 必须由当前编辑目标的 `modRoot + sessionId` 构造，不能在字段 source query、资源监听或路径选择时重新读取 active manifest。
+- 配置新建弹窗和删除确认框必须在打开时捕获 `sessionId + modRoot`、实体 ID、路径和删除选项；确认回调不能重新读取 active Mod 或当前选中实体来决定写盘目标。
 - 配置实体选中 ID 缺失必须以 null 表达，不能用空字符串伪装为实体 ID。
 - `mod_info.json` 保存只写 `mod_info.json`。
+- `mod_info.json` 保存后的前端 manifest 同步只能更新 `modInfo` 字段，不能用保存前捕获的旧 `ProjectManifest` 覆盖 session invalidation 返回的新 manifest。
 - Faction 和 Mission 必须走同一套 indexed config entity 保存入口：`saveIndexedConfigEntityAction()`、`createIndexedConfigEntityAction()`、`deleteIndexedConfigEntityAction()`。
 - Mission 列表和详情读取必须走 ProjectSession entity query，不允许恢复独立 mission 读取 command 或前端 API。
 - Mission entity 详情查询只读取 `mission_list.csv` 注册的任务；未注册 ID 必须返回 null，不能合成临时列表行伪装为可编辑任务。
@@ -60,6 +71,8 @@
 - 配置 ID 是单个可移植 ASCII 标识段，前端预校验和 Rust 校验必须使用同一正向模型，禁止用路径字符黑名单判断。
 - 配置 ID 必须由 Rust 校验，禁止路径穿越。
 - 装配和舰船皮肤是单文件 schema entity，必须通过各自 shared API 和 config save orchestrator 进入文件级 history。
+- 装配和舰船皮肤的删除与重命名必须由 Rust 校验目标 relPath 属于对应配置目录、扩展名正确、文件内容 ID 与实体 ID 匹配；不能只凭前端提交的 relPath 删除文件。
+- 装配和舰船皮肤保存时，写入数据内的正式 ID 字段必须与写入目标 ID 一致。
 - ProjectSession 查询装配和舰船皮肤 entity 时，序列化或模型转换失败必须作为 query 错误返回，不能从列表中静默丢弃或伪装为 entity 不存在。
 - 单文件 schema entity 的重复 ID 判断和重命名保存上下文归属 config domain，ViewModel 不得各自用布尔分支拼 previous id / previous path。
 
@@ -67,8 +80,8 @@
 
 1. 用户在 `ConfigModInfoEditor.vue` 保存。
 2. ViewModel 或配置保存入口调用 `saveModInfoAction()`。
-3. config save orchestrator 调用 `saveModInfo()`。
-4. Rust file changes service 写入 `mod_info.json`。
+3. config save orchestrator 调用 `saveModInfo(sessionId, modRoot, data)`。
+4. Rust files command 校验 `sessionId + modRoot` 后，file changes service 写入 `mod_info.json`。
 5. Rust 返回 changeset。
 6. config save orchestrator 记录文件级 history。
 7. 前端根据写入结果的 `invalidatedPaths` 失效 session 和资源缓存。
@@ -78,8 +91,8 @@
 1. 用户在 `ConfigFactionEditor.vue` 保存。
 2. Faction ViewModel 调用 `saveIndexedConfigEntityAction()`，提交正式 `IndexedConfigKind`。
 3. config save orchestrator 调用 `saveIndexedConfigEntity()`。
-4. `config-entity-api.ts` 调用 Rust `save_indexed_config_entity` command。
-5. Rust indexed entity service 校验 id、读取并 upsert `factions.csv`。
+4. `config-entity-api.ts` 调用 Rust `save_indexed_config_entity` command，payload 携带 `sessionId + modRoot`。
+5. Rust command 校验 `sessionId + modRoot` 后，indexed entity service 校验 id、读取并 upsert `factions.csv`。
 6. Rust faction adapter 构建 `data/world/factions/{id}.faction` change。
 7. 改 ID 且 `deletePreviousTarget` 为 true 时，Rust faction adapter 构建旧 `.faction` 删除 change。
 8. Rust 以一个 changeset 写盘并返回 `WriteResult`，并在 `refreshedEntity` 中返回 entity 数据。
@@ -91,8 +104,8 @@
 1. 用户在 `ConfigMissionEditor.vue` 保存任务。
 2. Mission ViewModel 调用 `saveIndexedConfigEntityAction()`，提交正式 `IndexedConfigKind`。
 3. config save orchestrator 调用 `saveIndexedConfigEntity()`。
-4. `config-entity-api.ts` 调用 Rust `save_indexed_config_entity` command。
-5. Rust indexed entity service 校验 id、读取并 upsert `mission_list.csv`。
+4. `config-entity-api.ts` 调用 Rust `save_indexed_config_entity` command，payload 携带 `sessionId + modRoot`。
+5. Rust command 校验 `sessionId + modRoot` 后，indexed entity service 校验 id、读取并 upsert `mission_list.csv`。
 6. Rust mission adapter 构建 `data/missions/{id}/descriptor.json` 和 `data/missions/{id}/mission_text.txt` change。
 7. 改 ID 且 `deletePreviousTarget` 为 true 时，Rust mission adapter 先复制旧目录完整 snapshot 到新目录，再覆盖 descriptor/text，再删除旧目录。
 8. Rust 以一个 changeset 写盘并返回 `WriteResult`，并在 `refreshedEntity` 中返回 entity 数据。
@@ -102,11 +115,12 @@
 ## 链路：删除 indexed config entity
 
 1. 用户在 entity list 或 editor header 删除条目。
-2. 对应 ViewModel 调用 `deleteIndexedConfigEntityAction()`，提交 `kind`、`id` 和 `deleteTarget`。
-3. config save orchestrator 调用 `deleteIndexedConfigEntity()`。
-4. `config-entity-api.ts` 调用 Rust `delete_indexed_config_entity` command。
-5. Rust indexed entity service 从对应 index CSV 移除 row。
-6. Rust target adapter 按 `deleteTarget` 构建 `.faction` 文件删除或 mission 目录删除。
-7. Rust 以一个 changeset 写盘并返回 `WriteResult`。
-8. 前端记录一条文件级 history。
-9. 前端只基于 result 刷新列表、cache 和选中 ID。
+2. 组件在确认框打开时捕获 `modRoot`、实体 ID 和删除目标选项。
+3. 对应 ViewModel 调用 `deleteIndexedConfigEntityAction()`，提交捕获的 `sessionId`、`modRoot`、`kind`、`id` 和 `deleteTarget`。
+4. config save orchestrator 调用 `deleteIndexedConfigEntity()`。
+5. `config-entity-api.ts` 调用 Rust `delete_indexed_config_entity` command，payload 携带 `sessionId + modRoot`。
+6. Rust command 校验 `sessionId + modRoot` 后，indexed entity service 从对应 index CSV 移除 row。
+7. Rust target adapter 按 `deleteTarget` 构建 `.faction` 文件删除或 mission 目录删除。
+8. Rust 以一个 changeset 写盘并返回 `WriteResult`。
+9. 前端记录一条文件级 history。
+10. 前端只基于 result 刷新列表、cache 和选中 ID。

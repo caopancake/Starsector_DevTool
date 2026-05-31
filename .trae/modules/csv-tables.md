@@ -43,6 +43,7 @@ CSV 表格系统负责展示和编辑已注册的 Starsector CSV 表，并按 CS
 - CSV 列 schema 只覆盖确定类型、确定引用和确定多值语义；未覆盖列继续作为普通文本单元格编辑。
 - CSV Grid 表头显示 `schema.label`（中文名），没有 schema 时回退显示英文原始 `key`；原始 key 通过 `title` 属性保留在 tooltip 中供查阅。
 - CSV Grid 列宽计算基于实际显示文本（label 或 key），确保中文表头不溢出。
+- CSV Grid 列身份必须保留 CSV header key 的结构边界；列宽锁定和派生状态监听不能用分隔符拼接 header key。
 - CSV 列 schema 的 label 只影响 UI 显示层，不影响数据读写、保存、patch、dirty、搜索或任何后端链路。
 - CSV 列控件的显示名、原生输入、picker、引用、布尔选项、布尔显示、多值判断和多值拆分写回归属 CSV schema domain，组件不得各自维护控件类型集合或字段值解释规则。
 - 新增 CSV 表默认接入通用表格体系；只有存在明确专用语义时才允许新增详情动作或专用编辑器。
@@ -56,6 +57,7 @@ CSV 表格系统负责展示和编辑已注册的 Starsector CSV 表，并按 CS
 - CSV picker 的搜索框支持按 Enter 提交自定义文本作为值，使增强模式下 reference 和 tags 列均可输入自由文本。
 - CSV Grid 列宽在首次加载时按列内容与表头计算并锁定，编辑单元格不触发列宽重新计算；用户可通过表头拖拽手动调整列宽，调整结果按 Mod + 表持久化到 workspace 状态。
 - CSV Grid 列宽持久化由 workspace store 管理，view model 在切换表时恢复持久化宽度；Mod 移除时清理对应列宽数据。
+- CSV Grid 列宽持久化按 `modRoot -> table -> column` 保存到 workspace，不得用扁平字符串 key 表达 Mod 和表归属。
 - CSV Grid 的业务编辑、选择和 dirty row 状态必须以 row key 为索引。
 - CSV Grid 虚拟滚动中缺失的编辑行索引必须以 `null` 表达，不能用负数索引表示。
 - CSV dirty row 必须使用显式 `upsert` / `delete` 模型；删除状态不能伪装成 CSV 单元格字段值。
@@ -63,16 +65,27 @@ CSV 表格系统负责展示和编辑已注册的 Starsector CSV 表，并按 CS
 - CSV source 选项必须通过后端 `query_csv_source_options` 获取；前端不得从完整项目数据或原版引用全集派生。
 - CSV source 选项查询在非 `id` 列时必须按逗号拆分单元格值为独立候选项；`id` 列保持整值作为一个选项。
 - CSV source 选项的 label 对 `id` 列使用 `名称 (id)` 格式；`tags` 列只使用已知标签说明、specialItems 蓝图包推导和势力蓝图推导；`hints` 列只使用已知提示说明；其它非 `id` 列直接使用值本身。
+- CSV source 的 specialItems 蓝图包 tag 推导必须读取 ProjectSession 已注册 CSV rows 或 core CSV cache，不得绕过 session 直接读取 Mod 磁盘文件。
+- CSV source 当前值分组必须使用与同列正式候选项相同的 label 和说明规则；`tags` 的数字生成规则不得作用于 `hints` 或其它列。
 - CSV source 选项可携带独立说明文本，CSV picker 选项和已选多值 chip 使用该说明作为悬浮提示；说明文本不得拼入 `value`。
 - CSV source 选项只有 `id` 列能携带实体资源引用；非 `id` 列拆出的标签、提示或其它 token 不得继承所在行的图标资源。
+- CSV source 选项的资源引用必须只读取同一 source 归属的资源输入；原版 source 不得回退到当前 Mod 的 spec 索引。
 - CSV source 选项查询必须校验 source 声明列存在于 CSV header；缺失列不能返回空候选项伪装为合法 source。
 - 右侧字段速览可以读取 CSV 列 schema 增强展示，但不得修改单元格、dirty 或保存状态。
 - 右侧字段速览字段 label 必须用原始列 key 作为悬浮提示；翻译后的引用值必须用原始单元格值作为悬浮提示。
 - 右侧字段速览必须消费 CSV ViewModel / GridModel 已构建的 source 索引，不能在组件内重建缺少已加载选项的 source index。
-- 右侧预览资源查询必须使用当前选中 rowKey，不得把整行传给 service 再读取内部 `_rowKey` 字段。
+- 右侧详情动作 key 必须保留动作类型、Mod 根、路径、编辑器 kind 和业务 id 的结构边界，不能用分隔符拼接。
+- 右侧详情的文件编辑器和专用编辑器窗口动作都必须携带发起时的 `modRoot + sessionId`；专用编辑器动作还必须携带 `starsectorRoot`、编辑器 kind 和业务 id，打开窗口时不能再用当前 active Mod 补齐目标上下文。
+- CSV ViewModel 持有的 source 索引只是 query cache 与资源缓存的本地派生结果；底层同 source 的 `csv-source-options` 或 source option 缩略图实际持有的 `resource-data-urls` 失效时必须重新加载，不得继续复用旧索引，也不得因无关资源 query 失效重建当前 source 索引。
+- CSV ViewModel 持有的 table window 也是 query cache 的本地派生结果；当前表的 `csv-table-window` 失效时必须清理本地 window key 和窗口数据，并通过正式 window query 重新加载。
+- CSV ViewModel 的本地 window key 必须保留 session、表、搜索文本、势力筛选和窗口范围的结构化边界，不能用分隔符拼接可输入文本字段。
+- CSV table window query 返回后必须校验发起时捕获的 session、表、搜索文本和势力筛选仍匹配当前目标，不能只按表 key 判断旧 window 是否可写入当前表格 store。
+- CSV ViewModel 在当前 session 消失时必须清理本地 window key、source option 索引和列宽派生状态；旧 session 派生状态不得继续参与 grid model。
+- 右侧预览资源查询必须在发起时捕获 `sessionId`、表 key 和当前选中 rowKey，并用该目标查询和回写，不得把整行传给 service 再读取内部 `_rowKey` 字段，也不得在异步请求期间重新读取当前 active session 或当前表决定目标。
 - 没有业务 ID 的行不能显示 spec 文件编辑入口。
 - `tables.store.ts` 只管理草稿、dirty row、选择和编辑状态。
 - 写盘、副作用、文件级 history 和关联 spec 创建删除由表格保存 orchestrator 处理。
+- 表格保存 orchestrator 必须在进入关联文件确认前结束当前单元格编辑，并捕获发起保存时的 manifest、`modRoot` 和表 key；确认回调、写盘返回后的 rowKey 映射、saved 标记和 CSV 草稿历史清理只能作用于该捕获目标，不能重新读取当前 active 表格状态来决定保存目标。
 - 表格保存 orchestrator 只能根据写入结果的 `invalidatedPaths` 触发缓存失效，不能自行猜测路径。
 - 打开 Mod 时不得解析或下发完整 CSV 行集；CSV 行只能通过当前 session 的 window query 获取。
 - 单元格编辑器在输入期间使用本地缓冲，只在提交时（blur / Enter）写入 store，避免响应式级联导致编辑器卸载。

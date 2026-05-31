@@ -3,7 +3,9 @@ import { WINDOW_EVENTS, type FileEditorFocusLineEvent } from '@/windows/window.e
 import type { AppSettings } from '@/shared/types';
 
 export interface FileEditorRequest {
+  modRoot: string | null;
   path: string;
+  sessionId: string | null;
   title?: string;
   contextLabel?: string;
   contextSeverity?: FileEditorFocusLineEvent['contextSeverity'];
@@ -18,10 +20,12 @@ export type OpenFileEditorWindowRequest = FileEditorRequest & {
 export function openFileEditorWindow(request: OpenFileEditorWindowRequest): Promise<void> {
   return openManagedWindow({
     labelPrefix: 'file-editor',
-    singletonKey: request.path,
+    singletonKey: JSON.stringify([request.modRoot, request.path]),
     title: request.title ?? '文件编辑器',
     urlParams: {
       window: 'file-editor',
+      modRoot: request.modRoot,
+      sessionId: request.sessionId,
       file: request.path,
       title: request.title,
       contextLabel: request.contextLabel,

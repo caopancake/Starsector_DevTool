@@ -3,7 +3,7 @@ use crate::{
     models::{SkinFile, VariantFile},
 };
 use serde_json::Value;
-use std::path::Path;
+use std::path::{Component, Path};
 
 pub fn validate_config_id<'a>(id: &'a str, message: &str) -> AppResult<&'a str> {
     let clean = id.trim();
@@ -11,6 +11,35 @@ pub fn validate_config_id<'a>(id: &'a str, message: &str) -> AppResult<&'a str> 
         return Err(AppError::message(message));
     }
     Ok(clean)
+}
+
+pub fn validate_config_file_rel_path(
+    rel_path: &str,
+    root_dir: &str,
+    extension: &str,
+    message: &str,
+) -> AppResult<()> {
+    let path = Path::new(rel_path);
+    if path.is_absolute()
+        || path
+            .components()
+            .any(|part| !matches!(part, Component::Normal(_)))
+        || path.extension().and_then(|value| value.to_str()) != Some(extension)
+        || !path_starts_with_dir(path, root_dir)
+    {
+        return Err(AppError::message(format!("{message}: {rel_path}")));
+    }
+    Ok(())
+}
+
+fn path_starts_with_dir(path: &Path, root_dir: &str) -> bool {
+    let mut path_components = path.components();
+    for root_component in Path::new(root_dir).components() {
+        if path_components.next() != Some(root_component) {
+            return false;
+        }
+    }
+    true
 }
 
 fn is_config_entity_id(value: &str) -> bool {
@@ -100,6 +129,29 @@ mod tests {
             "", ".", "..", "a/b", "a\\b", "a b", "-demo", "_demo", "demo:bad",
         ] {
             assert!(validate_config_id(id, "invalid").is_err(), "{id}");
+        }
+    }
+
+    #[test]
+    fn config_file_rel_path_requires_declared_root_and_extension() {
+        validate_config_file_rel_path(
+            "data/variants/nested/demo.variant",
+            "data/variants",
+            "variant",
+            "invalid",
+        )
+        .unwrap();
+
+        for path in [
+            "mod_info.json",
+            "data/variants/../demo.variant",
+            "data/variants/demo.skin",
+            "/data/variants/demo.variant",
+        ] {
+            assert!(
+                validate_config_file_rel_path(path, "data/variants", "variant", "invalid").is_err(),
+                "{path}"
+            );
         }
     }
 }

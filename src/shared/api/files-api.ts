@@ -4,31 +4,43 @@ import type {
   EditableFileData,
   FileChangeRecord,
   FileChangeReplayDirection,
+  ProjectSessionId,
   RowData,
   WriteResult,
 } from '@/shared/types';
 import type { EditorSpecKind } from '@/shared/types/editor.types';
 
-export function loadEditableFile(path: string): Promise<EditableFileData> {
-  return invoke('load_editable_file', { payload: { path } });
+export function loadEditableFile(sessionId: ProjectSessionId, modRoot: string, path: string): Promise<EditableFileData> {
+  return invoke('load_editable_file', { payload: { sessionId, modRoot, path } });
 }
 
-export function loadJsonSpecFile(path: string): Promise<RowData> {
-  return invoke('load_json_spec_file', { path });
+export function loadImportedEditorSpecFile(kind: EditorSpecKind, path: string): Promise<RowData> {
+  return invoke('load_imported_editor_spec_file', { payload: { kind, path } });
 }
 
-export function saveTextFile(path: string, text: string): Promise<WriteResult> {
-  return invoke('save_text_file', { payload: { path, text } });
+export function saveTextFile(sessionId: ProjectSessionId, modRoot: string, path: string, text: string): Promise<WriteResult> {
+  return invoke('save_text_file', { payload: { sessionId, modRoot, path, text } });
 }
 
-export function saveEditorSpec(modRoot: string, kind: EditorSpecKind, id: string, data: RowData): Promise<WriteResult> {
-  return invoke('save_editor_spec', { payload: { modRoot, kind, id, data } });
+export function saveEditorSpec(
+  sessionId: ProjectSessionId,
+  modRoot: string,
+  kind: EditorSpecKind,
+  id: string,
+  data: RowData,
+): Promise<WriteResult> {
+  return invoke('save_editor_spec', { payload: { sessionId, modRoot, kind, id, data } });
 }
 
-export function saveModFiles(modRoot: string, files: AssociatedFileChange[]): Promise<WriteResult> {
-  return invoke('save_mod_files', { payload: { modRoot, files } });
+export function saveModFiles(sessionId: ProjectSessionId, modRoot: string, files: AssociatedFileChange[]): Promise<WriteResult> {
+  return invoke('save_mod_files', { payload: { sessionId, modRoot, files } });
 }
 
-export function replayFileChangeSetOnDisk(direction: FileChangeReplayDirection, changes: FileChangeRecord[]): Promise<WriteResult> {
-  return invoke('apply_file_change_set', { payload: { direction, changes } });
+export function replayFileChangeSetOnDisk(
+  sessionId: ProjectSessionId,
+  modRoot: string,
+  direction: FileChangeReplayDirection,
+  changes: FileChangeRecord[],
+): Promise<WriteResult> {
+  return invoke('apply_file_change_set', { payload: { sessionId, modRoot, direction, changes } });
 }

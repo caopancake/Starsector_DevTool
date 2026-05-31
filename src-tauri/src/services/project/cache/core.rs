@@ -1,6 +1,9 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::{load_json_dir_by_id, read_csv_data},
+    io::{
+        load_json_dir_by_id, normalized_path_key, read_csv_data,
+        validate_absolute_path_without_parent,
+    },
     models::{CsvTableKey, SkinFile, VariantFile, CSV_TABLES},
 };
 use serde_json::Value;
@@ -16,11 +19,12 @@ use super::super::{
 use super::core_caches;
 
 pub(crate) fn core_cache_snapshot(starsector_root: &str) -> AppResult<CoreCache> {
+    let cache_key = core_cache_key(starsector_root)?;
     let mut guard = core_caches()
         .lock()
         .map_err(|_| AppError::message("core cache lock poisoned"))?;
     Ok(guard
-        .entry(starsector_root.to_string())
+        .entry(cache_key)
         .or_insert_with(|| CoreCache {
             csv_tables: BTreeMap::new(),
             ship_files: None,
@@ -32,15 +36,24 @@ pub(crate) fn core_cache_snapshot(starsector_root: &str) -> AppResult<CoreCache>
 }
 
 pub(crate) fn replace_core_cache(starsector_root: &str, cache: CoreCache) -> AppResult<()> {
+    let cache_key = core_cache_key(starsector_root)?;
     core_caches()
         .lock()
         .map_err(|_| AppError::message("core cache lock poisoned"))?
-        .insert(starsector_root.to_string(), cache);
+        .insert(cache_key, cache);
     Ok(())
 }
 
-pub(crate) fn core_dir(starsector_root: &str) -> PathBuf {
-    Path::new(starsector_root).join("starsector-core")
+pub(super) fn core_cache_key(starsector_root: &str) -> AppResult<String> {
+    let root =
+        validate_absolute_path_without_parent(Path::new(starsector_root), "starsector root")?;
+    Ok(normalized_path_key(root))
+}
+
+pub(crate) fn core_dir(starsector_root: &str) -> AppResult<PathBuf> {
+    let root =
+        validate_absolute_path_without_parent(Path::new(starsector_root), "starsector root")?;
+    Ok(root.join("starsector-core"))
 }
 
 pub(crate) fn load_core_csv_table(
@@ -58,7 +71,7 @@ pub(crate) fn load_core_csv_table(
     else {
         return Ok(None);
     };
-    let core_dir = core_dir(starsector_root);
+    let core_dir = core_dir(starsector_root)?;
     if !core_dir.exists() {
         replace_core_cache(starsector_root, cache)?;
         return Ok(None);
@@ -90,12 +103,9 @@ pub(crate) fn load_core_ship_files(starsector_root: &str) -> AppResult<BTreeMap<
     if let Some(files) = cache.ship_files.clone() {
         return Ok(files);
     }
-    let files = if core_dir(starsector_root).exists() {
-        load_json_dir_by_id(
-            &core_dir(starsector_root).join("data/hulls"),
-            "ship",
-            "hullId",
-        )?
+    let core_dir = core_dir(starsector_root)?;
+    let files = if core_dir.exists() {
+        load_json_dir_by_id(&core_dir.join("data/hulls"), "ship", "hullId")?
     } else {
         BTreeMap::new()
     };
@@ -109,8 +119,9 @@ pub(crate) fn load_core_weapon_specs(starsector_root: &str) -> AppResult<BTreeMa
     if let Some(files) = cache.weapon_specs.clone() {
         return Ok(files);
     }
-    let files = if core_dir(starsector_root).exists() {
-        load_json_dir_by_id(&core_dir(starsector_root).join("data/weapons"), "wpn", "id")?
+    let core_dir = core_dir(starsector_root)?;
+    let files = if core_dir.exists() {
+        load_json_dir_by_id(&core_dir.join("data/weapons"), "wpn", "id")?
     } else {
         BTreeMap::new()
     };
@@ -124,8 +135,9 @@ pub(crate) fn load_core_variant_files(starsector_root: &str) -> AppResult<Vec<Va
     if let Some(files) = cache.variant_files.clone() {
         return Ok(files);
     }
-    let files = if core_dir(starsector_root).exists() {
-        load_variant_files(&core_dir(starsector_root))?.0
+    let core_dir = core_dir(starsector_root)?;
+    let files = if core_dir.exists() {
+        load_variant_files(&core_dir)?.0
     } else {
         Vec::new()
     };
@@ -139,8 +151,9 @@ pub(crate) fn load_core_skin_files(starsector_root: &str) -> AppResult<Vec<SkinF
     if let Some(files) = cache.skin_files.clone() {
         return Ok(files);
     }
-    let files = if core_dir(starsector_root).exists() {
-        load_skin_files(&core_dir(starsector_root))?.0
+    let core_dir = core_dir(starsector_root)?;
+    let files = if core_dir.exists() {
+        load_skin_files(&core_dir)?.0
     } else {
         Vec::new()
     };
@@ -164,4 +177,44 @@ pub(crate) fn load_core_source_data(
         _ => {}
     }
     Ok(data)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        fs,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    #[test]
+    fn core_cache_rejects_parent_dir_root() {
+        let root = temp_dir("core_cache_parent_dir_root");
+        let escaped = root.join("..");
+
+        let error = load_core_ship_files(&escaped.to_string_lossy())
+            .unwrap_err()
+            .to_string();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(error.contains("invalid starsector root path"));
+    }
+
+    #[test]
+    fn core_cache_key_normalizes_root_identity() {
+        let left = core_cache_key("D:/Starsector/").unwrap();
+        let right = core_cache_key("d:\\starsector").unwrap();
+
+        assert_eq!(left, right);
+    }
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
 }

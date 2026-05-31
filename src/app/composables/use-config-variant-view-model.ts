@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { createVariantAction, deleteVariantAction, saveVariantAction } from '@/orchestrators/config-save.orchestrator';
 import {
   configEntityRenameContext,
@@ -7,71 +7,101 @@ import {
   trimmedConfigStringField,
 } from '@/domain/config/config-entities';
 import { listVariantEntities } from '@/services/config-entity.service';
-import { queryHullPreviewSprites, queryHullReferenceOptions } from '@/services/config-resource.service';
+import { queryHullPreviewResources, queryHullReferenceOptions } from '@/services/config-resource.service';
 import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
-import type { RowData, VariantFile } from '@/shared/types';
+import type { ResourceRef, RowData, VariantFile } from '@/shared/types';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
-import type { SelectOption } from '@/domain/schema/schema-registry';
+import { selectOptionResourceRefs, type SelectOption } from '@/domain/schema/schema-registry';
+import {
+  queryCacheInvalidationIncludes,
+  queryCacheInvalidationIncludesResourceIdentity,
+  subscribeQueryCacheInvalidation,
+} from '@/services/query-cache.service';
 
 export function useConfigVariantViewModel() {
   const selectedVariantId = ref<string | null>(null);
   const variants = ref<VariantFile[]>([]);
   const variantSprites = ref<Record<string, string>>({});
+  const variantSpriteResourceRefs = ref<ResourceRef[]>([]);
   const hullOptions = ref<SelectOption[]>([]);
+  const variantDataRevision = ref(0);
   const project = useProjectStore();
   const settings = useSettingsStore();
   const feedback = useAppFeedback();
+  const modRoot = computed(() => project.activeManifest?.modRoot ?? null);
+  const sessionId = computed(() => project.activeManifest?.sessionId ?? null);
+  let variantsRequestId = 0;
+  let variantSpritesRequestId = 0;
+  let hullOptionsRequestId = 0;
 
   async function loadVariants() {
+    const requestId = ++variantsRequestId;
     const sessionId = project.activeSessionId;
     const manifest = project.activeManifest;
     if (!sessionId || !manifest) {
       variants.value = [];
+      variantSprites.value = {};
+      variantSpriteResourceRefs.value = [];
       selectedVariantId.value = null;
+      variantDataRevision.value += 1;
       return;
     }
-    variants.value = await listVariantEntities(sessionId);
+    const selectedId = selectedVariantId.value;
+    const previousSelected = selectedId ? variants.value.find((variant) => variant.variantId === selectedId) : null;
+    const loadedVariants = await listVariantEntities(sessionId);
+    if (requestId !== variantsRequestId || sessionId !== project.activeSessionId) return;
+    variants.value = loadedVariants;
     project.updateEntitySummary(manifest.modRoot, 'variants', variants.value.length);
     await loadVariantSprites();
+    const nextSelected = selectedId ? variants.value.find((variant) => variant.variantId === selectedId) : null;
+    if (selectedEntityDataChanged(previousSelected, nextSelected)) variantDataRevision.value += 1;
     if (selectedVariantId.value && !variants.value.some((variant) => variant.variantId === selectedVariantId.value)) {
       selectedVariantId.value = null;
     }
   }
 
   async function loadVariantSprites() {
+    const requestId = ++variantSpritesRequestId;
     const sessionId = project.activeSessionId;
+    const sourceVariants = variants.value;
     if (!sessionId || variants.value.length === 0) {
       variantSprites.value = {};
+      variantSpriteResourceRefs.value = [];
       return;
     }
     try {
-      const spritesByHull = await queryHullPreviewSprites(
+      const resources = await queryHullPreviewResources(
         sessionId,
-        variants.value.map((variant) => variant.hullId),
+        sourceVariants.map((variant) => variant.hullId),
       );
-      variantSprites.value = Object.fromEntries(variants.value.map((variant) => [variant.variantId, spritesByHull[variant.hullId] ?? '']));
+      if (requestId !== variantSpritesRequestId || sessionId !== project.activeSessionId || sourceVariants !== variants.value) return;
+      variantSprites.value = Object.fromEntries(
+        sourceVariants.map((variant) => [variant.variantId, resources.sprites[variant.hullId] ?? '']),
+      );
+      variantSpriteResourceRefs.value = resources.resourceRefs;
     } catch (error) {
       feedback.error(error, '读取装配缩略图失败');
     }
   }
 
   async function loadHullOptions() {
+    const requestId = ++hullOptionsRequestId;
     const sessionId = project.activeSessionId;
     if (!sessionId || settings.isPlainEditMode) {
       hullOptions.value = [];
       return;
     }
     try {
-      hullOptions.value = await queryHullReferenceOptions(sessionId, []);
+      const options = await queryHullReferenceOptions(sessionId, []);
+      if (requestId !== hullOptionsRequestId || sessionId !== project.activeSessionId) return;
+      hullOptions.value = options;
     } catch (error) {
       feedback.error(error, '读取舰船引用失败');
     }
   }
 
-  async function createVariant(hullId: string, variantId: string): Promise<boolean> {
-    const manifest = project.activeManifest;
-    if (!manifest) return false;
+  async function createVariant(createSessionId: string, createModRoot: string, hullId: string, variantId: string): Promise<boolean> {
     if (!hullId || !variantId) {
       feedback.warning('hullId 和 variantId 不能为空');
       return false;
@@ -85,7 +115,8 @@ export function useConfigVariantViewModel() {
       return false;
     }
     try {
-      await createVariantAction(manifest.modRoot, hullId, variantId);
+      await createVariantAction(createSessionId, createModRoot, hullId, variantId);
+      if (project.activeManifest?.modRoot !== createModRoot || project.activeManifest.sessionId !== createSessionId) return true;
       await loadVariants();
       selectedVariantId.value = variantId;
       feedback.success(`装配 "${variantId}" 已创建`);
@@ -96,11 +127,14 @@ export function useConfigVariantViewModel() {
     }
   }
 
-  async function deleteVariant(variant: VariantFile): Promise<boolean> {
-    const manifest = project.activeManifest;
-    if (!manifest) return false;
+  async function deleteVariant(
+    deleteSessionId: string,
+    deleteModRoot: string,
+    variant: Pick<VariantFile, 'relPath' | 'variantId'>,
+  ): Promise<boolean> {
     try {
-      await deleteVariantAction(manifest.modRoot, variant.relPath, variant.variantId);
+      await deleteVariantAction(deleteSessionId, deleteModRoot, variant.relPath, variant.variantId);
+      if (project.activeManifest?.modRoot !== deleteModRoot || project.activeManifest.sessionId !== deleteSessionId) return true;
       await loadVariants();
       if (selectedVariantId.value === variant.variantId) {
         selectedVariantId.value = variants.value[0]?.variantId ?? null;
@@ -113,9 +147,9 @@ export function useConfigVariantViewModel() {
     }
   }
 
-  async function saveVariant(current: VariantFile, data: RowData): Promise<VariantFile | null> {
+  async function saveVariant(saveSessionId: string, saveModRoot: string, current: VariantFile, data: RowData): Promise<VariantFile | null> {
     const manifest = project.activeManifest;
-    if (!manifest) return null;
+    if (!manifest || manifest.modRoot !== saveModRoot || manifest.sessionId !== saveSessionId) return null;
     const nextVariantId = trimmedConfigStringField(data, 'variantId');
     const nextHullId = trimmedConfigStringField(data, 'hullId');
     if (!nextVariantId || !nextHullId) {
@@ -131,7 +165,15 @@ export function useConfigVariantViewModel() {
       return null;
     }
     const renameContext = configEntityRenameContext(current.variantId, current.relPath, nextVariantId);
-    const variant = await saveVariantAction(manifest.modRoot, nextVariantId, data, renameContext.previousId, renameContext.previousRelPath);
+    const variant = await saveVariantAction(
+      saveSessionId,
+      saveModRoot,
+      nextVariantId,
+      data,
+      renameContext.previousId,
+      renameContext.previousRelPath,
+    );
+    if (project.activeManifest?.modRoot !== saveModRoot || project.activeManifest.sessionId !== saveSessionId) return variant;
     await loadVariants();
     selectedVariantId.value = variant.variantId;
     feedback.success(`装配 "${variant.variantId}" 已保存`);
@@ -144,6 +186,40 @@ export function useConfigVariantViewModel() {
 
   watch(() => project.activeSessionId, loadVariants, { immediate: true });
   watch([() => project.activeSessionId, () => settings.isPlainEditMode], () => void loadHullOptions(), { immediate: true });
+  const unsubscribeQueryCacheInvalidation = subscribeQueryCacheInvalidation((event) => {
+    if (event.sessionId !== project.activeSessionId) return;
+    const variantsChanged = queryCacheInvalidationIncludes(event, 'entity-list', (parameters) => parameters.kind === 'variant');
+    const hullReferencesChanged = queryCacheInvalidationIncludes(event, 'hull-references');
+    const variantSpriteResourcesChanged = queryCacheInvalidationIncludesResourceIdentity(event, variantSpriteResourceRefs.value);
+    const hullOptionResourcesChanged = queryCacheInvalidationIncludesResourceIdentity(event, selectOptionResourceRefs(hullOptions.value));
+    if (variantsChanged) void loadVariants();
+    if (hullReferencesChanged || variantSpriteResourcesChanged) {
+      void loadVariantSprites();
+    }
+    if (hullReferencesChanged || hullOptionResourcesChanged) {
+      void loadHullOptions();
+    }
+  });
+  onUnmounted(unsubscribeQueryCacheInvalidation);
 
-  return { selectedVariantId, variants, variantSprites, hullOptions, createVariant, deleteVariant, loadVariants, onSaved, saveVariant };
+  return {
+    selectedVariantId,
+    modRoot,
+    sessionId,
+    variants,
+    variantSprites,
+    hullOptions,
+    variantDataRevision,
+    createVariant,
+    deleteVariant,
+    loadVariants,
+    onSaved,
+    saveVariant,
+  };
+}
+
+function selectedEntityDataChanged(previous: VariantFile | null | undefined, next: VariantFile | null | undefined): boolean {
+  if (!previous && !next) return false;
+  if (!previous || !next) return true;
+  return JSON.stringify(previous.data) !== JSON.stringify(next.data);
 }

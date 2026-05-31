@@ -39,16 +39,22 @@ export async function writeCsvPatch(
   return saveCsvPatch(sessionId, table, patches, associatedFiles);
 }
 
-export async function writeTextFile(path: string, text: string): Promise<WriteResult> {
-  return saveTextFile(path, text);
+export async function writeTextFile(sessionId: string, modRoot: string, path: string, text: string): Promise<WriteResult> {
+  return saveTextFile(sessionId, modRoot, path, text);
 }
 
-export async function writeEditorSpec(modRoot: string, kind: EditorSpecKind, id: string, data: RowData): Promise<WriteResult> {
-  return saveEditorSpec(modRoot, kind, id, data);
+export async function writeEditorSpec(
+  sessionId: string,
+  modRoot: string,
+  kind: EditorSpecKind,
+  id: string,
+  data: RowData,
+): Promise<WriteResult> {
+  return saveEditorSpec(sessionId, modRoot, kind, id, data);
 }
 
-export async function writeModFiles(modRoot: string, files: AssociatedFileChange[]): Promise<WriteResult> {
-  return saveModFiles(modRoot, files);
+export async function writeModFiles(sessionId: string, modRoot: string, files: AssociatedFileChange[]): Promise<WriteResult> {
+  return saveModFiles(sessionId, modRoot, files);
 }
 
 export async function writeIndexedConfigEntity(write: IndexedConfigEntityWrite): Promise<WriteResult> {
@@ -88,15 +94,21 @@ export async function writeDeleteSkinEntity(write: DeleteSkinEntityWrite): Promi
 }
 
 export async function writeSpriteUpload(
+  sessionId: string,
   modRoot: string,
   filename: string,
   data: string,
   subfolder: SpriteSubfolder,
   overwrite: boolean,
 ): Promise<WriteResult> {
-  return uploadSprite(modRoot, filename, data, subfolder, overwrite);
+  return uploadSprite(sessionId, modRoot, filename, data, subfolder, overwrite);
 }
 
-export async function replayFileChangeSet(direction: FileChangeReplayDirection, changes: FileChangeRecord[]): Promise<WriteResult> {
-  return replayFileChangeSetOnDisk(direction, changes);
+export async function replayFileChangeSet(
+  sessionId: string,
+  modRoot: string,
+  direction: FileChangeReplayDirection,
+  changes: FileChangeRecord[],
+): Promise<WriteResult> {
+  return replayFileChangeSetOnDisk(sessionId, modRoot, direction, changes);
 }

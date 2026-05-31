@@ -1,0 +1,135 @@
+# PROGRESS
+
+## 总体目标
+
+- 让链路非常干净，直到整个项目code-clean了才停下。
+- 重点处理链路断裂、链路行为不一致、重要参数未传入、行为不一致问题。
+- 维持一个 PROGRESS.md 在 .trae 文件夹里，写你遇到的问题，并且在解决后更新解决的方式。
+- 在整个链路里，变量和函数的命名要符合实际语义，根据实际情况调整。
+- 在修复过程中，允许适当重构，鼓励在必要情况下调整函数或文件的位置，但不允许不必要的拆分文件。
+- 不允许乱用黑名单。不要乱加枚举。不要加入过多静态检查文件。
+- 不要管 todo.md 里的计划。
+- 不要处理vite构建问题。
+
+## 已解决
+
+- 问题：独立编辑器窗口的 query cache 失效监听只按 `entity-detail` / `entity-list` kind 粗略判断，导致同一 session 内无关实体 query 被失效时，当前窗口也会重查 bundle。
+  - 解决：将编辑器窗口失效判断收敛到正式依赖身份：主实体按窗口 kind 和目标 id 匹配；武器窗口额外只监听当前 bundle 实际引用的 projectile detail；只有武器编辑窗口监听 projectile entity list，因为 projectile 下拉是该窗口 bundle 的显式依赖。
+- 问题：文件 history replay 的 Rust command 只接收 direction 和 changes，没有 `modRoot`，后端回放前不能重新校验 changeset 路径归属。
+  - 解决：将 `modRoot` 贯穿前端 replay API、write service、history replay orchestrator、Rust command payload 和 service；Rust 在应用 changeset 前校验每个 `FileChangeRecord.path` 必须是归属该 `modRoot` 的绝对路径，并补充 payload 缺失 `modRoot` 和外部路径拒绝测试。
+- 问题：文件编辑器普通文本保存只提交 path 和 text，Rust 写盘前没有当前 Mod 写入根，无法证明目标路径归属。
+  - 解决：文件编辑器打开请求、窗口 URL、ViewModel、保存事件、前端 service/API、Rust command payload 和 service 全部携带 `modRoot`；Rust 保存文本前校验 path 必须是归属该 `modRoot` 的绝对路径，并补充 payload 缺失 `modRoot` 和外部路径拒绝测试。
+- 问题：CSV 保存关联 spec 重命名时，Rust 通过字符串搜索替换 `"hullId"` / `"id"`，绕过 JSON-like parser，不能作为正式格式链路；旧文件不存在且 `afterText` 为 null 时还会写出空文件。
+  - 解决：关联 spec 重命名改为读取旧文件并通过 JSON-like parser 解析，按当前表的正式 ID 字段更新对象后 pretty JSON 写入；只有旧文件不存在时才使用前端提交的非 null `afterText`，并补充未加引号 key / 单引号 / enum 值的重命名测试和缺失内容反例。
+- 问题：目录级 changeset 的 `WriteResult.invalidatedPaths` 只包含目录本身，ProjectSession 的 spec/entity 索引却按目录递归扫描具体文件；删除或恢复嵌套目录时，session invalidation 和前端 query/resource cache 不能稳定命中目录内实际变更文件。
+  - 解决：Rust `WriteResult` 从 changeset 生成失效路径时展开目录 change 的 before/after 文件快照，保留目录路径并补入目录内具体文件绝对路径，保证递归索引和缓存失效能按实际文件路径命中；补充目录 change 失效路径展开测试。
+- 问题：文件保存和文件 history 回放的 `modRoot` 归属校验使用规范化字符串前缀判断，未拒绝绝对路径中的 `..` 组件，写入路径边界仍可能被 parent-dir 逃逸路径绕过。
+  - 解决：后端 `validate_mod_root_path` 在归属判断前按路径组件拒绝 `ParentDir`，文件编辑器保存和 changeset 回放都复用该校验；补充普通保存与回放的 parent-dir 逃逸反例测试。
+- 问题：目录级 changeset 失效路径展开只存在于 `services/file_changes.rs` 的私有 `write_result()`，配置保存、贴图上传和编辑器保存仍各自手工从 `changes` 取顶层 path；Mission 目录删除或重命名这类配置链路仍不能把目录内实际文件传给 session invalidation。
+  - 解决：将 `invalidatedPaths` 生成规则下沉到 `io/file_changes.rs` 的统一 `invalidated_paths_for_changes()`，文件保存、config entity、variant、skin、sprite upload 和 editor spec 保存全部复用同一 changeset 规则；补充 Mission 目录删除必须展开 descriptor 和 mission_text 失效路径的测试。
+- 问题：changeset 回放只在执行前校验 `FileChangeRecord.path` 归属 `modRoot`，没有提前校验目录 change 的 `FileSnapshot.relPath`；被篡改的目录快照可在 Rust 发现非法相对路径前触发目录删除再回滚，回放边界不干净。
+  - 解决：`validate_changeset_paths()` 在任何 apply 前同时校验 before/after 目录快照路径，拒绝绝对路径和 `..`；补充恶意目录快照被拒绝且原目录内容保持不变的反例测试。
+- 问题：前端共享路径归属仍使用字符串前缀判断，未拒绝 `..` 路径组件；schema 文件选择、文件历史回放后的多 Mod session 归属和写入失效过滤可能把 parent-dir 逃逸路径当作当前 Mod 内路径。
+  - 解决：`pathBelongsToRoot()`、`pathIsProjectScopedChangedPath()` 和 `normalizedProjectPath()` 统一拒绝包含 `..` 组件的路径，前端 session/query/resource cache 失效和 schema 路径换算复用同一归属规则。
+- 问题：CSV 表格 ViewModel 只监听 source option 和资源失效，不监听当前 `csv-table-window` query 失效；文件编辑器保存或文件历史回放修改当前 CSV 后，底层 query cache 已清理，但表格 store 仍可能显示旧窗口数据。
+  - 解决：CSV ViewModel 在当前表的 `csv-table-window` 失效事件中清空本地 window key 和当前表窗口数据，并通过正式 table window query 重新加载首屏，同时重建可见列 source option 派生索引。
+- 问题：Faction / Mission 配置列表已经监听 query cache 失效，但当前详情编辑器只按选中 ID 挂载；同 ID 实体被文件编辑器、history 回放或其它链路更新后，列表刷新而详情本地模型仍停留在旧数据。资源失效时直接重载详情还会错误覆盖未保存草稿。
+  - 解决：Faction ViewModel 拆分数据 revision 和预览 revision；实体数据失效才重置详情模型，资源失效只刷新预览。Mission ViewModel 拆分 editor reload token 和 icon refresh token；实体数据失效重载详情，图标资源失效只刷新图标。Faction 预览与 Mission 详情/图标异步刷新增加请求身份校验，避免旧请求回写新选中实体。
+- 问题：`mod_info.json` 保存完成后，ViewModel 在 session invalidation 已经更新 manifest 之后，又用保存前捕获的旧 `manifest` 整体 patch 回 project store，可能把刚刷新的 warnings、summary 等字段覆盖回旧值。
+  - 解决：`useConfigModInfoViewModel()` 保存后只 patch `modInfo` 字段，不再用旧 manifest 对象覆盖其它 ProjectManifest 字段。
+- 问题：独立舰船/武器编辑器窗口把当前贴图资源 data URL 失效当作 editor bundle 失效处理；覆盖当前正在编辑的贴图时，窗口会重查整个 bundle，并通过 spec prop watch 重置子编辑器未保存草稿。
+  - 解决：编辑器窗口失效处理拆分为实体/spec query 失效和资源 query 失效；前者才重查 editor bundle，后者只按当前 bundle 持有的 `ResourceRef` 重新查询贴图 data URL 并替换资源字段。`ShipEditor` / `WeaponEditor` 只响应 `spriteData` prop 更新贴图预览，不重置本地 spec 草稿。
+- 问题：Skin / Variant 配置详情直接 watch 选中实体对象；任意同类 entity list 刷新都会生成新对象，即使当前选中 ID 的数据没有变化，也会覆盖详情页未保存草稿。
+  - 解决：Skin / Variant ViewModel 增加当前实体数据 revision，只在当前选中实体数据实际变化或切换 ID 时驱动详情编辑器重载；侧栏列表、缩略图和 hull 候选刷新不再天然重置本地草稿。
+- 问题：武器编辑器窗口把 projectile entity-list / 已加载 projectile detail 失效当作整个武器 bundle 失效处理；刷新弹体下拉或弹体依赖时会重查 weapon spec 并覆盖未保存 `.wpn` 草稿。
+  - 解决：编辑器窗口派生依赖刷新拆成 projectileSpecs、projectileOptions 和 resources 三类；weapon 自身 entity-detail 失效才重查 weapon bundle，projectile 详情只刷新已加载 projectileSpecs，projectile 列表只刷新 projectileOptions，资源失效只刷新贴图 data URL。
+- 问题：Schema source options 的刷新 watch 把 `currentValues` 用 `join(',')` 压成字符串身份；值本身包含逗号时，`['a,b']` 和 `['a', 'b']` 等不同正式 query 输入会碰撞，导致候选项不刷新。
+  - 解决：`SchemaFieldRenderer` 使用 JSON 数组身份表达 `currentValues`，保留 query 输入的结构边界，不再用有歧义的分隔符拼接。
+- 问题：文件编辑器保存链路已经携带 `modRoot` 并由 Rust 校验路径归属，但加载链路仍只传 `path`；窗口 URL 被篡改或调用方传入外部绝对路径时，后端读文件没有当前 Mod 边界。
+  - 解决：将 `modRoot` 贯穿文件编辑器加载 ViewModel、files service、shared API、Rust command payload 和 `load_editable_file` service；Rust 读取前复用 `validate_mod_root_path()` 校验路径归属，并补充 payload 缺失 `modRoot`、外部路径和 parent-dir 逃逸反例测试。
+- 问题：文件 history 回放通知已打开文件编辑器的 `file-editor-text-applied` 事件只携带 path，不携带 `modRoot`；跨窗口事件身份不完整，监听方只能按路径匹配。
+  - 解决：`FileEditorTextAppliedEvent` 增加 `modRoot`，history 回放发送事件时带当前回放 Mod 根；文件编辑器监听回放文本时同时匹配 `modRoot` 和 path。
+- 问题：CSV window 本地已加载 key、Schema section 状态 key、前端资源缓存 key 和后端资源批量查询去重 key 仍使用分隔符拼接；搜索文本、section id、ownerId 或 resource key 含分隔符时，不同结构化输入可能碰撞成同一缓存身份。
+  - 解决：这些运行时身份统一改为结构化序列化 key，保留字段边界；后端补充分隔符碰撞反例测试。
+- 问题：编辑器窗口单例 key 使用 `kind:modRoot:id` 拼接，`modRoot` 和业务 id 中的分隔符会让不同窗口目标碰撞成同一 Tauri label。
+  - 解决：编辑器窗口 singleton key 改为结构化序列化 `kind + modRoot + id`，窗口单例化继续由 managed window 统一 normalize 和 hash。
+- 问题：前端 query cache key 和失效清理用 `sessionId|queryKind|parameters` 字符串前缀表达 session 归属，缓存身份和失效边界依赖 sessionId 不含分隔符。
+  - 解决：query cache key 改为结构化序列化，完成值和 pending entry 都显式保存 `sessionId`；session/path 失效按 entry 字段匹配，不再依赖 key 前缀。
+- 问题：CSV Grid 列宽锁定监听把 header key 数组用 `join(',')` 压成字符串；CSV header key 本身可包含逗号时，不同列集合可能碰撞为同一监听身份。
+  - 解决：列 key 监听改为结构化序列化数组，保留 header key 边界。
+- 问题：workspace store 把列宽按 `modRoot:table` 扁平 key 保存，Rust workspace 模型没有 `columnWidths` 字段，导致前端以为持久化的列宽实际写盘时被后端丢弃；CSV 草稿历史、详情动作 key 和关联文件候选 key 也仍有分隔符拼接身份。
+  - 解决：workspace 列宽持久化改为 `modRoot -> table -> column -> width` 结构，并补齐 Rust `PersistedWorkspace.columnWidths` 模型和 roundtrip 测试；CSV 草稿历史改为嵌套 Map；详情动作和关联文件候选 key 改为结构化序列化。
+- 问题：文件编辑器读写已经以 `modRoot + path` 作为正式边界，但窗口单例仍只用 path，错误反馈在无法归属到已加载 Mod 时仍会传 `modRoot: null` 打开必然无法读取的文件编辑器窗口。
+  - 解决：文件编辑器窗口单例 key 改为 `modRoot + path` 结构化身份；错误反馈只有在文件路径能归属已加载 Mod 时才提供打开文件编辑器入口。
+- 问题：游戏目录告警列表和文件级 history changeset 展示仍使用 `path:message`、`itemId:path` 作为 Vue key，路径或消息含分隔符时会破坏列表 diff 身份。
+  - 解决：告警列表 key 改为 `[path, message]` 结构化序列化；文件 history 变更行 key 改为 `[entryId, changeKind, path]` 结构化序列化。
+- 问题：CSV 保存进入关联文件确认前没有固定本次保存目标，候选文件按当时 active 表生成，但确认回调又重新读取 `project.activeManifest` 和当前表；切换 Mod 或表后可能把旧候选带到新 active 目标，且候选推导发生在结束当前单元格编辑之前。
+  - 解决：表格保存 orchestrator 新增捕获目标模型，保存触发时先结束当前单元格编辑，再捕获 manifest、`modRoot`、表 key 和关联文件候选；确认回调和写盘结果应用只使用该捕获目标，不再重新读取当前 active 目标决定保存归属。
+- 问题：文件级 history 回放在确认弹窗打开后没有在写盘前重新确认栈顶 entry；如果确认期间 history 栈变化，旧 `commit` 还会为寻找已确认 entry 弹出多条后续历史，导致磁盘回放和 undo/redo 栈移动不一致。
+  - 解决：确认后写盘前重新 peek 当前方向栈顶，只有栈顶仍是已确认 entry 才调用 Rust 回放；file history store 的 commit 只允许移动当前栈顶 file-save entry，不再向下搜索旧 entry。
+- 问题：配置删除确认框打开后，Faction / Mission / Variant / Skin 的删除回调仍会进入 ViewModel 后重新读取当前 active Mod，或在编辑器里重新读取当前选中实体；确认期间切换 Mod 或刷新列表时，可能把旧实体 ID/路径配到新 `modRoot` 或新选中对象上写盘。
+  - 解决：配置删除链路改为确认框打开时捕获正式删除目标：`modRoot`、实体 ID、单文件实体路径和删除选项；确认回调只消费捕获目标，ViewModel 删除入口不再用当前 active Mod 决定写盘归属，Variant / Skin 删除入口也只接收写盘所需的 ID 和路径。
+- 问题：配置新建弹窗打开后，Faction / Mission / Variant / Skin 的创建回调仍在 ViewModel 内读取当前 active Mod；确认期间切换 Mod 时，可能把旧弹窗输入创建到新 active Mod。
+  - 解决：配置新建弹窗打开时捕获 `modRoot`，创建回调显式提交捕获的 `modRoot`；ViewModel 创建入口不再读取 active Mod 决定写盘归属，写入完成后只在当前 active Mod 仍是捕获目标时刷新列表和选中项。
+- 问题：CSV 保存关联文件确认已经捕获了保存目标和候选文件，但勾选集合仍是 workspace composable 级共享状态；多个确认框或重复触发保存时，旧确认回调可能读取后来确认框改写的勾选状态。
+  - 解决：关联文件确认的勾选集合改为每次保存确认的局部状态，确认内容渲染和确认回调共同消费本次捕获的候选与勾选集合，不再复用跨确认框状态。
+- 问题：CSV 右侧详情的专用编辑器动作只携带 `kind + id`，打开窗口时再从当前 active Mod 补齐 `modRoot`、`sessionId` 和 Starsector root；动作发出后如果 active Mod 变化，可能打开旧行 ID 对应的新 Mod 窗口。
+  - 解决：右侧详情动作改为携带完整窗口目标：`modRoot`、`sessionId`、`starsectorRoot`、编辑器 kind 和业务 id；主窗口打开编辑器时只消费动作目标，不再从当前 active Mod 补齐目标参数。
+- 问题：关闭工作区确认框确认后重新读取当前 workspace、project manifests 和 loaded mod list；确认期间如果加载或切换了新工作区，旧确认框可能关闭后来加入的 Mod 或清掉新的游戏目录概览。
+  - 解决：关闭工作区确认打开时捕获关闭目标快照：已加载 Mod roots、游戏目录 root 和 Starsector roots；确认回调只移除捕获的 Mod、只失效捕获的 core cache，并且只在当前概览仍匹配捕获 root 时清空概览。
+- 问题：资源 data URL 读取把 `ResourceRef.relPath` 只做斜杠规范化后直接 join 到 Mod/core 根目录；绝对路径、带盘符路径或 `..` 路径可以越过资源根读取外部文件，资源读取边界没有和写入链路一样回到正式路径模型。
+  - 解决：Rust sprite 读取入口新增资源相对路径校验，空路径仍返回缺失资源，绝对路径、盘符路径和 parent-dir 路径返回错误；批量资源 query 复用该入口，并补充 sprite loader 与 resource query 的越界反例测试。
+- 问题：编辑器 spec 保存只在 changeset 回放阶段校验目标路径归属；新 spec 默认目标由 `id` 拼出文件名时，非法 `id` 可能在候选扫描或 changeset 构建阶段之前没有正式边界。
+  - 解决：`save_editor_spec` 在候选目录扫描、默认路径构造和 changeset 构建前按统一可移植 ID 规则校验 `id`，非法 ID 直接返回对应编辑器类型错误；补充非法 ID 必须早于候选扫描失败的反例测试。
+- 问题：Variant / Skin 删除和重命名旧目标只依赖前端提交的 relPath；Rust 没有证明 relPath 属于对应配置目录，也没有证明文件内容 ID 匹配被操作实体。
+  - 解决：单文件配置 relPath 校验下沉到 config domain；Variant / Skin 删除和重命名前先校验目录、扩展名、相对路径组件和文件内容 ID，保存时校验写入数据 ID 与目标 ID 一致，并补充外部 relPath、ID 不匹配和写入数据 ID 不一致反例。
+- 问题：配置列表和编辑器虽然把写盘目标 `modRoot` 传入 ViewModel/Orchestrator，但异步创建、保存或删除完成后，组件仍会无条件 emit 选中项或清空本地编辑状态；确认期间切换 Mod 时，旧操作结果可能回写当前界面选择。
+  - 解决：Faction / Mission / Variant / Skin 的列表与编辑器组件在异步动作完成后，先比对当前 props `modRoot` 与发起时捕获的 `modRoot`，只有仍匹配时才 emit 选择或重置本地状态。
+- 问题：Rust `invalidate_project_session` 接收 changed path 后只做字符串归属换算，未在后端按路径组件拒绝 `..`；前端过滤不能替代 Rust command 边界。
+  - 解决：ProjectSession path invalidation 在归一化和分类前检查 `ParentDir` 组件，相对路径额外拒绝盘符前缀；补充相对与绝对 parent-dir changed path 都不参与 session 失效分类的反例测试。
+- 问题：编辑器导入已有 spec 文件的 Rust command 只接收裸 `path`，没有携带正式 spec 类型，后端读 JSON 前不能校验文件扩展名和 parent-dir 路径边界。
+  - 解决：导入 spec 入口改为 `kind + path` payload，Rust 按 `EditorSpecKind` 校验 `.ship` / `.wpn` / `.proj` / `.system` 扩展名并拒绝包含 `..` 的路径后再解析 JSON-like 文件；补充缺失 kind、扩展名不匹配和 parent-dir 路径反例测试。
+- 问题：core 扫描、ProjectSession 原版回退和 core cache 直接使用前端传入或持久化恢复得到的 `starsectorRoot` 拼接 `starsector-core`，没有统一拒绝 parent-dir 路径；core cache 还用原始 root 字符串作为身份，大小写或斜杠差异会形成不同缓存键。
+  - 解决：新增 Rust IO 层路径校验工具，core 扫描、ProjectSession 打开和 core cache 入口统一要求 `starsectorRoot` 是不含 `..` 的绝对路径；core cache key 改为规范化路径身份，并补充 parent-dir root 与缓存 key 规范化反例测试。
+- 问题：文件读写回放和 ProjectSession invalidation 各自维护 parent-dir 判断与路径规范化函数，路径边界规则存在继续分叉的风险。
+  - 解决：文件读写回放和 session invalidation 改为复用 `src-tauri/src/io/paths.rs` 的 parent-dir 判断和规范化路径身份工具，保留既有路径安全反例测试覆盖。
+- 问题：CSV 右侧预览请求只把 rowKey 传给 ViewModel，实际查询时再读取当前 active session 和当前表；异步期间切换 Mod 或表后，旧请求可能用漂移后的目标发起查询或把旧预览回写到新选择。
+  - 解决：预览请求目标改为显式 `sessionId + table + rowKey`，DetailPane 发起请求时捕获完整目标，ViewModel 只消费该目标，返回后同时校验当前 session、表和 rowKey 仍匹配再回写预览。
+- 问题：project store 写入 ProjectManifest 时会隐式设置 `activeModRoot`；启动恢复或多个 Mod 打开请求异步完成时，manifest 返回顺序可能反向改写 active project，绕过 workspace 导航边界。
+  - 解决：`setProjectManifest()` 只写入 manifest 缓存，不再切换 active Mod；活动 Mod 继续由 workspace 打开、恢复和导航链路显式同步到 project、tables、编辑器引用和文件级 history。
+- 问题：编辑器导入 spec 文件的路径校验仍在 `editor_specs` service 内单独判断绝对路径和 `ParentDir`，没有复用统一 Rust IO 路径规则，路径边界存在继续分叉的风险。
+  - 解决：导入 spec 路径校验改为复用 `validate_absolute_path_without_parent()`，service 只保留编辑器类型对应扩展名校验。
+- 问题：FileChangeSet 构建和目录快照回放的相对路径校验只拒绝绝对路径和 `..`，空路径、`.` 或 Windows 盘符 prefix 这类非普通相对文件路径没有进入统一边界。
+  - 解决：新增统一 `validate_relative_path_without_parent()`，要求相对路径由非空普通组件组成；FileChangeSetBuilder 和目录快照 relPath 回放都复用该入口，并补充空路径、`.`、`./` 和盘符 prefix 反例测试。
+- 问题：Faction 图片预览和 Mission 详情读取只捕获实体 ID，真正请求时再读取当前 active session；异步期间切换 Mod 后，同名实体的旧请求可能写回新界面。
+  - 解决：Faction 预览和 Mission 详情/图标请求改为显式捕获 `sessionId + entity id`，ViewModel 只消费显式 session，组件在返回后同时校验 session 和实体 ID 仍匹配再回写。
+- 问题：core 字段和图像索引扫描在返回后才检查 Starsector root 是否变化，扫描期间切换 root 时会短暂把旧 root 的字段或图片路径发布到新上下文。
+  - 解决：`useCoreSchema()` 和 `useCoreGraphics()` 发布扫描结果或错误状态前先校验当前 root 仍等于发起时捕获的 root；root 已变化时丢弃旧结果，并在当前扫描结束后触发新 root 扫描。
+- 问题：编辑器窗口缺失 spec 时，导入文件读取完成后会在 `handleMissingSpec()` 内直接写入 `editorData`，外层 query 请求身份校验发生在写入之后；导入期间如果本窗口收到失效并重查，旧导入结果可能覆盖新 bundle。
+  - 解决：缺失 spec 导入流程改为只返回导入数据，外层 query 链路在确认 request id 和 `sessionId + modRoot + id` 目标仍匹配后才写入当前 bundle。
+- 问题：`editor-spec-saved` 跨窗口事件只携带 `modRoot + kind + id`，不携带 `sessionId`；主窗口和其它编辑器窗口无法证明保存事件属于当前 ProjectSession。
+  - 解决：`EditorSpecSavedEvent` 增加 `sessionId`，编辑器保存广播、窗口间同步和主窗口 history/失效处理都按 `sessionId + modRoot` 校验当前目标，旧 session 事件不再进入当前 session 链路。
+- 问题：CSV table window query 发起时的本地 key 包含 session、表、搜索文本、势力筛选和窗口范围，但异步返回后只校验 request id 和 table；切换 session、搜索或势力筛选的时序边界上，旧 window 仍可能写入当前表格 store。
+  - 解决：`loadTableWindow()` 发起时显式捕获 `sessionId + table + searchText + faction filter`，query 返回后用同一目标逐项校验当前状态，只有完全匹配才应用 window rows。
+- 问题：Variant / Skin 编辑器的 schema runtime context 由组件内部重新读取 `project.activeManifest` 构造；字段 source option 查询、资源失效监听和路径选择会在编辑目标之外绑定当前 active session。
+  - 解决：Variant / Skin ViewModel 暴露当前目标 `sessionId`，View 容器连同 `modRoot` 传给编辑器；编辑器用 props 中的 `modRoot + sessionId` 构造 schema runtime context，不再直接读取 active manifest。
+- 问题：CSV 保存和配置保存发起后，如果目标 Mod 被移除或同一路径重载为新 ProjectSession，旧写盘结果仍可能清理当前表格状态、记录 file history 或触发当前 session 失效；`recordFileSave()` 在没有 session 校验时也可能为已移除目标重新创建 history 状态。
+  - 解决：表格保存目标补充捕获表格状态对象，并在写盘前后校验 `modRoot + sessionId + state` 仍匹配；配置保存 orchestrator 在发起写入前捕获 session，history 记录和 ProjectSession 失效都按捕获 session 校验，旧 session 结果不再应用到新运行态。
+- 问题：文件编辑器窗口保存事件只携带 `modRoot + path`，不携带发起窗口所属 `sessionId`；同一路径 Mod 被重载后，旧文件编辑器的保存结果可能被主窗口记录到新 ProjectSession 的 history 和失效链路。
+  - 解决：文件编辑器打开请求、窗口 URL、ViewModel 和 `file-editor-saved` 事件全部携带 `sessionId`；主窗口处理保存事件前校验 `sessionId + modRoot` 仍匹配当前 ProjectManifest，CSV 右侧详情和错误反馈打开文件编辑器时都传入发起时 session。
+- 问题：独立编辑器窗口贴图上传写盘后直接走本窗口的 history 和 session 失效编排，子窗口没有主窗口拥有的 ProjectSession、file history 和 workspace 状态，二进制 changeset 不能由正式拥有者统一收口；事件发射还挂在文件编辑器窗口编排下，边界语义不准。
+  - 解决：贴图上传改为广播 `sprite-upload-saved`，事件携带 `sessionId + modRoot + filename + overwritten + WriteResult`；主窗口保存监听统一校验当前 ProjectManifest、记录 file history 并执行 ProjectSession invalidation，贴图上传 orchestrator 自己负责发射贴图保存事件，不再借用文件编辑器窗口边界。
+- 问题：多个 Mod 写盘 command 只接收 `modRoot`，前端虽然在写盘返回后用捕获的 session 拒绝旧结果，但旧文件编辑器、旧编辑器窗口、旧配置保存或旧 history 确认仍可能先把磁盘写坏，再被主窗口丢弃。
+  - 解决：文件编辑器读写、编辑器 spec 保存、`mod_info.json` 通用文件保存、配置 entity 保存/创建/删除、贴图上传和文件 history 回放的 shared API 与 Rust payload 都补齐 `sessionId + modRoot`；Rust command 在任何读盘或写盘前统一校验两者仍匹配同一 ProjectSession，前端 history 回放确认后也重新确认当前 Mod 的 session 未变化。
+- 问题：配置保存 orchestrator 虽然会向 Rust 提交 `sessionId + modRoot`，但部分配置创建、保存和删除动作仍由 orchestrator 按 `modRoot` 重新读取当前 store 中的 session；旧确认框或旧编辑器在同一路径 Mod 被重载后可能拿到新 session，导致发起时会话边界失效。
+  - 解决：配置写入 action 不再自行按 `modRoot` 取 session；`mod_info`、Faction、Mission、Variant 和 Skin 的保存按钮、新建弹窗与删除确认框都在发起时捕获 `sessionId + modRoot` 并显式贯穿 ViewModel、config save orchestrator、shared API 和 Rust command，异步返回后也按同一 session 校验后才刷新界面状态。
+
+## 已验证
+
+- `npm.cmd run typecheck` 通过。
+- `npm.cmd run lint` 通过。
+- `npm.cmd run format:check` 通过。
+- `npm.cmd run encoding:check` 通过。
+- `cargo test --manifest-path src-tauri\Cargo.toml` 通过。
+- `cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings` 通过。
+- `cargo fmt --manifest-path src-tauri\Cargo.toml --check` 通过。

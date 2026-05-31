@@ -55,6 +55,7 @@ mod tests {
         io::write_utf8_no_bom,
         models::{PersistedMod, WorkspaceView},
     };
+    use std::collections::BTreeMap;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
@@ -81,6 +82,13 @@ mod tests {
             starsector_root: Some("D:/Starsector".to_string()),
             game_mods: vec![],
             game_warnings: vec![],
+            column_widths: BTreeMap::from([(
+                "D:/mods/test".to_string(),
+                BTreeMap::from([(
+                    "ships".to_string(),
+                    BTreeMap::from([("id".to_string(), 120.0)]),
+                )]),
+            )]),
         };
         save_workspace(&dir, &state).unwrap();
         let loaded = load_workspace(&dir).unwrap();
@@ -88,6 +96,7 @@ mod tests {
         assert_eq!(loaded.mods.len(), 1);
         assert_eq!(loaded.mods[0].display_name, "Test Mod");
         assert_eq!(loaded.active_mod_root, Some("D:/mods/test".to_string()));
+        assert_eq!(loaded.column_widths["D:/mods/test"]["ships"]["id"], 120.0);
     }
 
     #[test]

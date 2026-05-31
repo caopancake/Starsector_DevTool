@@ -55,7 +55,7 @@ pub fn run() {
             commands::scan_core_fields,
             commands::scan_core_graphics,
             commands::load_editable_file,
-            commands::load_json_spec_file,
+            commands::load_imported_editor_spec_file,
             commands::save_text_file,
             commands::save_editor_spec,
             commands::save_mod_files,

@@ -5,6 +5,8 @@
       :variants="variants"
       :variant-sprites="variantSprites"
       :hull-options="hullOptions"
+      :mod-root="modRoot"
+      :session-id="sessionId"
       :create-variant="createVariant"
       :delete-variant="deleteVariant"
       @select="selectedVariantId = $event"
@@ -14,6 +16,9 @@
       :key="selectedVariantId"
       :variant-id="selectedVariantId"
       :variants="variants"
+      :mod-root="modRoot"
+      :session-id="sessionId"
+      :data-revision="variantDataRevision"
       :save-variant="saveVariant"
       :delete-variant="deleteVariant"
       @saved="onSaved"
@@ -29,6 +34,17 @@ import ConfigVariantEditor from '@/app/components/config/ConfigVariantEditor.vue
 import ConfigVariantList from '@/app/components/config/ConfigVariantList.vue';
 import { useConfigVariantViewModel } from '@/app/composables/use-config-variant-view-model';
 
-const { selectedVariantId, variants, variantSprites, hullOptions, createVariant, deleteVariant, onSaved, saveVariant } =
-  useConfigVariantViewModel();
+const {
+  selectedVariantId,
+  modRoot,
+  sessionId,
+  variants,
+  variantSprites,
+  hullOptions,
+  variantDataRevision,
+  createVariant,
+  deleteVariant,
+  onSaved,
+  saveVariant,
+} = useConfigVariantViewModel();
 </script>

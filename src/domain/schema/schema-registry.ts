@@ -168,6 +168,13 @@ export function flattenSelectOptions(options: SelectOption[]): FlatSelectOption[
   );
 }
 
+export function selectOptionResourceRefs(options: SelectOption[]): ResourceRef[] {
+  return options.flatMap((option) => [
+    ...(option.resourceRef ? [option.resourceRef] : []),
+    ...(option.children ? selectOptionResourceRefs(option.children) : []),
+  ]);
+}
+
 export function groupSelectOptions(options: SelectOption[]): SelectOptionGroup[] {
   const groups: SelectOptionGroup[] = [];
   const ungrouped: FlatSelectOption[] = [];

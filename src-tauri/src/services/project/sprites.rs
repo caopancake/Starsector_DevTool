@@ -4,7 +4,10 @@ use base64::{engine::general_purpose, Engine as _};
 use serde_json::Value;
 #[cfg(test)]
 use std::collections::BTreeMap;
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Component, Path},
+};
 
 #[cfg(test)]
 pub(super) fn load_ship_sprite_data(
@@ -67,10 +70,9 @@ pub(super) fn load_sprite_data_url(
     core_dir: Option<&Path>,
     sprite: &str,
 ) -> AppResult<Option<String>> {
-    let rel = sprite.replace('\\', "/").trim().to_string();
-    if rel.is_empty() {
+    let Some(rel) = validate_sprite_relative_path(sprite)? else {
         return Ok(None);
-    }
+    };
     // Try mod directory first
     let mod_path = mod_root.join(&rel);
     if mod_path.is_file() {
@@ -102,6 +104,25 @@ pub(super) fn load_sprite_data_url(
         }
     }
     Ok(None)
+}
+
+fn validate_sprite_relative_path(sprite: &str) -> AppResult<Option<String>> {
+    let rel = sprite.replace('\\', "/").trim().to_string();
+    if rel.is_empty() {
+        return Ok(None);
+    }
+    let path = Path::new(&rel);
+    if path.is_absolute() || path_escapes_resource_root(path) {
+        return Err(AppError::message(format!(
+            "sprite path is outside resource root: {rel}"
+        )));
+    }
+    Ok(Some(rel))
+}
+
+fn path_escapes_resource_root(path: &Path) -> bool {
+    path.components()
+        .any(|part| matches!(part, Component::ParentDir | Component::Prefix(_)))
 }
 
 #[cfg(test)]
@@ -201,6 +222,39 @@ mod tests {
 
         // Should succeed (mod has priority, but both work)
         assert!(result.is_some());
+    }
+
+    #[test]
+    fn sprite_loader_rejects_parent_dir_escape() {
+        let mod_dir = temp_dir("sprite_parent_escape_mod");
+        let core_dir = temp_dir("sprite_parent_escape_core");
+
+        let error = load_sprite_data_url(&mod_dir, Some(core_dir.as_path()), "../outside.png")
+            .unwrap_err()
+            .to_string();
+
+        let _ = fs::remove_dir_all(&mod_dir);
+        let _ = fs::remove_dir_all(&core_dir);
+        assert!(error.contains("sprite path is outside resource root"));
+    }
+
+    #[test]
+    fn sprite_loader_rejects_absolute_path() {
+        let mod_dir = temp_dir("sprite_absolute_mod");
+        let core_dir = temp_dir("sprite_absolute_core");
+        let absolute = mod_dir.join("graphics/ships/demo.png");
+
+        let error = load_sprite_data_url(
+            &mod_dir,
+            Some(core_dir.as_path()),
+            &absolute.to_string_lossy(),
+        )
+        .unwrap_err()
+        .to_string();
+
+        let _ = fs::remove_dir_all(&mod_dir);
+        let _ = fs::remove_dir_all(&core_dir);
+        assert!(error.contains("sprite path is outside resource root"));
     }
 
     fn temp_dir(name: &str) -> PathBuf {

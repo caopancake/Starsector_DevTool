@@ -1,7 +1,9 @@
 use crate::{
     domain::config::validate_config_id,
     errors::{AppError, AppResult},
-    io::{read_csv_data, strip_internal_fields, FileChangeSetBuilder},
+    io::{
+        invalidated_paths_for_changes, read_csv_data, strip_internal_fields, FileChangeSetBuilder,
+    },
     models::{IndexedConfigKind, WriteResult},
     parsers::render_csv_text,
 };
@@ -78,7 +80,7 @@ pub fn save_indexed_config_entity(
     }
     let changes = builder.apply()?;
     Ok(WriteResult {
-        invalidated_paths: changes.iter().map(|change| change.path.clone()).collect(),
+        invalidated_paths: invalidated_paths_for_changes(&changes),
         changes,
         key_map: Vec::new(),
         refreshed_entity: Some(serde_json::json!({
@@ -127,7 +129,7 @@ pub fn delete_indexed_config_entity(
     }
     let changes = builder.apply()?;
     Ok(WriteResult {
-        invalidated_paths: changes.iter().map(|change| change.path.clone()).collect(),
+        invalidated_paths: invalidated_paths_for_changes(&changes),
         changes,
         key_map: Vec::new(),
         refreshed_entity: Some(serde_json::json!({
@@ -425,11 +427,21 @@ mod tests {
             .unwrap()
             .contains("new,data/world/factions/new.faction"));
 
-        apply_file_change_set(FileChangeReplayDirection::Undo, result.changes.clone()).unwrap();
+        apply_file_change_set(
+            &root.to_string_lossy(),
+            FileChangeReplayDirection::Undo,
+            result.changes.clone(),
+        )
+        .unwrap();
         assert!(dir.join("old.faction").exists());
         assert!(!dir.join("new.faction").exists());
 
-        apply_file_change_set(FileChangeReplayDirection::Redo, result.changes).unwrap();
+        apply_file_change_set(
+            &root.to_string_lossy(),
+            FileChangeReplayDirection::Redo,
+            result.changes,
+        )
+        .unwrap();
         let new_text = read_utf8_no_bom(&dir.join("new.faction")).unwrap();
         let _ = fs::remove_dir_all(root);
         assert!(new_text.contains("\"id\": \"new\""));
@@ -511,6 +523,41 @@ mod tests {
 
         let _ = fs::remove_dir_all(root);
         assert!(error.contains("战役索引不存在: missing"));
+    }
+
+    #[test]
+    fn mission_delete_expands_directory_invalidated_paths() {
+        let root = temp_dir("mission_delete_expands_invalidated_paths");
+        fs::create_dir_all(root.join("data/missions/demo")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/missions/mission_list.csv"),
+            "mission\r\ndemo\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("data/missions/demo/descriptor.json"),
+            r#"{"title":"Demo"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(&root.join("data/missions/demo/mission_text.txt"), "Demo").unwrap();
+
+        let result = delete_indexed_config_entity(
+            &root.to_string_lossy(),
+            IndexedConfigKind::Mission,
+            "demo",
+            true,
+        )
+        .unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(result.invalidated_paths.iter().any(|path| {
+            path.replace('\\', "/")
+                .ends_with("data/missions/demo/descriptor.json")
+        }));
+        assert!(result.invalidated_paths.iter().any(|path| {
+            path.replace('\\', "/")
+                .ends_with("data/missions/demo/mission_text.txt")
+        }));
     }
 
     fn temp_dir(name: &str) -> PathBuf {

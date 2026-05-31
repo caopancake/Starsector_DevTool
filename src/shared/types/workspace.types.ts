@@ -1,6 +1,8 @@
 import type { GameModSummary, GameScanWarning } from '@/shared/types/query.types';
 import type { CsvDirtyRow, CsvFactionFilter, CsvTableRows, TableKey } from '@/shared/types/tables.types';
 
+export type WorkspaceColumnWidths = Record<string, Partial<Record<TableKey, Record<string, number>>>>;
+
 /** Metadata for one imported Mod in the workspace */
 export interface ModEntry {
   modRoot: string;
@@ -48,5 +50,5 @@ export interface PersistedWorkspace {
   starsectorRoot: string | null;
   gameMods: GameModSummary[];
   gameWarnings: GameScanWarning[];
-  columnWidths?: Record<string, Record<string, number>>;
+  columnWidths: WorkspaceColumnWidths;
 }

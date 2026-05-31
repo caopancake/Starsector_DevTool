@@ -17,5 +17,8 @@ pub use query::{
     query_entity_list, query_hull_references, query_resource_data_urls,
 };
 pub use root::{detect_directory, scan_game_overview};
-pub use session::{close_project_session, invalidate_core_cache, invalidate_project_session};
+pub use session::{
+    close_project_session, ensure_project_session_mod_root, invalidate_core_cache,
+    invalidate_project_session,
+};
 pub use write::save_csv_patch;

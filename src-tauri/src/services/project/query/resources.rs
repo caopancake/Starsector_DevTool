@@ -112,6 +112,63 @@ mod tests {
         assert!(error.contains("core resource requires starsector root"));
     }
 
+    #[test]
+    fn mod_resource_uses_core_fallback_from_session_root() {
+        let root = temp_dir("mod_resource_core_fallback");
+        let mod_root = root.join("mods/demo");
+        std::fs::create_dir_all(&mod_root).unwrap();
+        std::fs::create_dir_all(root.join("starsector-core/graphics/ships")).unwrap();
+        std::fs::write(
+            root.join("starsector-core/graphics/ships/core_ship.png"),
+            [137, 80, 78, 71],
+        )
+        .unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
+        let result = query_resource_data_urls(
+            &manifest.session_id,
+            vec![ResourceRef {
+                source: ResourceSource::Mod,
+                rel_path: "graphics/ships/core_ship.png".to_string(),
+                owner_kind: ResourceOwnerKind::Ship,
+                owner_id: "ship".to_string(),
+                key: "sprite".to_string(),
+            }],
+        )
+        .unwrap();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        assert!(result.entries[0].data_url.is_some());
+    }
+
+    #[test]
+    fn resource_query_rejects_parent_dir_escape() {
+        let root = temp_dir("resource_query_parent_escape");
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
+        let error = query_resource_data_urls(
+            &manifest.session_id,
+            vec![ResourceRef {
+                source: ResourceSource::Mod,
+                rel_path: "../outside.png".to_string(),
+                owner_kind: ResourceOwnerKind::Ship,
+                owner_id: "ship".to_string(),
+                key: "sprite".to_string(),
+            }],
+        )
+        .unwrap_err()
+        .to_string();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        assert!(error.contains("sprite path is outside resource root"));
+    }
+
     fn temp_dir(name: &str) -> std::path::PathBuf {
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)

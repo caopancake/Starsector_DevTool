@@ -1,13 +1,10 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::{read_utf8_no_bom, write_utf8_no_bom},
+    io::{read_utf8_no_bom, validate_relative_path_without_parent, write_utf8_no_bom},
     models::{FileChangeKind, FileChangeRecord, FileSnapshot},
 };
 use base64::{engine::general_purpose, Engine as _};
-use std::{
-    fs,
-    path::{Component, Path},
-};
+use std::{fs, path::Path};
 use walkdir::WalkDir;
 
 pub struct FileChangeSetBuilder {
@@ -191,18 +188,31 @@ pub fn apply_changes(changes: &[FileChangeRecord], direction: ChangeDirection) -
     Ok(())
 }
 
-fn validate_relative_path(path: &str) -> AppResult<&Path> {
-    let rel = Path::new(path);
-    if rel.is_absolute()
-        || rel
-            .components()
-            .any(|part| matches!(part, Component::ParentDir))
-    {
-        return Err(AppError::message(format!(
-            "invalid relative file path: {path}"
-        )));
+pub fn invalidated_paths_for_changes(changes: &[FileChangeRecord]) -> Vec<String> {
+    let mut paths = Vec::new();
+    for change in changes {
+        push_unique_path(&mut paths, change.path.clone());
+        for file in change.before_files.iter().chain(change.after_files.iter()) {
+            push_unique_path(
+                &mut paths,
+                Path::new(&change.path)
+                    .join(&file.rel_path)
+                    .to_string_lossy()
+                    .to_string(),
+            );
+        }
     }
-    Ok(rel)
+    paths
+}
+
+fn push_unique_path(paths: &mut Vec<String>, path: String) {
+    if !paths.iter().any(|candidate| candidate == &path) {
+        paths.push(path);
+    }
+}
+
+fn validate_relative_path(path: &str) -> AppResult<&Path> {
+    validate_relative_path_without_parent(Path::new(path), "relative file")
 }
 
 fn apply_one(change: &FileChangeRecord, direction: ChangeDirection) -> AppResult<()> {

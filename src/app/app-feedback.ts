@@ -7,6 +7,8 @@ import type { AppFeedback, ChooseOptions, ConfirmOptions } from '@/shared/types/
 import { openFileEditorWindow } from '@/windows/file-editor.window';
 import { recordLogBestEffort } from '@/services/app-config.service';
 import { useSettingsStore } from '@/stores/settings.store';
+import { useProjectStore } from '@/stores/project.store';
+import { closestRootForPath } from '@/shared/lib/paths';
 
 export function createAppFeedback(message: MessageApiInjection, dialog: DialogApiInjection): AppFeedback {
   return {
@@ -46,6 +48,16 @@ function showError(message: MessageApiInjection, error: unknown, contextMessage?
     message.error(text);
     return;
   }
+  const modRoot = closestRootForPath(useProjectStore().manifests.keys(), reference.path);
+  if (!modRoot) {
+    message.error(text);
+    return;
+  }
+  const sessionId = useProjectStore().getSessionId(modRoot);
+  if (!sessionId) {
+    message.error(text);
+    return;
+  }
   message.error(
     () =>
       h(
@@ -62,7 +74,9 @@ function showError(message: MessageApiInjection, error: unknown, contextMessage?
                 secondary: true,
                 onClick: () =>
                   void openFileEditorWindow({
+                    modRoot,
                     path: reference.path,
+                    sessionId,
                     line: reference.line,
                     settings: useSettingsStore().settingsSnapshot(),
                     title: '文件编辑器',

@@ -267,6 +267,7 @@ type BarrelPreview = { kind: 'add'; coord: { x: number; y: number } } | { kind: 
 
 const props = defineProps<{
   modRoot: string;
+  sessionId: string;
   weaponId: string;
   weapon: RowData;
   spriteData?: Record<string, string>;
@@ -816,6 +817,7 @@ async function uploadSpriteField(field: WeaponSpriteField, event: Event) {
     await uploadSpriteFromInput(event, {
       feedback,
       modRoot: props.modRoot,
+      sessionId: props.sessionId,
       subfolder: 'weapons',
       onUploaded: (result, dataUrl) => {
         localWeapon.value[field] = result.state.path;
@@ -840,6 +842,14 @@ watch(
     activeBarrel.value = null;
     inspectorLock.value = null;
     hoverPreview.value = null;
+  },
+  { deep: true },
+);
+watch(
+  () => props.spriteData,
+  (spriteData) => {
+    localSpriteData.value = { ...(spriteData || {}) };
+    loadAllSpriteImages();
   },
   { deep: true },
 );

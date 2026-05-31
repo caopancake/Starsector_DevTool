@@ -50,6 +50,8 @@ import { closeCurrentWebviewWindow } from '@/windows/current.window';
 const params = new window.URLSearchParams(window.location.search);
 const settings = useSettingsStore();
 const filePath = params.get('file');
+const modRoot = params.get('modRoot');
+const sessionId = params.get('sessionId');
 const filePathText = filePath ?? '缺少文件路径';
 const scrollTop = ref(0);
 const lineHeight = 20;
@@ -75,6 +77,8 @@ const {
   redoEdit,
 } = useFileEditorViewModel({
   filePath,
+  modRoot,
+  sessionId,
   title: params.get('title') ?? '文件编辑器',
   contextLabel: params.get('contextLabel') ?? '信息',
   contextSeverity: params.get('contextSeverity') ?? 'info',

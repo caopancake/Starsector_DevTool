@@ -1,21 +1,26 @@
 use super::super::{
     cache::{
         ensure_registered_session_table_rows, load_core_csv_table, load_core_source_data,
-        loaded_csv_rows, session_for_mut, sessions,
+        loaded_csv_rows, loaded_registered_csv_rows, session_for_mut, sessions,
     },
-    model::{is_comment_row, string_from_row, SourceOptionsContext},
+    model::{is_comment_row, string_from_row, CoreSourceData, ProjectSession, SessionCsvRow},
 };
 use super::resources_shared::source_option_resource_ref;
 use crate::{
     errors::{AppError, AppResult},
-    io::read_csv_data,
-    models::{CsvTableKey, ResourceSource, SourceOptionGroup, SourceOptionOrigin, CSV_TABLES},
+    models::{CsvTableKey, ResourceSource, SourceOptionGroup, SourceOptionOrigin},
 };
 use serde_json::{Map, Value};
-use std::{
-    collections::{BTreeSet, HashMap},
-    path::Path,
-};
+use std::collections::{BTreeSet, HashMap};
+
+struct SourceOptionRowsContext<'a> {
+    core_data: Option<CoreSourceData>,
+    limit: usize,
+    search: &'a str,
+    seen: &'a mut BTreeSet<String>,
+    session: &'a ProjectSession,
+    table: CsvTableKey,
+}
 
 pub fn query_csv_source_options(
     session_id: &str,
@@ -31,21 +36,26 @@ pub fn query_csv_source_options(
     let (table, column) = parse_csv_source(source)?;
     let table_key = table.as_str();
     ensure_registered_session_table_rows(session, table)?;
-    let csv = session
-        .csv_tables
-        .get(table_key)
-        .ok_or_else(|| AppError::message(format!("unknown table: {table_key}")))?;
-    ensure_source_column(&csv.header, table_key, column)?;
+    {
+        let csv = session
+            .csv_tables
+            .get(table_key)
+            .ok_or_else(|| AppError::message(format!("unknown table: {table_key}")))?;
+        ensure_source_column(&csv.header, table_key, column)?;
+    }
+    let metadata_catalog = source_token_metadata_catalog(column, session)?;
     let search = search.unwrap_or_default().to_lowercase();
     let limit = limit.unwrap_or(200);
     let mut seen = BTreeSet::new();
     let mut groups = Vec::new();
     let current_options = source_options_from_values(
         SourceOptionOrigin::Current,
+        column,
         current_values,
         &search,
         limit,
         &mut seen,
+        metadata_catalog.as_ref(),
     );
     if !current_options.is_empty() {
         groups.push(SourceOptionGroup {
@@ -53,19 +63,24 @@ pub fn query_csv_source_options(
             options: current_options,
         });
     }
+    let csv = session
+        .csv_tables
+        .get(table_key)
+        .ok_or_else(|| AppError::message(format!("unknown table: {table_key}")))?;
     let rows = loaded_csv_rows(csv, table_key)?;
     let options = source_options_from_rows(
         ResourceSource::Mod,
         rows,
         column,
-        SourceOptionsContext {
-            core: None,
+        SourceOptionRowsContext {
+            core_data: None,
             limit,
             search: &search,
             seen: &mut seen,
-            session: Some(session),
+            session,
             table,
         },
+        metadata_catalog.as_ref(),
     )?;
     if !options.is_empty() {
         groups.push(SourceOptionGroup {
@@ -83,14 +98,15 @@ pub fn query_csv_source_options(
                 ResourceSource::Core,
                 core_rows,
                 column,
-                SourceOptionsContext {
-                    core: Some(core_data),
+                SourceOptionRowsContext {
+                    core_data: Some(core_data),
                     limit,
                     search: &search,
                     seen: &mut seen,
-                    session: Some(session),
+                    session,
                     table,
                 },
+                metadata_catalog.as_ref(),
             )?;
             if !options.is_empty() {
                 groups.push(SourceOptionGroup {
@@ -124,10 +140,12 @@ fn ensure_source_column(header: &[String], table: &str, column: &str) -> AppResu
 
 fn source_options_from_values(
     origin: SourceOptionOrigin,
+    column: &str,
     values: &[String],
     search: &str,
     limit: usize,
     seen: &mut BTreeSet<String>,
+    metadata_catalog: Option<&SourceTokenMetadataCatalog>,
 ) -> Vec<crate::models::SourceOption> {
     values
         .iter()
@@ -136,9 +154,9 @@ fn source_options_from_values(
         .filter(|value| seen.insert((*value).clone()))
         .take(limit)
         .map(|value| crate::models::SourceOption {
-            label: value.clone(),
+            label: source_option_label_for_value(column, value, metadata_catalog),
             value: value.clone(),
-            description: None,
+            description: source_option_description(value, metadata_catalog),
             resource_ref: None,
             origin,
         })
@@ -147,11 +165,11 @@ fn source_options_from_values(
 
 fn source_options_from_rows(
     resource_source: ResourceSource,
-    rows: &[super::super::model::SessionCsvRow],
+    rows: &[SessionCsvRow],
     column: &str,
-    context: SourceOptionsContext<'_>,
+    context: SourceOptionRowsContext<'_>,
+    metadata_catalog: Option<&SourceTokenMetadataCatalog>,
 ) -> AppResult<Vec<crate::models::SourceOption>> {
-    let metadata = source_metadata_map(column, context.session)?;
     let is_id_column = column == "id";
     let mut options = Vec::new();
     for row in rows.iter().filter(|row| !is_comment_row(&row.row)) {
@@ -180,15 +198,15 @@ fn source_options_from_rows(
             if options.len() >= context.limit {
                 break;
             }
-            let label = source_option_label(row, column, value, metadata.as_ref());
-            let description = source_option_description(value, metadata.as_ref());
+            let label = source_option_label_for_row(row, column, value, metadata_catalog);
+            let description = source_option_description(value, metadata_catalog);
             let resource_ref = if is_id_column {
                 source_option_resource_ref(
                     resource_source,
                     context.table,
                     value,
                     &row.row,
-                    context.core.as_ref(),
+                    context.core_data.as_ref(),
                     context.session,
                 )?
             } else {
@@ -209,11 +227,11 @@ fn source_options_from_rows(
     Ok(options)
 }
 
-fn source_option_label(
-    row: &super::super::model::SessionCsvRow,
+fn source_option_label_for_row(
+    row: &SessionCsvRow,
     column: &str,
     value: &str,
-    metadata: Option<&HashMap<String, SourceOptionMetadata>>,
+    metadata_catalog: Option<&SourceTokenMetadataCatalog>,
 ) -> String {
     if column == "id" {
         let name = row
@@ -228,63 +246,90 @@ fn source_option_label(
         } else {
             format!("{name} ({value})")
         }
-    } else if let Some(metadata) = source_option_metadata(value, metadata) {
+    } else {
+        source_option_label_for_value(column, value, metadata_catalog)
+    }
+}
+
+fn source_option_description(
+    value: &str,
+    metadata_catalog: Option<&SourceTokenMetadataCatalog>,
+) -> Option<String> {
+    metadata_catalog
+        .and_then(|metadata_catalog| metadata_catalog.find(value))
+        .and_then(|metadata| metadata.description)
+}
+
+fn source_option_label_for_value(
+    column: &str,
+    value: &str,
+    metadata_catalog: Option<&SourceTokenMetadataCatalog>,
+) -> String {
+    if column == "id" {
+        return value.to_string();
+    }
+    if let Some(metadata) =
+        metadata_catalog.and_then(|metadata_catalog| metadata_catalog.find(value))
+    {
         format!("{value} ({})", metadata.label)
     } else {
         value.to_string()
     }
 }
 
-fn source_option_description(
-    value: &str,
-    metadata: Option<&HashMap<String, SourceOptionMetadata>>,
-) -> Option<String> {
-    source_option_metadata(value, metadata).and_then(|metadata| metadata.description)
-}
-
-fn source_option_metadata(
-    value: &str,
-    metadata: Option<&HashMap<String, SourceOptionMetadata>>,
-) -> Option<SourceOptionMetadata> {
-    metadata
-        .and_then(|metadata| metadata.get(value))
-        .cloned()
-        .or_else(|| generated_tag_metadata(value))
-}
-
-fn source_metadata_map(
+fn source_token_metadata_catalog(
     column: &str,
-    session: Option<&super::super::model::ProjectSession>,
-) -> AppResult<Option<HashMap<String, SourceOptionMetadata>>> {
+    session: &mut super::super::model::ProjectSession,
+) -> AppResult<Option<SourceTokenMetadataCatalog>> {
     match column {
-        "tags" => session.map(build_tag_metadata_map).transpose(),
-        "hints" => Ok(Some(build_hint_metadata_map())),
+        "tags" => Ok(Some(build_tag_metadata_catalog(session)?)),
+        "hints" => Ok(Some(build_hint_metadata_catalog())),
         _ => Ok(None),
     }
 }
 
 #[derive(Clone)]
-struct SourceOptionMetadata {
+struct SourceTokenMetadata {
     label: String,
     description: Option<String>,
 }
 
-fn build_tag_metadata_map(
-    session: &super::super::model::ProjectSession,
-) -> AppResult<HashMap<String, SourceOptionMetadata>> {
+struct SourceTokenMetadataCatalog {
+    values: HashMap<String, SourceTokenMetadata>,
+    generated: Option<fn(&str) -> Option<SourceTokenMetadata>>,
+}
+
+impl SourceTokenMetadataCatalog {
+    fn find(&self, value: &str) -> Option<SourceTokenMetadata> {
+        self.values
+            .get(value)
+            .cloned()
+            .or_else(|| self.generated.and_then(|generated| generated(value)))
+    }
+}
+
+fn build_tag_metadata_catalog(
+    session: &mut super::super::model::ProjectSession,
+) -> AppResult<SourceTokenMetadataCatalog> {
     let mut metadata = well_known_metadata_map(WELL_KNOWN_TAG_LABELS);
     add_core_blueprint_package_metadata(&mut metadata, session)?;
     add_mod_blueprint_package_metadata(&mut metadata, session)?;
     add_faction_blueprint_metadata(&mut metadata, session);
-    Ok(metadata)
+    Ok(SourceTokenMetadataCatalog {
+        values: metadata,
+        generated: Some(generated_tag_metadata),
+    })
 }
 
-fn build_hint_metadata_map() -> HashMap<String, SourceOptionMetadata> {
-    well_known_metadata_map(WELL_KNOWN_HINT_LABELS)
+fn build_hint_metadata_catalog() -> SourceTokenMetadataCatalog {
+    SourceTokenMetadataCatalog {
+        values: well_known_metadata_map(WELL_KNOWN_HINT_LABELS),
+        generated: None,
+    }
 }
 
 fn add_core_blueprint_package_metadata(
-    metadata: &mut HashMap<String, SourceOptionMetadata>,
+    metadata: &mut HashMap<String, SourceTokenMetadata>,
     session: &super::super::model::ProjectSession,
 ) -> AppResult<()> {
     let Some(root) = session.manifest.starsector_root.as_ref() else {
@@ -303,28 +348,18 @@ fn add_core_blueprint_package_metadata(
 }
 
 fn add_mod_blueprint_package_metadata(
-    metadata: &mut HashMap<String, SourceOptionMetadata>,
-    session: &super::super::model::ProjectSession,
+    metadata: &mut HashMap<String, SourceTokenMetadata>,
+    session: &mut super::super::model::ProjectSession,
 ) -> AppResult<()> {
-    let rel_path = registered_csv_rel_path(CsvTableKey::SpecialItems)?;
-    let csv = read_csv_data(&Path::new(&session.manifest.mod_root).join(rel_path))?;
-    for row in &csv.rows {
-        add_blueprint_package_metadata(metadata, row);
+    ensure_registered_session_table_rows(session, CsvTableKey::SpecialItems)?;
+    for row in loaded_registered_csv_rows(session, CsvTableKey::SpecialItems)? {
+        add_blueprint_package_metadata(metadata, &row.row);
     }
     Ok(())
 }
 
-fn registered_csv_rel_path(table: CsvTableKey) -> AppResult<&'static str> {
-    CSV_TABLES
-        .iter()
-        .find_map(|(key, rel_path)| (*key == table).then_some(*rel_path))
-        .ok_or_else(|| {
-            AppError::message(format!("unknown registered CSV table: {}", table.as_str()))
-        })
-}
-
 fn add_blueprint_package_metadata(
-    metadata: &mut HashMap<String, SourceOptionMetadata>,
+    metadata: &mut HashMap<String, SourceTokenMetadata>,
     row: &Map<String, Value>,
 ) {
     if !row_has_tag(row, "package_bp") {
@@ -338,7 +373,7 @@ fn add_blueprint_package_metadata(
     };
     metadata.insert(
         tag,
-        SourceOptionMetadata {
+        SourceTokenMetadata {
             label: name,
             description: string_from_row(row, "desc"),
         },
@@ -352,7 +387,7 @@ fn row_has_tag(row: &Map<String, Value>, expected: &str) -> bool {
 }
 
 fn add_faction_blueprint_metadata(
-    metadata: &mut HashMap<String, SourceOptionMetadata>,
+    metadata: &mut HashMap<String, SourceTokenMetadata>,
     session: &super::super::model::ProjectSession,
 ) {
     for (tag, faction_id) in &session.tag_map {
@@ -373,7 +408,7 @@ fn add_faction_blueprint_metadata(
             .unwrap_or(faction_id);
         metadata.insert(
             tag.clone(),
-            SourceOptionMetadata {
+            SourceTokenMetadata {
                 label: format!("{faction_name}蓝图"),
                 description: Some(format!("由势力 {faction_name} 推导的蓝图标签。")),
             },
@@ -383,13 +418,13 @@ fn add_faction_blueprint_metadata(
 
 fn well_known_metadata_map(
     metadata: &[(&str, &str, &str)],
-) -> HashMap<String, SourceOptionMetadata> {
+) -> HashMap<String, SourceTokenMetadata> {
     metadata
         .iter()
         .map(|(value, label, description)| {
             (
                 value.to_string(),
-                SourceOptionMetadata {
+                SourceTokenMetadata {
                     label: label.to_string(),
                     description: Some(description.to_string()),
                 },
@@ -398,12 +433,12 @@ fn well_known_metadata_map(
         .collect()
 }
 
-fn generated_tag_metadata(value: &str) -> Option<SourceOptionMetadata> {
+fn generated_tag_metadata(value: &str) -> Option<SourceTokenMetadata> {
     let (prefix, index) = split_numeric_suffix(value)?;
     let (label, description) = GENERATED_TAG_PATTERNS.iter().find_map(|pattern| {
         (pattern.prefix == prefix).then_some((pattern.label, pattern.description))
     })?;
-    Some(SourceOptionMetadata {
+    Some(SourceTokenMetadata {
         label: format!("{label} {index}"),
         description: Some(description.to_string()),
     })
@@ -1093,6 +1128,107 @@ mod tests {
     }
 
     #[test]
+    fn core_wing_source_options_do_not_use_mod_variants_for_resource_refs() {
+        let root = temp_dir("core_wing_source_ref_uses_core_variants_only");
+        let mod_root = root.join("mods/demo");
+        std::fs::create_dir_all(mod_root.join("data/variants")).unwrap();
+        std::fs::create_dir_all(root.join("starsector-core/data/hulls")).unwrap();
+        std::fs::create_dir_all(root.join("starsector-core/data/variants")).unwrap();
+        write_utf8_no_bom(
+            &mod_root.join("data/variants/shared_variant.variant"),
+            r#"{"variantId":"shared_variant","hullId":"core_hull"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("starsector-core/data/hulls/wing_data.csv"),
+            "id,variant\r\ncore_wing,shared_variant\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("starsector-core/data/hulls/core_hull.ship"),
+            r#"{"hullId":"core_hull","spriteName":"graphics/ships/core_hull.png"}"#,
+        )
+        .unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
+        let groups = query_csv_source_options(
+            &manifest.session_id,
+            "csv:wings.id",
+            &[],
+            Some("core_wing".to_string()),
+            None,
+        )
+        .unwrap();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        let option = groups
+            .iter()
+            .find(|group| group.label == "原版")
+            .and_then(|group| {
+                group
+                    .options
+                    .iter()
+                    .find(|option| option.value == "core_wing")
+            })
+            .unwrap();
+        assert_eq!(option.origin, SourceOptionOrigin::Core);
+        assert!(option.resource_ref.is_none());
+    }
+
+    #[test]
+    fn core_weapon_source_options_do_not_use_mod_weapon_specs_for_resource_refs() {
+        let root = temp_dir("core_weapon_source_ref_uses_core_specs_only");
+        let mod_root = root.join("mods/demo");
+        std::fs::create_dir_all(mod_root.join("data/weapons")).unwrap();
+        std::fs::create_dir_all(root.join("starsector-core/data/weapons")).unwrap();
+        write_utf8_no_bom(
+            &mod_root.join("data/weapons/weapon_data.csv"),
+            "id,name\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &mod_root.join("data/weapons/shared_weapon.wpn"),
+            r#"{"id":"shared_weapon","turretSprite":"graphics/weapons/mod_shared.png"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("starsector-core/data/weapons/weapon_data.csv"),
+            "id,name\r\nshared_weapon,Shared Weapon\r\n",
+        )
+        .unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
+        let groups = query_csv_source_options(
+            &manifest.session_id,
+            "csv:weapons.id",
+            &[],
+            Some("shared_weapon".to_string()),
+            None,
+        )
+        .unwrap();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        let option = groups
+            .iter()
+            .find(|group| group.label == "原版")
+            .and_then(|group| {
+                group
+                    .options
+                    .iter()
+                    .find(|option| option.value == "shared_weapon")
+            })
+            .unwrap();
+        assert_eq!(option.origin, SourceOptionOrigin::Core);
+        assert!(option.resource_ref.is_none());
+    }
+
+    #[test]
     fn csv_source_parser_requires_registered_table_key() {
         let result = parse_csv_source("csv:missions.id");
 
@@ -1236,12 +1372,60 @@ mod tests {
     }
 
     #[test]
+    fn tag_source_options_read_mod_blueprint_package_metadata_from_session_rows() {
+        let root = temp_dir("source_mod_blueprint_package_session_rows");
+        std::fs::create_dir_all(root.join("data/campaign")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/campaign/special_items.csv"),
+            "name,id,tags,plugin params,desc\r\nOld Package,old_package,package_bp,demo_bp,Old description.\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("data/campaign/commodities.csv"),
+            "id,name,tags\r\ncommodity,Commodity,demo_bp\r\n",
+        )
+        .unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
+        query_csv_source_options(
+            &manifest.session_id,
+            "csv:specialItems.tags",
+            &[],
+            None,
+            None,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("data/campaign/special_items.csv"),
+            "name,id,tags,plugin params,desc\r\nNew Package,new_package,package_bp,demo_bp,New description.\r\n",
+        )
+        .unwrap();
+        let groups = query_csv_source_options(
+            &manifest.session_id,
+            "csv:commodities.tags",
+            &[],
+            None,
+            None,
+        )
+        .unwrap();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        let tag_label = source_option_label_from_groups(&groups, "demo_bp");
+        let tag_description = source_option_description_from_groups(&groups, "demo_bp");
+        assert_eq!(tag_label.as_deref(), Some("demo_bp (Old Package)"));
+        assert_eq!(tag_description.as_deref(), Some("Old description."));
+    }
+
+    #[test]
     fn source_options_label_core_tag_and_hint_metadata() {
         let root = temp_dir("source_core_tag_hint_metadata");
         std::fs::create_dir_all(root.join("data/weapons")).unwrap();
         write_utf8_no_bom(
             &root.join("data/weapons/weapon_data.csv"),
-            "id,name,tags,hints\r\nweapon,Weapon,codex_unlockable,CONSERVE_5\r\nbeam,Beam,beam999,DIRECT_AIM\r\nbad,Bad,energy123,CONSERVE_999\r\n",
+            "id,name,tags,hints\r\nweapon,Weapon,codex_unlockable,CONSERVE_5\r\nbeam,Beam,beam999,DIRECT_AIM\r\nbad,Bad,energy123,\"CONSERVE_999, beam999\"\r\n",
         )
         .unwrap();
 
@@ -1254,6 +1438,14 @@ mod tests {
         let hint_groups =
             query_csv_source_options(&manifest.session_id, "csv:weapons.hints", &[], None, None)
                 .unwrap();
+        let current_tag_groups = query_csv_source_options(
+            &manifest.session_id,
+            "csv:weapons.tags",
+            &["codex_unlockable".to_string()],
+            None,
+            None,
+        )
+        .unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
@@ -1280,6 +1472,14 @@ mod tests {
         assert_eq!(
             source_option_label_from_groups(&hint_groups, "CONSERVE_999").as_deref(),
             Some("CONSERVE_999")
+        );
+        assert_eq!(
+            source_option_label_from_groups(&hint_groups, "beam999").as_deref(),
+            Some("beam999")
+        );
+        assert_eq!(
+            source_option_label_from_groups(&current_tag_groups, "codex_unlockable").as_deref(),
+            Some("codex_unlockable (百科可解锁)")
         );
     }
 

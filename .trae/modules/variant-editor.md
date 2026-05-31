@@ -26,9 +26,12 @@
 - 装配列表和新建 hull 下拉必须通过 ProjectSession hull reference query 解析 ship hull 与 skin hull；缩略图只能使用返回的 `ResourceRef` 再走批量资源 query。
 - 保存允许修改 `variantId`；修改后必须在同一个 changeset 中删除旧文件并创建新文件。
 - 新建路径固定为 `data/variants/{variantId}.variant`。
+- 删除和重命名旧目标时，Rust 必须校验 relPath 属于 `data/variants/**/*.variant`，且文件内容的 `variantId` 匹配被操作实体。
+- 保存写入的 `.variant` 数据内 `variantId` 必须与保存目标 `variantId` 一致。
 - 新建、保存、重命名和删除都必须进入文件级 history。
 - 前端不能直接用文件批量保存拼 `.variant` 文件操作，必须走 `saveVariantAction`、`createVariantAction` 或 `deleteVariantAction`。
 - Variant 组件只消费 ViewModel 暴露的状态和动作，不直接调用 query service、resource cache、write service 或保存 orchestrator。
+- Variant schema 表单的 runtime context 必须使用 Variant ViewModel 暴露的当前目标 `modRoot + sessionId`，字段 source query 和路径选择不得重新绑定 active manifest。
 - 装配详情页不显示额外总览统计块，只显示顶部当前文件信息和 schema 表单。
 - `wings` 必须按逐项数组编辑，不能使用去重的多选控件。
 - `modules` 字段的游戏格式是 `[{slotId: variantId}, ...]` 数组包裹单键对象；schema 使用 `type: "key-value"` + `format: "array-of-entries"` 声明此格式，SchemaFieldRenderer 在读写时做数组与扁平 key-value 之间的转换。

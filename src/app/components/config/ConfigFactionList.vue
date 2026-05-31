@@ -60,8 +60,10 @@ const props = defineProps<{
   selectedId: string | null;
   factions: Record<string, RowData>;
   factionCrests: Record<string, string>;
-  createFaction: (id: string) => Promise<boolean>;
-  deleteFaction: (id: string, deleteFile: boolean) => Promise<boolean>;
+  modRoot: string | null;
+  sessionId: string | null;
+  createFaction: (sessionId: string, modRoot: string, id: string) => Promise<boolean>;
+  deleteFaction: (sessionId: string, modRoot: string, id: string, deleteFile: boolean) => Promise<boolean>;
 }>();
 const emit = defineEmits<{ select: [factionId: string | null] }>();
 
@@ -69,8 +71,8 @@ const feedback = useAppFeedback();
 
 const showCreateDialog = ref(false);
 const newFactionId = ref('');
-const deleteFactionDataFile = ref(false);
-const pendingDeleteFaction = ref<string | null>(null);
+const createModRoot = ref<string | null>(null);
+const createSessionId = ref<string | null>(null);
 
 const factions = computed(() => configFactionListItems(props.factions));
 
@@ -83,11 +85,17 @@ function selectFaction(id: string) {
 }
 
 function openCreateDialog() {
+  createModRoot.value = props.modRoot;
+  createSessionId.value = props.sessionId;
+  if (!createModRoot.value || !createSessionId.value) return;
   newFactionId.value = '';
   showCreateDialog.value = true;
 }
 
 async function doCreate() {
+  const targetModRoot = createModRoot.value;
+  const targetSessionId = createSessionId.value;
+  if (!targetModRoot || !targetSessionId) return false;
   const trimmedId = newFactionId.value.trim();
   if (!trimmedId) {
     feedback.warning('ID 不能为空');
@@ -98,17 +106,19 @@ async function doCreate() {
     return;
   }
   try {
-    if (!(await props.createFaction(trimmedId))) return false;
+    if (!(await props.createFaction(targetSessionId, targetModRoot, trimmedId))) return false;
     showCreateDialog.value = false;
-    selectFaction(trimmedId);
+    if (props.modRoot === targetModRoot && props.sessionId === targetSessionId) selectFaction(trimmedId);
   } catch (error) {
     feedback.error(error, '创建势力失败');
   }
 }
 
 function confirmDelete(id: string) {
-  pendingDeleteFaction.value = id;
-  deleteFactionDataFile.value = false;
+  const deleteModRoot = props.modRoot;
+  const deleteSessionId = props.sessionId;
+  if (!deleteModRoot || !deleteSessionId) return;
+  const deleteFactionDataFile = ref(false);
   feedback.confirmDanger({
     title: '删除势力',
     content: () =>
@@ -127,16 +137,15 @@ function confirmDelete(id: string) {
       ]),
     actionText: '删除',
     onConfirm: async () => {
-      if (!pendingDeleteFaction.value) return;
-      await doDelete(pendingDeleteFaction.value, deleteFactionDataFile.value);
-      pendingDeleteFaction.value = null;
+      await doDelete(deleteSessionId, deleteModRoot, id, deleteFactionDataFile.value);
     },
   });
 }
 
-async function doDelete(id: string, deleteFile: boolean) {
+async function doDelete(deleteSessionId: string, deleteModRoot: string, id: string, deleteFile: boolean) {
   try {
-    if (!(await props.deleteFaction(id, deleteFile))) return;
+    if (!(await props.deleteFaction(deleteSessionId, deleteModRoot, id, deleteFile))) return;
+    if (props.modRoot !== deleteModRoot || props.sessionId !== deleteSessionId) return;
     if (props.selectedId === id) {
       emit('select', null);
     }

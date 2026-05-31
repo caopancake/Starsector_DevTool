@@ -41,7 +41,7 @@
               <em>{{ formatItemKind(item) }}</em>
             </div>
             <ul v-if="item.kind === 'file-save'" class="file-history-change-list">
-              <li v-for="change in item.changes" :key="`${item.id}:${change.path}`">
+              <li v-for="change in item.changes" :key="fileHistoryChangeKey(item.id, change)">
                 <code>{{ change.path }}</code>
                 <span>{{ formatChange(change) }}</span>
               </li>
@@ -67,7 +67,7 @@
               <em>{{ formatItemKind(item) }}</em>
             </div>
             <ul v-if="item.kind === 'file-save'" class="file-history-change-list">
-              <li v-for="change in item.changes" :key="`${item.id}:${change.path}`">
+              <li v-for="change in item.changes" :key="fileHistoryChangeKey(item.id, change)">
                 <code>{{ change.path }}</code>
                 <span>{{ formatChange(change) }}</span>
               </li>
@@ -118,5 +118,9 @@ function formatExists(exists: boolean): string {
 
 function isBinaryChange(change: FileChangeRecord): boolean {
   return Boolean(change.beforeDataBase64 || change.afterDataBase64);
+}
+
+function fileHistoryChangeKey(itemId: string, change: FileChangeRecord): string {
+  return JSON.stringify([itemId, change.kind, change.path]);
 }
 </script>

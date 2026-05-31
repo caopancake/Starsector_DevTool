@@ -1,4 +1,4 @@
-import type { RowData } from '@/shared/types';
+import type { ProjectManifest, RowData } from '@/shared/types';
 import type { WriteResult } from '@/shared/types';
 import type { AppSettings } from '@/shared/types';
 import type { EditorSpecKind } from '@/shared/types';
@@ -8,11 +8,14 @@ export const WINDOW_EVENTS = {
   fileEditorFocusLine: 'file-editor-focus-line',
   fileEditorSaved: 'file-editor-saved',
   fileEditorTextApplied: 'file-editor-text-applied',
+  projectSessionInvalidated: 'project-session-invalidated',
+  spriteUploadSaved: 'sprite-upload-saved',
   appSettingsChanged: 'app-settings-changed',
 } as const;
 
 export interface EditorSpecSavedEvent {
   kind: EditorSpecKind;
+  sessionId: string;
   modRoot: string;
   id: string;
   spec: RowData;
@@ -29,13 +32,29 @@ export interface FileEditorFocusLineEvent {
 }
 
 export interface FileEditorSavedEvent {
+  modRoot: string;
   path: string;
+  sessionId: string;
   writeResult: WriteResult;
 }
 
 export interface FileEditorTextAppliedEvent {
+  modRoot: string;
   path: string;
   text: string;
+}
+
+export interface SpriteUploadSavedEvent {
+  filename: string;
+  modRoot: string;
+  overwritten: boolean;
+  sessionId: string;
+  writeResult: WriteResult;
+}
+
+export interface ProjectSessionInvalidatedEvent {
+  manifest: ProjectManifest;
+  invalidatedPaths: string[];
 }
 
 export type AppSettingsChangedEvent = AppSettings;

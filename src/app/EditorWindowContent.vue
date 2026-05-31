@@ -11,6 +11,7 @@
     <ShipEditor
       v-else-if="shipEditorData && target"
       :mod-root="target.modRoot"
+      :session-id="target.sessionId"
       :hull-id="target.id"
       :ship="shipEditorData.ship"
       :sprite-data="shipSpriteForEditor"
@@ -20,6 +21,7 @@
     <WeaponEditor
       v-else-if="weaponEditorData && target"
       :mod-root="target.modRoot"
+      :session-id="target.sessionId"
       :weapon-id="target.id"
       :weapon="weaponForEditor"
       :sprite-data="weaponEditorData.weaponSpriteData"
@@ -33,6 +35,7 @@
     <ProjectileEditor
       v-else-if="projectileEditorData && target"
       :mod-root="target.modRoot"
+      :session-id="target.sessionId"
       :projectile-id="target.id"
       :projectile="projectileEditorData.projectile"
       @close="closeWindow"

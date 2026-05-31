@@ -20,13 +20,17 @@
 
 - 战术系统编辑器保存只写对应 `.system`。
 - 编辑器 spec 保存入口必须使用正式 spec 类型模型（`EditorSpecKind::System`），不得用裸字符串在 service 层解析。
+- 编辑器 spec 保存入口必须在候选目录扫描、目标路径构造和 changeset 构建前校验目标 ID 是可移植文件名 ID。
 - 编辑器 spec 保存定位目标时，候选根不是目录、候选遍历失败、已存在候选 spec 的读取或解析失败都必须返回错误，不能跳过候选后写入默认新路径。
+- 导入已有编辑器 spec 文件必须提交正式 spec 类型和文件路径，Rust 按类型校验扩展名并拒绝包含 `..` 的路径后再读取。
 - 系统数据来自 Mod 目录 `data/shipsystems/*.system`，不含原版资源回退。
 - 当 entity query 返回空（`.system` 文件不存在）时，编辑器 ViewModel 弹出选择对话框（新建 / 导入 / 取消）；此行为由所有 spec 编辑器（ship / weapon / projectile / system）共用。
 - 保存动作由编辑器 ViewModel 调用 service/orchestrator 完成；组件不得直接调用 shared API。
-- 系统窗口保存成功后通过 `editor-spec-saved` 同步主窗口和其它编辑器窗口。
+- 系统窗口保存成功后通过携带 `sessionId + modRoot + kind + id + WriteResult` 的 `editor-spec-saved` 同步主窗口和其它编辑器窗口。
+- 系统窗口收到主窗口广播的 session 路径失效后，必须清理本窗口 query/resource cache，并重新查询当前系统 bundle。
 - 系统窗口加载失败只影响当前窗口。
 - `type` 字段切换时，组件主动删除不属于新类型的专属字段值；通用字段不被清除。
+- 额外字段由系统编辑器结构化字段集合之外、且不属于共享内部字段的 key 组成；组件不得自行用 `_` 前缀判断内部字段。
 - 编辑器体区域使用内联 `max-height: calc(100vh - 108px)` 约束高度以确保滚动生效，因为 CSS Grid 嵌套链路在当前 WebView2 下无法正确传递 `1fr` 高度约束。
 
 ## 链路：打开战术系统编辑器
@@ -39,7 +43,7 @@
 6. 若 entity 存在（`isNew: false`），直接加载 spec 到编辑器。
 7. 若 entity 不存在（`isNew: true`），弹出选择对话框：
    - 新建文件：以默认模板 `{ id, type: 'STAT_MOD' }` 打开。
-   - 导入已有文件：打开文件选择器（限 `.system`），通过 Rust `load_json_spec_file` 以宽松 JSON 解析，加载内容到编辑器。
+   - 导入已有文件：打开文件选择器（限 `.system`），通过 Rust `load_imported_editor_spec_file` 以宽松 JSON 解析，加载内容到编辑器。
    - 取消：关闭编辑器窗口。
 8. `EditorWindowContent` 挂载 `SystemEditor`。
 

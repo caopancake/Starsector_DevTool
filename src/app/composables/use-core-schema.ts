@@ -30,19 +30,24 @@ export function useCoreSchema() {
     if (loadedRoot.value !== root) resetCoreFields();
     loading.value = true;
     try {
-      coreFields.value = await queryCoreFields(root);
-      loadedRoot.value = root;
-      loaded.value = true;
+      const fields = await queryCoreFields(root);
+      if (starsectorRoot.value === root) {
+        coreFields.value = fields;
+        loadedRoot.value = root;
+        loaded.value = true;
+      }
     } catch (error) {
-      coreFields.value = {};
-      loadedRoot.value = null;
-      loaded.value = false;
-      recordLogBestEffort({
-        level: 'error',
-        message: `加载原版字段失败：${formatError(error)}`,
-        path: root,
-        line: null,
-      });
+      if (starsectorRoot.value === root) {
+        coreFields.value = {};
+        loadedRoot.value = null;
+        loaded.value = false;
+        recordLogBestEffort({
+          level: 'error',
+          message: `加载原版字段失败：${formatError(error)}`,
+          path: root,
+          line: null,
+        });
+      }
     } finally {
       loading.value = false;
     }

@@ -24,7 +24,7 @@ const EDITOR_WINDOW_SIZES: Record<EditorWindowKind, ManagedWindowSize> = {
 export async function openEditorWindow(request: EditorWindowRequest): Promise<void> {
   await openManagedWindow({
     labelPrefix: `editor-${request.kind}`,
-    singletonKey: `${request.kind}:${request.modRoot}:${request.id}`,
+    singletonKey: JSON.stringify([request.kind, request.modRoot, request.id]),
     title: request.title ?? editorWindowTitle(request.kind, request.id),
     urlParams: {
       window: 'editor',

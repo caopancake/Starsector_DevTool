@@ -4,6 +4,7 @@ import type {
   IndexedConfigEntityData,
   IndexedConfigEntityWrite,
   ProjectSessionId,
+  ResourceRef,
   ConfigMissionEditorData,
   RowData,
   SkinEntityWrite,
@@ -38,6 +39,7 @@ import { requireRowData } from '@/shared/lib/row-data';
 export type { IndexedConfigKind };
 
 export interface ConfigFactionRecord {
+  crestRef: ResourceRef | null;
   id: string;
   data: RowData;
   crestSrc: string;
@@ -49,6 +51,7 @@ export interface ConfigFactionPreviewImages {
 }
 
 export interface ConfigMissionRecord {
+  iconRef: ResourceRef | null;
   id: string;
   list: RowData;
   iconSrc: string;
@@ -72,11 +75,12 @@ async function getMissionEntity(sessionId: ProjectSessionId, id: string): Promis
 
 export async function listConfigFactionRecords(sessionId: ProjectSessionId): Promise<ConfigFactionRecord[]> {
   const entities = await listFactionEntityRecords(sessionId);
-  const crestById = await hydrateFactionCrests(sessionId, entities);
+  const { crestRefs, crestSrcs } = await hydrateFactionCrests(sessionId, entities);
   return entities.map((entity) => ({
+    crestRef: crestRefs[entity.id] ?? null,
     id: entity.id,
     data: requireConfigRowData(entity.data, `势力 ${entity.id} 数据无效`),
-    crestSrc: crestById[entity.id] ?? '',
+    crestSrc: crestSrcs[entity.id] ?? '',
   }));
 }
 
@@ -87,13 +91,14 @@ export async function queryConfigFactionPreviewImages(sessionId: ProjectSessionI
 
 export async function listConfigMissionRecords(sessionId: ProjectSessionId): Promise<ConfigMissionRecord[]> {
   const entities = await listMissionEntities(sessionId);
-  const iconById = await hydrateMissionIcons(sessionId, entities);
+  const { iconRefs, iconSrcs } = await hydrateMissionIcons(sessionId, entities);
   return entities.map((entity) => {
     const data = requireConfigRowData(entity.data, `战役 ${entity.id} 数据无效`);
     return {
+      iconRef: iconRefs[entity.id] ?? null,
       id: entity.id,
       list: { ...requireConfigRowData(data.list, `战役 ${entity.id} 列表数据无效`), id: entity.id },
-      iconSrc: iconById[entity.id] ?? '',
+      iconSrc: iconSrcs[entity.id] ?? '',
     };
   });
 }
@@ -119,8 +124,8 @@ export async function listSkinEntities(sessionId: ProjectSessionId): Promise<Ski
   return (await querySessionEntityList(sessionId, 'skin')).map((entity) => skinFileFromEntityData(entity.data));
 }
 
-export function saveModInfo(modRoot: string, data: RowData): Promise<WriteResult> {
-  return writeModFiles(modRoot, [
+export function saveModInfo(sessionId: string, modRoot: string, data: RowData): Promise<WriteResult> {
+  return writeModFiles(sessionId, modRoot, [
     { relPath: 'mod_info.json', afterText: JSON.stringify(data, null, 2), afterDataBase64: null, previousRelPath: null },
   ]);
 }
@@ -134,20 +139,22 @@ export function createIndexedConfigEntity(write: IndexedConfigEntityWrite): Prom
 }
 
 export function deleteIndexedConfigEntity(
+  sessionId: string,
   modRoot: string,
   kind: IndexedConfigKind,
   id: string,
   deleteTarget: boolean,
 ): Promise<WriteResult> {
-  return writeDeleteIndexedConfigEntity({ modRoot, kind, id, deleteTarget });
+  return writeDeleteIndexedConfigEntity({ sessionId, modRoot, kind, id, deleteTarget });
 }
 
 export function saveVariantEntity(write: VariantEntityWrite): Promise<WriteResult> {
   return writeVariantEntity(write);
 }
 
-export function createVariantEntity(modRoot: string, hullId: string, variantId: string): Promise<WriteResult> {
+export function createVariantEntity(sessionId: string, modRoot: string, hullId: string, variantId: string): Promise<WriteResult> {
   return writeCreateVariantEntity({
+    sessionId,
     modRoot,
     previousId: null,
     previousRelPath: null,
@@ -156,16 +163,17 @@ export function createVariantEntity(modRoot: string, hullId: string, variantId: 
   });
 }
 
-export function deleteVariantEntity(modRoot: string, relPath: string, variantId: string): Promise<WriteResult> {
-  return writeDeleteVariantEntity({ modRoot, relPath, variantId });
+export function deleteVariantEntity(sessionId: string, modRoot: string, relPath: string, variantId: string): Promise<WriteResult> {
+  return writeDeleteVariantEntity({ sessionId, modRoot, relPath, variantId });
 }
 
 export function saveSkinEntity(write: SkinEntityWrite): Promise<WriteResult> {
   return writeSkinEntity(write);
 }
 
-export function createSkinEntity(modRoot: string, baseHullId: string, skinHullId: string): Promise<WriteResult> {
+export function createSkinEntity(sessionId: string, modRoot: string, baseHullId: string, skinHullId: string): Promise<WriteResult> {
   return writeCreateSkinEntity({
+    sessionId,
     modRoot,
     previousId: null,
     previousRelPath: null,
@@ -174,8 +182,8 @@ export function createSkinEntity(modRoot: string, baseHullId: string, skinHullId
   });
 }
 
-export function deleteSkinEntity(modRoot: string, relPath: string, skinHullId: string): Promise<WriteResult> {
-  return writeDeleteSkinEntity({ modRoot, relPath, skinHullId });
+export function deleteSkinEntity(sessionId: string, modRoot: string, relPath: string, skinHullId: string): Promise<WriteResult> {
+  return writeDeleteSkinEntity({ sessionId, modRoot, relPath, skinHullId });
 }
 
 export function indexedConfigEntityData(result: WriteResult): IndexedConfigEntityData {

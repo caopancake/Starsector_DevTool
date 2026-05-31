@@ -58,9 +58,11 @@ const props = defineProps<{
   refreshToken: number;
   missions: Array<{ id: string }>;
   missionIcons: Record<string, string>;
+  modRoot: string | null;
+  sessionId: string | null;
   refreshMissionList: () => Promise<void>;
-  createMission: (id: string) => Promise<boolean>;
-  deleteMission: (id: string, deleteDirectory: boolean) => Promise<boolean>;
+  createMission: (sessionId: string, modRoot: string, id: string) => Promise<boolean>;
+  deleteMission: (sessionId: string, modRoot: string, id: string, deleteDirectory: boolean) => Promise<boolean>;
   missionExists: (id: string) => boolean;
   isValidMissionId: (id: string) => boolean;
 }>();
@@ -70,8 +72,8 @@ const feedback = useAppFeedback();
 
 const showCreateDialog = ref(false);
 const newMissionId = ref('');
-const deleteMissionDirectory = ref(false);
-const pendingDeleteMission = ref<string | null>(null);
+const createModRoot = ref<string | null>(null);
+const createSessionId = ref<string | null>(null);
 
 function missionIcon(id: string): string {
   return props.missionIcons[id] ?? '';
@@ -89,11 +91,17 @@ async function refreshList() {
 }
 
 function openCreateDialog() {
+  createModRoot.value = props.modRoot;
+  createSessionId.value = props.sessionId;
+  if (!createModRoot.value || !createSessionId.value) return;
   newMissionId.value = '';
   showCreateDialog.value = true;
 }
 
 async function doCreateMission() {
+  const targetModRoot = createModRoot.value;
+  const targetSessionId = createSessionId.value;
+  if (!targetModRoot || !targetSessionId) return false;
   const id = newMissionId.value.trim();
   if (!id) {
     feedback.warning('战役 ID 不能为空');
@@ -108,8 +116,9 @@ async function doCreateMission() {
     return false;
   }
   try {
-    if (!(await props.createMission(id))) return false;
+    if (!(await props.createMission(targetSessionId, targetModRoot, id))) return false;
     showCreateDialog.value = false;
+    if (props.modRoot !== targetModRoot || props.sessionId !== targetSessionId) return true;
     await refreshList();
     emit('select', id);
   } catch (error) {
@@ -120,8 +129,10 @@ async function doCreateMission() {
 }
 
 function confirmDeleteMission(id: string) {
-  pendingDeleteMission.value = id;
-  deleteMissionDirectory.value = false;
+  const deleteModRoot = props.modRoot;
+  const deleteSessionId = props.sessionId;
+  if (!deleteModRoot || !deleteSessionId) return;
+  const deleteMissionDirectory = ref(false);
   feedback.confirmDanger({
     title: '删除战役',
     content: () =>
@@ -139,19 +150,19 @@ function confirmDeleteMission(id: string) {
         ),
       ]),
     actionText: '删除',
-    onConfirm: deletePendingMission,
+    onConfirm: async () => {
+      await deleteMissionTarget(deleteSessionId, deleteModRoot, id, deleteMissionDirectory.value);
+    },
   });
 }
 
-async function deletePendingMission() {
-  if (!pendingDeleteMission.value) return;
+async function deleteMissionTarget(deleteSessionId: string, deleteModRoot: string, id: string, deleteDirectory: boolean) {
   try {
-    const deleted = pendingDeleteMission.value;
-    await props.deleteMission(deleted, deleteMissionDirectory.value);
+    await props.deleteMission(deleteSessionId, deleteModRoot, id, deleteDirectory);
+    if (props.modRoot !== deleteModRoot || props.sessionId !== deleteSessionId) return;
     await refreshList();
-    pendingDeleteMission.value = null;
     const nextId = props.missions[0]?.id ?? null;
-    if (props.selectedId === deleted) emit('select', nextId);
+    if (props.selectedId === id) emit('select', nextId);
   } catch (error) {
     feedback.error(error, '删除战役失败');
   }

@@ -26,19 +26,24 @@ export function useCoreGraphics() {
     if (loadedRoot.value !== root) resetGraphics();
     loading.value = true;
     try {
-      graphicsPaths.value = await queryCoreGraphics(root);
-      loadedRoot.value = root;
-      loaded.value = true;
+      const paths = await queryCoreGraphics(root);
+      if (starsectorRoot.value === root) {
+        graphicsPaths.value = paths;
+        loadedRoot.value = root;
+        loaded.value = true;
+      }
     } catch (error) {
-      graphicsPaths.value = [];
-      loadedRoot.value = null;
-      loaded.value = false;
-      recordLogBestEffort({
-        level: 'error',
-        message: `加载原版图片索引失败：${formatError(error)}`,
-        path: root,
-        line: null,
-      });
+      if (starsectorRoot.value === root) {
+        graphicsPaths.value = [];
+        loadedRoot.value = null;
+        loaded.value = false;
+        recordLogBestEffort({
+          level: 'error',
+          message: `加载原版图片索引失败：${formatError(error)}`,
+          path: root,
+          line: null,
+        });
+      }
     } finally {
       loading.value = false;
     }

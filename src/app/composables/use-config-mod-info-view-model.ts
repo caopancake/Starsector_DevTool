@@ -29,8 +29,9 @@ export function useConfigModInfoViewModel() {
     saving.value = true;
     try {
       const file = configModInfoSaveData(local.value, schema);
-      await saveModInfoAction(manifest.modRoot, file);
-      project.updateManifest(manifest.modRoot, { ...manifest, modInfo: deepClone(file) });
+      await saveModInfoAction(manifest.sessionId, manifest.modRoot, file);
+      if (project.activeManifest?.modRoot !== manifest.modRoot || project.activeManifest.sessionId !== manifest.sessionId) return;
+      project.updateManifest(manifest.modRoot, { modInfo: deepClone(file) });
       feedback.success('mod_info.json 已保存');
     } catch (error) {
       feedback.error(error, '保存 mod_info.json 失败');

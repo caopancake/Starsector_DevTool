@@ -11,6 +11,8 @@ import type { UnlistenFn } from '@/windows/tauri.events';
 
 export interface FileEditorViewModelParams {
   filePath: string | null;
+  modRoot: string | null;
+  sessionId: string | null;
   title: string;
   contextLabel: string;
   contextSeverity: string;
@@ -49,7 +51,8 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
       targetLine.value = normalizeEventLine(event.line);
     });
     unlistenTextApplied = await listenFileEditorTextApplied((event) => {
-      if (!params.filePath) return;
+      if (!params.filePath || !params.modRoot) return;
+      if (normalizeFsPath(event.modRoot) !== normalizeFsPath(params.modRoot)) return;
       if (normalizeFsPath(event.path) !== normalizeFsPath(params.filePath)) return;
       setTextSnapshot(event.text);
       originalText.value = event.text;
@@ -68,9 +71,17 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
       feedback.error('缺少文件路径');
       return;
     }
+    if (!params.modRoot) {
+      feedback.error('缺少文件读取根目录');
+      return;
+    }
+    if (!params.sessionId) {
+      feedback.error('缺少文件编辑器 session');
+      return;
+    }
     loading.value = true;
     try {
-      const loaded = await loadEditableFileData(params.filePath);
+      const loaded = await loadEditableFileData(params.sessionId, params.modRoot, params.filePath);
       setTextSnapshot(loaded.text);
       originalText.value = loaded.text;
     } catch (error) {
@@ -85,14 +96,24 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
       feedback.error('缺少文件路径');
       return;
     }
+    if (!params.modRoot) {
+      feedback.error('缺少文件写入根目录');
+      return;
+    }
+    if (!params.sessionId) {
+      feedback.error('缺少文件编辑器 session');
+      return;
+    }
     if (saving.value || loading.value) return;
     saving.value = true;
     try {
       const newText = text.value;
-      const result = await writeEditableFileText(params.filePath, newText);
+      const result = await writeEditableFileText(params.sessionId, params.modRoot, params.filePath, newText);
       originalText.value = newText;
       await emitFileEditorSaved({
+        modRoot: params.modRoot,
         path: params.filePath,
+        sessionId: params.sessionId,
         writeResult: result,
       });
       feedback.success('文件已保存');

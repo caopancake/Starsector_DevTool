@@ -19,11 +19,14 @@
 
 - 弹体编辑器保存只写对应 `.proj`。
 - 编辑器 spec 保存入口必须使用正式 spec 类型模型，不得用裸字符串在 service 层解析。
+- 编辑器 spec 保存入口必须在候选目录扫描、目标路径构造和 changeset 构建前校验目标 ID 是可移植文件名 ID。
 - 编辑器 spec 保存定位目标时，候选根不是目录、候选遍历失败、已存在候选 spec 的读取或解析失败都必须返回错误，不能跳过候选后写入默认新路径。
+- 导入已有编辑器 spec 文件必须提交正式 spec 类型和文件路径，Rust 按类型校验扩展名并拒绝包含 `..` 的路径后再读取。
 - 弹体数据可来自 Mod 或原版资源回退。
 - 编辑器 service 从 entity query 读取弹体数据时，缺失 entity 或非对象 spec 必须作为加载错误暴露，不能压成空对象继续打开编辑器。
 - 保存动作由编辑器 ViewModel 调用 service/orchestrator 完成；组件不得直接调用 shared API。
-- 弹体窗口保存成功后通过 `editor-spec-saved` 同步主窗口和其它编辑器窗口。
+- 弹体窗口保存成功后通过携带 `sessionId + modRoot + kind + id + WriteResult` 的 `editor-spec-saved` 同步主窗口和其它编辑器窗口。
+- 弹体窗口收到主窗口广播的 session 路径失效后，必须清理本窗口 query/resource cache，并重新查询当前弹体 bundle。
 - 弹体窗口加载失败只影响当前窗口。
 
 ## 链路：打开弹体编辑器

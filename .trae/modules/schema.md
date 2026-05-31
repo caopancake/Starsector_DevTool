@@ -27,6 +27,9 @@ Schema 系统为配置页面和 CSV 表格提供字段定义、分组、枚举�
 - Schema 字段 label 必须用原始字段 key 作为悬浮提示；存在字段说明时悬浮提示同时包含 key 和说明。
 - Schema 智能控件的 source / enum 选项必须用原始 value 作为悬浮提示；存在 label 或说明时悬浮提示同时包含 value、label 和说明。
 - Schema source query 的 runtime context 缺失必须以 null 表达，不能用空字符串伪装为 session 或 source。
+- Schema runtime context 归属表单拥有方显式传入的 `modRoot + sessionId`，字段渲染器不能自行从 active project 推导 query 或路径选择目标。
+- Schema source query 的当前值集合和表单 section 状态都是正式结构化身份；刷新监听必须保留数组、schema id 和 section id 的结构边界，不能用分隔符拼接成有歧义字符串。
+- Schema 字段本地 source options 只是 query cache 与资源缓存的派生结果；底层同 source 的 source option 或当前字段选项实际持有的缩略图资源失效时必须重新加载，不得因无关 source 或无关资源失效重查字段选项。
 - 多来源字段必须通过 schema service 聚合和拆分。
 - 多来源字段拆分必须保留非法 source 原值并交由配置 domain 校验，不能把缺失、非对象或非文本 source 压成空对象或空文本。
 - schema 内部字段必须通过 schema domain 规则识别；组件、配置清洗和额外字段渲染不得各自判断内部 key。

@@ -5,6 +5,8 @@
       :refresh-token="refreshToken"
       :missions="missionItems"
       :mission-icons="missionIcons"
+      :mod-root="modRoot"
+      :session-id="sessionId"
       :refresh-mission-list="refreshMissionList"
       :create-mission="createMission"
       :delete-mission="deleteMission"
@@ -18,6 +20,8 @@
       :mission-id="selectedMission"
       :mod-root="modRoot"
       :session-id="sessionId"
+      :editor-reload-token="missionEditorReloadToken"
+      :icon-refresh-token="missionIconRefreshToken"
       :query-mission-editor-data="queryMissionEditorData"
       :save-mission="saveMission"
       :delete-mission="deleteMission"
@@ -37,6 +41,8 @@ import { useConfigMissionViewModel } from '@/app/composables/use-config-mission-
 const {
   selectedMission,
   refreshToken,
+  missionEditorReloadToken,
+  missionIconRefreshToken,
   missionItems,
   missionIcons,
   modRoot,

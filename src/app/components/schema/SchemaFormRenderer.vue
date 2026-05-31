@@ -100,11 +100,9 @@ function syncCollapsedSections() {
   }
 }
 
-watch(
-  () => `${props.schema.id}:${sections.value.map((section) => `${section.id}:${section.collapsed ? '1' : '0'}`).join('|')}`,
-  syncCollapsedSections,
-  { immediate: true },
-);
+watch(() => JSON.stringify([props.schema.id, sections.value.map((section) => [section.id, section.collapsed])]), syncCollapsedSections, {
+  immediate: true,
+});
 
 function toggleSection(id: string) {
   if (collapsedSections.has(id)) {

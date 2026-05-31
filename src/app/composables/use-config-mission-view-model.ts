@@ -1,7 +1,7 @@
-import { computed, ref } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { getConfigMissionEditorData, listConfigMissionRecords } from '@/services/config-entity.service';
 import { useProjectStore } from '@/stores/project.store';
-import type { ConfigMissionEditorData, RowData } from '@/shared/types';
+import type { ConfigMissionEditorData, ResourceRef, RowData } from '@/shared/types';
 import {
   createIndexedConfigEntityAction,
   deleteIndexedConfigEntityAction,
@@ -17,54 +17,70 @@ import {
 import { deepClone } from '@/shared/lib/starsector';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import type { FileSchema } from '@/domain/schema/schema.types';
+import {
+  queryCacheInvalidationIncludes,
+  queryCacheInvalidationIncludesResourceIdentity,
+  subscribeQueryCacheInvalidation,
+} from '@/services/query-cache.service';
 
 export function useConfigMissionViewModel() {
   const selectedMission = ref<string | null>(null);
   const refreshToken = ref(0);
+  const missionEditorReloadToken = ref(0);
+  const missionIconRefreshToken = ref(0);
   const missionRows = ref<RowData[]>([]);
   const missionIcons = ref<Record<string, string>>({});
+  const missionIconResourceRefs = ref<ResourceRef[]>([]);
   const project = useProjectStore();
   const feedback = useAppFeedback();
 
   const modRoot = computed(() => project.activeManifest?.modRoot ?? null);
   const sessionId = computed(() => project.activeManifest?.sessionId ?? null);
   const missionItems = computed(() => missionItemsFromRows(missionRows.value));
+  let missionsRequestId = 0;
 
   function handleSaved(missionId: string | null) {
     selectedMission.value = missionId;
     refreshToken.value += 1;
+    missionEditorReloadToken.value += 1;
+    missionIconRefreshToken.value += 1;
   }
 
   async function queryMissions() {
+    const requestId = ++missionsRequestId;
     const manifest = project.activeManifest;
-    if (!sessionId.value || !manifest) {
+    const activeSessionId = sessionId.value;
+    if (!activeSessionId || !manifest) {
       missionRows.value = [];
       missionIcons.value = {};
+      missionIconResourceRefs.value = [];
       selectedMission.value = null;
       return;
     }
-    const records = await listConfigMissionRecords(sessionId.value);
+    const records = await listConfigMissionRecords(activeSessionId);
+    if (requestId !== missionsRequestId || activeSessionId !== sessionId.value) return;
     missionRows.value = records.map((record) => record.list);
     missionIcons.value = Object.fromEntries(records.map((record) => [record.id, record.iconSrc]));
+    missionIconResourceRefs.value = records.flatMap((record) => (record.iconRef ? [record.iconRef] : []));
     const missions = missionItems.value.map((mission) => mission.id);
     if (!selectedMission.value && missions[0]) selectedMission.value = missions[0];
     if (selectedMission.value && !missions.includes(selectedMission.value)) selectedMission.value = missions[0] ?? null;
     project.updateEntitySummary(manifest.modRoot, 'missions', missionItems.value.length);
   }
 
-  async function queryMissionEditorData(id: string): Promise<ConfigMissionEditorData | null> {
-    if (!sessionId.value || !id) return null;
-    return getConfigMissionEditorData(sessionId.value, id);
+  async function queryMissionEditorData(targetSessionId: string, id: string): Promise<ConfigMissionEditorData | null> {
+    if (!id) return null;
+    return getConfigMissionEditorData(targetSessionId, id);
   }
 
-  async function createMission(id: string): Promise<boolean> {
-    if (!modRoot.value) return false;
+  async function createMission(createSessionId: string, createModRoot: string, id: string): Promise<boolean> {
     if (!isConfigEntityId(id)) {
       feedback.error('战役 ID 不能包含路径分隔符或 ..');
       return false;
     }
     await createIndexedConfigEntityAction({
-      modRoot: modRoot.value,
+      sessionId: createSessionId,
+      modRoot: createModRoot,
       kind: 'mission',
       previousId: null,
       nextId: id,
@@ -72,14 +88,22 @@ export function useConfigMissionViewModel() {
       entityData: { descriptor: { title: id }, text: '' },
       deletePreviousTarget: false,
     });
-    selectedMission.value = id;
     feedback.success(`战役 "${id}" 已创建`);
+    if (modRoot.value !== createModRoot || sessionId.value !== createSessionId) return true;
+    selectedMission.value = id;
     await queryMissions();
     return true;
   }
 
-  async function saveMission(previousId: string, localMission: RowData, schema: FileSchema): Promise<string> {
-    if (!modRoot.value) return previousId;
+  async function saveMission(
+    saveSessionId: string,
+    saveModRoot: string,
+    previousId: string,
+    localMission: RowData,
+    schema: FileSchema,
+  ): Promise<string> {
+    const activeModRoot = modRoot.value;
+    if (!activeModRoot || activeModRoot !== saveModRoot || sessionId.value !== saveSessionId) return previousId;
     const draft = configMissionSaveDraft(localMission, schema);
     if (!draft.nextId) {
       feedback.warning('mission 不能为空');
@@ -89,13 +113,14 @@ export function useConfigMissionViewModel() {
       feedback.error('战役 ID 不能包含路径分隔符或 ..');
       return previousId;
     }
-    await saveMissionDraft(modRoot.value, previousId, draft);
+    await saveMissionDraft(saveSessionId, saveModRoot, previousId, draft);
     return draft.nextId;
   }
 
-  async function saveMissionDraft(activeModRoot: string, previousId: string, draft: ConfigMissionSaveDraft) {
+  async function saveMissionDraft(activeSessionId: string, activeModRoot: string, previousId: string, draft: ConfigMissionSaveDraft) {
     const idChanged = draft.nextId !== previousId;
     await saveIndexedConfigEntityAction({
+      sessionId: activeSessionId,
       modRoot: activeModRoot,
       kind: 'mission',
       previousId: idChanged ? previousId : null,
@@ -104,15 +129,16 @@ export function useConfigMissionViewModel() {
       entityData: { descriptor: deepClone(draft.descriptor), text: draft.text },
       deletePreviousTarget: idChanged,
     });
-    selectedMission.value = draft.nextId;
     feedback.success(`战役 "${draft.nextId}" 已保存`);
+    if (modRoot.value !== activeModRoot || sessionId.value !== activeSessionId) return;
+    selectedMission.value = draft.nextId;
     await queryMissions();
   }
 
-  async function deleteMission(id: string, deleteDirectory: boolean): Promise<boolean> {
-    if (!modRoot.value) return false;
-    await deleteIndexedConfigEntityAction(modRoot.value, 'mission', id, deleteDirectory);
+  async function deleteMission(deleteSessionId: string, deleteModRoot: string, id: string, deleteDirectory: boolean): Promise<boolean> {
+    await deleteIndexedConfigEntityAction(deleteSessionId, deleteModRoot, 'mission', id, deleteDirectory);
     feedback.success(`战役 "${id}" 已删除`);
+    if (modRoot.value !== deleteModRoot || sessionId.value !== deleteSessionId) return true;
     await queryMissions();
     if (selectedMission.value === id) {
       selectedMission.value = missionItems.value[0]?.id ?? null;
@@ -136,9 +162,34 @@ export function useConfigMissionViewModel() {
     return isConfigEntityId(id);
   }
 
+  watch(() => project.activeSessionId, queryMissions, { immediate: true });
+  const unsubscribeQueryCacheInvalidation = subscribeQueryCacheInvalidation((event) => {
+    if (event.sessionId !== sessionId.value) return;
+    const missionsChanged = queryCacheInvalidationIncludes(event, 'entity-list', (parameters) => parameters.kind === 'mission');
+    const missionResourcesChanged = queryCacheInvalidationIncludesResourceIdentity(event, missionIconResourceRefs.value);
+    if (missionsChanged) void refreshMissionsAfterDataInvalidation();
+    else if (missionResourcesChanged) void refreshMissionsAfterResourceInvalidation();
+  });
+  onUnmounted(unsubscribeQueryCacheInvalidation);
+
+  async function refreshMissionsAfterDataInvalidation() {
+    await queryMissions();
+    refreshToken.value += 1;
+    missionEditorReloadToken.value += 1;
+    missionIconRefreshToken.value += 1;
+  }
+
+  async function refreshMissionsAfterResourceInvalidation() {
+    await queryMissions();
+    refreshToken.value += 1;
+    missionIconRefreshToken.value += 1;
+  }
+
   return {
     selectedMission,
     refreshToken,
+    missionEditorReloadToken,
+    missionIconRefreshToken,
     missionRows,
     missionItems,
     missionIcons,

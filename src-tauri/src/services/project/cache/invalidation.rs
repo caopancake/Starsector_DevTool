@@ -1,5 +1,9 @@
-use crate::{errors::AppResult, io::load_json_dir_by_id, models::CsvTableKey};
-use std::path::Path;
+use crate::{
+    errors::AppResult,
+    io::{load_json_dir_by_id, normalized_path_key, path_uses_parent_dir},
+    models::CsvTableKey,
+};
+use std::path::{Component, Path};
 
 use super::super::{
     factions,
@@ -11,7 +15,11 @@ pub(crate) fn invalidate_session_path(
     session: &mut ProjectSession,
     changed_path: &str,
 ) -> AppResult<()> {
-    let target = ChangedProjectPath::classify(changed_path);
+    let Some(project_path) = project_scoped_changed_path(&session.manifest.mod_root, changed_path)
+    else {
+        return Ok(());
+    };
+    let target = ChangedProjectPath::classify(&project_path);
     for table_key in target.csv_tables {
         if let Some(table) = session.csv_tables.get_mut(table_key) {
             table.rows = None;
@@ -71,6 +79,30 @@ pub(crate) fn invalidate_session_path(
     Ok(())
 }
 
+fn project_scoped_changed_path(mod_root: &str, changed_path: &str) -> Option<String> {
+    let path = Path::new(changed_path);
+    if path_uses_parent_dir(path) {
+        return None;
+    }
+    let normalized_path = normalized_path_key(path);
+    if !path.is_absolute() {
+        if path
+            .components()
+            .any(|part| matches!(part, Component::Prefix(_)))
+        {
+            return None;
+        }
+        return Some(normalized_path);
+    }
+    let normalized_root = normalized_path_key(Path::new(mod_root));
+    if normalized_path == normalized_root {
+        return Some(String::new());
+    }
+    normalized_path
+        .strip_prefix(&format!("{normalized_root}/"))
+        .map(ToOwned::to_owned)
+}
+
 #[derive(Default)]
 struct ChangedProjectPath {
     csv_tables: Vec<&'static str>,
@@ -88,26 +120,30 @@ struct ChangedProjectPath {
 
 impl ChangedProjectPath {
     fn classify(changed_path: &str) -> Self {
-        let normalized = changed_path.replace('\\', "/");
         Self {
-            csv_tables: affected_csv_tables(&normalized),
-            invalidate_mission_list: is_mission_path(&normalized),
-            refresh_mod_info: path_has_suffix(&normalized, "mod_info.json"),
-            refresh_factions: path_in_dir(&normalized, "data/world/factions/"),
-            refresh_ship_specs: path_in_dir(&normalized, "data/hulls/")
-                && path_ends_with_extension(&normalized, ".ship"),
-            refresh_weapon_specs: path_in_dir(&normalized, "data/weapons/")
-                && path_ends_with_extension(&normalized, ".wpn"),
-            refresh_projectile_specs: path_in_dir(&normalized, "data/weapons/proj/")
-                && path_ends_with_extension(&normalized, ".proj"),
-            refresh_system_specs: path_in_dir(&normalized, "data/shipsystems/")
-                && path_ends_with_extension(&normalized, ".system"),
-            refresh_skill_specs: path_in_dir(&normalized, "data/characters/skills/")
-                && path_ends_with_extension(&normalized, ".skill"),
-            refresh_variants: path_in_dir(&normalized, "data/variants/")
-                && path_ends_with_extension(&normalized, ".variant"),
-            refresh_skins: path_in_dir(&normalized, "data/hulls/skins/")
-                && path_ends_with_extension(&normalized, ".skin"),
+            csv_tables: affected_csv_tables(changed_path),
+            invalidate_mission_list: is_mission_path(changed_path),
+            refresh_mod_info: path_affects_target(changed_path, "mod_info.json"),
+            refresh_factions: path_is_or_in_dir(changed_path, "data/world/factions"),
+            refresh_ship_specs: path_is_spec_file_or_dir(changed_path, "data/hulls", ".ship"),
+            refresh_weapon_specs: path_is_spec_file_or_dir(changed_path, "data/weapons", ".wpn"),
+            refresh_projectile_specs: path_is_spec_file_or_dir(
+                changed_path,
+                "data/weapons/proj",
+                ".proj",
+            ),
+            refresh_system_specs: path_is_spec_file_or_dir(
+                changed_path,
+                "data/shipsystems",
+                ".system",
+            ),
+            refresh_skill_specs: path_is_spec_file_or_dir(
+                changed_path,
+                "data/characters/skills",
+                ".skill",
+            ),
+            refresh_variants: path_is_spec_file_or_dir(changed_path, "data/variants", ".variant"),
+            refresh_skins: path_is_spec_file_or_dir(changed_path, "data/hulls/skins", ".skin"),
         }
     }
 }
@@ -115,40 +151,29 @@ impl ChangedProjectPath {
 fn affected_csv_tables(path: &str) -> Vec<&'static str> {
     crate::models::CSV_TABLES
         .iter()
-        .filter_map(|(key, rel)| path_has_suffix(path, rel).then_some(key.as_str()))
+        .filter_map(|(key, rel)| path_affects_target(path, rel).then_some(key.as_str()))
         .collect()
 }
 
 fn is_mission_path(path: &str) -> bool {
-    path_in_dir(path, "data/missions/") || path_has_suffix(path, MISSION_LIST_REL_PATH)
+    path_is_or_in_dir(path, "data/missions") || path_affects_target(path, MISSION_LIST_REL_PATH)
 }
 
-fn path_in_dir(path: &str, dir: &str) -> bool {
-    let path_parts = path_segments(path);
-    let dir_parts = path_segments(dir);
-    !dir_parts.is_empty()
-        && path_parts
-            .windows(dir_parts.len())
-            .any(|window| window == dir_parts.as_slice())
+fn path_is_or_in_dir(path: &str, dir: &str) -> bool {
+    path == dir || path.starts_with(&format!("{dir}/"))
 }
 
-fn path_has_suffix(path: &str, suffix: &str) -> bool {
-    let path_parts = path_segments(path);
-    let suffix_parts = path_segments(suffix);
-    if suffix_parts.is_empty() || suffix_parts.len() > path_parts.len() {
-        return false;
-    }
-    &path_parts[path_parts.len() - suffix_parts.len()..] == suffix_parts.as_slice()
+fn path_affects_target(path: &str, target: &str) -> bool {
+    path.is_empty() || path == target || target.starts_with(&format!("{path}/"))
 }
 
 fn path_ends_with_extension(path: &str, suffix: &str) -> bool {
     path.ends_with(suffix)
 }
 
-fn path_segments(path: &str) -> Vec<&str> {
-    path.split('/')
-        .filter(|segment| !segment.is_empty())
-        .collect()
+fn path_is_spec_file_or_dir(path: &str, dir: &str, extension: &str) -> bool {
+    path_affects_target(path, dir)
+        || (path_is_or_in_dir(path, dir) && path_ends_with_extension(path, extension))
 }
 
 fn refresh_variant_files(session: &mut ProjectSession) -> AppResult<()> {
@@ -286,21 +311,106 @@ mod tests {
     }
 
     #[test]
-    fn changed_path_classification_uses_path_segments() {
-        assert!(affected_csv_tables("D:/mods/demo/data/hulls/ship_data.csv")
-            .contains(&CsvTableKey::Ships.as_str()));
+    fn changed_path_classification_uses_project_relative_targets() {
         assert!(
-            !affected_csv_tables("D:/mods/demo/xdata/hulls/ship_data.csv")
-                .contains(&CsvTableKey::Ships.as_str())
+            affected_csv_tables("data/hulls/ship_data.csv").contains(&CsvTableKey::Ships.as_str())
         );
-        assert!(path_in_dir(
-            "D:/mods/demo/data/world/factions/demo.faction",
-            "data/world/factions/"
+        assert!(affected_csv_tables("data/hulls").contains(&CsvTableKey::Ships.as_str()));
+        assert!(!affected_csv_tables("backup/data/hulls/ship_data.csv")
+            .contains(&CsvTableKey::Ships.as_str()));
+        assert!(path_is_or_in_dir(
+            "data/world/factions/demo.faction",
+            "data/world/factions"
         ));
-        assert!(!path_in_dir(
-            "D:/mods/demo/xdata/world/factions/demo.faction",
-            "data/world/factions/"
+        assert!(!path_is_or_in_dir(
+            "backup/data/world/factions/demo.faction",
+            "data/world/factions"
         ));
+        assert!(path_is_spec_file_or_dir(
+            "data/hulls",
+            "data/hulls",
+            ".ship"
+        ));
+        assert!(path_is_spec_file_or_dir(
+            "data/hulls",
+            "data/hulls/skins",
+            ".skin"
+        ));
+        assert!(path_is_spec_file_or_dir(
+            "data/hulls/demo.ship",
+            "data/hulls",
+            ".ship"
+        ));
+        assert!(!path_is_spec_file_or_dir(
+            "data/hulls/demo.txt",
+            "data/hulls",
+            ".ship"
+        ));
+        assert!(!path_is_spec_file_or_dir(
+            "backup/data/hulls/demo.ship",
+            "data/hulls",
+            ".ship"
+        ));
+    }
+
+    #[test]
+    fn project_scoped_changed_path_rejects_external_absolute_paths() {
+        assert_eq!(
+            project_scoped_changed_path("D:/mods/current", "D:/mods/current/data/hulls/demo.ship"),
+            Some("data/hulls/demo.ship".to_string())
+        );
+        assert_eq!(
+            project_scoped_changed_path("D:/mods/current", "data/hulls/demo.ship"),
+            Some("data/hulls/demo.ship".to_string())
+        );
+        assert_eq!(
+            project_scoped_changed_path("D:/mods/current", "D:/mods/other/data/hulls/demo.ship"),
+            None
+        );
+        assert_eq!(
+            project_scoped_changed_path("D:/mods/current", "data/hulls/../weapons/demo.wpn"),
+            None
+        );
+        assert_eq!(
+            project_scoped_changed_path(
+                "D:/mods/current",
+                "D:/mods/current/data/hulls/../weapons/demo.wpn"
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn invalidating_external_absolute_path_does_not_refresh_session_indexes() {
+        let root = temp_dir("invalidate_external_current");
+        let external = temp_dir("invalidate_external_other");
+        fs::create_dir_all(root.join("data/hulls")).unwrap();
+        fs::create_dir_all(external.join("data/hulls")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/hulls/current.ship"),
+            r#"{"hullId":"current"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &external.join("data/hulls/external.ship"),
+            r#"{"hullId":"external"}"#,
+        )
+        .unwrap();
+        let mut trace = PerformanceTrace::new("project.openSession");
+        let mut session =
+            super::super::super::session::build_project_session(&root, None, &mut trace).unwrap();
+
+        invalidate_session_path(
+            &mut session,
+            &external.join("data/hulls/external.ship").to_string_lossy(),
+        )
+        .unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(external);
+        assert_eq!(session.manifest.entity_summaries.ships, 1);
+        assert!(session.ship_files.contains_key("current"));
+        assert!(!session.ship_files.contains_key("external"));
     }
 
     fn temp_dir(name: &str) -> PathBuf {

@@ -171,6 +171,7 @@ import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import ObjectEditor from '@/app/components/editors/common/ObjectEditor.vue';
 import type { RowData } from '@/shared/types';
 import { arr, str } from '@/shared/lib/starsector';
+import { isInternalJsonFieldKey } from '@/shared/lib/json-fields';
 import { normalizeSystemSpec } from '@/domain/editors/lib/normalize';
 import { useObjectField } from '@/app/composables/use-object-field';
 import { editorCollapseTheme, toOptions } from '@/domain/editors/lib/editor-constants';
@@ -283,7 +284,7 @@ function applyDroneBehavior(value: string) {
   }
 }
 
-const KNOWN_FIELDS = new Set([
+const SYSTEM_STRUCTURED_FIELD_KEYS = new Set([
   'id',
   'type',
   'aiType',
@@ -352,7 +353,7 @@ const KNOWN_FIELDS = new Set([
 const extraFields = computed(() => {
   const extra: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(localSystem.value)) {
-    if (!KNOWN_FIELDS.has(key) && !key.startsWith('_')) {
+    if (!SYSTEM_STRUCTURED_FIELD_KEYS.has(key) && !isInternalJsonFieldKey(key)) {
       extra[key] = value;
     }
   }
@@ -377,7 +378,7 @@ function applyExtra() {
   try {
     const parsed = JSON.parse(extraJson.value);
     for (const key of Object.keys(localSystem.value)) {
-      if (!KNOWN_FIELDS.has(key) && !key.startsWith('_')) {
+      if (!SYSTEM_STRUCTURED_FIELD_KEYS.has(key) && !isInternalJsonFieldKey(key)) {
         delete localSystem.value[key];
       }
     }

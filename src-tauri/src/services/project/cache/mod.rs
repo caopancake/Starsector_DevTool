@@ -53,9 +53,10 @@ pub(crate) fn session_for_mut<'a>(
 }
 
 pub(super) fn invalidate_core_cache(starsector_root: &str) -> AppResult<()> {
+    let cache_key = core::core_cache_key(starsector_root)?;
     core_caches()
         .lock()
         .map_err(|_| AppError::message("core cache lock poisoned"))?
-        .remove(starsector_root);
+        .remove(&cache_key);
     Ok(())
 }

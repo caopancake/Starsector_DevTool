@@ -18,26 +18,26 @@ function nextId(): string {
   return `csv_edit_${Date.now()}_${++idCounter}`;
 }
 
-function stateKey(modRoot: string, table: TableKey): string {
-  return `${modRoot}::${table}`;
-}
-
 export const useTablesEditHistoryStore = defineStore('tablesEditHistory', () => {
-  const stateMap = reactive<Map<string, CsvEditHistoryState>>(new Map());
+  const stateMap = reactive<Map<string, Map<TableKey, CsvEditHistoryState>>>(new Map());
   const historyLimit = ref(100);
 
   function getOrCreateState(modRoot: string, table: TableKey): CsvEditHistoryState {
-    const key = stateKey(modRoot, table);
-    let state = stateMap.get(key);
+    let tableStates = stateMap.get(modRoot);
+    if (!tableStates) {
+      tableStates = new Map();
+      stateMap.set(modRoot, tableStates);
+    }
+    let state = tableStates.get(table);
     if (!state) {
       state = createState();
-      stateMap.set(key, state);
+      tableStates.set(table, state);
     }
     return state;
   }
 
   function getState(modRoot: string, table: TableKey): CsvEditHistoryState | undefined {
-    return stateMap.get(stateKey(modRoot, table));
+    return stateMap.get(modRoot)?.get(table);
   }
 
   function pushCsvEditEvent(modRoot: string, table: TableKey, event: CsvEditHistoryEvent, label: string) {
@@ -77,13 +77,13 @@ export const useTablesEditHistoryStore = defineStore('tablesEditHistory', () => 
   }
 
   function clearCsvEditHistory(modRoot: string, table: TableKey) {
-    stateMap.delete(stateKey(modRoot, table));
+    const tableStates = stateMap.get(modRoot);
+    tableStates?.delete(table);
+    if (tableStates?.size === 0) stateMap.delete(modRoot);
   }
 
   function clearForMod(modRoot: string) {
-    for (const key of [...stateMap.keys()]) {
-      if (key.startsWith(`${modRoot}::`)) stateMap.delete(key);
-    }
+    stateMap.delete(modRoot);
   }
 
   function trimToLimit(state: CsvEditHistoryState, limit: number) {
@@ -92,7 +92,9 @@ export const useTablesEditHistoryStore = defineStore('tablesEditHistory', () => 
 
   function setHistoryLimit(limit: number) {
     historyLimit.value = limit;
-    for (const state of stateMap.values()) trimToLimit(state, historyLimit.value);
+    for (const tableStates of stateMap.values()) {
+      for (const state of tableStates.values()) trimToLimit(state, historyLimit.value);
+    }
   }
 
   return {

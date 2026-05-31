@@ -39,7 +39,6 @@ export const useProjectStore = defineStore('project', () => {
 
   function setProjectManifest(manifest: ProjectManifest) {
     manifests.value.set(manifest.modRoot, manifest);
-    activeModRoot.value = manifest.modRoot;
   }
 
   function updateManifest(modRoot: string, patch: Partial<ProjectManifest>) {

@@ -10,7 +10,10 @@ use super::{
 };
 use crate::{
     errors::{AppError, AppResult},
-    io::{load_json_dir_by_id, read_csv_data},
+    io::{
+        load_json_dir_by_id, normalized_path_key, read_csv_data,
+        validate_absolute_path_without_parent,
+    },
     models::{CsvTableKey, EntitySummaries, ProjectManifest, TableSummary},
 };
 use std::{
@@ -24,6 +27,22 @@ pub fn close_project_session(session_id: String) -> AppResult<()> {
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?
         .remove(&session_id);
+    Ok(())
+}
+
+pub fn ensure_project_session_mod_root(session_id: &str, mod_root: &str) -> AppResult<()> {
+    let guard = sessions()
+        .lock()
+        .map_err(|_| AppError::message("project session lock poisoned"))?;
+    let session = super::cache::session_for(&guard, session_id)?;
+    let expected_root =
+        validate_absolute_path_without_parent(Path::new(&session.manifest.mod_root), "mod root")?;
+    let actual_root = validate_absolute_path_without_parent(Path::new(mod_root), "mod root")?;
+    if normalized_path_key(expected_root) != normalized_path_key(actual_root) {
+        return Err(AppError::message(format!(
+            "project session {session_id} does not own mod root: {mod_root}"
+        )));
+    }
     Ok(())
 }
 
@@ -68,6 +87,9 @@ pub(super) fn build_project_session(
     let starsector_root = starsector_root_override
         .map(Path::to_path_buf)
         .or_else(|| root::infer_starsector_root(mod_root));
+    if let Some(root) = starsector_root.as_ref() {
+        validate_absolute_path_without_parent(root, "starsector root")?;
+    }
     let core_available = starsector_root
         .as_ref()
         .is_some_and(|root| root.join("starsector-core").exists());
@@ -388,6 +410,41 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(root);
         assert!(error.contains("mission_list.csv"));
+    }
+
+    #[test]
+    fn open_project_session_rejects_parent_dir_starsector_root() {
+        let root = temp_dir("session_parent_dir_starsector_root");
+        let escaped = root.join("..");
+
+        let mut trace = PerformanceTrace::new("project.openSession");
+        let error = open_project_session_traced(&root, Some(&escaped), &mut trace)
+            .unwrap_err()
+            .to_string();
+
+        let _ = std::fs::remove_dir_all(root);
+        assert!(error.contains("invalid starsector root path"));
+    }
+
+    #[test]
+    fn session_mod_root_validation_rejects_wrong_root() {
+        let left = temp_dir("session_mod_root_left");
+        let right = temp_dir("session_mod_root_right");
+        write_utf8_no_bom(&left.join("mod_info.json"), r#"{"id":"left"}"#).unwrap();
+        write_utf8_no_bom(&right.join("mod_info.json"), r#"{"id":"right"}"#).unwrap();
+
+        let mut trace = PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&left, None, &mut trace).unwrap();
+
+        ensure_project_session_mod_root(&manifest.session_id, &left.to_string_lossy()).unwrap();
+        let error = ensure_project_session_mod_root(&manifest.session_id, &right.to_string_lossy())
+            .unwrap_err()
+            .to_string();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(left);
+        let _ = std::fs::remove_dir_all(right);
+        assert!(error.contains("does not own mod root"));
     }
 
     #[test]

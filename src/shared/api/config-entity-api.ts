@@ -13,6 +13,7 @@ export function saveIndexedConfigEntity(write: IndexedConfigEntityWrite): Promis
   return invoke('save_indexed_config_entity', {
     payload: {
       modRoot: write.modRoot,
+      sessionId: write.sessionId,
       kind: write.kind,
       previousId: write.previousId,
       nextId: write.nextId,
@@ -27,6 +28,7 @@ export function createIndexedConfigEntity(write: IndexedConfigEntityWrite): Prom
   return invoke('create_indexed_config_entity', {
     payload: {
       modRoot: write.modRoot,
+      sessionId: write.sessionId,
       kind: write.kind,
       previousId: write.previousId,
       nextId: write.nextId,

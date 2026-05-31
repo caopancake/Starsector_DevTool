@@ -1,6 +1,7 @@
 import type { RowData } from '@/shared/types/json.types';
 
 export interface ConfigFileEntityWrite {
+  sessionId: string;
   modRoot: string;
   previousId: string | null;
   previousRelPath: string | null;
@@ -11,6 +12,7 @@ export interface ConfigFileEntityWrite {
 export type IndexedConfigKind = 'faction' | 'mission';
 
 export interface IndexedConfigEntityWrite {
+  sessionId: string;
   modRoot: string;
   kind: IndexedConfigKind;
   previousId: string | null;
@@ -21,6 +23,7 @@ export interface IndexedConfigEntityWrite {
 }
 
 export interface DeleteIndexedConfigEntityWrite {
+  sessionId: string;
   modRoot: string;
   kind: IndexedConfigKind;
   id: string;
@@ -38,6 +41,7 @@ export interface IndexedConfigEntityData {
 export type VariantEntityWrite = ConfigFileEntityWrite;
 
 export interface DeleteVariantEntityWrite {
+  sessionId: string;
   modRoot: string;
   variantId: string;
   relPath: string;
@@ -46,6 +50,7 @@ export interface DeleteVariantEntityWrite {
 export type SkinEntityWrite = ConfigFileEntityWrite;
 
 export interface DeleteSkinEntityWrite {
+  sessionId: string;
   modRoot: string;
   skinHullId: string;
   relPath: string;

@@ -51,8 +51,12 @@ export const writeBoundaryRule = {
           failures.push(`${file.rel}: write-facing services must expose WriteResult semantics`);
         }
       }
-      if (/\binvalidate(?:Query|Resource|Project)[A-Za-z0-9_]*\s*\([^)]*(?:changes|modRoot|pathBasename)/s.test(file.text)) {
-        failures.push(`${file.rel}: cache invalidation must be driven by WriteResult.invalidatedPaths`);
+      if (
+        /(?<!function\s+)\b(?:invalidateQueryCacheByPaths|invalidateResourceCacheByPaths|invalidateProject)\s*\(/.test(file.text) &&
+        !(current.layer === 'orchestrators' && current.domain === 'project-session-invalidation') &&
+        !(current.layer === 'services' && current.domain === 'session')
+      ) {
+        failures.push(`${file.rel}: project write invalidation must go through project-session-invalidation orchestrator`);
       }
       if (/\binvalidateQueryCacheForWrite\b/.test(file.text)) {
         failures.push(`${file.rel}: query cache write invalidation must be path-scoped, not a generic write hook`);

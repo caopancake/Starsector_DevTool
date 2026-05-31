@@ -1,13 +1,13 @@
-import { h, onMounted, onUnmounted, ref, watch } from 'vue';
+import { h, onMounted, onUnmounted, ref, type Ref, watch } from 'vue';
 import { NCheckbox } from 'naive-ui';
-import type { AppFeedback, EditorWindowKind } from '@/shared/types';
+import type { AppFeedback } from '@/shared/types';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useEditorsStore } from '@/stores/editors.store';
 import { openEditorWindow } from '@/windows/editor.window';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import { useProjectStore } from '@/stores/project.store';
 import { closeProject, invalidateCoreCacheForRoot, pickDirectory, scanWorkspaceOverview } from '@/services/session.service';
-import { selectActiveTableAssociatedFileCandidates, saveActiveTableChanges } from '@/orchestrators/table-save.orchestrator';
+import { captureActiveTableSaveTarget, saveCapturedTableChanges } from '@/orchestrators/table-save.orchestrator';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { useTablesStore } from '@/stores/tables.store';
 import type { AssociatedFileCandidate } from '@/domain/tables/associated-file-candidates';
@@ -27,6 +27,12 @@ import { invalidateResourceCacheForSession } from '@/services/resource-cache.ser
 import { invalidateQueryCacheForSession } from '@/services/query-cache.service';
 import { editorSpecExtension } from '@/domain/editors/editor-kind-metadata';
 
+interface WorkspaceCloseTarget {
+  gameOverviewRoot: string | null;
+  modRoots: string[];
+  starsectorRoots: string[];
+}
+
 export function useWorkspaceShellActions(feedback: AppFeedback) {
   const project = useProjectStore();
   const tables = useTablesStore();
@@ -36,7 +42,6 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   const fileHistory = useFileHistoryStore();
   const csvEditHistory = useTablesEditHistoryStore();
   const { loadCoreFields } = useCoreSchema();
-  const selectedAssociatedFileKeys = ref<Set<string>>(new Set());
   let stopWindowSaveEvents: (() => void) | null = null;
   let workspacePersistence: WorkspacePersistenceWatcher | null = null;
 
@@ -132,12 +137,13 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   }
 
   function confirmCloseWorkspace() {
-    const hasDirtyMods = workspace.loadedModList.some((mod) => tables.hasModDirtyChanges(mod.modRoot));
+    const target = captureWorkspaceCloseTarget();
+    const hasDirtyMods = target.modRoots.some((modRoot) => tables.hasModDirtyChanges(modRoot));
     feedback.confirmWarning({
       title: '关闭工作区',
       content: hasDirtyMods ? '当前工作区有未保存的 CSV 修改，关闭后这些修改将丢失。确认关闭？' : '确认关闭当前工作区？',
       actionText: '关闭',
-      onConfirm: closeWorkspace,
+      onConfirm: () => closeWorkspace(target),
     });
   }
 
@@ -156,13 +162,14 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
 
   async function saveChanges() {
     try {
-      if (!project.activeManifest) return;
-      const candidates = selectActiveTableAssociatedFileCandidates();
+      const target = captureActiveTableSaveTarget(project.activeManifest);
+      if (!target) return;
+      const candidates = target.associatedFileCandidates;
       if (candidates.length > 0) {
-        selectedAssociatedFileKeys.value = new Set(candidates.map((candidate) => candidate.key));
+        const selectedAssociatedFileKeys = ref<Set<string>>(new Set(candidates.map((candidate) => candidate.key)));
         feedback.confirmWarning({
           title: '保存 CSV',
-          content: () => renderAssociatedFileDialog(candidates),
+          content: () => renderAssociatedFileDialog(candidates, selectedAssociatedFileKeys),
           actionText: '保存',
           onConfirm: async () => {
             try {
@@ -174,7 +181,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
                   afterDataBase64,
                   previousRelPath,
                 }));
-              const result = await saveActiveTableChanges(project.activeManifest, selected);
+              const result = await saveCapturedTableChanges(target, selected);
               showSaveResult(result);
             } catch (err) {
               feedback.error(err, '保存 CSV 失败');
@@ -183,7 +190,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
         });
         return;
       }
-      const result = await saveActiveTableChanges(project.activeManifest, []);
+      const result = await saveCapturedTableChanges(target, []);
       showSaveResult(result);
     } catch (err) {
       feedback.error(err, '保存 CSV 失败');
@@ -220,7 +227,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     if (action.type === 'file-editor') {
       openRequestedFileEditor(action);
     } else {
-      openRequestedEditorWindow(action.kind, action.id);
+      openRequestedEditorWindow(action);
     }
   }
 
@@ -263,22 +270,28 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     if (showMessage) feedback.success('Mod 已从工作区移除');
   }
 
-  async function closeWorkspace() {
-    const roots = new Set(
+  function captureWorkspaceCloseTarget(): WorkspaceCloseTarget {
+    const starsectorRoots = new Set(
       [workspace.gameOverview?.starsectorRoot, ...[...project.manifests.values()].map((manifest) => manifest.starsectorRoot)].filter(
         (root): root is string => Boolean(root),
       ),
     );
-    for (const mod of [...workspace.loadedModList]) {
-      await removeMod(mod.modRoot, false);
+    return {
+      gameOverviewRoot: workspace.gameOverview?.starsectorRoot ?? null,
+      modRoots: workspace.loadedModList.map((mod) => mod.modRoot),
+      starsectorRoots: [...starsectorRoots],
+    };
+  }
+
+  async function closeWorkspace(target: WorkspaceCloseTarget) {
+    for (const modRoot of target.modRoots) {
+      await removeMod(modRoot, false);
     }
-    await Promise.all([...roots].map((root) => invalidateCoreCacheForRoot(root)));
-    workspace.setGameOverview(null);
-    workspace.navigateTo('overview');
-    project.setActiveModRoot(null);
-    tables.activateFor(null, null);
-    editors.activateFor(null);
-    fileHistory.activateFor(null);
+    await Promise.all(target.starsectorRoots.map((root) => invalidateCoreCacheForRoot(root)));
+    if (workspace.gameOverview?.starsectorRoot === target.gameOverviewRoot) {
+      workspace.setGameOverview(null);
+    }
+    if (!workspace.activeModRoot) workspace.navigateTo('overview');
     recordLogBestEffort({ level: 'info', message: '关闭工作区', path: null, line: null });
     feedback.success('工作区已关闭');
   }
@@ -288,7 +301,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     else feedback.info('没有需要保存的修改');
   }
 
-  function renderAssociatedFileDialog(candidates: AssociatedFileCandidate[]) {
+  function renderAssociatedFileDialog(candidates: AssociatedFileCandidate[], selectedKeys: Ref<Set<string>>) {
     return h('div', { class: 'associated-save-dialog' }, [
       h('p', '检测到 CSV 行变更可能需要同步关联 spec 文件。只有勾选的文件会随本次 CSV 保存一起写入，并作为单次 history 记录。'),
       h(
@@ -298,12 +311,12 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
           h(
             NCheckbox,
             {
-              checked: selectedAssociatedFileKeys.value.has(candidate.key),
+              checked: selectedKeys.value.has(candidate.key),
               'onUpdate:checked': (checked: boolean) => {
-                const next = new Set(selectedAssociatedFileKeys.value);
+                const next = new Set(selectedKeys.value);
                 if (checked) next.add(candidate.key);
                 else next.delete(candidate.key);
-                selectedAssociatedFileKeys.value = next;
+                selectedKeys.value = next;
               },
             },
             { default: () => `${candidate.action === 'create' ? '创建' : '删除'} ${candidate.relPath}` },
@@ -313,20 +326,15 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     ]);
   }
 
-  function openRequestedEditorWindow(kind: EditorWindowKind, id: string) {
-    if (!project.activeManifest) return;
-    void openEditorWindow({ ...editorRequest(id), kind });
-  }
-
-  function editorRequest(id: string) {
-    const data = project.activeManifest!;
-    return {
-      modRoot: data.modRoot,
-      id,
-      sessionId: data.sessionId,
+  function openRequestedEditorWindow(action: Extract<TableDetailAction, { type: 'editor-window' }>) {
+    void openEditorWindow({
+      kind: action.kind,
+      modRoot: action.modRoot,
+      id: action.id,
+      sessionId: action.sessionId,
       settings: settings.settingsSnapshot(),
-      starsectorRoot: data.starsectorRoot ?? workspace.gameOverview?.starsectorRoot ?? settings.starsectorRoot,
-    };
+      starsectorRoot: action.starsectorRoot,
+    });
   }
 
   return {

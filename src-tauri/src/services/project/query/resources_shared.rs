@@ -10,34 +10,44 @@ use crate::errors::{AppError, AppResult};
 use crate::models::{
     CsvTableKey, EntityKind, ResourceOwnerKind, ResourceRef, ResourceSource, SkinFile,
 };
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 use std::{collections::BTreeMap, path::PathBuf};
 
 pub(super) fn resource_data_url(
     session: &ProjectSession,
     resource: &ResourceRef,
 ) -> AppResult<Option<String>> {
-    let root = match resource.source {
-        ResourceSource::Core => session
-            .manifest
-            .starsector_root
-            .as_ref()
-            .map(|root| PathBuf::from(root).join("starsector-core"))
-            .ok_or_else(|| AppError::message("core resource requires starsector root"))?,
-        ResourceSource::Mod => PathBuf::from(&session.manifest.mod_root),
-    };
-    sprites::load_sprite_data_url_from_root(&root, &resource.rel_path)
+    match resource.source {
+        ResourceSource::Core => {
+            let root = session
+                .manifest
+                .starsector_root
+                .as_ref()
+                .map(|root| PathBuf::from(root).join("starsector-core"))
+                .ok_or_else(|| AppError::message("core resource requires starsector root"))?;
+            sprites::load_sprite_data_url_from_root(&root, &resource.rel_path)
+        }
+        ResourceSource::Mod => {
+            let mod_root = PathBuf::from(&session.manifest.mod_root);
+            let core_dir = session
+                .manifest
+                .starsector_root
+                .as_ref()
+                .map(|root| PathBuf::from(root).join("starsector-core"));
+            sprites::load_sprite_data_url(&mod_root, core_dir.as_deref(), &resource.rel_path)
+        }
+    }
 }
 
 pub(super) fn resource_cache_key(resource: &ResourceRef) -> String {
-    format!(
-        "{}:{}:{:?}:{}:{}",
+    json!([
         resource.source.as_str(),
         resource.rel_path,
         resource.owner_kind,
         resource.owner_id,
         resource.key
-    )
+    ])
+    .to_string()
 }
 
 pub(super) fn entity_resource_refs(
@@ -322,57 +332,58 @@ pub(super) fn source_option_resource_ref(
     table: CsvTableKey,
     value: &str,
     row: &Map<String, Value>,
-    context: Option<&CoreSourceData>,
-    session: Option<&ProjectSession>,
+    core_data: Option<&CoreSourceData>,
+    session: &ProjectSession,
 ) -> AppResult<Option<ResourceRef>> {
     match table {
         CsvTableKey::Ships => {
-            if let Some(session) = session {
-                if let Some(resource) = hull_resource_ref(session, source, value)? {
-                    return Ok(Some(resource));
-                }
+            if let Some(resource) = hull_resource_ref(session, source, value)? {
+                return Ok(Some(resource));
             }
-            Ok(context
-                .and_then(|context| {
-                    context
+            Ok(core_data
+                .and_then(|core_data| {
+                    core_data
                         .ship_files
                         .get(value)
                         .and_then(|ship| string_field(ship, "spriteName"))
                 })
                 .map(|path| resource_ref(source, &path, ResourceOwnerKind::Ship, value, "sprite")))
         }
-        CsvTableKey::Weapons => Ok(context
-            .and_then(|context| context.weapon_specs.get(value).and_then(weapon_sprite_path))
-            .or_else(|| {
-                session
-                    .and_then(|session| session.weapon_specs.get(value))
-                    .and_then(weapon_sprite_path)
-            })
-            .map(|path| resource_ref(source, &path, ResourceOwnerKind::Weapon, value, "sprite"))),
+        CsvTableKey::Weapons => {
+            let sprite_path = match source {
+                ResourceSource::Core => core_data.and_then(|core_data| {
+                    core_data
+                        .weapon_specs
+                        .get(value)
+                        .and_then(weapon_sprite_path)
+                }),
+                ResourceSource::Mod => session.weapon_specs.get(value).and_then(weapon_sprite_path),
+            };
+            Ok(sprite_path.map(|path| {
+                resource_ref(source, &path, ResourceOwnerKind::Weapon, value, "sprite")
+            }))
+        }
         CsvTableKey::Wings => {
             let Some(variant_id) = string_from_row(row, "variant") else {
                 return Ok(None);
             };
-            let hull_id = context
-                .and_then(|context| {
-                    context
+            let hull_id = match source {
+                ResourceSource::Core => core_data.and_then(|core_data| {
+                    core_data
                         .variant_files
                         .iter()
                         .find(|variant| variant.variant_id == variant_id)
                         .map(|variant| variant.hull_id.as_str())
-                })
-                .or_else(|| {
-                    session.and_then(|session| {
-                        session
-                            .variant_files
-                            .iter()
-                            .find(|variant| variant.variant_id == variant_id)
-                            .map(|variant| variant.hull_id.as_str())
-                    })
-                });
-            match (session, hull_id) {
-                (Some(session), Some(hull_id)) => hull_resource_ref(session, source, hull_id),
-                _ => Ok(None),
+                }),
+                ResourceSource::Mod => session
+                    .variant_files
+                    .iter()
+                    .find(|variant| variant.variant_id == variant_id)
+                    .map(|variant| variant.hull_id.as_str()),
+            };
+            match hull_id {
+                Some(hull_id) => hull_resource_ref(session, source, hull_id),
+                None => Ok(None),
             }
         }
         _ => Ok(row_icon_resource_ref(source, table, row)),
@@ -401,6 +412,26 @@ mod tests {
         );
 
         assert_ne!(resource_cache_key(&ship), resource_cache_key(&weapon));
+    }
+
+    #[test]
+    fn resource_cache_key_preserves_structured_field_boundaries() {
+        let left = resource_ref(
+            ResourceSource::Mod,
+            "graphics/shared/icon.png",
+            ResourceOwnerKind::Ship,
+            "owner:with",
+            "separator",
+        );
+        let right = resource_ref(
+            ResourceSource::Mod,
+            "graphics/shared/icon.png",
+            ResourceOwnerKind::Ship,
+            "owner",
+            "with:separator",
+        );
+
+        assert_ne!(resource_cache_key(&left), resource_cache_key(&right));
     }
 
     #[test]

@@ -12,7 +12,7 @@
     </div>
 
     <div v-if="overview.warnings.length > 0" class="game-warning-list">
-      <div v-for="warning in overview.warnings" :key="`${warning.path}:${warning.message}`" class="game-warning-item">
+      <div v-for="warning in overview.warnings" :key="warningKey(warning)" class="game-warning-item">
         <strong>{{ warning.message }}</strong>
         <span>{{ warning.path }}</span>
       </div>
@@ -53,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import type { GameOverviewData } from '@/shared/types';
+import type { GameOverviewData, GameScanWarning } from '@/shared/types';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 
 defineProps<{ overview: GameOverviewData }>();
@@ -75,5 +75,9 @@ function modStatusLabel(modRoot: string): string {
   const status = workspace.mods.get(modRoot)?.status;
   if (status) return statusLabel(status);
   return '未读取';
+}
+
+function warningKey(warning: GameScanWarning): string {
+  return JSON.stringify([warning.path, warning.message]);
 }
 </script>

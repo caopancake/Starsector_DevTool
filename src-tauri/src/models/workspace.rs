@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 use super::{GameModSummary, GameScanWarning};
 
@@ -26,6 +27,8 @@ pub struct PersistedWorkspace {
     pub game_mods: Vec<GameModSummary>,
     #[serde(default)]
     pub game_warnings: Vec<GameScanWarning>,
+    #[serde(default)]
+    pub column_widths: BTreeMap<String, BTreeMap<String, BTreeMap<String, f64>>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

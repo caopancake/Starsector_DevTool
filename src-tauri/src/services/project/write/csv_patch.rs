@@ -5,7 +5,7 @@ use super::super::cache::{
 use super::super::model::SessionCsvRow;
 use crate::{
     errors::{AppError, AppResult},
-    io::FileChangeSetBuilder,
+    io::{read_json_file, strip_internal_fields, FileChangeSetBuilder},
     models::{
         AssociatedFileChange, CsvRowKeyMapping, CsvRowPatch, CsvRowPatchAction, CsvTableKey,
         WriteResult,
@@ -54,14 +54,10 @@ pub fn save_csv_patch(
         if let Some(prev_path) = &file.previous_rel_path {
             let prev_full = Path::new(&mod_root).join(prev_path);
             let content = if prev_full.exists() {
-                let text = crate::io::read_utf8_no_bom(&prev_full)?;
-                let new_id = Path::new(&file.rel_path)
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or_default();
-                update_spec_id_in_text(&text, new_id)
+                let new_id = associated_spec_id_from_path(&file.rel_path)?;
+                rewrite_associated_spec_id(table, &prev_full, new_id)?
             } else {
-                file.after_text.clone().unwrap_or_default()
+                required_associated_file_text(file, "关联 spec 重命名缺少新建内容")?
             };
             builder.text_file(prev_path, None)?;
             builder.text_file(&file.rel_path, Some(content))?;
@@ -139,31 +135,44 @@ fn is_new_csv_row_key(table_key: &str, row_key: &str) -> bool {
     !rest.is_empty() && !rest.contains(':')
 }
 
-fn update_spec_id_in_text(text: &str, new_id: &str) -> String {
-    let id_fields = ["hullId", "id"];
-    let mut result = text.to_string();
-    for field in id_fields {
-        let pattern = format!("\"{field}\"");
-        if let Some(key_pos) = result.find(&pattern) {
-            let after_key = key_pos + pattern.len();
-            if let Some(colon_offset) = result[after_key..].find(':') {
-                let after_colon = after_key + colon_offset + 1;
-                let trimmed_start = result[after_colon..]
-                    .find(|c: char| !c.is_whitespace())
-                    .unwrap_or(0)
-                    + after_colon;
-                if result[trimmed_start..].starts_with('"') {
-                    let value_start = trimmed_start + 1;
-                    if let Some(value_end) = result[value_start..].find('"') {
-                        let end = value_start + value_end;
-                        result.replace_range(value_start..end, new_id);
-                        break;
-                    }
-                }
-            }
-        }
+fn associated_spec_id_from_path(rel_path: &str) -> AppResult<&str> {
+    Path::new(rel_path)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .filter(|stem| !stem.trim().is_empty())
+        .ok_or_else(|| AppError::message(format!("关联 spec 路径缺少文件名: {rel_path}")))
+}
+
+fn required_associated_file_text(file: &AssociatedFileChange, message: &str) -> AppResult<String> {
+    file.after_text
+        .clone()
+        .ok_or_else(|| AppError::message(format!("{message}: {}", file.rel_path)))
+}
+
+fn rewrite_associated_spec_id(table: CsvTableKey, path: &Path, new_id: &str) -> AppResult<String> {
+    let mut value = strip_internal_fields(&read_json_file(path)?);
+    let Some(object) = value.as_object_mut() else {
+        return Err(AppError::message(format!(
+            "关联 spec 文件不是 JSON object: {}",
+            path.display()
+        )));
+    };
+    object.insert(
+        associated_spec_id_field(table)?.to_string(),
+        Value::String(new_id.to_string()),
+    );
+    serde_json::to_string_pretty(&value).map_err(AppError::from)
+}
+
+fn associated_spec_id_field(table: CsvTableKey) -> AppResult<&'static str> {
+    match table {
+        CsvTableKey::Ships => Ok("hullId"),
+        CsvTableKey::Weapons | CsvTableKey::ShipSystems | CsvTableKey::Skills => Ok("id"),
+        _ => Err(AppError::message(format!(
+            "CSV 表没有关联 spec ID 字段: {}",
+            table.as_str()
+        ))),
     }
-    result
 }
 
 #[cfg(test)]
@@ -273,6 +282,109 @@ mod tests {
         assert_eq!(result.changes.len(), 2);
         assert!(!csv.contains("old_weapon,Old Weapon"));
         assert!(!spec_exists);
+    }
+
+    #[test]
+    fn save_csv_patch_renames_associated_file_through_json_parser() {
+        let root = temp_dir("save_csv_patch_rename_assoc_parser");
+        std::fs::create_dir_all(root.join("data/weapons")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/weapons/weapon_data.csv"),
+            "id,name\r\nold_weapon,Old Weapon\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("data/weapons/old_weapon.wpn"),
+            "{\r\n  id: 'old_weapon',\r\n  weaponType: BALLISTIC,\r\n}\r\n",
+        )
+        .unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
+        let window = query_csv_table_window(
+            &manifest.session_id,
+            CsvTableKey::Weapons,
+            0,
+            10,
+            None,
+            CsvFactionFilter::All,
+        )
+        .unwrap();
+        let mut row = window.rows[0].row.clone();
+        row.insert("id".to_string(), Value::String("new_weapon".to_string()));
+        let result = save_csv_patch(
+            &manifest.session_id,
+            CsvTableKey::Weapons,
+            vec![CsvRowPatch {
+                row_key: window.rows[0].row_key.clone(),
+                action: CsvRowPatchAction::Upsert,
+                row,
+            }],
+            vec![AssociatedFileChange {
+                rel_path: "data/weapons/new_weapon.wpn".to_string(),
+                after_text: Some("{\"id\":\"new_weapon\"}".to_string()),
+                after_data_base64: None,
+                previous_rel_path: Some("data/weapons/old_weapon.wpn".to_string()),
+            }],
+        )
+        .unwrap();
+
+        let renamed = read_utf8_no_bom(&root.join("data/weapons/new_weapon.wpn")).unwrap();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        assert_eq!(result.changes.len(), 3);
+        assert!(!renamed.contains("old_weapon"));
+        assert!(renamed.contains("\"id\": \"new_weapon\""));
+        assert!(renamed.contains("\"weaponType\": \"BALLISTIC\""));
+    }
+
+    #[test]
+    fn save_csv_patch_rejects_rename_without_source_or_new_text() {
+        let root = temp_dir("save_csv_patch_rename_missing_content");
+        std::fs::create_dir_all(root.join("data/weapons")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/weapons/weapon_data.csv"),
+            "id,name\r\nold_weapon,Old Weapon\r\n",
+        )
+        .unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
+        let window = query_csv_table_window(
+            &manifest.session_id,
+            CsvTableKey::Weapons,
+            0,
+            10,
+            None,
+            CsvFactionFilter::All,
+        )
+        .unwrap();
+        let mut row = window.rows[0].row.clone();
+        row.insert("id".to_string(), Value::String("new_weapon".to_string()));
+        let error = save_csv_patch(
+            &manifest.session_id,
+            CsvTableKey::Weapons,
+            vec![CsvRowPatch {
+                row_key: window.rows[0].row_key.clone(),
+                action: CsvRowPatchAction::Upsert,
+                row,
+            }],
+            vec![AssociatedFileChange {
+                rel_path: "data/weapons/new_weapon.wpn".to_string(),
+                after_text: None,
+                after_data_base64: None,
+                previous_rel_path: Some("data/weapons/missing.wpn".to_string()),
+            }],
+        )
+        .unwrap_err()
+        .to_string();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        assert!(error.contains("关联 spec 重命名缺少新建内容"));
     }
 
     #[test]

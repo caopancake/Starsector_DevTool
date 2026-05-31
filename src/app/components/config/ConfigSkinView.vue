@@ -5,6 +5,8 @@
       :skins="skins"
       :skin-sprites="skinSprites"
       :hull-options="hullOptions"
+      :mod-root="modRoot"
+      :session-id="sessionId"
       :create-skin="createSkin"
       :delete-skin="deleteSkin"
       @select="selectedSkinId = $event"
@@ -14,6 +16,9 @@
       :key="selectedSkinId"
       :skin-hull-id="selectedSkinId"
       :skins="skins"
+      :mod-root="modRoot"
+      :session-id="sessionId"
+      :data-revision="skinDataRevision"
       :save-skin="saveSkin"
       :delete-skin="deleteSkin"
       @saved="onSaved"
@@ -29,5 +34,6 @@ import ConfigSkinEditor from '@/app/components/config/ConfigSkinEditor.vue';
 import ConfigSkinList from '@/app/components/config/ConfigSkinList.vue';
 import { useConfigSkinViewModel } from '@/app/composables/use-config-skin-view-model';
 
-const { selectedSkinId, skins, skinSprites, hullOptions, createSkin, deleteSkin, onSaved, saveSkin } = useConfigSkinViewModel();
+const { selectedSkinId, modRoot, sessionId, skins, skinSprites, hullOptions, skinDataRevision, createSkin, deleteSkin, onSaved, saveSkin } =
+  useConfigSkinViewModel();
 </script>

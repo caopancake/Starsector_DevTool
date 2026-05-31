@@ -6,6 +6,7 @@ import type { AppFeedback } from '@/shared/types';
 interface UploadSpriteOptions {
   feedback: AppFeedback;
   modRoot: string;
+  sessionId: string;
   subfolder: SpriteSubfolder;
   onUploaded: (result: SpriteUploadResult, dataUrl: string) => void;
 }
@@ -16,7 +17,7 @@ export function useSpriteUpload() {
     if (!file) return;
     const data = await fileToBase64(file);
     const dataUrl = `data:image/png;base64,${data}`;
-    let result = await uploadEditorSpriteAction(options.modRoot, file.name, data, options.subfolder, false);
+    let result = await uploadEditorSpriteAction(options.sessionId, options.modRoot, file.name, data, options.subfolder, false);
     if (!result.state.exists) {
       options.onUploaded(result, dataUrl);
       return;
@@ -26,7 +27,7 @@ export function useSpriteUpload() {
       content: result.state.message ?? '',
       actionText: '覆盖',
       onConfirm: async () => {
-        result = await uploadEditorSpriteAction(options.modRoot, file.name, data, options.subfolder, true);
+        result = await uploadEditorSpriteAction(options.sessionId, options.modRoot, file.name, data, options.subfolder, true);
         options.onUploaded(result, dataUrl);
       },
     });

@@ -1,6 +1,9 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::{read_json_file, FileChangeSetBuilder},
+    io::{
+        invalidated_paths_for_changes, read_json_file, validate_absolute_path_without_parent,
+        FileChangeSetBuilder,
+    },
     models::{DiscoveredField, DiscoveredFieldType, ResourceSource, SpriteSubfolder, WriteResult},
 };
 use regex::Regex;
@@ -43,7 +46,7 @@ pub fn upload_sprite(
     builder.binary_file(&rel, Some(data))?;
     let changes = builder.apply()?;
     Ok(WriteResult {
-        invalidated_paths: changes.iter().map(|change| change.path.clone()).collect(),
+        invalidated_paths: invalidated_paths_for_changes(&changes),
         changes,
         key_map: Vec::new(),
         refreshed_entity: Some(json!({
@@ -73,13 +76,13 @@ fn validate_sprite_filename(filename: &str) -> AppResult<&str> {
 
 /// Scan starsector-core/graphics/ and return all image file paths (relative to starsector-core).
 pub fn scan_core_graphics(starsector_root: &str) -> AppResult<Vec<String>> {
-    let dir = Path::new(starsector_root)
-        .join("starsector-core")
-        .join("graphics");
+    let starsector_root =
+        validate_absolute_path_without_parent(Path::new(starsector_root), "starsector root")?;
+    let dir = starsector_root.join("starsector-core").join("graphics");
     if !dir.exists() {
         return Ok(vec![]);
     }
-    let core_dir = Path::new(starsector_root).join("starsector-core");
+    let core_dir = starsector_root.join("starsector-core");
     let mut paths = Vec::new();
     for entry in WalkDir::new(&dir) {
         let entry =
@@ -112,7 +115,9 @@ pub fn scan_core_fields(
     starsector_root: &str,
 ) -> AppResult<BTreeMap<String, Vec<DiscoveredField>>> {
     let mut result = BTreeMap::new();
-    let core_dir = Path::new(starsector_root).join("starsector-core");
+    let starsector_root =
+        validate_absolute_path_without_parent(Path::new(starsector_root), "starsector root")?;
+    let core_dir = starsector_root.join("starsector-core");
     if !core_dir.exists() {
         return Ok(result);
     }
@@ -264,9 +269,19 @@ mod tests {
             .and_then(Value::as_bool)
             .unwrap_or(false));
         assert_eq!(fs::read(&path).unwrap(), vec![1, 2, 3]);
-        apply_file_change_set(FileChangeReplayDirection::Undo, result.changes.clone()).unwrap();
+        apply_file_change_set(
+            &root.to_string_lossy(),
+            FileChangeReplayDirection::Undo,
+            result.changes.clone(),
+        )
+        .unwrap();
         assert!(!path.exists());
-        apply_file_change_set(FileChangeReplayDirection::Redo, result.changes).unwrap();
+        apply_file_change_set(
+            &root.to_string_lossy(),
+            FileChangeReplayDirection::Redo,
+            result.changes,
+        )
+        .unwrap();
         let bytes = fs::read(&path).unwrap();
         let _ = fs::remove_dir_all(root);
         assert_eq!(bytes, vec![1, 2, 3]);
@@ -314,9 +329,19 @@ mod tests {
             .and_then(Value::as_bool)
             .unwrap_or(false));
         assert_eq!(fs::read(&path).unwrap(), vec![1, 2, 3]);
-        apply_file_change_set(FileChangeReplayDirection::Undo, result.changes.clone()).unwrap();
+        apply_file_change_set(
+            &root.to_string_lossy(),
+            FileChangeReplayDirection::Undo,
+            result.changes.clone(),
+        )
+        .unwrap();
         assert_eq!(fs::read(&path).unwrap(), vec![9, 8, 7]);
-        apply_file_change_set(FileChangeReplayDirection::Redo, result.changes).unwrap();
+        apply_file_change_set(
+            &root.to_string_lossy(),
+            FileChangeReplayDirection::Redo,
+            result.changes,
+        )
+        .unwrap();
         let bytes = fs::read(&path).unwrap();
         let _ = fs::remove_dir_all(root);
         assert_eq!(bytes, vec![1, 2, 3]);
@@ -388,6 +413,19 @@ mod tests {
         let _ = fs::remove_dir_all(root);
         assert!(error.contains("core field source must be a JSON object"));
         assert!(error.contains("list.wpn"));
+    }
+
+    #[test]
+    fn core_field_scan_rejects_parent_dir_root() {
+        let root = temp_dir("core_field_scan_parent_dir_root");
+        let escaped = root.join("..");
+
+        let error = scan_core_fields(&escaped.to_string_lossy())
+            .unwrap_err()
+            .to_string();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(error.contains("invalid starsector root path"));
     }
 
     #[test]

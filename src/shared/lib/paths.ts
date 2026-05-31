@@ -6,6 +6,12 @@ export function normalizeRelPath(path: string): string {
   return path.replace(/\\/g, '/');
 }
 
+export function pathHasParentDirComponent(path: string): boolean {
+  return normalizeRelPath(path)
+    .split('/')
+    .some((part) => part === '..');
+}
+
 export function isAbsoluteFsPath(path: string): boolean {
   const normalized = normalizeRelPath(path);
   return /^[a-z]:\//i.test(normalized) || normalized.startsWith('/');
@@ -33,9 +39,15 @@ export function gameCoreDirectoryPath(starsectorRoot: string): string {
 }
 
 export function pathBelongsToRoot(path: string, root: string): boolean {
+  if (pathHasParentDirComponent(path) || pathHasParentDirComponent(root)) return false;
   const normalizedPath = normalizeFsPath(path);
   const normalizedRoot = normalizeFsPath(root);
   return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`);
+}
+
+export function pathIsProjectScopedChangedPath(path: string, root: string): boolean {
+  if (pathHasParentDirComponent(path)) return false;
+  return !isAbsoluteFsPath(path) || pathBelongsToRoot(path, root);
 }
 
 export function closestRootForPath(roots: Iterable<string>, path: string): string | null {
@@ -53,6 +65,7 @@ export function relativePathFromRoot(root: string, path: string): string {
 }
 
 export function normalizedProjectPath(root: string, path: string): { external: boolean; relative: string } {
+  if (pathHasParentDirComponent(path)) return { external: true, relative: normalizeFsPath(path) };
   const normalizedPath = normalizeFsPath(path);
   if (pathBelongsToRoot(path, root)) {
     return {

@@ -120,6 +120,7 @@ import { editorCollapseTheme, toOptions } from '@/domain/editors/lib/editor-cons
 
 const props = defineProps<{
   modRoot: string;
+  sessionId: string;
   projectileId: string;
   projectile?: RowData;
 }>();
@@ -176,6 +177,7 @@ async function uploadSpriteFile(field: string, event: Event) {
     await uploadSpriteFromInput(event, {
       feedback,
       modRoot: props.modRoot,
+      sessionId: props.sessionId,
       subfolder: 'missiles',
       onUploaded: (result) => {
         localProjectile.value[field] = result.state.path;
