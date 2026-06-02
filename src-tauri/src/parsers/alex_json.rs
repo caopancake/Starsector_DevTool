@@ -21,7 +21,8 @@ pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
 
     // Matches unquoted identifier values (after : or , or [ that are NOT true/false/null/numbers)
     let value_re = UNQUOTED_VALUE_RE.get_or_init(|| {
-        Regex::new(r#"(?m)([:,\[]\s*)([A-Z][A-Z0-9_]*)\b"#).expect("valid unquoted value regex")
+        Regex::new(r#"(?m)([:,\[]\s*)([A-Za-z_][A-Za-z0-9_]*)\b"#)
+            .expect("valid unquoted value regex")
     });
     let bool_literal_re = BOOL_LITERAL_RE.get_or_init(|| {
         Regex::new(r#"(?m)([:,\[]\s*)(True|TRUE|False|FALSE)\b"#).expect("valid bool literal regex")
@@ -73,9 +74,18 @@ pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
             .to_string()
     });
 
-    // Quote unquoted ALL_CAPS identifier values (enum-like values in Starsector)
+    // Quote unquoted identifier values (enum-like and lowercase IDs in Starsector)
     cleaned = replace_outside_strings(&cleaned, |segment| {
-        value_re.replace_all(segment, "$1\"$2\"").to_string()
+        value_re
+            .replace_all(segment, |captures: &regex::Captures| {
+                let ident = &captures[2];
+                if ident == "true" || ident == "false" || ident == "null" {
+                    captures[0].to_string()
+                } else {
+                    format!("{}\"{}\"", &captures[1], ident)
+                }
+            })
+            .to_string()
     });
 
     // Strip leading plus signs (+100 → 100, +0.5 → 0.5) that Java parsers accept.
@@ -522,8 +532,6 @@ mod tests {
                 r#"{"id": "test" "name": "No comma"}"#,
             ),
             ("unterminated single quoted string", r#"{"id": 'test}"#),
-            ("lowercase bare value", r#"{"id": test}"#),
-            ("mixed case bare value", r#"{"size": Large}"#),
             ("number-prefixed bare key", r#"{1id: "test"}"#),
             ("double decimal point", r#"{"ratio": 0..5}"#),
             ("field without value", r#"{"enabled": ;}"#),
@@ -536,6 +544,23 @@ mod tests {
                 "{label} should not be accepted"
             );
         }
+    }
+
+    #[test]
+    fn quotes_unquoted_lowercase_and_mixed_case_values() {
+        let text = r#"{
+            "builtInWings": [brdy_kutos_wing],
+            "size": Large,
+            "id": test_id,
+            "valid": true,
+            "nothing": null
+        }"#;
+        let parsed = parse_starsector_json(text).unwrap();
+        assert_eq!(parsed["builtInWings"][0], "brdy_kutos_wing");
+        assert_eq!(parsed["size"], "Large");
+        assert_eq!(parsed["id"], "test_id");
+        assert_eq!(parsed["valid"], true);
+        assert!(parsed["nothing"].is_null());
     }
 
     #[test]
