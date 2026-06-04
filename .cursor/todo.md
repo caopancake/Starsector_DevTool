@@ -3,7 +3,7 @@
 ## Phase 1: Ralph 循环
 
 - [ ] 执行 Ralph 循环。
-- [ ] 目标和循环记录维护在 `.trae/PROGRESS.md`。
+- [ ] 目标和循环记录维护在 `.cursor/PROGRESS.md`。
 
 ## Phase 2: 加载改善性能验收与回归
 
@@ -240,6 +240,6 @@
 - [ ] 统一回查前后端模块边界、命名一致性、状态链路和保存语义。
 - [ ] 清理临时兼容层和死代码。
 - [ ] 重新审视 store、service、component、composable 和 shared API 是否再次出现职责漂移。
-- [ ] 更新 `.trae/module-map.md`、`.trae/modules/`、`.trae/frontend-guidelines.md`、`.trae/backend-guidelines.md` 和 `README.md`。
+- [ ] 更新 `.cursor/module-map.md`、`.cursor/modules/`、`.cursor/frontend-guidelines.md`、`.cursor/backend-guidelines.md` 和 `README.md`。
 - [ ] 跑前后端全套检查，并补最关键的回归清单。
 - [ ] 记录仍然存在但可接受的技术债和后续改进方向。

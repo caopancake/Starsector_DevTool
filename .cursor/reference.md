@@ -1,6 +1,6 @@
 # Reference
 
-本文档存放尚未实现的目标、候选设计和参考资料。当前已实现模块和调用链见 `.trae/module-map.md`。
+本文档存放尚未实现的目标、候选设计和参考资料。当前已实现模块和调用链见 `.cursor/module-map.md`。
 
 ## Blueprint System Reference
 

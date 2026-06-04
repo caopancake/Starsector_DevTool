@@ -43,7 +43,7 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 - `src-tauri/src/parsers/` 是格式解析和渲染层。
 - `src-tauri/src/io/` 是 UTF-8、JSON-like、图片和路径相关 IO 层。
 - `src-tauri/src/models/` 是 Rust 与前端交换的数据结构和 command wire 模型。
-- 具体模块链路和职责以 `.trae/module-map.md` 及 `.trae/modules/` 为准。
+- 具体模块链路和职责以 `.cursor/module-map.md` 及 `.cursor/modules/` 为准。
 
 ## 规范
 
@@ -70,4 +70,4 @@ Starsector DevTool 是一个 Windows 桌面版 Starsector Mod 配置工具。
 
 ## 发布策略
 
-- 具体构建命令、产物路径和验收步骤见 `.trae/workflow.md`。
+- 具体构建命令、产物路径和验收步骤见 `.cursor/workflow.md`。

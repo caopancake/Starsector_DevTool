@@ -1,6 +1,6 @@
 # Workflow
 
-本文档只记录日常操作流程、命令和验收规则。项目背景、功能边界和数据流见 `.trae/overview.md`。
+本文档只记录日常操作流程、命令和验收规则。项目背景、功能边界和数据流见 `.cursor/overview.md`。
 
 ## 编码规则
 
@@ -16,20 +16,20 @@
 ## 改动前
 
 1. 阅读 `AGENTS.md`。
-2. 阅读 `.trae/overview.md`。
+2. 阅读 `.cursor/overview.md`。
 3. 阅读本文档确认操作和验收要求。
 4. 根据任务阅读相关专题。
 5. 使用 `rg` 或显式 UTF-8 读取命令检查当前实现。
 
 相关专题：
 
-- 前端：`.trae/frontend-guidelines.md`
-- 后端：`.trae/backend-guidelines.md`
-- CSS / 视觉：`.trae/css-guidelines.md` (较大)
-- 模块边界和链路：`.trae/module-map.md` 及其引用的 `.trae/modules/`
-- 术语：`.trae/terminology.md` (非常巨大，除非任务明确需要，否则不要全文读取)
-- 阶段计划：`.trae/todo.md`
-- 候选设计：`.trae/reference.md`
+- 前端：`.cursor/frontend-guidelines.md`
+- 后端：`.cursor/backend-guidelines.md`
+- CSS / 视觉：`.cursor/css-guidelines.md` (较大)
+- 模块边界和链路：`.cursor/module-map.md` 及其引用的 `.cursor/modules/`
+- 术语：`.cursor/terminology.md` (非常巨大，除非任务明确需要，否则不要全文读取)
+- 阶段计划：`.cursor/todo.md`
+- 候选设计：`.cursor/reference.md`
 
 ## 开发约束
 

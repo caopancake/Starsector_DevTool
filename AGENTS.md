@@ -1,6 +1,6 @@
 # Starsector DevTool
 
-Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的细则。
+Starsector DevTool 的项目入口索引。先读这里，再读 `.cursor/` 里的细则。
 
 ## 最首要最绝对的规则
 
@@ -16,18 +16,18 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 ## 读取顺序
 
 1. `AGENTS.md`
-2. `.trae/overview.md`
-3. `.trae/workflow.md`
+2. `.cursor/overview.md`
+3. `.cursor/workflow.md`
 4. 相关专题文档：
-   - `.trae/frontend-guidelines.md`
-   - `.trae/backend-guidelines.md`
-   - `.trae/css-guidelines.md` (较大)
-   - `.trae/module-map.md`
-   - `.trae/terminology.md` (非常巨大，除非任务明确需要，否则不要全文读取)
+   - `.cursor/frontend-guidelines.md`
+   - `.cursor/backend-guidelines.md`
+   - `.cursor/css-guidelines.md` (较大)
+   - `.cursor/module-map.md`
+   - `.cursor/terminology.md` (非常巨大，除非任务明确需要，否则不要全文读取)
 5. 任务文档：
-   - `.trae/todo.md`
-   - `.trae/specs/`
-   - `.trae/reference.md` (未实现目标、候选设计和参考资料，需要时读取)
+   - `.cursor/todo.md`
+   - `.cursor/specs/`
+   - `.cursor/reference.md` (未实现目标、候选设计和参考资料，需要时读取)
 
 ## 绝对规则
 
@@ -73,17 +73,17 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 ## 当前状态
 
 - 当前实现为 Tauri 2 + Vue 3 + TypeScript + Rust。
-- 当前已实现模块和调用链以 `.trae/module-map.md` 为准；未实现目标和参考设计以 `.trae/reference.md` / `.trae/todo.md` 为准。
+- 当前已实现模块和调用链以 `.cursor/module-map.md` 为准；未实现目标和参考设计以 `.cursor/reference.md` / `.cursor/todo.md` 为准。
 
 ## 按任务选择专题
 
-- 前端改动看 `.trae/frontend-guidelines.md`
-- 后端改动看 `.trae/backend-guidelines.md`
-- CSS / 视觉改动看 `.trae/css-guidelines.md`
-- 模块边界和编辑链路看 `.trae/module-map.md` 及其引用的 `.trae/modules/`
-- 术语和命名看 `.trae/terminology.md` (非常巨大，除非任务明确需要，否则不要全文读取)
-- 后续阶段看 `.trae/todo.md`
-- 未实现目标和候选设计看 `.trae/reference.md`
+- 前端改动看 `.cursor/frontend-guidelines.md`
+- 后端改动看 `.cursor/backend-guidelines.md`
+- CSS / 视觉改动看 `.cursor/css-guidelines.md`
+- 模块边界和编辑链路看 `.cursor/module-map.md` 及其引用的 `.cursor/modules/`
+- 术语和命名看 `.cursor/terminology.md` (非常巨大，除非任务明确需要，否则不要全文读取)
+- 后续阶段看 `.cursor/todo.md`
+- 未实现目标和候选设计看 `.cursor/reference.md`
 
 ## 关键提醒
 
@@ -91,4 +91,4 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.trae/` 里的
 - 多 Mod 状态必须按 `modRoot` 隔离；任一按 Mod 归属的运行时状态、缓存、编辑上下文和历史记录，都禁止跨 Mod 读取、复用、写入或回放。
 - 所有磁盘路径、删除和写入语义以后端校验为准，前端不绕过 Rust。
 - 字段编辑入口必须遵守全局编辑模式。
-- 视觉、CSS、主题和控件风格以 `.trae/css-guidelines.md` 为准。
+- 视觉、CSS、主题和控件风格以 `.cursor/css-guidelines.md` 为准。

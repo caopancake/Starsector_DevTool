@@ -62,7 +62,7 @@ cargo fmt --manifest-path src-tauri\Cargo.toml --check
 ## 文档
 
 - 项目入口：[AGENTS.md](./AGENTS.md)
-- 细则文档：[.trae/](./.trae/)
+- 细则文档：[.cursor/](./.cursor/)
 
 ## 许可
 
