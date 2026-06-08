@@ -2,72 +2,127 @@
 
 ## 定义
 
-战术系统编辑器是独立窗口 spec 编辑器，用于编辑单个 `.system` 文件。采用纯表单折叠区段布局（无画布），支持按系统类型动态显隐条件区段。
+战术系统编辑器是在独立窗口中读取、编辑、导入和保存单个 `.system` spec 的结构化表单模块。
+
+## 参考
+
+- `src/app/EditorWindowContent.vue`：按 `kind=system` 挂载系统编辑器，并把窗口 ViewModel 的 system bundle 转为组件输入。
+- `src/app/components/editors/SystemEditor.vue`：拥有系统 spec 本地 draft、type 条件区段、额外字段编辑和保存事件。
+- `src/app/composables/use-editor-window-view-model.ts`：拥有编辑器窗口 query、缺失 spec 选择、保存、跨窗口 spec 同步和本窗口 cache 刷新。
+- `src/domain/editors/lib/normalize.ts`：拥有系统 spec 进入组件前的结构默认值归一化。
+- `src/orchestrators/file-save.orchestrator.ts`：在主窗口消费编辑器保存事件，记录文件级 history 并按写盘结果刷新 session。
+- `src/services/editor.service.ts`：拥有系统编辑器 entity bundle 查询、默认 spec 构造、导入入口和 spec 保存 service。
+- `src/shared/api/files-api.ts`：封装 `save_editor_spec` 与 `load_imported_editor_spec_file` 的 Tauri command 调用形状。
+- `src-tauri/src/commands/files.rs`：校验 `sessionId + modRoot` 属于同一 ProjectSession 后调用 editor spec service。
+- `src-tauri/src/services/editor_specs.rs`：按 `EditorSpecKind::System` 定位、清理、写入和导入 `.system` JSON-like spec。
+- `src-tauri/src/services/project/cache/invalidation.rs`：按 `.system` 写盘路径刷新 ProjectSession 的 system spec 索引和统计。
 
 ## 边界
 
-- `src/windows/editor.window.ts` 打开 `kind=system` 编辑器窗口。
-- `src/app/EditorWindowApp.vue` 只负责按窗口类型挂载编辑器根组件。
-- 编辑器 ViewModel 使用主窗口传入的 session 查询系统数据。
-- 编辑器 ViewModel 返回系统窗口专用数据形状（`SystemEditorEntityBundle`）。
-- `src/app/components/editors/SystemEditor.vue` 承载系统编辑 UI。
-- `src/services/editor.service.ts` 调用 spec 保存 API。
-- `src-tauri/src/services/project/session.rs` 在 session 建立时通过 `load_json_dir_by_id` 加载 `data/shipsystems/*.system`。
-- `src-tauri/src/services/editor_specs.rs` 按编辑器 spec 类型定位并保存 `.system` JSON-like spec。
-- `src-tauri/src/services/project/cache/invalidation.rs` 在 `.system` 文件变更时刷新 `session.system_files`。
+- CSV 表格详情只能作为打开系统编辑器的入口消费者，不拥有 `.system` draft、导入或保存语义。
+- ProjectSession 拥有已加载 `.system` entity 索引，系统编辑器只能通过 entity query 消费该索引。
+- Rust command 层只接收 payload、校验 session 与 Mod 归属并调用 service，不解析 system 字段。
+- Rust editor spec service 拥有 `.system` 目标定位、ID 校验、内部字段剔除、文本渲染和 changeset 写盘。
+- SystemEditor 组件拥有本窗口本地 draft、折叠区段、type 条件显隐和结构化字段集合。
+- SystemEditor 组件只能 emit 保存请求，不能调用 shared API、service、orchestrator 或写入跨窗口状态。
+- `data/shipsystems/*.system` 是系统编辑器唯一持久化目标，不包含 `ship_systems.csv` 行、资源文件或其它 spec。
+- `editor-spec-saved` 事件是编辑器窗口向主窗口和其它编辑器窗口同步保存结果的唯一窗口事件。
+- `load_imported_editor_spec_file` 只读取用户选择的外部 `.system` 文件，不决定保存目标、不登记 history、不刷新 session。
+- `modRoot + sessionId + systemId` 是系统编辑器窗口状态、事件消费和保存结果归属的身份边界。
+- 主窗口拥有文件级 history 记录、ProjectSession invalidation 和全局 query/resource cache 失效。
+- 系统编辑器没有画布、资源 data URL、原版资源回退、sprite 上传或派生资源刷新职责。
+
+## 链路
+
+### 打开系统编辑器
+
+1. 用户从 `ship_systems.csv` 关联入口触发打开系统编辑器。
+2. 主窗口调用 `openSystemEditorWindow()` 并传入 `sessionId + modRoot + systemId + settings`。
+3. 窗口管理按 `system + modRoot + systemId` 单例化编辑器窗口。
+4. 编辑器窗口入口挂载 `EditorWindowContent`。
+5. `EditorWindowContent` 创建 `useEditorWindowViewModel({ kind: 'system' })`。
+6. ViewModel 调用 `queryEditorEntityBundle(sessionId, 'system', systemId)`。
+7. editor service 调用 `querySessionEntity(sessionId, 'system', systemId)`。
+8. Rust entity query 从 ProjectSession `system_files` 读取同 ID `.system` 数据。
+9. service 返回 `SystemEditorEntityBundle`，存在 spec 时使用查询数据，缺失时使用 `{ id, type: 'STAT_MOD' }` 默认 spec。
+10. `EditorWindowContent` 把 bundle 中的 `system` 传给 `SystemEditor`。
+11. `SystemEditor` 通过 `normalizeSystemSpec()` 建立本地 draft。
+
+### 导入缺失系统 spec
+
+1. ViewModel 收到 `isNew: true` 且允许提示时弹出新建、导入或取消选择。
+2. 用户选择导入后，窗口 runtime 只允许选择 `.system` 文件。
+3. ViewModel 调用 `loadImportedSpecFile('system', path)`。
+4. shared API 调用 `load_imported_editor_spec_file`。
+5. Rust service 校验导入路径为绝对路径、路径不含父目录段且扩展名为 `.system`。
+6. Rust 以 JSON-like 读取并解析导入文件。
+7. ViewModel 将导入数据写入当前 `SystemEditorEntityBundle.system`，不写盘、不记录 history、不刷新 session。
+8. `SystemEditor` watcher 接收新 system 数据并重新归一化本地 draft。
+
+### 保存系统 spec
+
+1. 用户在 `SystemEditor` 点击保存。
+2. `SystemEditor` emit `save-requested`，payload 为当前本地 draft。
+3. ViewModel 调用 `saveEditorSpecByKind(sessionId, modRoot, 'system', systemId, data)`。
+4. editor service 校验 `modRoot` 和 `systemId`，并确保 `data.id` 存在。
+5. shared API 调用 `save_editor_spec`。
+6. Rust command 校验 `sessionId + modRoot` 仍属于同一 ProjectSession。
+7. Rust editor spec service 以 `EditorSpecKind::System` 校验 ID 并扫描 `data/shipsystems` 下 `.system` 文件。
+8. Rust 读取候选 `.system` 并按 `id` 字段定位既有文件；未找到时使用 `data/shipsystems/{id}.system`。
+9. Rust 剔除内部字段，将 spec 渲染为 pretty JSON 文本。
+10. Rust 构建单文件 changeset 并通过 file changeset replay 写盘。
+11. Rust 返回包含 `changes` 与 `invalidatedPaths` 的 `WriteResult`。
+12. ViewModel 将保存后的 spec 应用到本窗口 bundle。
+13. ViewModel emit `editor-spec-saved`，事件携带 `kind + sessionId + modRoot + id + spec + writeResult`。
+
+### 保存后同步
+
+1. 主窗口通过窗口保存监听器接收 `editor-spec-saved`。
+2. 主窗口确认当前 manifest 的 `sessionId` 与事件一致。
+3. 主窗口将 `WriteResult.changes` 记录为文件级 history，标签为保存的 `.system` 文件。
+4. 主窗口按 `WriteResult.invalidatedPaths` 调用 ProjectSession invalidation。
+5. Rust session invalidation 将 `.system` 路径归一到当前 Mod 范围。
+6. Rust 重新加载 `data/shipsystems/*.system` 到 `session.system_files`。
+7. Rust 更新 manifest 的 systems 统计与 `shipSystems` 表 entity 统计。
+8. 主窗口更新 project store 中对应 manifest。
+9. 主窗口广播 `project-session-invalidated` 并清理本地 query/resource cache。
+10. 系统编辑器窗口收到 session invalidation 后按本窗口 `sessionId + modRoot` 清理本地 cache。
+11. 若 query cache 失效包含当前 `system + systemId` entity detail，ViewModel 静默重新查询当前 system bundle。
+12. 其它系统编辑器窗口收到同一 `editor-spec-saved` 且身份匹配时更新本地 bundle。
+
+### 切换系统 type
+
+1. 用户在 `SystemEditor` 改变 `type`。
+2. 组件读取旧 type 与新 type。
+3. 组件只删除旧 type 拥有且新 type 不拥有的专属字段。
+4. 组件保留通用字段、额外字段和内部字段。
+5. 组件写入新的 `type` 值。
 
 ## 规范
 
-- 战术系统编辑器保存只写对应 `.system`。
-- 编辑器 spec 保存入口必须使用正式 spec 类型模型（`EditorSpecKind::System`），不得用裸字符串在 service 层解析。
-- 编辑器 spec 保存入口必须在候选目录扫描、目标路径构造和 changeset 构建前校验目标 ID 是可移植文件名 ID。
-- 编辑器 spec 保存定位目标时，候选根不是目录、候选遍历失败、已存在候选 spec 的读取或解析失败都必须返回错误，不能跳过候选后写入默认新路径。
-- 导入已有编辑器 spec 文件必须提交正式 spec 类型和文件路径，Rust 按类型校验扩展名并拒绝包含 `..` 的路径后再读取。
-- 系统数据来自 Mod 目录 `data/shipsystems/*.system`，不含原版资源回退。
-- 当 entity query 返回空（`.system` 文件不存在）时，编辑器 ViewModel 弹出选择对话框（新建 / 导入 / 取消）；此行为由所有 spec 编辑器（ship / weapon / projectile / system）共用。
-- 保存动作由编辑器 ViewModel 调用 service/orchestrator 完成；组件不得直接调用 shared API。
-- 系统窗口保存成功后通过携带 `sessionId + modRoot + kind + id + WriteResult` 的 `editor-spec-saved` 同步主窗口和其它编辑器窗口。
-- 系统窗口收到主窗口广播的 session 路径失效后，必须清理本窗口 query/resource cache，并重新查询当前系统 bundle。
-- 系统窗口加载失败只影响当前窗口。
-- `type` 字段切换时，组件主动删除不属于新类型的专属字段值；通用字段不被清除。
-- 额外字段由系统编辑器结构化字段集合之外、且不属于共享内部字段的 key 组成；组件不得自行用 `_` 前缀判断内部字段。
-- 编辑器体区域使用内联 `max-height: calc(100vh - 108px)` 约束高度以确保滚动生效，因为 CSS Grid 嵌套链路在当前 WebView2 下无法正确传递 `1fr` 高度约束。
+- 导入失败只影响当前编辑器窗口，不能创建保存结果、history 或 session invalidation。
+- 额外字段必须由结构化字段集合之外、且非内部 JSON 字段的 key 构成。
+- 缺失 `.system` 时，新建选择只建立本地默认 draft；只有保存链路允许写盘。
+- 前端保存前只能补齐 `data.id`，不能决定最终磁盘路径。
+- 切换 `type` 时只能清除旧类型专属字段，不能清除通用字段、额外字段或内部字段。
+- 系统 spec entity query 只读取当前 Mod ProjectSession 的 `system_files`，不使用 Core fallback。
+- 系统 spec 保存必须使用 `EditorSpecKind::System`，不能在 service 层用裸字符串决定目录或扩展名。
+- 系统 spec 保存必须先校验 ID 为可移植配置 ID，再扫描候选目录和构建目标路径。
+- 系统 spec 保存目标只能是 `data/shipsystems` 下 ID 匹配的既有 `.system` 或 `{id}.system` 新文件。
+- 系统 spec 写盘结果必须以 Rust 返回的 `WriteResult` 为准，前端不得自行构造 changeset 或 invalidated paths。
+- 系统编辑器窗口保存成功后必须广播 `editor-spec-saved`，不能直接写主窗口 project store 或 file history。
+- 系统编辑器组件的本地 draft 是窗口内临时状态，不持久化，不跨 Mod 复用。
+- 系统编辑器组件允许在无效 JSON 编辑过程中保留文本输入状态，但无效 JSON 不能写入对应对象字段。
+- 系统编辑器组件显示高度约束必须保证窗口体区域可滚动，避免表单内容溢出不可达。
+- 主窗口记录 history 和刷新 session 时必须验证事件 `sessionId + modRoot` 仍匹配当前 manifest。
+- 候选目录不是目录、候选遍历失败、候选 `.system` 读取失败或解析失败都必须作为保存错误返回。
 
-## 链路：打开战术系统编辑器
+## 陷阱
 
-1. 用户从 `ship_systems.csv` 表格行详情触发打开编辑器。
-2. 主窗口调用 `openSystemEditorWindow()`。
-3. 多窗口机制按 `system + modRoot + systemId` 单例化窗口。
-4. 新窗口挂载 `EditorWindowApp` → `EditorWindowContent`。
-5. 编辑器 ViewModel 使用 `sessionId + systemId` 查询 system entity。
-6. 若 entity 存在（`isNew: false`），直接加载 spec 到编辑器。
-7. 若 entity 不存在（`isNew: true`），弹出选择对话框：
-   - 新建文件：以默认模板 `{ id, type: 'STAT_MOD' }` 打开。
-   - 导入已有文件：打开文件选择器（限 `.system`），通过 Rust `load_imported_editor_spec_file` 以宽松 JSON 解析，加载内容到编辑器。
-   - 取消：关闭编辑器窗口。
-8. `EditorWindowContent` 挂载 `SystemEditor`。
-
-## 链路：保存战术系统 spec
-
-1. 用户在 `SystemEditor.vue` 点击保存。
-2. 编辑器 ViewModel 调用 `saveEditorSpecByKind(modRoot, 'system', id, data)`。
-3. Rust `save_editor_spec` 按 `System + systemId` 定位目标 `.system`。
-4. Rust 写入 pretty JSON 文本（`find_json_target` 在 `data/shipsystems/` 目录下按 `id` 字段匹配，未找到时创建 `{id}.system`）。
-5. Rust 返回 `WriteResult`。
-6. 编辑器 ViewModel 发送 `editor-spec-saved`。
-7. 主窗口记录文件级 history 并失效对应 session cache。
-
-## 类型专属字段分组
-
-切换 `type` 时，以下字段随旧类型清除：
-
-| type           | 专属字段                                                                                                                                          |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ENGINE_MOD     | engineGlowColor, engineGlowContrailColor, engineGlowLengthMult, engineGlowWidthMult, engineGlowGlowMult, flameoutOnImpactChance, alwaysAccelerate |
-| SHIELD_MOD     | shieldRingColor, shieldInnerColor, shieldThicknessMult, shieldFluctuationMult                                                                     |
-| PHASE_CLOAK    | effectColor1, effectColor2, phaseHighlight, phaseDiffuse, shipAlpha                                                                               |
-| DISPLACER      | range, randomRange, renderCopyDuringTeleport                                                                                                      |
-| WEAPON         | weaponDataId                                                                                                                                      |
-| DRONE_LAUNCHER | droneVariant, allowFreeRoam, launchSpeed, launchDelay, maxDrones, droneBehavior                                                                   |
-
-通用字段（音效、行为标志、AI 提示、jitter、weaponGlow、damage）不受 type 切换影响。
+- 把 `ship_systems.csv` 行保存和 `.system` spec 保存合并，会污染 CSV 表格模块与 spec 编辑器的写入边界。
+- 把导入文件当作最终保存路径，会绕过 Mod 内 `data/shipsystems` 的持久化边界。
+- 把文件级 history 写在编辑器窗口内，会让独立窗口在 session 已切换后记录到错误 Mod。
+- 按 `_` 前缀识别内部字段，会误删合法额外字段或保留真实内部字段污染写盘。
+- 保存后只更新本窗口 draft 而不广播 `editor-spec-saved`，会导致主窗口 history、session cache 和其它窗口不同步。
+- 在 type 切换时删除所有隐藏区段字段，会丢失跨 type 合法复用的通用系统参数。
+- 遇到候选 `.system` 解析失败后改写默认 `{id}.system`，会隐藏已有文件错误并制造重复 ID。

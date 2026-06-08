@@ -8,9 +8,8 @@
 - 所有文件必须以 UTF-8 无 BOM 编码写入。
 - PowerShell `Get-Content` 必须带 `-Encoding utf8` 参数。
 - 以 CRLF 作为换行符。
-- 一切文件编辑只允许 `apply_patch`。
 - 禁止用 Python、PowerShell、shell 重定向、Set-Content 或任何脚本写入、重写、生成或批量改写文件内容。
-- 允许使用 rustfmt 格式化 Rust 源码。
+- 允许使用 `cargo fmt` 格式化 Rust 源码。
 - 允许运行项目标准格式化命令 `npm.cmd run format`，因为 Prettier 规范化属于格式验收链路。
 
 ## 改动前

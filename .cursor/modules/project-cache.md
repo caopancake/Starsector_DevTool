@@ -2,108 +2,157 @@
 
 ## 定义
 
-ProjectSession 系统是打开 Mod 后的运行态项目边界。Rust 持有项目数据和索引，前端只缓存轻量 `ProjectManifest`，并按当前界面需要发起 query。
+ProjectSession / Manifest 缓存系统以 Rust session 为项目运行态权威，并以前端 manifest、query cache 和 resource cache 支撑按需读取。
+
+## 参考
+
+- `src/orchestrators/project-session-invalidation.orchestrator.ts`：拥有 WriteResult 到 Rust session 刷新、manifest 更新、本地 cache 清理和跨窗口失效广播。
+- `src/services/query-cache.service.ts`：拥有前端 query cache、pending query 复用、query identity、路径失效匹配和 ViewModel 失效通知。
+- `src/services/query.service.ts`：拥有 session query 的业务 service 入口和 query cache 接入。
+- `src/services/resource-cache.service.ts`：拥有 ResourceRef data URL 缓存、批量查询结果校验和资源路径失效。
+- `src/services/session.service.ts`：拥有 session 打开、关闭、失效和 core cache 失效的前端 service 入口。
+- `src/services/write.service.ts`：拥有写入 service 入口到 WriteResult 的统一返回边界。
+- `src/shared/api/query-api.ts`：拥有 session query command 的 wire adapter。
+- `src/shared/api/session-api.ts`：拥有 session lifecycle、目录识别和 core cache command 的 wire adapter。
+- `src/stores/project.store.ts`：拥有前端 ProjectManifest map、活动 Mod root、活动 session 和加载态。
+- `src-tauri/src/services/project/cache/csv.rs`：拥有 Rust session CSV lazy rows、已加载 rows 边界和未知 table 错误语义。
+- `src-tauri/src/services/project/cache/invalidation.rs`：拥有 changed path 归属校验、路径分类、session 索引刷新和 manifest summary 更新。
+- `src-tauri/src/services/project/cache/mod.rs`：拥有 Rust ProjectSession map、core cache map 和 session/core cache 入口。
+- `src-tauri/src/services/project/cache/core.rs`：拥有 core cache key 规范化和 core CSV/spec/source 数据缓存。
+- `src-tauri/src/services/project/model.rs`：拥有 Rust ProjectSession、SessionCsvTable、SpecBundle 和 CoreCache 内部模型。
+- `src-tauri/src/services/project/query/mod.rs`：拥有 Rust session query service re-export 边界。
+- `src-tauri/src/services/project/session.rs`：拥有 ProjectSession 创建、关闭、manifest 构建、session 归属校验和 session 失效入口。
 
 ## 边界
 
-- `src/stores/project.store.ts` 只保存 `ProjectManifest`、由 workspace 导航同步的活动 Mod 和加载状态。
-- `src/services/session.service.ts` 负责打开 session 并返回 manifest。
-- `src/services/write.service.ts` 负责把所有写入入口统一成 `WriteResult`。
-- `src/services/resource-cache.service.ts` 负责前端资源 data URL 批量缓存。
-- `src/services/query.service.ts` 负责通用 session query。
-- `src/services/query-cache.service.ts` 负责统一前端 query cache，key 为 `sessionId + query kind + normalized parameters`。
-- `src/orchestrators/project-session-invalidation.orchestrator.ts` 负责跨窗口广播已完成的 session 路径失效。
-- `src/shared/api/session-api.ts` 封装 session lifecycle command。
-- `src/shared/api/query-api.ts` 封装 session query command。
-- `src/shared/api/tables-api.ts` 封装表格写入 command。
-- `src/shared/api/files-api.ts` 封装文件读取、文件保存、编辑器保存和 changeset 回放 command。
-- `src/shared/api/assets-api.ts` 封装贴图上传和 core 扫描 command。
-- `src/shared/api/config-entity-api.ts` 封装配置 entity 写入 command。
-- `src-tauri/src/services/project/session.rs` 承载 session 生命周期入口。
-- `src-tauri/src/services/project/entry.rs` 承载 command-facing session 打开入口和同级服务效果编排。
-- `src-tauri/src/services/project/query/` 承载 session query 入口；`query/mod.rs` 只做子模块声明和 re-export。
-- `src-tauri/src/services/project/write/` 承载 session write 入口；`write/mod.rs` 只做子模块声明和 re-export。
-- `src-tauri/src/services/project/cache/` 承载 session cache 和 core cache；`cache/mod.rs` 只做 registry、子模块声明和 re-export。
-- `src-tauri/src/services/project/model.rs` 承载 ProjectSession 内部模型和通用读写模型。
-- `src-tauri/src/services/project/root.rs` 承载目录识别、游戏概览和非 session 根服务。
-- `src-tauri/src/services/project/mod.rs` 只做模块声明和 command-facing service re-export。
-- session 是内存运行态，不写入配置目录。
-- session 生命周期层不依赖同级 app service；打开 session 后的 app log 等同级服务效果只能在 command-facing project entry 编排。
+- Core cache 归 Rust cache 层拥有，按规范化 starsectorRoot 身份读写。
+- ProjectManifest 归 Rust session 构建，前端 project store 只按 modRoot 保存和更新 manifest。
+- ProjectSession 归 Rust session map 拥有，前端不得缓存完整项目数据包或内部索引。
+- Query cache 归前端 query cache service 拥有，调用方只能通过 query service 消费缓存能力。
+- ResourceRef 归 Rust session query 生成，前端不得拼接 source、relPath、ownerKind、ownerId 或 key。
+- Resource data URL cache 归前端 resource cache service 拥有，以 sessionId 和 ResourceRef 身份缓存。
+- WriteResult 归写入 service 返回边界拥有，缓存失效只能消费 changes 和 invalidatedPaths。
+- changed path 归属校验归前后端共享路径语义和 Rust invalidation 共同拥有，外部绝对路径不得污染当前 session。
+- manifest 活动状态归 workspace 导航和 project store 拥有，写入 manifest 不得隐式切换活动 Mod。
+- query API 归 shared API adapter 拥有，只描述 Tauri command 调用形状，不定义业务模型。
+- session lifecycle API 归 shared API adapter 拥有，只转交 payload，不保存运行态。
+- session query 归 Rust query service 拥有，必须从 session map 中读取对应 session。
+- session 写入后的运行态刷新归 Rust session invalidation 拥有，前端只发 changed paths。
+- 资源失效通知归 query cache invalidation event 拥有，ViewModel 只能按 query identity 和 ResourceRef 身份刷新派生状态。
+
+## 链路
+
+### 按需查询
+
+1. ViewModel 或业务 service 调用 query service。
+2. query service 用 sessionId、query kind 和参数调用 query cache。
+3. query cache 生成结构化 cache key。
+4. query cache 命中完成值时返回缓存结果。
+5. query cache 命中 pending query 时复用同一个 promise。
+6. query cache 未命中时调用 shared API。
+7. shared API 调用 Rust query command。
+8. Rust command 调用 query service。
+9. Rust query service 从 session map 读取 ProjectSession。
+10. Rust query service 读取 session 索引、lazy CSV rows 或资源数据。
+11. Rust command 返回 query 结果。
+12. query cache 在 key version 未变化时写入完成值。
+13. query service 把结果返回调用方。
+
+### 关闭 session
+
+1. workspace shell 移除 Mod 或关闭工作区。
+2. 前端按 sessionId 清理 resource cache。
+3. 前端按 sessionId 清理 query cache。
+4. 前端清理 project store 中对应 modRoot 的 manifest。
+5. 前端调用 close project session service。
+6. shared API 调用 Rust close project session command。
+7. Rust command 调用 session service。
+8. Rust session service 从 session map 移除该 sessionId。
+
+### 打开 session
+
+1. open-directory 编排调用 session service 打开 Mod。
+2. session service 调用 shared API。
+3. shared API 调用 Rust open project session command。
+4. Rust command 调用 ProjectSession 打开入口。
+5. Rust session service 构建 ProjectSession。
+6. Rust session service 生成 ProjectManifest。
+7. Rust session service 把 ProjectSession 写入 session map。
+8. Rust command 返回 ProjectManifest。
+9. 前端 project store 按 modRoot 保存 manifest。
+10. tables store 只消费 manifest summary 进行 hydrate。
+
+### 写入后 session 失效
+
+1. 写入 service 返回 WriteResult。
+2. 保存编排读取 WriteResult.invalidatedPaths。
+3. session invalidation 编排按 modRoot 取得当前 manifest。
+4. session invalidation 编排校验 expectedSessionId。
+5. session invalidation 编排过滤属于当前 Mod 的 changed paths。
+6. session invalidation 编排调用 invalidate project service。
+7. shared API 调用 Rust invalidate project session command。
+8. Rust session service 从 session map 取得目标 ProjectSession。
+9. Rust invalidation 按 changed path 归属得到项目相对路径。
+10. Rust invalidation 对路径进行正式目标分类。
+11. Rust invalidation 刷新受影响 CSV rows、entity/spec 索引和 manifest summary。
+12. Rust command 返回刷新后的 ProjectManifest。
+13. 前端 project store 用返回 manifest 更新对应 modRoot。
+14. 前端 resource cache 按 invalidatedPaths 清理命中的 mod 资源。
+15. 前端 query cache 按 manifest 和 invalidatedPaths 清理命中的 query。
+16. 前端广播 ProjectSession 失效事件给独立窗口。
+
+### core cache 失效
+
+1. workspace shell 关闭工作区或切换 Starsector root。
+2. 前端调用 invalidate core cache service。
+3. shared API 调用 Rust invalidate core cache command。
+4. Rust command 调用 project session service。
+5. Rust cache 层规范化 starsectorRoot。
+6. Rust cache 层从 core cache map 移除该 root 的缓存。
+
+### resource data URL 查询
+
+1. 调用方提交 sessionId 和 ResourceRef 列表。
+2. resource cache 按 sessionId 与 ResourceRef 生成缓存 key。
+3. resource cache 找出未缓存的 ResourceRef。
+4. resource cache 通过 query cache 发起 resource-data-urls query。
+5. shared API 调用 Rust resource query command。
+6. Rust query 返回和请求同序的 data URL entries。
+7. resource cache 校验返回 entry 与请求 ResourceRef 完全匹配。
+8. resource cache 写入 data URL 或 null。
+9. resource cache 按原请求顺序返回 data URL 列表。
 
 ## 规范
 
-- 前端业务代码禁止依赖完整项目数据包。
-- 图片 data URL、原版引用和完整 CSV 行集不得进入 `ProjectManifest`。
-- `ProjectManifest.tableSummaries` 只暴露已注册 CSV 表格摘要；mission list 属于 Mission entity query 的内部索引，不作为公开表格摘要下发。
-- `ProjectManifest.tableSummaries` 对每个已注册公开 CSV 表都必须返回摘要；缺失文件用 `available=false` 表达，不用缺省表 key 表达。
-- `ProjectManifest.tableEntitySummaries` 表达已注册 CSV 模块的有效实体数量；侧栏和 Mod 概览必须使用该字段，不能使用 CSV 行数。
-- ProjectSession 打开时允许缺失的轻量索引采用空默认值；文件存在但读取或解析失败必须返回错误，不能用默认 manifest、空计数或空集合覆盖损坏状态。
-- CSV、entity、source option 和资源都必须通过 session query 获取。
-- Query command 中的可空过滤、搜索和限制参数必须显式提交 null，不能依赖缺省字段表达无过滤。
-- Query command 中的集合参数必须显式提交数组；没有当前值或限定目标时提交空数组，不能由 service 默认补齐。
-- Entity query 的 kind 必须使用正式实体类型模型，不得用裸字符串在前后端各自解释。
-- Entity query 返回值必须显式携带 `resourceRefs`；没有资源引用时返回空对象，不得通过缺字段表达。
-- `ResourceRef` 只能由 Rust session query 生成；前端只能消费 query 返回的 `ResourceRef`，不得拼接 source、relPath、ownerKind、ownerId 或 key。
-- `ResourceRef.source` 必须使用共享的资源来源模型，前后端不得各自维护宽松字符串形状。
-- CSV source options、hull references、resource data URLs、entity list 和 entity detail 必须接入统一 query cache。
-- 前端 query cache 必须同时覆盖完成值和进行中的同 key query；并发请求同一 `sessionId + query kind + normalized parameters` 时复用同一个 in-flight promise。
-- 前端 query cache 的运行时 key 和失效匹配必须保留 `sessionId + query kind + normalized parameters` 的结构边界；缓存清理按 entry 持有的 sessionId 字段匹配，不能依赖字符串前缀。
-- 前端 query cache 的 query kind 是固定缓存语义模型，新增缓存能力必须先进入该模型，再定义对应失效规则。
-- Mission 读取属于 entity query，返回 index row、descriptor、mission_text、路径信息和 `resourceRefs.icon`。
-- CSV 行右侧预览必须通过 CSV row preview query 获取 `ResourceRef`。
-- ship hull 与 skin hull 引用必须通过 hull reference query 获取，前端不得逐 hull 查询 entity 组装候选项。
-- 独立编辑器窗口必须使用主窗口传入的 `sessionId`，不得自行重新打开项目。
-- 任何已打开 ProjectSession 归属下的 Mod 写盘 command 都必须在写盘前校验 `sessionId + modRoot` 仍指向同一个 ProjectSession；不能只在写盘返回后由前端丢弃旧 session 结果。
-- 文件保存、history 回放和贴图上传后，只能通过 session invalidation 通知缓存失效。
-- 写入链路必须返回 `changes` 和 `invalidatedPaths`；前端缓存清理只能由 `invalidatedPaths` 驱动。
-- Rust session invalidation 必须先把 changed path 归类为明确的 session 失效目标，再由失效目标刷新 ProjectSession 内部状态；刷新逻辑不得在操作步骤中分散解析路径语义。
-- Rust session invalidation 只处理相对 changed path 或归属当前 session Mod root 的绝对 changed path；外部绝对路径不得参与当前 session 的路径分类。
-- Rust session invalidation 必须按路径组件拒绝包含 `..` 的 changed path；相对 changed path 也不得携带盘符前缀。
-- session cache 按 `sessionId` 和 changed path 精确失效；core cache 按 `starsectorRoot` 显式失效。
-- Rust session invalidation 必须先把 changed path 规范为项目相对路径，再按正式目标文件或目录前缀刷新对应运行态索引：CSV 路径只清对应表 rows；faction 路径刷新 `faction_files` / `tag_map` 并清已加载 CSV rows；ship / weapon / projectile / system / skill / variant / skin 路径刷新对应 entity/spec 索引和 manifest summary，不能用子串包含把非目标目录误判为目标目录。
-- Rust query 读取 CSV rows 必须通过 loaded rows 边界；查询入口在确保加载后如果仍没有 rows，必须返回内部状态错误，不能把未加载状态当成空表。
-- Rust session CSV rows 加载入口必须先校验 table 已注册；未知 table 必须返回错误，不能当成“不需要加载”。
-- 前端 query cache 写入失效必须按 `ProjectManifest.tableSummaries` 和 changed paths 判定受影响 query；关闭 session 时才允许整 session 清理。
-- 前端写入失效只能把相对 changed path 或归属当前 Mod root 的绝对 changed path 交给对应 session；外部绝对路径不能触发当前 session 的 query/resource cache 失效。
-- 前端 CSV source options 缓存失效必须覆盖 source 表自身；`tags` source 还必须覆盖其元数据输入，包括 specialItems 表和 faction 目录。
-- 前端 CSV source options 缓存失效必须覆盖 `id` source 的资源引用输入；ship、weapon 和 wing 的 source 选项不得在对应 spec 索引变化后继续复用旧资源引用。
-- 前端 entity list/detail 缓存失效必须按 entity kind 的正式输入路径判定；不得因同 session 内任意无关路径变化就清理所有 entity query。
-- 前端 hull reference 缓存失效必须覆盖 ship / skin spec 输入；不得因 weapon、mission、faction 或其它无关路径变化重建 hull reference。
-- 前端 query cache 因写入路径失效后必须通知持有本地派生 query 索引的 ViewModel，通知必须携带被失效 query 的 kind、参数身份和失效范围；本地索引不得在底层 query cache 或其派生资源 data URL 已失效后继续作为权威数据使用。资源失效监听必须按本地派生索引实际持有的 `ResourceRef` 身份匹配，不能因同 session 内任意资源 query 失效重建无关派生状态。关闭 session 的整 session 清理不能触发 ViewModel 重新 query 即将关闭的 session。
-- 独立编辑器窗口的资源 data URL 失效只允许刷新当前 bundle 的资源字段；entity/spec query 失效才允许重查 editor bundle。
-- 独立编辑器窗口的派生 query 失效只能刷新对应派生字段；武器窗口 projectile list/detail 失效不能重查 weapon spec。
-- 写入、窗口保存事件和 history 回放完成 Rust session 刷新后，必须把刷新后的 manifest 与 changed paths 广播给独立窗口；独立窗口只能用该事件清理本窗口 query/resource cache 并重查本地派生数据，不能自行打开或推断 ProjectSession。
-- 前端 query cache 失效读取 query 参数时，缺失参数必须以 null 表达并按保守失效处理，不能用空字符串参与 table、source 或其它业务语义判断。
-- 前端 resource cache 写入失效必须按 `ResourceRef.source=mod`、`ResourceRef.relPath` 和 changed paths 判定受影响资源；Mod 写入路径不得清理 `source=core` 的资源条目，关闭 session 时才允许整 session 清理。
-- Rust core cache 必须使用规范化后的 `starsectorRoot` 身份，不能用原始字符串区分大小写或斜杠形式不同的同一游戏根目录。
-- 前端 query cache、resource cache 和文件历史刷新链路必须使用共享路径工具处理路径规范化、根归属和绝对路径判断，不得各自维护路径前缀规则。
-- 前端共享路径归属必须拒绝包含 `..` 组件的 changed path 或文件选择路径，不能把 parent-dir 逃逸路径归入当前 Mod。
-- 多 Mod 状态必须按 `sessionId` 和 `modRoot` 隔离。
-- ProjectManifest 写入只更新对应 `modRoot` 的 manifest 缓存，不得隐式切换活动 Mod；活动 Mod 只能由 workspace 导航、恢复或显式激活链路同步。
-- 前端复杂页面必须通过 ViewModel 组合 query、cache 和动作；组件不得直接拼接跨层请求数据。
-- `shared/api` 只做 Tauri wire adapter，不定义业务可见类型；adapter 文件按 Rust command 模块边界分组，跨层模型统一归属 `src/shared/types` 或 domain。
-- service 公开函数只表达业务能力，不暴露 command 名、history 细节或迁移语义。
-- orchestrator 函数以用户动作命名，不用 `WithHistory`、`WithFileHistory` 或 `WithUserAction` 表达内部效果。
+- changed path 必须拒绝 parent-dir 逃逸和不属于当前 Mod root 的外部绝对路径。
+- Core cache key 必须使用规范化后的 starsectorRoot。
+- Entity query 返回值必须显式携带 resourceRefs；没有资源引用时返回空对象。
+- ProjectManifest.tableEntitySummaries 必须表示有效实体数量，不能表示 CSV 总行数。
+- ProjectManifest.tableSummaries 必须覆盖所有已注册公开 CSV 表；缺失文件用 available=false 表达。
+- Query command 的可空参数必须显式提交 null。
+- Query command 的集合参数必须显式提交数组。
+- Query cache key 必须保留 sessionId、query kind 和规范化参数身份。
+- Query cache 必须同时缓存完成值和同 key pending promise。
+- Query cache 失效事件必须携带 query kind、参数身份、sessionId 和 scope。
+- ResourceRef.source=core 的资源不得被 Mod 写入路径失效清理。
+- ResourceRef 只能来自 Rust session query。
+- Rust session CSV rows 必须经 registered table 校验后 lazy load。
+- Rust session invalidation 必须先分类 changed path，再刷新对应索引。
+- 写入链路必须返回 changes 和 invalidatedPaths。
+- 写入后必须先刷新 Rust ProjectSession，再清理前端 cache。
+- 关闭 session 才允许整 session 清理 query cache 和 resource cache。
+- 前端 project store 写入 manifest 不得切换 activeModRoot。
+- 独立窗口只能用传入 sessionId 查询和消费失效事件，不得重新打开 ProjectSession。
+- 文件保存、history 回放和贴图上传后的缓存清理只能由 invalidatedPaths 驱动。
 
-## 链路：打开 session
+## 陷阱
 
-1. 前端调用 `openProject(modRoot, starsectorRoot?)`。
-2. shared API 调用 `open_project_session`。
-3. Rust 创建 `ProjectSession` 并返回 `ProjectManifest`。
-4. project store 保存 manifest。
-5. tables store 只接收 manifest summary，不接收完整表格数据。
-
-## 链路：按需查询
-
-1. 界面根据当前 session、表格、实体或资源发起 query。
-2. Rust 在 session 中读取对应索引或文件数据。
-3. 前端只缓存当前界面需要的结果。
-4. 写盘完成后通过 `invalidatedPaths` 先调用 `invalidate_project_session` 刷新 Rust session，再清理受影响 resource cache，最后清理 query cache 并通知本地派生状态重查。
-
-## 链路：关闭与失效
-
-1. 移除已加载 Mod 时，前端清理该 session 的资源缓存并调用 `close_project_session`。
-2. 保存、窗口保存事件、history 回放和贴图上传后，前端按 changed paths 调用 `invalidate_project_session`，再清理资源缓存和 query cache，并向独立窗口广播 session 路径失效。
-3. `invalidate_project_session` 返回刷新后的 `ProjectManifest`；前端必须用返回值更新 project store 中对应 Mod 的 manifest，保证侧栏计数和摘要与后端一致。
-4. 关闭工作区或切换 Starsector root 时，前端按 root 调用 core cache 失效入口。
-5. core cache 失效不替代 session 关闭；session 关闭不替代 core cache 失效。
+- 把完整 CSV、spec map 或图片 data URL 放入 ProjectManifest，会破坏按需 query 边界。
+- 把 query cache key 做成字符串前缀，会在参数顺序、sessionId 或 query kind 上产生误清理。
+- 把外部绝对路径交给当前 session 失效，会刷新不属于该 Mod 的索引。
+- 把 ResourceRef 在前端拼出来，会绕过 Rust 对 core/mod 来源和 owner 身份的权威判断。
+- 写入后只清前端 cache 而不刷新 Rust session，会让下一次 query 继续读取旧索引。
+- 写入后只刷新 Rust session 而不更新 project store manifest，会让侧栏计数和摘要停留在旧状态。
+- 用任意同 session 路径变化清理所有 entity query，会让独立窗口和复杂页面频繁重查无关数据。
+- 用 Mod 写入路径清理 core resource cache，会导致原版资源缓存和 Mod 变更边界混淆。
+- 关闭 Mod 时不关闭 Rust session，会遗留可被旧窗口继续查询的 sessionId。

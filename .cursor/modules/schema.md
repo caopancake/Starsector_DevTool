@@ -2,52 +2,155 @@
 
 ## 定义
 
-Schema 系统为配置页面和 CSV 表格提供字段定义、分组、枚举来源、多来源字段和通用字段来源解析能力。
+Schema 系统负责把静态字段声明、动态字段补充、字段值转换和运行时引用查询组合成可复用的前端表单模型。
+
+## 参考
+
+- `schemas/`：存放配置表单 schema 资产，字段声明、section、source、nested、format 和多来源描述都从这里进入前端。
+- `src/app/components/config/ConfigFactionEditor.vue`：消费动态合并后的 faction schema，并把保存动作交给配置 ViewModel。
+- `src/app/components/config/ConfigMissionEditor.vue`：消费静态 mission schema，并用显式 `modRoot + sessionId` 创建 runtime context。
+- `src/app/components/config/ConfigModInfoEditor.vue`：消费动态合并后的 mod-info schema，并把 schema 传给保存 ViewModel 做拆分。
+- `src/app/components/config/ConfigSkinEditor.vue`：消费静态 skin schema，并只把本地 `.skin` 草稿交给上层保存动作。
+- `src/app/components/config/ConfigVariantEditor.vue`：消费静态 variant schema，并只把本地 `.variant` 草稿交给上层保存动作。
+- `src/app/components/schema/SchemaFieldRenderer.vue`：按字段类型渲染单字段控件、plain 模式控件、source option、路径选择、递归对象和数组编辑。
+- `src/app/components/schema/SchemaFormRenderer.vue`：按 schema section 渲染表单、折叠状态和额外字段编辑入口。
+- `src/app/composables/use-core-graphics.ts`：为 `path-image` 字段提供原版 graphics 路径候选。
+- `src/app/composables/use-core-schema.ts`：加载原版字段扫描结果，并把动态字段合并到静态 schema。
+- `src/app/composables/use-schema-runtime-context.ts`：把拥有页面传入的 manifest 或显式 `modRoot + sessionId` 转成 schema source query 与失效监听上下文。
+- `src/domain/schema/schema-registry.ts`：拥有 schema 注册、section 归一化、字段值转换、多来源聚合拆分、SelectOption helper、内部字段识别和动态字段合并规则。
+- `src/domain/schema/schema.types.ts`：定义 schema 文件、section、field、source 和 discovered field 的前端类型。
+- `src/services/csv-table.service.ts`：执行 source option query，并把返回的 `ResourceRef` 批量 hydrate 成带缩略图的前端选项。
+- `src-tauri/src/services/project/query/source_options.rs`：生成 `csv:*` source 的当前值、当前 Mod 和原版分组选项，并校验 source table 与列。
 
 ## 边界
 
-- `src/domain/schema/schema-registry.ts` 加载静态 schema，并提供字段、section、source 和 nested value 工具。
-- `src/app/components/schema/SchemaFormRenderer.vue` 渲染 schema section、额外字段和多来源字段。
-- `src/app/components/schema/SchemaFieldRenderer.vue` 渲染单个字段控件。
-- `src/app/composables/use-core-schema.ts` 接入 core 字段扫描结果。
-- `schemas/` 存放静态 schema 文件。
-- `schemas/*.schema.json` 存放配置表单 schema 文件。
-- `schemas/csv/*.columns.json` 存放 CSV 列 schema 资产。
-- `src/shared/ui/ColorPicker.vue` 是 schema 表单使用的共享颜色控件。
+- 存储边界：schema 资产是字段声明，不是待保存数据；schema 模块不写 Mod 文件、不写工具配置、不写 history。
+- 错误边界：source table、source column、资源读取和 core 扫描错误由对应 service 返回；schema 组件只触发查询和显示字段级结果。
+- 多来源边界：多来源 model 的聚合与拆分归 schema domain，保存前的业务必填、ID、路径和文件内容校验归配置 domain 或后端。
+- 动态字段边界：core discovered fields 只能补充静态 schema 未声明的字段，不能覆盖静态字段定义。
+- 额外字段边界：额外字段只编辑当前 model 中 schema 未声明且非内部字段的键，不能自行生成保存目标。
+- 路径边界：路径选择只能把选中绝对路径转换成 Mod 相对路径或规范化路径字符串，不执行文件复制、上传或写盘。
+- 前端层级边界：schema domain 不访问 store、service、runtime、Tauri 或组件；组件不得把 schema domain 工具替换成本地解释规则。
+- 清洗边界：schema 内部字段识别归 schema domain 与共享内部字段规则，写盘清理归保存模块或 Rust 写入 service。
+- 上下文边界：runtime context 必须由表单拥有方显式传入，字段组件不得从 active project store 自行推导 session 或 modRoot。
+- 查询边界：字段 source options 只能通过 runtime context 调用 query service，组件不得直接调用 shared API 或 Rust command。
+- 资源边界：字段选项缩略图只能消费 source query 返回的 `ResourceRef` 再经批量资源 query hydrate。
+- 渲染边界：表单组件只负责 section、字段控件、折叠状态和本地输入事件，不拥有保存、删除、重命名、session 刷新或文件级 history。
+- 状态边界：section 折叠、select 打开状态、source option 请求序号和已加载选项都是组件运行时状态，不持久化。
+- 值转换边界：普通文本、plain 模式数字布尔、逗号数组、tag 包装、key-value entry 和 nested set/get 都归 schema domain 纯函数。
+- 消费边界：配置页、编辑器页和表格控件只能消费 schema 输出的字段模型和转换结果，不能反向改变 schema 资产的语义。
+
+## 链路
+
+### 注册与获取静态 schema
+
+1. 应用启动后 Vite 以 JSON 资产形式加载 `schemas/*.schema.json`。
+2. `schema-registry.ts` 将 schema asset 注册到静态 schema 表。
+3. 消费组件按 schema id 调用 `getSchema()`。
+4. `getSchema()` 返回对应 `FileSchema` 或 `null`。
+5. `SchemaFormRenderer.vue` 调用 `getSections()` 获取 section。
+6. `getSections()` 保留显式 sections，或把 flat fields 包装成默认 section。
+
+### 合并原版发现字段
+
+1. 消费组件调用 `useCoreSchema()`。
+2. `useCoreSchema()` 从设置 store 或活动 manifest 取得 Starsector root。
+3. `loadCoreFields()` 调用 assets service 查询原版字段扫描结果。
+4. assets service 通过 shared API 调用后端 core fields query。
+5. `useCoreSchema()` 在 root 仍匹配时保存 core fields。
+6. 消费组件调用 `getMergedSchema(schemaId)`。
+7. `getMergedSchema()` 取得静态 schema。
+8. `mergeSchemaWithCoreFields()` 跳过静态 schema 已声明字段。
+9. `mergeSchemaWithCoreFields()` 把新增字段追加到动态 section。
+
+### 渲染 schema 表单
+
+1. 消费组件把 `schema`、本地 model 和 `runtimeContext` 传给 `SchemaFormRenderer.vue`。
+2. `SchemaFormRenderer.vue` 计算 sections、schema keys、extra source 和 extra keys。
+3. `SchemaFormRenderer.vue` 按 schema id 与 section id 同步初始折叠状态。
+4. `SchemaFormRenderer.vue` 对每个字段读取当前 model 中的 nested value。
+5. `SchemaFormRenderer.vue` 创建 `SchemaFieldRenderer.vue`。
+6. `SchemaFieldRenderer.vue` 根据设置 store 判断 plain 模式或增强控件模式。
+7. `SchemaFieldRenderer.vue` 按 field type 渲染输入、数字、布尔、选择、颜色、路径、数组、对象、key-value 或 JSON 文本控件。
+8. 字段更新事件回到 `SchemaFormRenderer.vue`。
+9. `SchemaFormRenderer.vue` 用 schema domain 的 nested set 工具生成新 model。
+10. 消费组件通过 `v-model` 接收更新后的本地草稿。
+
+### 加载字段 source options
+
+1. `SchemaFieldRenderer.vue` 计算字段当前值集合。
+2. 字段组件监听 `runtimeContext.sessionId`、`field.source` 和当前值集合身份。
+3. 字段组件确认 source 为 `csv:*` 且 runtime context 存在。
+4. 字段组件调用 `runtimeContext.querySourceOptions()`。
+5. runtime context 调用 `queryTableSourceOptions()`。
+6. query service 通过 query cache 调用 shared query API。
+7. Rust source option query 校验 source table 与 source column。
+8. Rust source option query 读取当前值、当前 Mod CSV 行和原版 CSV 行。
+9. Rust source option query 对 ID 列附带可解析的 `ResourceRef`。
+10. 前端 service 批量调用资源 data URL query。
+11. schema domain 把 hydrated source option group 映射成表单 `SelectOption`。
+12. 字段组件在请求身份仍匹配时更新本地选项。
+
+### 监听 source option 失效
+
+1. 字段组件根据 runtime context 与 field source 注册失效监听。
+2. runtime context 订阅 query cache invalidation。
+3. query cache 按写入影响路径失效 `csv-source-options` 或 `resource-data-urls`。
+4. runtime context 过滤 session、source 和当前字段持有的资源身份。
+5. 匹配的失效事件触发字段组件重新加载 source options。
+6. 字段组件卸载时取消订阅。
+
+### 路径字段选择
+
+1. 字段组件在 path 或 path-image 字段上触发文件选择。
+2. 字段组件从 runtime context 读取 `modRoot`。
+3. 字段组件调用共享文件选择 runtime。
+4. 用户选择文件后字段组件判断文件是否属于 `modRoot`。
+5. 属于当前 Mod 时输出 Mod 相对路径。
+6. 不属于当前 Mod 时输出规范化路径字符串。
+7. 字段组件只更新本地 model，不执行写盘。
+
+### 多来源保存消费
+
+1. 消费 ViewModel 或配置 domain 调用 `aggregateSchemaSources()` 构造表单 model。
+2. `SchemaFormRenderer.vue` 编辑聚合后的 model。
+3. 保存动作由消费模块触发。
+4. 消费模块把本地 model 与 schema 传给配置 domain。
+5. 配置 domain 调用 `splitSchemaSources()` 拆回各来源对象或文本。
+6. 配置 domain 执行业务字段校验与保存草稿构造。
+7. 保存 orchestrator 或 service 执行对应模块写盘链路。
 
 ## 规范
 
-- Schema 系统只负责表单结构和字段读写，不负责保存文件。
-- schema 必须以文件资产形式存在；业务代码只负责加载、注册和渲染。
-- 配置保存必须由 config save orchestrator 处理。
-- `SchemaFieldRenderer` 只能通过字段类型选择控件，不应绕过 schema 直接写业务文件。
-- Schema 路径字段选择文件时只能通过共享路径工具计算 Mod 相对路径，组件不得自行维护路径前缀规则。
-- Schema 字段的普通文本值、plain 模式布尔/数字解析、逗号多值解析、tag-select 包装和路径显示名归属 schema domain，字段组件不得各自解释这些值语义。
-- Schema source query 的当前值提取、后端 source option 到表单 SelectOption 的映射和 enum 静态选项生成归属 schema domain。
-- Schema 字段 label 必须用原始字段 key 作为悬浮提示；存在字段说明时悬浮提示同时包含 key 和说明。
-- Schema 智能控件的 source / enum 选项必须用原始 value 作为悬浮提示；存在 label 或说明时悬浮提示同时包含 value、label 和说明。
-- Schema source query 的 runtime context 缺失必须以 null 表达，不能用空字符串伪装为 session 或 source。
-- Schema runtime context 归属表单拥有方显式传入的 `modRoot + sessionId`，字段渲染器不能自行从 active project 推导 query 或路径选择目标。
-- Schema source query 的当前值集合和表单 section 状态都是正式结构化身份；刷新监听必须保留数组、schema id 和 section id 的结构边界，不能用分隔符拼接成有歧义字符串。
-- Schema 字段本地 source options 只是 query cache 与资源缓存的派生结果；底层同 source 的 source option 或当前字段选项实际持有的缩略图资源失效时必须重新加载，不得因无关 source 或无关资源失效重查字段选项。
-- 多来源字段必须通过 schema service 聚合和拆分。
-- 多来源字段拆分必须保留非法 source 原值并交由配置 domain 校验，不能把缺失、非对象或非文本 source 压成空对象或空文本。
-- schema 内部字段必须通过 schema domain 规则识别；组件、配置清洗和额外字段渲染不得各自判断内部 key。
-- 保留当前值的 select option 分组必须通过 schema domain 的 SelectOption helper 生成，组件和表格控件不得自行定义分组哨兵值。
-- core discovered fields 只能作为 schema 的动态补充来源。
-- `csv:*` source 必须解析为当前 Mod 与原版引用的分组选项，当前 Mod 分组在上，原版分组在下，重复 ID 以当前 Mod 为准。
-- `csv:*` source 声明的列必须存在于对应 CSV header；缺失列必须返回 query 错误，不能用空候选项掩盖 schema 与 CSV 模型不一致。
-- `csv:ships.id` 表示 hull 引用源，必须同时包含舰船 CSV ID 和舰船皮肤 `skinHullId`。
-- hull 引用选项、hull 缩略图和联队经装配得到的 hull 缩略图都必须通过 `hull-references.ts` 派生。
-- hull 引用 query 的目标集合必须按 reference id 语义命名，不能把 ship hull id 和 skin hull id 混称为单一 hull id 集合。
-- `csv:*` source 必须过滤 `#` 开头 ID；这类 CSV 行可在表格中编辑，但不能作为合法引用。
-- `key-value` 类型支持 `format: "array-of-entries"` 属性，声明底层数据为 `[{k:v}, ...]` 数组格式；底层数据与扁平 entry 之间的转换、文本值解析和新增 key 生成归属 schema domain。
+- `FileSchema.id` 是 schema 注册与消费的稳定身份，消费方不得用 displayName 推断 schema。
+- `FieldSchema.key` 支持点路径，nested 读写必须使用 schema domain 的 get/set 工具保持对象不可变更新。
+- `FieldSchema.source` 只有在 `csv:*` 格式且 runtime context 存在时才触发后端 source option query。
+- `SchemaRuntimeContext` 必须包含当前表单目标的 `modRoot` 与 `sessionId`，缺失时字段 source options 必须表现为空结果。
+- `SelectOption` 的当前值分组、分组选项、资源引用提取和显示文本必须使用 schema domain helper。
+- `csv:*` source 的后端结果必须按当前值、当前 Mod、原版分组返回，重复值只保留前面分组。
+- `csv:*` source 声明的 table 和 column 必须存在；不存在时返回错误。
+- `csv:*` source 的非 ID 列按逗号分隔提取 token，ID 列按整格值提取实体引用。
+- `csv:*` source 不能把 CSV 注释行作为候选引用。
+- `csv:ships.id` 的 hull 引用语义必须包含 ship hull 和 skin hull。
+- `key-value` 字段使用 object 输出；带 `array-of-entries` format 时必须输出数组包裹单键对象。
+- `path-image` 的候选下拉只来自原版 graphics 路径索引；文件选择结果仍以 runtime context 的 `modRoot` 计算。
+- `plain` 编辑模式必须保留字符串换行，字符串字段遇到换行必须使用 textarea。
+- `tag-select` 必须保留原值是数组或 `{ tags: [] }` 的包装形态。
+- 额外字段渲染必须排除 schema 内部字段。
+- 多来源 `text-file` 拆分必须把 `{ content }` 展开为文本值。
+- 数字 plain 输入无法解析为数字时必须保留原始文本，不能强制写成 0。
+- 布尔 plain 输入只在明确布尔文本命中时转换，否则保留原始文本。
+- 保存、删除、重命名、history、session invalidation 和后端路径校验都不属于 schema 模块。
 
-## 链路：渲染 Schema 表单
+## 陷阱
 
-1. 配置组件加载对应 schema。
-2. `schema-registry.ts` 返回 sections 和 fields。
-3. `SchemaFormRenderer.vue` 遍历 section。
-4. `SchemaFormRenderer.vue` 为每个字段创建 `SchemaFieldRenderer`。
-5. `SchemaFieldRenderer` 根据 field type 渲染控件。
-6. 用户输入通过 v-model 写回配置组件持有的数据对象。
+- 把 schema 当成保存模型会让字段声明越过配置模块和 Rust 写入边界。
+- 把 runtime context 改成从 active manifest 隐式读取会让独立上下文和跨 Mod 切换污染 source query。
+- 把 source option 的 data URL 直接存进 schema model 会污染待保存业务数据。
+- 把 `csv:*` 缺失列当作空候选会掩盖 schema 与 CSV 模型不一致。
+- 把 key-value 的数组条目格式当作普通 object 会破坏 Starsector 原始文件语义。
+- 把额外字段和内部字段混在一起编辑会把 UI 内部状态写入业务草稿。
+- 把 plain 模式字符串降级成单行输入会丢失真实换行。
+- 把路径选择结果直接作为绝对路径写入会绕过 Mod 相对路径语义。
+- 在字段组件内直接调用 shared API 会破坏前端 service 和 query cache 边界。
+- 在 schema domain 中访问 store 或 service 会破坏纯业务模型边界。

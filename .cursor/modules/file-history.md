@@ -2,75 +2,165 @@
 
 ## 定义
 
-文件级 history 记录已经写入磁盘的保存事件。每条保存事件是一个 `FileChangeRecord[]` changeset，可以包含文本文件、二进制文件、多文件或目录删除。
+文件级 history / changeset 系统负责记录已写盘保存事件，并按用户确认把对应文件变更集撤销或重做到磁盘。
+
+## 参考
+
+- `src/app/components/config/ConfigFileHistoryView.vue`：拥有文件历史检查页的列表展示、文件变更摘要和撤销 / 重做按钮。
+- `src/app/composables/use-file-history-view-model.ts`：拥有文件历史页面 ViewModel，读取当前 Mod 栈、清空当前 Mod 文件历史并触发单步回放。
+- `src/orchestrators/file-history-replay.orchestrator.ts`：拥有文件级 undo/redo 的确认、栈顶复核、Rust 回放、窗口通知、缓存失效和栈提交编排。
+- `src/orchestrators/file-save.orchestrator.ts`：拥有保存结果进入文件历史的统一入口，并按 `WriteResult.invalidatedPaths` 触发 ProjectSession 失效。
+- `src/orchestrators/main-undo-redo.orchestrator.ts`：拥有主窗口撤销 / 重做分派，在当前 CSV 草稿历史为空时进入文件级 history。
+- `src/orchestrators/project-session-invalidation.orchestrator.ts`：拥有回放后按 invalidatedPaths 刷新已加载 ProjectSession、查询缓存、资源缓存和窗口事件的边界。
+- `src/orchestrators/settings-persistence.orchestrator.ts`：拥有 historyLimit 设置同步入口，把设置快照中的历史长度同步到文件历史 store。
+- `src/shared/api/files-api.ts`：拥有 `apply_file_change_set` Tauri command 的前端 API 封装。
+- `src/shared/types/file-history.types.ts`：拥有文件历史 entry 类型和 file-save entry 判定。
+- `src/shared/types/history.types.ts`：拥有前端 `FileChangeRecord`、`FileSnapshot` 和 replay direction 的显式字段模型。
+- `src/shared/types/write.types.ts`：拥有 `WriteResult` 统一写入结果类型。
+- `src/stores/file-history.store.ts`：拥有按 modRoot 隔离的文件级 undo/redo 栈、peek、commit、清空和长度裁剪。
+- `src-tauri/src/commands/files.rs`：拥有 `apply_file_change_set` command，并在回放前校验 `sessionId + modRoot`。
+- `src-tauri/src/io/file_changes.rs`：拥有 changeset 构建、文件/目录快照、UTF-8 文本写入、二进制回放、路径失效展开和失败回滚。
+- `src-tauri/src/models/write.rs`：拥有 Rust `FileChangeRecord`、`FileSnapshot`、`FileChangeReplayDirection` 和 `WriteResult` 模型。
+- `src-tauri/src/services/file_changes.rs`：拥有 command-facing 文件写入和 changeset 回放 service，负责路径归属校验和回放结果构造。
 
 ## 边界
 
-- `src/stores/file-history.store.ts` 持有每个 Mod 的文件级 undo/redo 栈。
-- `src/shared/types/file-history.types.ts` 定义 file-save entry。
-- `src/orchestrators/file-save.orchestrator.ts` 是前端记录文件保存事件的统一入口。
-- `src/orchestrators/file-history-replay.orchestrator.ts` 负责确认、调用 Rust 回放、刷新前端缓存、广播窗口事件和提交栈移动。
-- `src/app/components/config/ConfigFileHistoryView.vue` 展示当前 Mod 文件历史并提供清空、撤销和重做。
-- `src-tauri/src/io/file_changes.rs` 是 changeset 构建、写盘、目录快照、回滚和回放权威。
-- `src-tauri/src/services/file_changes.rs` 只保留 command-facing service 入口。
-- 前端业务写入统一使用 `WriteResult`；`FileChangeRecord[]` 只在 file history entry 和 replay 内部流转。
-- `WriteResult` 的 `changes`、`invalidatedPaths`、`keyMap`、`refreshedEntity` 和 `warnings` 字段必须作为统一写入结果的显式字段返回，前端不得用缺省字段兼容不同写入入口。
-- `FileChangeRecord` 和 `FileSnapshot` 中由 Rust 序列化的可空内容字段必须在前端共享类型中保持显式 null，不得建模为可缺省字段。
-- File history replay command 必须显式提交 `sessionId`、`modRoot`、`FileChangeRecord` 和 `FileSnapshot`；Rust 回放前必须先校验 `sessionId + modRoot` 仍匹配同一 ProjectSession，再重新校验每个 change path 归属该 `modRoot`，并且所有可空内容字段和文件集合字段都必须显式提交，不能依赖 Rust 默认值补齐 changeset 语义。
-- history 栈长度由 settings persistence 编排层同步给 history store，history store 不直接读取 settings store。
+- Changeset 模型边界属于 Rust `FileChangeRecord`；前端只能保存和回放后端返回的完整 changes 数组，不得自行合成磁盘快照。
+- File history 持久化边界是无持久化；它是当前进程内按 Mod 隔离的运行态，不写 workspace、settings 或 Mod 文件。
+- File history 记录边界属于已成功写盘的 `WriteResult.changes`；未写盘草稿、空 changes 和失败写入不得进入文件历史。
+- File history 栈 owner 是 `file-history.store`；视图、保存编排和回放编排只能通过 store 入口读取、push、peek、commit 或清空。
+- ProjectSession 校验边界属于写入和回放入口；记录保存事件或回放文件历史时必须确认 `sessionId + modRoot` 未变。
+- Rust 回放边界属于 `apply_file_change_set`；前端不得直接写 before/after 文件内容或删除目录。
+- WriteResult 消费边界属于调用方；文件历史 entry 只保存 changes，不保存 invalidatedPaths、warnings、keyMap 或 refreshedEntity。
+- 主窗口撤销 / 重做分派边界属于主窗口编排；文件历史只能在当前 CSV 草稿历史没有可消费 entry 时执行。
+- 目录 changeset 边界属于目录级 FileChangeRecord；目录快照中的文件路径必须是目录内相对路径。
+- 视图展示边界属于当前 active Mod；文件历史页面不得展示、清空或回放非当前 Mod 的栈。
+- 路径归属边界属于 Rust service；回放前必须验证每个 change.path 是当前 modRoot 内绝对路径，并验证目录 snapshot 相对路径不越界。
+- 文件编辑器同步边界属于窗口事件；回放普通文本文件时只通知匹配 `modRoot + path` 的已打开文件编辑器，二进制内容不注入文本窗口。
+- 缓存失效边界属于 ProjectSession 失效编排；文件历史回放不得自行刷新 project、query、resource 或 editor window 缓存。
+- 设置边界属于 settings persistence；文件历史 store 只接收同步后的 historyLimit，不读取 settings store 或 app data。
+- 栈提交边界属于回放成功之后；Rust 回放失败、缓存刷新失败或栈顶变化时不得移动 undo/redo 栈。
+
+## 链路
+
+### 记录文件保存
+
+1. 保存编排或窗口保存事件处理器获得 Rust 返回的 `WriteResult`。
+2. 调用方把 modRoot、WriteResult、label 和可选 expectedSessionId 传给 `recordFileSave()`。
+3. `recordFileSave()` 拒绝空 modRoot 或空 changes。
+4. 调用方提供 expectedSessionId 时，`recordFileSave()` 读取当前 manifest 并确认 sessionId 仍匹配。
+5. `recordFileSave()` 调用 file history store 写入 file-save entry。
+6. file history store 按 modRoot 获取或创建当前 Mod 栈。
+7. file history store 创建带 id、timestamp、kind、changes 和 label 的 entry。
+8. file history store 把 entry 压入 undo 栈。
+9. file history store 清空 redo 栈。
+10. file history store 按当前 historyLimit 裁剪 undo 栈头部。
+
+### 文件历史页面读取
+
+1. 用户进入文件历史配置页。
+2. 文件历史 ViewModel 读取当前 active manifest。
+3. 文件历史 ViewModel 按 active manifest 的 modRoot 从 file history store 读取 undo/redo 栈。
+4. 文件历史 ViewModel 反转栈顺序生成页面展示列表。
+5. 页面组件按 entry id、change kind 和 change path 生成结构化行 key。
+6. 页面组件展示每条 changeset 的文件/目录类型、二进制标记和 before/after 存在状态。
+
+### 清空当前 Mod 文件历史
+
+1. 用户点击文件历史页面的清空按钮。
+2. 文件历史 ViewModel 确认当前 active manifest 存在且 historyCount 非零。
+3. 反馈入口显示清空确认弹窗。
+4. 用户确认后，ViewModel 调用 file history store 清空当前 modRoot。
+5. file history store 只清空该 Mod 的 undo/redo 栈。
+6. 清空操作完成后显示成功反馈。
+
+### 文件级撤销
+
+1. 用户通过主窗口快捷键或文件历史页面触发文件级撤销。
+2. 回放编排读取当前 active modRoot。
+3. 回放编排读取当前 modRoot 的 sessionId。
+4. 回放编排从 file history store peek 当前可撤销 file-save entry。
+5. 回放编排显示确认弹窗，列出 label 和涉及路径数量。
+6. 用户确认后，回放编排再次 peek 当前 undo 栈顶 entry。
+7. 当前栈顶 id 不等于已确认 entry id 时，回放编排显示栈状态变化错误并停止。
+8. 回放编排再次读取当前 modRoot 的 sessionId。
+9. 当前 sessionId 不等于确认前捕获的 sessionId 时，回放编排显示 ProjectSession 变化错误并停止。
+10. 回放编排调用 write service，以 `undo` direction 提交 sessionId、modRoot 和 entry.changes。
+11. 前端 API 调用 Rust `apply_file_change_set` command。
+12. Rust command 校验 `sessionId + modRoot`。
+13. Rust file changes service 校验 changeset 所有路径归属当前 modRoot，并校验目录 snapshot 相对路径。
+14. Rust io 按 undo 方向写回 before 状态，失败时回滚已应用文件状态。
+15. Rust 返回新的 `WriteResult`。
+16. 回放编排按 undo 方向通知已打开文件编辑器应用 before 文本。
+17. 回放编排按回放结果 invalidatedPaths 刷新受影响 ProjectSession、query cache、resource cache 和窗口。
+18. 回放影响当前 active Mod 时，回放编排清空当前表选中行。
+19. 回放编排 commit undo 栈顶 entry，把它移动到 redo 栈。
+20. commit 成功后显示撤销成功反馈。
+
+### 文件级重做
+
+1. 用户通过主窗口快捷键或文件历史页面触发文件级重做。
+2. 回放编排读取当前 active modRoot。
+3. 回放编排读取当前 modRoot 的 sessionId。
+4. 回放编排从 file history store peek 当前可重做 file-save entry。
+5. 回放编排显示确认弹窗，列出 label 和涉及路径数量。
+6. 用户确认后，回放编排再次 peek 当前 redo 栈顶 entry。
+7. 当前栈顶 id 不等于已确认 entry id 时，回放编排显示栈状态变化错误并停止。
+8. 回放编排再次读取当前 modRoot 的 sessionId。
+9. 当前 sessionId 不等于确认前捕获的 sessionId 时，回放编排显示 ProjectSession 变化错误并停止。
+10. 回放编排调用 write service，以 `redo` direction 提交 sessionId、modRoot 和 entry.changes。
+11. 前端 API 调用 Rust `apply_file_change_set` command。
+12. Rust command 校验 `sessionId + modRoot`。
+13. Rust file changes service 校验 changeset 所有路径归属当前 modRoot，并校验目录 snapshot 相对路径。
+14. Rust io 按 redo 方向写回 after 状态，失败时回滚已应用文件状态。
+15. Rust 返回新的 `WriteResult`。
+16. 回放编排按 redo 方向通知已打开文件编辑器应用 after 文本。
+17. 回放编排按回放结果 invalidatedPaths 刷新受影响 ProjectSession、query cache、resource cache 和窗口。
+18. 回放影响当前 active Mod 时，回放编排清空当前表选中行。
+19. 回放编排 commit redo 栈顶 entry，把它移动到 undo 栈。
+20. commit 成功后显示重做成功反馈。
+
+### 设置同步与长度裁剪
+
+1. 主窗口启动 settings persistence。
+2. settings persistence 读取当前 settings snapshot。
+3. settings persistence 把 `historyLimit` 传给 file history store。
+4. file history store 更新内存 historyLimit。
+5. file history store 遍历所有 Mod 的 undo 栈。
+6. file history store 只按 file-save entry 数量裁剪 undo 栈头部。
 
 ## 规范
 
-- 文件级 history 只记录已经成功写盘的 changeset。
-- 写盘结果记录 history 时，如果调用方提供发起时捕获的 session，必须确认当前 `modRoot` 仍对应同一 session；目标已移除或重载时不得重新创建 history 状态或写入旧 session 的保存记录。
-- 保存、上传、spec 写入和配置写入完成后，缓存失效必须由 `WriteResult.invalidatedPaths` 驱动。
-- 文件级 history 按 `modRoot` 隔离。
-- 文件级 history 视图中的 changeset 行身份必须保留 history entry、change kind 和 path 的结构边界，不能用分隔符拼接。
-- 文件级 history 的 peek、commit 和回放必须使用显式 `sessionId + modRoot`，不得在确认回调或异步回放过程中重新读取当前 active Mod 作为归属。
-- 文件级 history 回放时，相对 `invalidatedPaths` 只归属当前 history 栈的 `modRoot`；绝对 `invalidatedPaths` 按已加载 Mod root 归属判定。
-- 文件级 history 回放不得自行刷新 ProjectSession、resource cache 或 query cache，必须通过 ProjectSession 失效编排入口完成。
-- 前端判断文件路径归属已加载 Mod 时必须使用共享路径工具，不能在保存记录和回放刷新链路中各自拼接前缀规则。
-- undo/redo 必须先 peek entry，再弹窗确认，再调用 Rust 回放。
-- 文件级 history 确认后写盘前必须重新确认当前栈顶仍是被确认的 entry，并确认 `modRoot` 仍对应确认时捕获的 session；栈或 session 已变化时不得写盘。
-- file history replay direction 必须使用正式撤销/重做方向模型，不得用裸字符串在 service 层解析。
-- Rust 回放成功后前端才能 commit 栈移动；commit 只能移动当前栈顶 entry，不能为了寻找旧 entry 弹出多条历史。
-- 文件级 history 回放通知已打开文件编辑器时必须携带 `modRoot` 和 path，文件编辑器只能在两者同时匹配时应用文本快照。
-- schema 配置 entity 的单文件保存回放后，前端必须同步对应 project cache；当前包括装配和舰船皮肤。
-- Rust 回放失败时前端不能移动 undo/redo 栈。
-- 单文件 changeset 可以用 `beforeText/afterText` 表达 UTF-8 无 BOM 文本，也可以用 `beforeDataBase64/afterDataBase64` 表达二进制内容。
-- 贴图上传和覆盖必须作为普通文件 changeset 进入文件级 history。
+- `ApplyFileChangeSetPayload` 必须显式提交 `sessionId`、`modRoot`、direction 和完整 changes 数组。
+- `FileChangeRecord` 必须显式提交 kind、path、before/after exists、before/after 文本、before/after 二进制和 before/after 目录文件集合。
+- `FileHistoryItem` 当前只允许 file-save entry；新增 entry kind 必须重新定义 peek、commit、视图展示和裁剪语义。
+- `FileSnapshot` 必须显式提交 relPath、text 和 dataBase64；文本和二进制内容未使用时必须是 null。
+- `WriteResult` 必须显式返回 changes、invalidatedPaths、keyMap、refreshedEntity 和 warnings；文件历史只消费 changes。
+- changeset 回放 direction 必须使用正式 `undo | redo` 模型，不能用自定义字符串在 service 层解释。
+- commit 只能移动当前栈顶且 id 匹配的 file-save entry，不能搜索栈内旧 entry 或弹出多条历史。
+- file history 按 modRoot 隔离；activate、record、peek、commit、clear 和 remove 都不得跨 Mod 读写。
+- historyLimit 只裁剪 undo 栈；新保存 entry 入栈时必须清空 redo 栈。
+- 保存结果记录 history 时必须拒绝空 changes；空保存不能生成可撤销项。
+- 提供 expectedSessionId 的保存记录必须确认当前 manifest sessionId 仍匹配，避免旧窗口保存污染新 session history。
+- 文件历史清空只清空内存 undo/redo 栈，不写磁盘、不回放 changeset、不刷新 ProjectSession。
+- 文件历史回放必须先确认、再复核栈顶和 session、再调用 Rust 写盘。
+- 文件历史回放成功后必须通过 ProjectSession 失效编排处理 invalidatedPaths。
+- 文件历史回放通知文件编辑器时必须携带 modRoot 和绝对 path；文件编辑器只能在两者同时匹配时应用文本。
+- 二进制文件回放不得向文件编辑器发送 dataBase64 文本；目录 changeset 不发送单文件文本应用事件。
+- Rust 回放前必须验证 change.path 是当前 modRoot 内绝对路径，且 path 和 modRoot 都不得包含父级跳出。
+- Rust 回放前必须验证目录 snapshot relPath 是合法相对路径。
+- Rust 回放失败时前端不得移动 undo/redo 栈，不得显示成功反馈。
+- 主窗口文件级 undo/redo 只能在当前表 CSV 草稿 history 没有对应 entry 时执行。
 
-## 链路：记录文件保存
+## 陷阱
 
-1. 保存 orchestrator 或窗口事件处理器获得 Rust 返回的 `WriteResult`。
-2. 调用 `recordFileSave(modRoot, result, label)`。
-3. `file-save.orchestrator.ts` 调用 file history store。
-4. file history store 把 entry 压入当前 Mod undo stack。
-5. file history store 清空当前 Mod redo stack。
-6. file history store 根据设置限制裁剪历史长度。
-
-## 链路：文件级撤销
-
-1. 用户在主窗口快捷键或 ConfigFileHistoryView 中触发撤销。
-2. `file-history-replay.orchestrator.ts` peek 当前可撤销 entry。
-3. 前端显示确认弹窗。
-4. 用户确认。
-5. `file-history-replay.orchestrator.ts` 校验当前 undo 栈顶仍是已确认 entry。
-6. `file-history-replay.orchestrator.ts` 调用 `replayFileChangeSet(sessionId, modRoot, 'undo', changes)`。
-7. Rust command 校验 `sessionId + modRoot` 后，`apply_file_change_set` 校验 changeset 路径归属当前 `modRoot`，写回 before 状态并返回 `WriteResult`。
-8. 前端刷新受影响的文本文件编辑器，并通过 ProjectSession 失效编排入口刷新 project cache、resource cache、query cache 和编辑器窗口；二进制文件只写回磁盘。
-9. file history store commit undo。
-10. 前端显示成功消息。
-
-## 链路：文件级重做
-
-1. 用户在主窗口快捷键或 ConfigFileHistoryView 中触发重做。
-2. `file-history-replay.orchestrator.ts` peek 当前可重做 entry。
-3. 前端显示确认弹窗。
-4. 用户确认。
-5. `file-history-replay.orchestrator.ts` 校验当前 redo 栈顶仍是已确认 entry。
-6. `file-history-replay.orchestrator.ts` 调用 `replayFileChangeSet(sessionId, modRoot, 'redo', changes)`。
-7. Rust command 校验 `sessionId + modRoot` 后，`apply_file_change_set` 校验 changeset 路径归属当前 `modRoot`，写回 after 状态并返回 `WriteResult`。
-8. 前端刷新受影响的文本文件编辑器，并通过 ProjectSession 失效编排入口刷新 project cache、resource cache、query cache 和编辑器窗口；二进制文件只写回磁盘。
-9. file history store commit redo。
-10. 前端显示成功消息。
+- 把文件历史写入 settings 或 workspace persistence，会把进程内撤销栈误变成长期审计日志。
+- 把未写盘 CSV 草稿或编辑器本地草稿写入 file history，会让磁盘回放操作缺少真实 before/after 文件状态。
+- 把 `WriteResult.invalidatedPaths` 存入 history entry 并回放旧路径集合，会在目录 changeset、跨 Mod 路径归属或未来写入结果扩展时刷新错误缓存。
+- 在确认弹窗打开后不复核栈顶 entry，会把用户确认的旧 entry 应用到已经变化的 history 栈。
+- 在确认弹窗打开后不复核 sessionId，会把旧 ProjectSession 的 changeset 写到新加载的 Mod 状态中。
+- 在 Rust 回放失败后 commit 栈移动，会造成磁盘内容和 undo/redo 栈方向不一致。
+- 为了寻找已确认 entry 而弹出多条历史，会破坏 history 的栈模型和用户可预期的撤销顺序。
+- 用前端路径判断替代 Rust 路径归属校验，会允许外部绝对路径或父级跳出通过回放写盘。
+- 向文件编辑器广播二进制内容，会把不可显示数据污染成文本编辑状态。
+- 清空文件历史时顺带回滚磁盘，会把“清空记录”和“撤销文件”两个用户动作混在一起。
