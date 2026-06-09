@@ -1,7 +1,13 @@
 <template>
   <div class="modal-backdrop">
     <div class="projectile-window">
-      <EditorHeader title="战术系统编辑器" :subtitle="systemId" />
+      <EditorHeader
+        title="战术系统编辑器"
+        :subtitle="systemId"
+        :dirty="dirty"
+        :external-update-notice="externalUpdateNotice"
+        @load-external="$emit('load-external')"
+      />
       <div class="projectile-body" style="overflow-y: auto; max-height: calc(100vh - 108px)">
         <n-collapse v-model:expanded-names="expandedSections" :theme-overrides="editorCollapseTheme">
           <n-collapse-item title="基础信息" name="basic">
@@ -156,7 +162,7 @@
       <EditorFooter note="结构化 JSON 写回，内部字段会被后端剔除。">
         <template #actions>
           <n-button @click="$emit('close')">关闭</n-button>
-          <n-button type="primary" @click="emit('save-requested', localSystem)">保存</n-button>
+          <n-button type="primary" @click="emit('save-requested')">保存</n-button>
         </template>
       </EditorFooter>
     </div>
@@ -180,8 +186,11 @@ const props = defineProps<{
   modRoot: string;
   systemId: string;
   system?: RowData;
+  draftRevision: number;
+  dirty: boolean;
+  externalUpdateNotice: string;
 }>();
-const emit = defineEmits<{ close: []; 'save-requested': [system: RowData] }>();
+const emit = defineEmits<{ close: []; 'save-requested': []; 'draft-changed': [system: RowData]; 'load-external': [] }>();
 
 const localSystem = ref<RowData>(normalizeSystemSpec(props.system || { id: props.systemId, type: 'STAT_MOD' }));
 const expandedSections = ref(['basic']);
@@ -389,11 +398,17 @@ function applyExtra() {
 }
 
 watch(
-  () => props.system,
-  (system) => {
-    localSystem.value = normalizeSystemSpec(system || { id: props.systemId, type: 'STAT_MOD' });
+  () => props.draftRevision,
+  () => {
+    localSystem.value = normalizeSystemSpec(props.system || { id: props.systemId, type: 'STAT_MOD' });
     extraJson.value = JSON.stringify(extraFields.value, null, 2);
   },
-  { deep: true },
+);
+watch(
+  localSystem,
+  (system) => {
+    emit('draft-changed', system);
+  },
+  { deep: true, flush: 'sync' },
 );
 </script>

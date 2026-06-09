@@ -64,7 +64,6 @@ pub fn save_variant_entity(payload: VariantEntityPayload) -> Result<WriteResult<
     services::config::save_variant_entity(
         &payload.mod_root,
         payload.previous_id.as_deref(),
-        payload.previous_rel_path.as_deref(),
         &payload.next_id,
         payload.data,
     )
@@ -98,7 +97,6 @@ pub fn save_skin_entity(payload: SkinEntityPayload) -> Result<WriteResult<Value>
     services::config::save_skin_entity(
         &payload.mod_root,
         payload.previous_id.as_deref(),
-        payload.previous_rel_path.as_deref(),
         &payload.next_id,
         payload.data,
     )

@@ -1,5 +1,5 @@
 import type { TableKey } from '@/shared/types';
-import type { SelectOption } from '@/domain/schema/schema-registry';
+import type { SelectOption } from '@/domain/schema/schema-options';
 
 import abilitiesColumnsRaw from '../../../schemas/csv/abilities.columns.json';
 import commoditiesColumnsRaw from '../../../schemas/csv/commodities.columns.json';

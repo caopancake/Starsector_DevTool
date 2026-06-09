@@ -53,13 +53,14 @@
 
 - [应用启动与窗口挂载系统](modules/app-window-mounting.md)：说明前端入口如何按窗口类型挂载主窗口、编辑器窗口和文件编辑器窗口。
 - [多窗口机制](modules/windowing.md)：说明 Tauri 多窗口的创建、单例化、聚焦和跨窗口事件边界。
-- [工作区与启动恢复系统](modules/workspace.md)：说明 workspace 状态、启动恢复、自动保存和主窗口编排边界。
-- [目录识别、游戏概览与 ProjectSession 系统](modules/directory-project-loading.md)：说明打开游戏目录或 Mod 目录时的识别、轻量扫描和 session 打开流程。
-- [ProjectSession / Manifest 缓存系统](modules/project-cache.md)：追踪 ProjectSession 打开/关闭、query、write、cache invalidation 和 manifest 状态边界。
-- [CSV 表格系统](modules/csv-tables.md)：追踪 CSV window query、grid ViewModel、当前表 patch 保存、行身份、dirty 和详情动作边界。
-- [CSV 草稿历史系统](modules/csv-edit-history.md)：说明未保存 CSV 编辑的内存级 undo/redo 栈。
-- [表格保存与关联文件 changeset 系统](modules/table-save-changeset.md)：说明 CSV 保存和关联 spec 创建删除如何组成一次文件级 changeset。
-- [文件级 history / changeset 系统](modules/file-history.md)：说明已写盘文件 changeset 的记录、撤销、重做和同步。
+- [工作区运行态与持久化系统](modules/workspace.md)：说明主窗口 workspace 运行态、启动恢复、自动保存和跨 store 活动状态同步。
+- [目录打开与目录识别入口](modules/directory-opening.md)：说明用户选择文件夹后的目录识别、游戏概览打开结果和 Mod 打开结果。
+- [ProjectSession / Manifest 缓存系统](modules/project-session.md)：追踪 ProjectSession 打开/关闭、query、write、cache invalidation 和 manifest 状态边界。
+- [CSV 表格系统](modules/csv-tables.md)：追踪 CSV window query、CSV Table Draft Session、当前表 patch 保存、行身份、dirty 和详情动作边界。
+- [CSV 草稿历史系统](modules/csv-edit-history.md)：说明未保存 CSV draft operation 的内存级 undo/redo 栈。
+- [Draft Session 草稿会话系统](modules/draft-session.md)：说明前端编辑目标的 base/draft/dirty/pending external、目标身份和竞态保护状态机。
+- [表格保存与关联 spec changeset 系统](modules/table-save-changeset.md)：说明 CSV 保存和关联 spec 动作如何组成一次文件级 changeset。
+- [文件级 history / changeset 系统](modules/file-history.md)：说明 File History Session 如何记录已写盘文件 changeset、回放、刷新 session、同步窗口和提交 undo/redo 栈。
 - [文件编辑器系统](modules/file-editor.md)：说明文本文件编辑器窗口、保存和文件历史接入。
 - [配置系统](modules/config.md)：追踪 mod_info、阵营、任务、装配和皮肤的 ViewModel、entity query、write 和 history 边界。
 - [舰船编辑器模块](modules/ship-editor.md)：追踪舰船 spec 独立窗口 ViewModel、entity query、资源加载、保存和同步。
@@ -74,7 +75,8 @@
 - [alex_csv 读取与写入 parser](modules/csv-parser.md)：说明 Starsector CSV-like parser 的读取、空行保留和写回规则。
 - [alex_json 宽松 JSON parser](modules/json-parser.md)：说明 Starsector JSON-like 清洗、解析和错误边界。
 - [Rust 文件 IO、路径校验与目录 changeset](modules/rust-file-io-changeset.md)：说明 Rust 文本 IO、路径安全、目录 changeset 和失败回滚。
-- [主窗口撤销 / 重做快捷键机制](modules/main-undo-redo.md)：说明主窗口 Ctrl+Z / Ctrl+Shift+Z 在 CSV 草稿和文件历史之间的分派。
-- [设置、主题与反馈入口机制](modules/settings-theme-feedback.md)：说明设置、主题、message 和 dialog 的入口边界。
+- [主窗口历史命令分派机制](modules/main-history-command.md)：说明主窗口 Primary+Z / Primary+Shift+Z 在 CSV 草稿和文件历史之间的分派。
+- [应用设置与主题机制](modules/app-settings.md)：说明 settings 运行态、持久化、主题 token、编辑模式和子窗口 settings 镜像。
+- [应用反馈与日志入口机制](modules/app-feedback-log.md)：说明 AppFeedback、确认对话、错误文件入口、应用日志和配置维护动作。
 - [性能计时与基线样本](modules/performance-baseline.md)：说明性能计时日志、基线样本和长期边界。
 - [About 页面](modules/about-page.md)：说明 About 页面的 markdown 读取和渲染机制。

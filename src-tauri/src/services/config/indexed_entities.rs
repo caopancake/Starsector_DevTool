@@ -1,11 +1,10 @@
 use crate::{
     domain::config::validate_config_id,
     errors::{AppError, AppResult},
-    io::{
-        invalidated_paths_for_changes, read_csv_data, strip_internal_fields, FileChangeSetBuilder,
-    },
-    models::{IndexedConfigKind, WriteResult},
+    io::{read_csv_data, strip_internal_fields, FileChangeSetBuilder},
+    models::{EntityKind, IndexedConfigKind, WriteResult},
     parsers::render_csv_text,
+    services::project::entity_definitions::entity_spec_definition,
 };
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -27,37 +26,38 @@ pub fn save_indexed_config_entity(
         .filter(|value| !value.trim().is_empty())
         .map(|value| validate_config_id(value, kind.invalid_id_message()).map(str::to_string))
         .transpose()?;
-    let adapter = EntityAdapter::new(kind);
+    let definition = indexed_config_definition(kind);
     let mod_root = Path::new(mod_root);
-    let index_path = mod_root.join(adapter.index_rel_path());
-    let (mut header, mut rows) = read_index_table(&index_path, adapter.default_header())?;
+    let index_path = mod_root.join(definition.index_rel_path());
+    let (mut header, mut rows) = read_index_table(&index_path, definition.default_header())?;
     let existing_next = rows
         .iter()
-        .position(|row| adapter.row_matches(row, &header, &next_id));
+        .position(|row| definition.row_matches(row, &header, &next_id));
     if existing_next.is_some() && previous_id.as_deref() != Some(next_id.as_str()) {
         return Err(AppError::message(format!(
             "{} 已存在: {next_id}",
-            adapter.display_name()
+            definition.display_name()
         )));
     }
-    if previous_id.as_deref() != Some(next_id.as_str()) && adapter.target_exists(mod_root, &next_id)
+    if previous_id.as_deref() != Some(next_id.as_str())
+        && definition.target_exists(mod_root, &next_id)
     {
         return Err(AppError::message(format!(
             "{}目标已存在: {}",
-            adapter.display_name(),
-            adapter.target_rel_path(&next_id)
+            definition.display_name(),
+            definition.target_rel_path(&next_id)
         )));
     }
     if let Some(previous_id) = previous_id.as_deref() {
-        require_index_row(&rows, &header, adapter, previous_id)?;
+        require_index_row(&rows, &header, definition, previous_id)?;
     }
 
-    remove_index_row(&mut rows, &header, adapter, previous_id.as_deref());
-    let index_row = adapter.normalize_index_row(index_row, &next_id);
-    upsert_index_row(&mut header, &mut rows, adapter, index_row, &next_id);
+    remove_index_row(&mut rows, &header, definition, previous_id.as_deref());
+    let index_row = definition.normalize_index_row(index_row, &next_id);
+    upsert_index_row(&mut header, &mut rows, definition, index_row, &next_id);
 
-    let mut builder = FileChangeSetBuilder::new(mod_root);
-    if kind == IndexedConfigKind::Mission
+    let mut builder = FileChangeSetBuilder::new(mod_root)?;
+    if definition.rename_strategy == RenameStrategy::CopyDirectoryBeforeWrite
         && delete_previous_target
         && previous_id
             .as_deref()
@@ -65,33 +65,33 @@ pub fn save_indexed_config_entity(
     {
         let previous = previous_id.as_deref().unwrap();
         builder.copy_directory(
-            adapter.target_rel_path(previous),
-            adapter.target_rel_path(&next_id),
+            definition.target_rel_path(previous),
+            definition.target_rel_path(&next_id),
         )?;
     }
-    builder.absolute_text_file(&index_path, Some(render_csv_text(&header, &rows)?))?;
-    adapter.add_save_changes(&mut builder, &next_id, &entity_data)?;
+    builder.root_text_file(
+        definition.index_rel_path(),
+        Some(render_csv_text(&header, &rows)?),
+    )?;
+    definition.add_save_changes(&mut builder, &next_id, &entity_data)?;
     if delete_previous_target
         && previous_id
             .as_deref()
             .is_some_and(|previous| previous != next_id)
     {
-        adapter.add_delete_target_change(&mut builder, previous_id.as_deref().unwrap())?;
+        definition.add_delete_target_change(&mut builder, previous_id.as_deref().unwrap())?;
     }
     let changes = builder.apply()?;
-    Ok(WriteResult {
-        invalidated_paths: invalidated_paths_for_changes(&changes),
+    Ok(WriteResult::from_refreshed_entity(
         changes,
-        key_map: Vec::new(),
-        refreshed_entity: Some(serde_json::json!({
+        serde_json::json!({
             "entityId": next_id,
-            "indexPath": adapter.index_rel_path(),
+            "indexPath": definition.index_rel_path(),
             "indexHeader": header,
             "indexRows": rows,
             "entityData": entity_data,
-        })),
-        warnings: Vec::new(),
-    })
+        }),
+    ))
 }
 
 pub fn create_indexed_config_entity(
@@ -111,85 +111,92 @@ pub fn delete_indexed_config_entity(
     delete_target: bool,
 ) -> AppResult<WriteResult<Value>> {
     let id = validate_config_id(id, kind.invalid_id_message())?.to_string();
-    let adapter = EntityAdapter::new(kind);
+    let definition = indexed_config_definition(kind);
     let mod_root = Path::new(mod_root);
-    let index_path = mod_root.join(adapter.index_rel_path());
-    let (header, mut rows) = read_index_table(&index_path, adapter.default_header())?;
-    if !remove_index_row(&mut rows, &header, adapter, Some(&id)) {
+    let index_path = mod_root.join(definition.index_rel_path());
+    let (header, mut rows) = read_index_table(&index_path, definition.default_header())?;
+    if !remove_index_row(&mut rows, &header, definition, Some(&id)) {
         return Err(AppError::message(format!(
             "{}索引不存在: {id}",
-            adapter.display_name()
+            definition.display_name()
         )));
     }
 
-    let mut builder = FileChangeSetBuilder::new(mod_root);
-    builder.absolute_text_file(&index_path, Some(render_csv_text(&header, &rows)?))?;
+    let mut builder = FileChangeSetBuilder::new(mod_root)?;
+    builder.root_text_file(
+        definition.index_rel_path(),
+        Some(render_csv_text(&header, &rows)?),
+    )?;
     if delete_target {
-        adapter.add_delete_target_change(&mut builder, &id)?;
+        definition.add_delete_target_change(&mut builder, &id)?;
     }
     let changes = builder.apply()?;
-    Ok(WriteResult {
-        invalidated_paths: invalidated_paths_for_changes(&changes),
+    Ok(WriteResult::from_refreshed_entity(
         changes,
-        key_map: Vec::new(),
-        refreshed_entity: Some(serde_json::json!({
+        serde_json::json!({
             "entityId": id,
-            "indexPath": adapter.index_rel_path(),
+            "indexPath": definition.index_rel_path(),
             "indexHeader": header,
             "indexRows": rows,
             "entityData": Value::Null,
-        })),
-        warnings: Vec::new(),
-    })
+        }),
+    ))
 }
 
 impl IndexedConfigKind {
     fn invalid_id_message(self) -> &'static str {
-        match self {
-            Self::Faction => "无效势力 ID",
-            Self::Mission => "无效战役 ID",
-        }
+        (indexed_config_definition(self).invalid_id_message)()
     }
 }
 
-struct EntityAdapter {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RenameStrategy {
+    DeletePreviousAfterWrite,
+    CopyDirectoryBeforeWrite,
+}
+
+struct IndexedConfigDefinition {
     kind: IndexedConfigKind,
+    invalid_id_message: fn() -> &'static str,
+    display_name: &'static str,
+    index_rel_path: &'static str,
+    default_header: &'static [&'static str],
+    id_column_candidates: &'static [&'static str],
+    target_rel_path: fn(&str) -> String,
+    row_matches: fn(&Map<String, Value>, &str, &str) -> bool,
+    normalize_index_row: fn(Map<String, Value>, &str) -> Map<String, Value>,
+    add_save_changes:
+        fn(&mut FileChangeSetBuilder, &IndexedConfigDefinition, &str, &Value) -> AppResult<()>,
+    add_delete_target_change:
+        fn(&mut FileChangeSetBuilder, &IndexedConfigDefinition, &str) -> AppResult<()>,
+    rename_strategy: RenameStrategy,
 }
 
-impl EntityAdapter {
-    fn new(kind: IndexedConfigKind) -> &'static Self {
-        match kind {
-            IndexedConfigKind::Faction => &FACTION_ADAPTER,
-            IndexedConfigKind::Mission => &MISSION_ADAPTER,
-        }
-    }
+fn indexed_config_definition(kind: IndexedConfigKind) -> &'static IndexedConfigDefinition {
+    INDEXED_CONFIG_DEFINITIONS
+        .iter()
+        .find(|definition| definition.kind == kind)
+        .expect("registered indexed config kind")
+}
 
+impl IndexedConfigDefinition {
     fn display_name(&self) -> &'static str {
-        match self.kind {
-            IndexedConfigKind::Faction => "势力",
-            IndexedConfigKind::Mission => "战役",
-        }
+        self.display_name
     }
 
     fn index_rel_path(&self) -> &'static str {
-        match self.kind {
-            IndexedConfigKind::Faction => "data/world/factions/factions.csv",
-            IndexedConfigKind::Mission => "data/missions/mission_list.csv",
-        }
+        self.index_rel_path
     }
 
     fn default_header(&self) -> Vec<String> {
-        match self.kind {
-            IndexedConfigKind::Faction => vec!["id".to_string(), "file".to_string()],
-            IndexedConfigKind::Mission => vec!["mission".to_string()],
-        }
+        self.default_header
+            .iter()
+            .map(|value| value.to_string())
+            .collect()
     }
 
     fn target_rel_path(&self, id: &str) -> String {
-        match self.kind {
-            IndexedConfigKind::Faction => format!("data/world/factions/{id}.faction"),
-            IndexedConfigKind::Mission => format!("data/missions/{id}"),
-        }
+        (self.target_rel_path)(id)
     }
 
     fn target_exists(&self, mod_root: &Path, id: &str) -> bool {
@@ -201,38 +208,20 @@ impl EntityAdapter {
         let Some(value) = row.get(&key).and_then(Value::as_str).map(str::trim) else {
             return false;
         };
-        match self.kind {
-            IndexedConfigKind::Faction => value == id || file_stem(value) == id,
-            IndexedConfigKind::Mission => value == id,
-        }
+        (self.row_matches)(row, value, id)
     }
 
-    fn normalize_index_row(&self, mut row: Map<String, Value>, id: &str) -> Map<String, Value> {
-        match self.kind {
-            IndexedConfigKind::Faction => {
-                row.insert("id".to_string(), Value::String(id.to_string()));
-                row.entry("file".to_string())
-                    .or_insert_with(|| Value::String(format!("data/world/factions/{id}.faction")));
-            }
-            IndexedConfigKind::Mission => {
-                row.insert("mission".to_string(), Value::String(id.to_string()));
-            }
-        }
-        row
+    fn normalize_index_row(&self, row: Map<String, Value>, id: &str) -> Map<String, Value> {
+        (self.normalize_index_row)(row, id)
     }
 
     fn id_column(&self, header: &[String]) -> String {
-        match self.kind {
-            IndexedConfigKind::Faction => find_header_col(header, &["id", "faction", "factionId"])
-                .unwrap_or_else(|| header.first().cloned().unwrap_or_else(|| "id".to_string())),
-            IndexedConfigKind::Mission => find_header_col(header, &["mission", "id"])
-                .unwrap_or_else(|| {
-                    header
-                        .first()
-                        .cloned()
-                        .unwrap_or_else(|| "mission".to_string())
-                }),
-        }
+        find_header_col(header, self.id_column_candidates).unwrap_or_else(|| {
+            header
+                .first()
+                .cloned()
+                .unwrap_or_else(|| self.default_header[0].to_string())
+        })
     }
 
     fn add_save_changes(
@@ -241,38 +230,7 @@ impl EntityAdapter {
         id: &str,
         entity_data: &Value,
     ) -> AppResult<()> {
-        match self.kind {
-            IndexedConfigKind::Faction => {
-                let file = entity_data
-                    .get("file")
-                    .ok_or_else(|| AppError::message("missing faction file data"))?;
-                let clean = strip_internal_fields(file);
-                builder.text_file(
-                    self.target_rel_path(id),
-                    Some(serde_json::to_string_pretty(&clean)?),
-                )?;
-            }
-            IndexedConfigKind::Mission => {
-                let descriptor = entity_data
-                    .get("descriptor")
-                    .ok_or_else(|| AppError::message("missing mission descriptor data"))?;
-                let text = entity_data
-                    .get("text")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| AppError::message("missing mission text data"))?;
-                let clean = strip_internal_fields(descriptor);
-                builder
-                    .text_file(
-                        format!("{}/descriptor.json", self.target_rel_path(id)),
-                        Some(serde_json::to_string_pretty(&clean)?),
-                    )?
-                    .text_file(
-                        format!("{}/mission_text.txt", self.target_rel_path(id)),
-                        Some(text.to_string()),
-                    )?;
-            }
-        }
-        Ok(())
+        (self.add_save_changes)(builder, self, id, entity_data)
     }
 
     fn add_delete_target_change(
@@ -280,24 +238,40 @@ impl EntityAdapter {
         builder: &mut FileChangeSetBuilder,
         id: &str,
     ) -> AppResult<()> {
-        match self.kind {
-            IndexedConfigKind::Faction => {
-                builder.text_file(self.target_rel_path(id), None)?;
-            }
-            IndexedConfigKind::Mission => {
-                builder.delete_directory(self.target_rel_path(id))?;
-            }
-        }
-        Ok(())
+        (self.add_delete_target_change)(builder, self, id)
     }
 }
 
-static FACTION_ADAPTER: EntityAdapter = EntityAdapter {
-    kind: IndexedConfigKind::Faction,
-};
-static MISSION_ADAPTER: EntityAdapter = EntityAdapter {
-    kind: IndexedConfigKind::Mission,
-};
+const INDEXED_CONFIG_DEFINITIONS: [IndexedConfigDefinition; 2] = [
+    IndexedConfigDefinition {
+        kind: IndexedConfigKind::Faction,
+        invalid_id_message: faction_invalid_id_message,
+        display_name: "势力",
+        index_rel_path: "data/world/factions/factions.csv",
+        default_header: &["id", "file"],
+        id_column_candidates: &["id", "faction", "factionId"],
+        target_rel_path: faction_target_rel_path,
+        row_matches: faction_row_matches,
+        normalize_index_row: normalize_faction_index_row,
+        add_save_changes: add_faction_save_changes,
+        add_delete_target_change: add_faction_delete_target_change,
+        rename_strategy: RenameStrategy::DeletePreviousAfterWrite,
+    },
+    IndexedConfigDefinition {
+        kind: IndexedConfigKind::Mission,
+        invalid_id_message: mission_invalid_id_message,
+        display_name: "战役",
+        index_rel_path: "data/missions/mission_list.csv",
+        default_header: &["mission"],
+        id_column_candidates: &["mission", "id"],
+        target_rel_path: mission_target_rel_path,
+        row_matches: mission_row_matches,
+        normalize_index_row: normalize_mission_index_row,
+        add_save_changes: add_mission_save_changes,
+        add_delete_target_change: add_mission_delete_target_change,
+        rename_strategy: RenameStrategy::CopyDirectoryBeforeWrite,
+    },
+];
 
 fn read_index_table(path: &Path, default_header: Vec<String>) -> AppResult<IndexTable> {
     let table = read_csv_data(path)?;
@@ -311,7 +285,7 @@ fn read_index_table(path: &Path, default_header: Vec<String>) -> AppResult<Index
 fn upsert_index_row(
     header: &mut Vec<String>,
     rows: &mut Vec<Map<String, Value>>,
-    adapter: &EntityAdapter,
+    definition: &IndexedConfigDefinition,
     row: Map<String, Value>,
     id: &str,
 ) {
@@ -322,7 +296,7 @@ fn upsert_index_row(
     }
     if let Some(index) = rows
         .iter()
-        .position(|existing| adapter.row_matches(existing, header, id))
+        .position(|existing| definition.row_matches(existing, header, id))
     {
         rows[index] = row;
     } else {
@@ -333,29 +307,32 @@ fn upsert_index_row(
 fn remove_index_row(
     rows: &mut Vec<Map<String, Value>>,
     header: &[String],
-    adapter: &EntityAdapter,
+    definition: &IndexedConfigDefinition,
     id: Option<&str>,
 ) -> bool {
     let Some(id) = id else {
         return false;
     };
     let before = rows.len();
-    rows.retain(|row| !adapter.row_matches(row, header, id));
+    rows.retain(|row| !definition.row_matches(row, header, id));
     before != rows.len()
 }
 
 fn require_index_row(
     rows: &[Map<String, Value>],
     header: &[String],
-    adapter: &EntityAdapter,
+    definition: &IndexedConfigDefinition,
     id: &str,
 ) -> AppResult<()> {
-    if rows.iter().any(|row| adapter.row_matches(row, header, id)) {
+    if rows
+        .iter()
+        .any(|row| definition.row_matches(row, header, id))
+    {
         return Ok(());
     }
     Err(AppError::message(format!(
         "{}索引不存在: {id}",
-        adapter.display_name()
+        definition.display_name()
     )))
 }
 
@@ -374,6 +351,107 @@ fn file_stem(value: &str) -> String {
         .and_then(|stem| stem.to_str())
         .unwrap_or(value)
         .to_string()
+}
+
+fn faction_invalid_id_message() -> &'static str {
+    entity_spec_definition(EntityKind::Faction)
+        .expect("registered faction spec definition")
+        .invalid_id_message
+}
+
+fn mission_invalid_id_message() -> &'static str {
+    "无效战役 ID"
+}
+
+fn faction_target_rel_path(id: &str) -> String {
+    entity_spec_definition(EntityKind::Faction)
+        .expect("registered faction spec definition")
+        .default_rel_path(id)
+}
+
+fn mission_target_rel_path(id: &str) -> String {
+    format!("data/missions/{id}")
+}
+
+fn faction_row_matches(_row: &Map<String, Value>, value: &str, id: &str) -> bool {
+    value == id || file_stem(value) == id
+}
+
+fn mission_row_matches(_row: &Map<String, Value>, value: &str, id: &str) -> bool {
+    value == id
+}
+
+fn normalize_faction_index_row(mut row: Map<String, Value>, id: &str) -> Map<String, Value> {
+    row.insert("id".to_string(), Value::String(id.to_string()));
+    row.entry("file".to_string())
+        .or_insert_with(|| Value::String(faction_target_rel_path(id)));
+    row
+}
+
+fn normalize_mission_index_row(mut row: Map<String, Value>, id: &str) -> Map<String, Value> {
+    row.insert("mission".to_string(), Value::String(id.to_string()));
+    row
+}
+
+fn add_faction_save_changes(
+    builder: &mut FileChangeSetBuilder,
+    definition: &IndexedConfigDefinition,
+    id: &str,
+    entity_data: &Value,
+) -> AppResult<()> {
+    let file = entity_data
+        .get("file")
+        .ok_or_else(|| AppError::message("missing faction file data"))?;
+    let clean = strip_internal_fields(file);
+    builder.text_file(
+        definition.target_rel_path(id),
+        Some(serde_json::to_string_pretty(&clean)?),
+    )?;
+    Ok(())
+}
+
+fn add_mission_save_changes(
+    builder: &mut FileChangeSetBuilder,
+    definition: &IndexedConfigDefinition,
+    id: &str,
+    entity_data: &Value,
+) -> AppResult<()> {
+    let descriptor = entity_data
+        .get("descriptor")
+        .ok_or_else(|| AppError::message("missing mission descriptor data"))?;
+    let text = entity_data
+        .get("text")
+        .and_then(Value::as_str)
+        .ok_or_else(|| AppError::message("missing mission text data"))?;
+    let clean = strip_internal_fields(descriptor);
+    builder
+        .text_file(
+            format!("{}/descriptor.json", definition.target_rel_path(id)),
+            Some(serde_json::to_string_pretty(&clean)?),
+        )?
+        .text_file(
+            format!("{}/mission_text.txt", definition.target_rel_path(id)),
+            Some(text.to_string()),
+        )?;
+    Ok(())
+}
+
+fn add_faction_delete_target_change(
+    builder: &mut FileChangeSetBuilder,
+    definition: &IndexedConfigDefinition,
+    id: &str,
+) -> AppResult<()> {
+    builder.text_file(definition.target_rel_path(id), None)?;
+    Ok(())
+}
+
+fn add_mission_delete_target_change(
+    builder: &mut FileChangeSetBuilder,
+    definition: &IndexedConfigDefinition,
+    id: &str,
+) -> AppResult<()> {
+    builder.delete_directory(definition.target_rel_path(id))?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -526,8 +604,8 @@ mod tests {
     }
 
     #[test]
-    fn mission_delete_expands_directory_invalidated_paths() {
-        let root = temp_dir("mission_delete_expands_invalidated_paths");
+    fn mission_delete_expands_directory_invalidation_paths() {
+        let root = temp_dir("mission_delete_expands_invalidation_paths");
         fs::create_dir_all(root.join("data/missions/demo")).unwrap();
         write_utf8_no_bom(
             &root.join("data/missions/mission_list.csv"),
@@ -550,11 +628,11 @@ mod tests {
         .unwrap();
 
         let _ = fs::remove_dir_all(root);
-        assert!(result.invalidated_paths.iter().any(|path| {
+        assert!(result.invalidation.paths.iter().any(|path| {
             path.replace('\\', "/")
                 .ends_with("data/missions/demo/descriptor.json")
         }));
-        assert!(result.invalidated_paths.iter().any(|path| {
+        assert!(result.invalidation.paths.iter().any(|path| {
             path.replace('\\', "/")
                 .ends_with("data/missions/demo/mission_text.txt")
         }));

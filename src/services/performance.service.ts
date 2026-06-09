@@ -1,4 +1,4 @@
-import { recordLogBestEffort } from '@/services/app-config.service';
+import { recordLogBestEffort } from '@/services/app-feedback-log.service';
 
 export interface PerformanceFields {
   [key: string]: number | string | boolean | null | undefined;

@@ -1,29 +1,14 @@
 <template>
   <aside class="nav-pane">
     <div class="nav-section nav-workspace-links">
-      <button
-        type="button"
-        class="nav-button"
-        :class="{ active: workspace.currentView === 'overview' }"
-        @click="workspace.navigateTo('overview')"
-      >
+      <button type="button" class="nav-button" :class="{ active: workspace.currentView === 'overview' }" @click="workspace.showOverview()">
         <span class="nav-text">总览</span>
       </button>
-      <button
-        type="button"
-        class="nav-button"
-        :class="{ active: workspace.currentView === 'settings' }"
-        @click="workspace.navigateTo('settings')"
-      >
+      <button type="button" class="nav-button" :class="{ active: workspace.currentView === 'settings' }" @click="workspace.showSettings()">
         <span class="nav-text">设置</span>
       </button>
-      <button
-        type="button"
-        class="nav-button"
-        :class="{ active: workspace.currentView === 'about' }"
-        @click="workspace.navigateTo('about')"
-      >
-        <span class="nav-text">About</span>
+      <button type="button" class="nav-button" :class="{ active: workspace.currentView === 'about' }" @click="workspace.showAbout()">
+        <span class="nav-text">关于</span>
       </button>
     </div>
 

@@ -10,7 +10,7 @@
           :autosize="stringTextareaAutosize"
           size="small"
           :disabled="field.editable === false"
-          @update:value="emitStringOrObject($event)"
+          @update:value="emitStringOrUiJsonText($event)"
         />
         <n-input
           v-else-if="field.type === 'text'"
@@ -50,11 +50,11 @@
         />
         <n-input
           v-else-if="field.type === 'color-rgb' || field.type === 'color-rgba'"
-          :value="jsonVal"
+          :value="uiJsonText"
           type="textarea"
           :autosize="{ minRows: 1, maxRows: 4 }"
           size="small"
-          @update:value="emitParsed"
+          @update:value="emitSchemaUiJsonText"
         />
         <n-input
           v-else-if="field.type === 'path-image' || field.type === 'path'"
@@ -76,13 +76,20 @@
         />
         <n-input
           v-else-if="field.type === 'key-value' || field.type === 'object' || field.type === 'array' || field.type === 'array-of-object'"
-          :value="jsonVal"
+          :value="uiJsonText"
           type="textarea"
           :autosize="{ minRows: 2, maxRows: 10 }"
           size="small"
-          @update:value="emitParsed"
+          @update:value="emitSchemaUiJsonText"
         />
-        <n-input v-else :value="jsonVal" type="textarea" :autosize="{ minRows: 1, maxRows: 4 }" size="small" @update:value="emitParsed" />
+        <n-input
+          v-else
+          :value="uiJsonText"
+          type="textarea"
+          :autosize="{ minRows: 1, maxRows: 4 }"
+          size="small"
+          @update:value="emitSchemaUiJsonText"
+        />
       </template>
 
       <template v-else>
@@ -94,7 +101,7 @@
           :autosize="stringInputAutosize"
           size="small"
           :disabled="field.editable === false"
-          @update:value="emitStringOrObject($event)"
+          @update:value="emitStringOrUiJsonText($event)"
         />
 
         <!-- text (textarea) -->
@@ -116,7 +123,7 @@
           :step="field.step ?? 1"
           :show-button="false"
           size="small"
-          @update:value="emit('update', $event ?? 0)"
+          @update:value="emitControlNumber($event, true)"
         />
 
         <!-- float -->
@@ -128,7 +135,7 @@
           :step="field.step ?? 0.1"
           :show-button="false"
           size="small"
-          @update:value="emit('update', $event ?? 0)"
+          @update:value="emitControlNumber($event, false)"
         />
 
         <!-- boolean -->
@@ -180,7 +187,7 @@
             @update:show="handleSelectShowUpdate"
             @update:value="emit('update', $event ?? '')"
           />
-          <n-button class="compact-icon-button" size="small" quaternary title="选择文件" @click="pickFile">
+          <n-button class="compact-icon-button" size="small" quaternary title="选择文件" @click="pickPathFile">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 19V5h6l2 2h8v12H4z" />
               <path d="M8 14h8M12 10v8" />
@@ -191,7 +198,7 @@
         <!-- path: input + file picker (no image dropdown) -->
         <div v-else-if="field.type === 'path'" class="path-field">
           <n-input :value="strVal" size="small" @update:value="emit('update', $event)" />
-          <n-button class="compact-icon-button" size="small" quaternary title="选择文件" @click="pickFile">
+          <n-button class="compact-icon-button" size="small" quaternary title="选择文件" @click="pickPathFile">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 19V5h6l2 2h8v12H4z" />
               <path d="M8 14h8M12 10v8" />
@@ -331,7 +338,14 @@
         </div>
 
         <!-- default JSON textarea -->
-        <n-input v-else :value="jsonVal" type="textarea" :autosize="{ minRows: 1, maxRows: 4 }" size="small" @update:value="emitParsed" />
+        <n-input
+          v-else
+          :value="uiJsonText"
+          type="textarea"
+          :autosize="{ minRows: 1, maxRows: 4 }"
+          size="small"
+          @update:value="emitSchemaUiJsonText"
+        />
       </template>
 
       <!-- Warning text -->
@@ -342,36 +356,35 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onUnmounted, ref, watch } from 'vue';
-import { pickFileDialog } from '@/shared/runtime/dialog.runtime';
-import type { JsonValue, SchemaRuntimeContext } from '@/shared/types';
-import { normalizeRelPath, pathBelongsToRoot, relativePathFromRoot } from '@/shared/lib/paths';
+import { computed, h, ref } from 'vue';
+import type { JsonValue } from '@/shared/types';
+import { useSchemaPathPicker } from '@/app/composables/use-schema-path-picker';
+import { useSchemaSourceOptions } from '@/app/composables/use-schema-source-options';
+import type { SchemaRuntimeContext } from '@/domain/schema/schema-runtime';
 import type { FieldSchema } from '@/domain/schema/schema.types';
 import {
   appendSchemaKeyValueEntry,
   formatSchemaCommaList,
   formatSchemaKeyValueText,
-  includeCurrentSelectOptions,
+  formatSchemaUiJsonText,
+  parseSchemaUiJsonText,
+  parseSchemaControlNumber,
   parseSchemaCommaList,
   parseSchemaKeyValueText,
   parseSchemaPlainBoolean,
   parseSchemaPlainNumber,
   schemaArrayStringValues,
-  schemaEnumSelectOptions,
   schemaKeyValueEntries,
   schemaKeyValueOutput,
+  schemaNumberControlValue,
   schemaPathDisplayLabel,
   schemaPlainBooleanText,
-  schemaSourceCurrentValues,
-  schemaSourceSelectOptions,
   schemaStringValue,
   schemaTagValues,
-  selectOptionResourceRefs,
   type SchemaKeyValueEntry,
-  selectOptionText,
-  type SelectOption,
   wrapSchemaTagValues,
-} from '@/domain/schema/schema-registry';
+} from '@/domain/schema/schema-values';
+import { includeCurrentSelectOptions, schemaEnumSelectOptions, selectOptionText, type SelectOption } from '@/domain/schema/schema-options';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import { useCoreGraphics } from '@/app/composables/use-core-graphics';
 import { useSettingsStore } from '@/stores/settings.store';
@@ -402,7 +415,7 @@ const stringTextareaAutosize = { minRows: 1, maxRows: 6 };
 const stringInputType = computed(() => (strVal.value.includes('\n') || strVal.value.includes('\r') ? 'textarea' : 'text'));
 const stringInputAutosize = computed(() => (stringInputType.value === 'textarea' ? stringTextareaAutosize : undefined));
 
-const numVal = computed(() => (typeof props.value === 'number' ? props.value : parseFloat(String(props.value)) || 0));
+const numVal = computed(() => schemaNumberControlValue(props.value));
 const plainNumberText = computed(() => (props.value === null || props.value === undefined ? '' : String(props.value)));
 const plainBooleanText = computed(() => schemaPlainBooleanText(props.value));
 
@@ -410,14 +423,7 @@ const boolVal = computed(() => props.value === true);
 
 const arrVal = computed(() => schemaArrayStringValues(props.value));
 
-const jsonVal = computed(() => {
-  if (props.value == null) return '';
-  try {
-    return JSON.stringify(props.value, null, 2);
-  } catch {
-    return String(props.value);
-  }
-});
+const uiJsonText = computed(() => formatSchemaUiJsonText(props.value));
 
 // tag-select: value is { tags: string[] } or string[]
 const tagSelectVal = computed(() => schemaTagValues(props.value));
@@ -428,6 +434,10 @@ function wrapTags(tags: string[]): unknown {
 
 function emitPlainNumber(raw: string, integer: boolean) {
   emit('update', parseSchemaPlainNumber(raw, integer));
+}
+
+function emitControlNumber(value: number | null, integer: boolean) {
+  emit('update', parseSchemaControlNumber(value, integer));
 }
 
 function emitPlainBoolean(raw: string) {
@@ -444,17 +454,20 @@ function emitPlainTagSelect(raw: string) {
 
 // ─── Source / enum options ────────────────────────────────────────────
 
-const loadedSourceOptions = ref<SelectOption[]>([]);
-const sourceOptions = computed<SelectOption[]>(() => loadedSourceOptions.value);
+const { sourceOptions } = useSchemaSourceOptions({
+  field: () => props.field,
+  value: () => props.value,
+  runtimeContext: () => props.runtimeContext,
+});
+const { pickPathFile } = useSchemaPathPicker({
+  runtimeContext: () => props.runtimeContext,
+  setPath: (path) => emit('update', path),
+});
 const isReferenceKeyValue = computed(() => props.field.type === 'key-value' && isCsvSource(props.field.source));
-const sourceCurrentValues = computed(() => schemaSourceCurrentValues(props.field, props.value));
-const sourceCurrentValuesIdentity = computed(() => JSON.stringify(sourceCurrentValues.value));
 const selectOpen = ref(false);
 const suppressNextSelectOpen = ref(false);
 const kvSelectOpen = ref<Record<number, boolean>>({});
 const suppressNextKvSelectOpen = ref<Record<number, boolean>>({});
-let sourceOptionsRequestId = 0;
-let unsubscribeSourceOptionInvalidation: (() => void) | null = null;
 
 // Render label with optional thumbnail for n-select options.
 function renderSelectLabel(option: SelectOption & { label?: string; value?: string }) {
@@ -478,49 +491,6 @@ function selectOptionTitle(option: SelectOption & { label?: string; value?: stri
 const enumOptions = computed(() => {
   return schemaEnumSelectOptions(props.field, sourceOptions.value);
 });
-
-watch(
-  () => [props.runtimeContext?.sessionId ?? null, props.field.source ?? null, sourceCurrentValuesIdentity.value] as const,
-  () => {
-    void reloadSourceOptions();
-  },
-  { immediate: true },
-);
-
-watch(
-  () => [props.runtimeContext, props.field.source ?? ''] as const,
-  ([runtimeContext, source]) => {
-    unsubscribeSourceOptionInvalidation?.();
-    unsubscribeSourceOptionInvalidation =
-      runtimeContext?.subscribeSourceOptionInvalidation?.(source, loadedSourceOptionResourceRefs, () => {
-        void reloadSourceOptions();
-      }) ?? null;
-  },
-  { immediate: true },
-);
-onUnmounted(() => unsubscribeSourceOptionInvalidation?.());
-
-async function reloadSourceOptions() {
-  const requestId = ++sourceOptionsRequestId;
-  const sessionId = props.runtimeContext?.sessionId ?? null;
-  const source = props.field.source ?? null;
-  if (!sessionId || !source || !isCsvSource(source)) {
-    loadedSourceOptions.value = [];
-    return;
-  }
-  const currentValues = sourceCurrentValues.value;
-  const groups = await props.runtimeContext?.querySourceOptions?.(source, currentValues, undefined, 500);
-  if (requestId !== sourceOptionsRequestId || sessionId !== props.runtimeContext?.sessionId || source !== props.field.source) return;
-  if (!groups) {
-    loadedSourceOptions.value = [];
-    return;
-  }
-  loadedSourceOptions.value = schemaSourceSelectOptions(groups);
-}
-
-function loadedSourceOptionResourceRefs() {
-  return selectOptionResourceRefs(loadedSourceOptions.value);
-}
 
 // ─── path-image graphics options ─────────────────────────────────────
 
@@ -669,48 +639,22 @@ function removeGenericArrayItem(idx: number) {
 
 // ─── Fallback JSON parser ─────────────────────────────────────────────
 
-function emitParsed(raw: string) {
-  try {
-    const parsed = JSON.parse(raw);
-    emit('update', parsed);
-  } catch {
-    emit('update', raw);
-  }
+function emitSchemaUiJsonText(raw: string) {
+  emit('update', parseSchemaUiJsonText(raw));
 }
 
 // ─── String-or-object smart emitter (for version-like fields) ────────
 
-function emitStringOrObject(raw: string) {
+function emitStringOrUiJsonText(raw: string) {
   const trimmed = raw.trim();
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-    try {
-      emit('update', JSON.parse(trimmed));
+    const parsed = parseSchemaUiJsonText(trimmed);
+    if (parsed !== trimmed) {
+      emit('update', parsed);
       return;
-    } catch {
-      // Not valid JSON, emit as string
     }
   }
   emit('update', raw);
-}
-
-// ─── File picker for path / path-image fields ────────────────────────
-
-async function pickFile() {
-  const modRoot = props.runtimeContext?.modRoot;
-  if (!modRoot) return;
-
-  const selected = await pickFileDialog({
-    title: '选择文件',
-    defaultPath: modRoot,
-  });
-
-  if (!selected || typeof selected !== 'string') return;
-
-  if (pathBelongsToRoot(selected, modRoot)) {
-    emit('update', relativePathFromRoot(modRoot, selected));
-  } else {
-    emit('update', normalizeRelPath(selected));
-  }
 }
 
 function closeOpenSelectOnFieldClick(event: MouseEvent) {

@@ -2,7 +2,7 @@ import { computed, ref, watch } from 'vue';
 import { queryCoreGraphics } from '@/services/assets.service';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useProjectStore } from '@/stores/project.store';
-import { recordLogBestEffort } from '@/services/app-config.service';
+import { recordLogBestEffort } from '@/services/app-feedback-log.service';
 import { formatError } from '@/shared/lib/errors';
 
 const graphicsPaths = ref<string[]>([]);

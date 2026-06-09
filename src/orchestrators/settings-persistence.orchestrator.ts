@@ -1,5 +1,6 @@
 import { watch } from 'vue';
-import { recordLogBestEffort, saveSettings } from '@/services/app-config.service';
+import { recordLogBestEffort } from '@/services/app-feedback-log.service';
+import { saveSettings } from '@/services/app-settings.service';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';

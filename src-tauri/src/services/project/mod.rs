@@ -1,14 +1,17 @@
 mod cache;
+pub(crate) mod entity_definitions;
 mod entry;
 mod factions;
 mod model;
 mod performance;
 mod projectiles;
 mod query;
+mod resources_shared;
 mod root;
 mod session;
 mod spec_files;
 mod sprites;
+mod table_definitions;
 mod write;
 
 pub use entry::open_project_session_with_root;

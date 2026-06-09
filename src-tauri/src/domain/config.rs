@@ -84,14 +84,6 @@ pub fn build_skin_file(mod_root: &Path, rel_path: &str, data: &Value) -> AppResu
     })
 }
 
-pub fn variant_rel_path(variant_id: &str) -> String {
-    format!("data/variants/{variant_id}.variant")
-}
-
-pub fn skin_rel_path(skin_hull_id: &str) -> String {
-    format!("data/hulls/skins/{skin_hull_id}.skin")
-}
-
 fn required_string(value: &Value, key: &str, display_name: &str) -> AppResult<String> {
     value
         .get(key)

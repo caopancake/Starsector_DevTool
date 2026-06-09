@@ -25,7 +25,6 @@
 - `PerformanceFields` 只能携带 number、string、boolean、null 或 undefined，不能携带对象、数组、row data、manifest 或资源 data URL。
 - `PerformanceTrace` 只归 Rust ProjectSession 打开链路使用，不能作为通用业务日志结构扩散到 command 或前端。
 - `PERF` 日志归 app log 消费，不新增独立性能日志文件、持久化表或设置项。
-- `alex_csv` parser 暴露 metric callback，但普通 CSV 文件读取当前不把 parser metric 写入 app log。
 - `measurePerformance` 和 `measurePerformanceAsync` 只包裹调用方 action 并在 finally 记录耗时，不改变 action 返回值或错误传播。
 - `query cache` 计时归前端 cache service 拥有，只描述缓存命中状态和耗时，不描述 query 结果内容。
 - `recordPerformance` 是前端性能日志唯一写入入口，调用方只提供名称、耗时和允许字段。
@@ -112,14 +111,14 @@
 - 性能日志不得记录 CSV 行内容、JSON 实体内容、图片 data URL、完整 manifest、schema options 全量数据或用户编辑内容。
 - 人工大 Mod 基线样本目录为 `D:\Starsector\mods\Kratogen_TA`，只作为人工采样输入。
 - 性能计时不得为了记录指标改变 ProjectSession 打开、query cache、CSV 编辑、保存、history、设置或错误语义。
-- 普通 CSV 文件读取当前不得被文档描述为已写入 parser 阶段性能日志；parser metric callback 只有接入写入入口后才构成 app log 链路。
+- 普通 CSV 文件读取当前不得被文档描述为已写入 parser 阶段性能日志；parser 不暴露未接入 app log 的 public metric API。
 
 ## 陷阱
 
 - 把性能样本路径写进默认配置或测试，会把本机人工验收条件误变成项目协议。
 - 在性能 log 中拼接 row data、manifest JSON、schema options 或 data URL，会污染 app log 并暴露大字段内容。
 - 在计时包装里 catch 并吞掉 action 错误，会让性能观察改变业务失败语义。
-- 把 parser 内部 metric callback 当成已落盘日志，会高估当前 CSV 读取观测覆盖范围。
+- 把 parser 内部解析阶段当成已落盘日志，会高估当前 CSV 读取观测覆盖范围。
 - 为了记录失败耗时而在 ProjectSession 打开失败时写入不完整 trace，会干扰错误定位和日志语义。
 - 让计时逻辑触发 toast、缓存失效、状态更新或路由跳转，会把观测工具变成业务副作用。
 - 不清洗字段中的换行或制表符，会破坏 app log 的单行 `PERF` 解析边界。

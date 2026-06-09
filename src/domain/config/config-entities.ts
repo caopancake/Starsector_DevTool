@@ -1,6 +1,7 @@
 import type { IndexedConfigKind, JsonValue, RowData } from '@/shared/types';
 import type { FileSchema } from '@/domain/schema/schema.types';
-import { aggregateSchemaSources, isSchemaInternalKey, splitSchemaSources } from '@/domain/schema/schema-registry';
+import { isSchemaInternalKey } from '@/domain/schema/schema-sections';
+import { aggregateSchemaSources, splitSchemaSources } from '@/domain/schema/schema-sources';
 
 type IndexedConfigLabelAction = 'save' | 'create' | 'delete';
 
@@ -223,15 +224,10 @@ export function hasConfigEntityIdConflict<T>(
   });
 }
 
-export function configEntityRenameContext(
-  currentId: string,
-  currentRelPath: string,
-  nextId: string,
-): { previousId: string | null; previousRelPath: string | null } {
+export function configEntityRenameContext(currentId: string, nextId: string): { previousId: string | null } {
   const renamed = nextId !== currentId;
   return {
     previousId: renamed ? currentId : null,
-    previousRelPath: renamed ? currentRelPath : null,
   };
 }
 

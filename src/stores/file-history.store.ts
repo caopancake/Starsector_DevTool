@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue';
 import type { FileChangeRecord } from '@/shared/types';
 import type { FileHistoryItem, FileSaveHistoryEntry } from '@/shared/types/file-history.types';
 import { isFileSaveEntry } from '@/shared/types/file-history.types';
+import { AppError } from '@/shared/lib/errors';
 
 interface FileHistoryState {
   undoStack: FileHistoryItem[];
@@ -45,21 +46,22 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     return state;
   }
 
-  const canUndoFileSave = computed(() => Boolean(peekFileUndo(activeRoot.value)));
-  const canRedoFileSave = computed(() => Boolean(peekFileRedo(activeRoot.value)));
+  const canUndoFileSave = computed(() => Boolean(peekSavedWriteUndo(activeRoot.value)));
+  const canRedoFileSave = computed(() => Boolean(peekSavedWriteRedo(activeRoot.value)));
   const activeUndoStack = computed(() => getState(activeRoot.value)?.undoStack ?? []);
   const activeRedoStack = computed(() => getState(activeRoot.value)?.redoStack ?? []);
   const activeHistoryCount = computed(() => activeUndoStack.value.length + activeRedoStack.value.length);
 
-  function pushFileSaveEntry(modRoot: string, changes: FileChangeRecord[], label: string) {
-    if (!modRoot || changes.length === 0) return;
+  function pushSavedWriteEntry(modRoot: string, changes: FileChangeRecord[], label: string) {
+    if (!modRoot) throw new AppError('无法记录文件历史：缺少 Mod 根目录', { action: 'push-saved-write-entry' });
+    if (changes.length === 0) throw new AppError('无法记录文件历史：写入结果没有文件变更', { action: 'push-saved-write-entry' });
     const state = getOrCreateState(modRoot);
     state.undoStack.push({ id: nextId(), timestamp: Date.now(), kind: 'file-save', changes, label });
     state.redoStack.length = 0;
     trimToLimit(state, historyLimit.value);
   }
 
-  function peekFileUndo(modRoot: string | null): FileSaveHistoryEntry | null {
+  function peekSavedWriteUndo(modRoot: string | null): FileSaveHistoryEntry | null {
     const state = getState(modRoot);
     if (!state) return null;
     for (let index = state.undoStack.length - 1; index >= 0; index--) {
@@ -69,7 +71,7 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     return null;
   }
 
-  function peekFileRedo(modRoot: string | null): FileSaveHistoryEntry | null {
+  function peekSavedWriteRedo(modRoot: string | null): FileSaveHistoryEntry | null {
     const state = getState(modRoot);
     if (!state) return null;
     for (let index = state.redoStack.length - 1; index >= 0; index--) {
@@ -79,13 +81,13 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     return null;
   }
 
-  function commitFileUndo(modRoot: string | null, entryId: string): boolean {
+  function commitReplayUndo(modRoot: string | null, entryId: string): boolean {
     const state = getState(modRoot);
     if (!state) return false;
     return moveCurrentFileSaveEntry(state.undoStack, state.redoStack, entryId);
   }
 
-  function commitFileRedo(modRoot: string | null, entryId: string): boolean {
+  function commitReplayRedo(modRoot: string | null, entryId: string): boolean {
     const state = getState(modRoot);
     if (!state) return false;
     return moveCurrentFileSaveEntry(state.redoStack, state.undoStack, entryId);
@@ -139,12 +141,12 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     activeUndoStack,
     activateFor,
     clearForMod,
-    commitFileRedo,
-    commitFileUndo,
-    peekFileRedo,
-    peekFileUndo,
+    commitReplayRedo,
+    commitReplayUndo,
+    peekSavedWriteRedo,
+    peekSavedWriteUndo,
     getHistoryStacks,
-    pushFileSaveEntry,
+    pushSavedWriteEntry,
     removeModState,
     setHistoryLimit,
   };

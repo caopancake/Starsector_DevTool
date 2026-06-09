@@ -42,9 +42,7 @@
         <div class="mod-card-path">{{ mod.modRoot }}</div>
         <div v-if="mod.description" class="mod-card-description">{{ mod.description }}</div>
         <div class="mod-card-actions">
-          <n-button v-if="workspace.isModImported(mod.modRoot)" size="small" @click="workspace.setActiveMod(mod.modRoot)"
-            >进入编辑</n-button
-          >
+          <n-button v-if="workspace.isModImported(mod.modRoot)" size="small" @click="navigateToModOverview(mod.modRoot)">进入编辑</n-button>
           <n-button v-else size="small" type="primary" @click="$emit('load-mod', mod.modRoot)">打开</n-button>
         </div>
       </div>
@@ -55,11 +53,13 @@
 <script setup lang="ts">
 import type { GameOverviewData, GameScanWarning } from '@/shared/types';
 import { useWorkspaceStore } from '@/stores/workspace.store';
+import { useWorkspaceNavigationActions } from '@/app/composables/use-workspace-navigation-actions';
 
 defineProps<{ overview: GameOverviewData }>();
 defineEmits<{ 'refresh-workspace': []; 'close-workspace': []; 'load-mod': [modRoot: string] }>();
 
 const workspace = useWorkspaceStore();
+const { navigateToModOverview } = useWorkspaceNavigationActions();
 
 function statusLabel(status: string): string {
   if (status === 'ready') return '已加载';

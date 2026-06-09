@@ -141,6 +141,39 @@
   white-space: nowrap;
 }
 
+.editor-draft-status {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-left: auto;
+  color: var(--color-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.editor-draft-status.dirty {
+  color: var(--color-warning);
+}
+
+.editor-draft-status.external {
+  color: var(--color-warning);
+}
+
+.editor-draft-status button {
+  height: 24px;
+  padding: 0 8px;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+  background: var(--color-panel-muted);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-sm);
+}
+
+.editor-draft-status button:hover {
+  background: var(--color-warning-bg);
+}
+
 .editor-body {
   position: relative;
   display: block;

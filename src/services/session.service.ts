@@ -7,7 +7,7 @@ import {
   openProjectSession,
   scanGameOverview,
 } from '@/shared/api/session-api';
-import type { GameOverviewData, OpenDirectoryResult, ProjectManifest } from '@/shared/types';
+import type { GameOverviewData, OpenDirectoryResult, ProjectManifest, ProjectSessionInvalidationResult } from '@/shared/types';
 import { recordPerformance } from '@/services/performance.service';
 
 export async function pickDirectory(): Promise<string | null> {
@@ -36,7 +36,7 @@ export function closeProject(sessionId: string): Promise<void> {
   return closeProjectSession(sessionId);
 }
 
-export function invalidateProject(sessionId: string, changedPaths: string[]): Promise<ProjectManifest> {
+export function requestProjectSessionRefresh(sessionId: string, changedPaths: string[]): Promise<ProjectSessionInvalidationResult> {
   return invalidateProjectSession(sessionId, changedPaths);
 }
 

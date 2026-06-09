@@ -1,8 +1,8 @@
 import type { RowData } from '@/shared/types/json.types';
 import type { TableKey } from '@/shared/types/tables.types';
 
-export interface CsvCellEditEvent {
-  type: 'csv-cell-edit';
+export interface CsvCellValueSetOperation {
+  type: 'cell-value-set';
   tab: TableKey;
   rowKey: string;
   col: string;
@@ -10,27 +10,27 @@ export interface CsvCellEditEvent {
   newValue: string;
 }
 
-export interface CsvRowCreateEvent {
-  type: 'row-create';
+export interface CsvRowCreatedOperation {
+  type: 'row-created';
   tab: TableKey;
   rowKey: string;
   rowIndex: number;
   row: RowData;
 }
 
-export interface CsvRowDeleteEvent {
-  type: 'row-delete';
+export interface CsvRowDeletedOperation {
+  type: 'row-deleted';
   tab: TableKey;
   rowKey: string;
   rowIndex: number;
   row: RowData;
 }
 
-export type CsvEditHistoryEvent = CsvCellEditEvent | CsvRowCreateEvent | CsvRowDeleteEvent;
+export type CsvDraftOperation = CsvCellValueSetOperation | CsvRowCreatedOperation | CsvRowDeletedOperation;
 
 export interface CsvEditHistoryEntry {
   id: string;
   timestamp: number;
-  event: CsvEditHistoryEvent;
+  operation: CsvDraftOperation;
   label: string;
 }

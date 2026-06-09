@@ -18,6 +18,30 @@ export const writeBoundaryRule = {
         if (current.role === 'component' && target.layer === 'orchestrators' && target.domain === 'config-save') {
           failures.push(`${file.rel}: config components must use ViewModel actions for saves`);
         }
+        if (target.role === 'api' && target.domain === 'write') {
+          if (!(current.layer === 'services' && current.domain === 'write')) {
+            failures.push(`${file.rel}: write API adapters must be consumed only by write service`);
+          }
+        }
+        if (target.layer === 'services' && target.domain === 'write') {
+          if (!canImportWriteService(current)) {
+            failures.push(`${file.rel}: write service belongs behind write-facing services and file history replay`);
+          }
+        }
+        if (target.layer === 'services' && ['query-cache', 'resource-cache'].includes(target.domain)) {
+          if (!canImportCacheInvalidationService(current)) {
+            failures.push(`${file.rel}: cache invalidation services must be driven by ProjectSession refresh boundary`);
+          }
+        }
+        if (target.layer === 'services' && target.domain === 'session' && current.layer === 'orchestrators') {
+          if (
+            current.domain !== 'project-session-refresh' &&
+            current.domain !== 'open-directory' &&
+            current.domain !== 'workspace-persistence'
+          ) {
+            failures.push(`${file.rel}: project session mutation belongs to project session orchestrators`);
+          }
+        }
       }
       for (const imported of importedProjectPaths(file)) {
         const target = classifyFrontendPath(imported.resolved);
@@ -25,46 +49,19 @@ export const writeBoundaryRule = {
           failures.push(`${file.rel}: shared/api write types must not be consumed outside API adapters`);
         }
       }
-      if (current.layer !== 'shared' && /\b(?:WithHistory|WithFileHistory|WithUserAction)\b/.test(file.text)) {
-        failures.push(`${file.rel}: user action and history effects must not appear in public function names`);
-      }
-      if (current.layer !== 'shared' && current.layer !== 'stores' && /\bPromise\s*<\s*FileChangeRecord\[\]\s*>/.test(file.text)) {
-        failures.push(`${file.rel}: business write results must use WriteResult, not FileChangeRecord[]`);
-      }
-      if (current.layer === 'services' && /export\s+type\s+\{[^}]*FileChangeRecord[^}]*\}/s.test(file.text)) {
-        failures.push(`${file.rel}: services must not re-export FileChangeRecord; history owns that model`);
-      }
-      if (
-        current.role === 'component' &&
-        /\b(?:payload|patches|associatedFiles)\s*=/.test(file.text) &&
-        /\bsave[A-Za-z0-9_]*\s*\(/.test(file.text)
-      ) {
-        failures.push(`${file.rel}: components must not assemble save requests`);
-      }
-      if (
-        current.layer === 'services' &&
-        /@\/shared\/api\/write-api/.test(file.text) &&
-        /export\s+(?:async\s+)?function\s+\w+/.test(file.text) &&
-        /\bwrite|save|upload|delete|create/.test(file.text)
-      ) {
-        if (current.domain !== 'write' && !/\bWriteResult\b/.test(file.text)) {
-          failures.push(`${file.rel}: write-facing services must expose WriteResult semantics`);
-        }
-      }
-      if (
-        /(?<!function\s+)\b(?:invalidateQueryCacheByPaths|invalidateResourceCacheByPaths|invalidateProject)\s*\(/.test(file.text) &&
-        !(current.layer === 'orchestrators' && current.domain === 'project-session-invalidation') &&
-        !(current.layer === 'services' && current.domain === 'session')
-      ) {
-        failures.push(`${file.rel}: project write invalidation must go through project-session-invalidation orchestrator`);
-      }
-      if (/\binvalidateQueryCacheForWrite\b/.test(file.text)) {
-        failures.push(`${file.rel}: query cache write invalidation must be path-scoped, not a generic write hook`);
-      }
-      if (/\brecord(?:FileSave|SpriteUploadSaved)\s*\([^)]*\bchanges\b/s.test(file.text)) {
-        failures.push(`${file.rel}: file history recording must receive WriteResult, not raw changes`);
-      }
     }
     return failures;
   },
 };
+
+function canImportWriteService(current) {
+  if (current.layer === 'services') return current.domain !== 'write';
+  return current.layer === 'orchestrators' && current.domain === 'file-history-session';
+}
+
+function canImportCacheInvalidationService(current) {
+  return (
+    (current.layer === 'orchestrators' && current.domain === 'project-session-refresh') ||
+    (current.layer === 'services' && current.domain === 'session')
+  );
+}

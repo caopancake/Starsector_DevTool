@@ -1,11 +1,10 @@
-import { rustFile, singleFileByRel } from '../shared/files.mjs';
+import { rustFile } from '../shared/files.mjs';
 import { cratePaths } from '../shared/rust-crate-paths.mjs';
 
 export const rustProjectLayerBoundaryRule = {
   name: 'rust-project-layer-boundary',
   check(files) {
     const failures = [];
-    const projectModule = singleFileByRel(files, 'src-tauri/src/services/project/mod.rs');
     for (const file of files) {
       if (!rustFile(file.rel)) continue;
       if (testOnlyRustFile(file.text)) continue;
@@ -31,7 +30,7 @@ export const rustProjectLayerBoundaryRule = {
       if (from === 'project-cache' && /load_core_references|load_all_core|core_references/i.test(productionText)) {
         failures.push(`${file.rel}: project cache must stay typed lazy and must not pre-read the full core set`);
       }
-      if (file === projectModule && /\bpub\s+mod\b/.test(productionText)) {
+      if (from === 'project-root' && /\bpub\s+mod\b/.test(productionText)) {
         failures.push(`${file.rel}: project root module must not expose internal submodules`);
       }
       if (from === 'services' && /\bpub\s+fn\s+\w+\([^)]*\b[A-Za-z0-9_]*Payload\b/.test(productionText)) {
@@ -47,6 +46,7 @@ function rustLayer(path) {
   if (path.startsWith('src-tauri/src/services/project/query/')) return 'project-query';
   if (path.startsWith('src-tauri/src/services/project/write/')) return 'project-write';
   if (path.startsWith('src-tauri/src/services/project/cache/')) return 'project-cache';
+  if (projectServiceModule(path, 'mod')) return 'project-root';
   if (projectServiceModule(path, 'session')) return 'project-session';
   if (projectServiceModule(path, 'model')) return 'project-model';
   if (path.startsWith('src-tauri/src/services/')) return 'services';
@@ -116,6 +116,7 @@ function validRustDependency(from, to) {
   if (from === 'project-session')
     return ['project-model', 'project-cache', 'project-query', 'domain', 'io', 'parsers', 'models'].includes(to);
   if (from === 'project-model') return ['domain', 'models'].includes(to);
+  if (from === 'project-root') return ['project-session', 'project-query', 'models'].includes(to);
   if (from === 'services') return ['services', 'domain', 'io', 'parsers', 'models'].includes(to);
   if (from === 'domain') return to === 'domain' || to === 'models';
   if (from === 'io') return to === 'io' || to === 'parsers' || to === 'models';

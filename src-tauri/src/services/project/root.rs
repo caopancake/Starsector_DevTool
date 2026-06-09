@@ -1,7 +1,7 @@
 use super::model::is_comment_row;
 use crate::{
     errors::AppResult,
-    io::{read_csv_data, read_json_file},
+    io::{read_csv_data, read_json_file, validate_walk_entry, FsRootBoundary},
     models::{
         GameModSummary, GameOverviewData, GameScanWarning, OpenDirectoryKind, OpenDirectoryResult,
     },
@@ -15,37 +15,41 @@ use std::{
 
 pub fn detect_directory(path: &Path, known_starsector_root: Option<&str>) -> OpenDirectoryResult {
     let selected = path.to_string_lossy().to_string();
-    if is_game_root(path) {
-        let overview = scan_game_overview(path);
-        return OpenDirectoryResult {
-            kind: OpenDirectoryKind::GameRoot,
-            selected_path: selected,
-            starsector_root: Some(path.to_string_lossy().to_string()),
-            mod_root: None,
-            warnings: overview.warnings.clone(),
-            overview: Some(overview),
-        };
-    }
+    if let Ok(boundary) = FsRootBoundary::new(path, "selected root") {
+        let canonical = boundary.root();
+        if is_game_root(canonical) {
+            let overview = scan_game_overview(canonical);
+            return OpenDirectoryResult {
+                kind: OpenDirectoryKind::GameRoot,
+                selected_path: selected,
+                starsector_root: Some(canonical.to_string_lossy().to_string()),
+                mod_root: None,
+                warnings: overview.warnings.clone(),
+                overview: Some(overview),
+            };
+        }
 
-    if is_mod_root(path) {
-        let inferred = infer_starsector_root(path);
-        let overview = inferred.as_deref().map(scan_game_overview);
-        let known_root = known_starsector_root
-            .filter(|root| !root.trim().is_empty())
-            .map(PathBuf::from);
-        let starsector_root = inferred.or(known_root);
-        return OpenDirectoryResult {
-            kind: if overview.is_some() {
-                OpenDirectoryKind::ModInGame
-            } else {
-                OpenDirectoryKind::ExternalMod
-            },
-            selected_path: selected,
-            starsector_root: starsector_root.map(|p| p.to_string_lossy().to_string()),
-            mod_root: Some(path.to_string_lossy().to_string()),
-            overview,
-            warnings: vec![],
-        };
+        if is_mod_root(canonical) {
+            let inferred = infer_starsector_root(canonical);
+            let overview = inferred.as_deref().map(scan_game_overview);
+            let known_root = known_starsector_root
+                .filter(|root| !root.trim().is_empty())
+                .and_then(|root| FsRootBoundary::new(Path::new(root), "starsector root").ok())
+                .map(|root| root.root().to_path_buf());
+            let starsector_root = inferred.or(known_root);
+            return OpenDirectoryResult {
+                kind: if overview.is_some() {
+                    OpenDirectoryKind::ModInGame
+                } else {
+                    OpenDirectoryKind::ExternalMod
+                },
+                selected_path: selected,
+                starsector_root: starsector_root.map(|p| p.to_string_lossy().to_string()),
+                mod_root: Some(canonical.to_string_lossy().to_string()),
+                overview,
+                warnings: vec![],
+            };
+        }
     }
 
     OpenDirectoryResult {
@@ -100,6 +104,13 @@ pub fn scan_game_overview(starsector_root: &Path) -> GameOverviewData {
                     }
                 };
                 let mod_root = entry.path();
+                if let Err(error) = validate_walk_entry(&mod_root, "mods directory") {
+                    warnings.push(GameScanWarning {
+                        path: mod_root.to_string_lossy().to_string(),
+                        message: format!("Mod 路径使用链接或不可读取，已跳过: {error}"),
+                    });
+                    continue;
+                }
                 if !mod_root.is_dir() {
                     continue;
                 }
@@ -312,17 +323,13 @@ mod tests {
         write_utf8_no_bom(&root.join("mods/other/mod_info.json"), r#"{"id":"other"}"#).unwrap();
 
         let detected = detect_directory(&mod_root, Some("D:/known-root"));
+        let expected_mod_root = path_string(&mod_root);
+        let expected_starsector_root = path_string(&root);
 
         let _ = fs::remove_dir_all(&root);
         assert_eq!(detected.kind, OpenDirectoryKind::ModInGame);
-        assert_eq!(
-            detected.mod_root,
-            Some(mod_root.to_string_lossy().to_string())
-        );
-        assert_eq!(
-            detected.starsector_root,
-            Some(root.to_string_lossy().to_string())
-        );
+        assert_eq!(detected.mod_root, Some(expected_mod_root));
+        assert_eq!(detected.starsector_root, Some(expected_starsector_root));
         assert_eq!(
             detected
                 .overview
@@ -335,13 +342,16 @@ mod tests {
     #[test]
     fn detect_external_mod_uses_known_root() {
         let mod_root = temp_dir("detect_external_mod");
+        let known_root = temp_dir("detect_external_known_root");
         write_utf8_no_bom(&mod_root.join("mod_info.json"), r#"{"id":"external"}"#).unwrap();
 
-        let detected = detect_directory(&mod_root, Some("D:/known-root"));
+        let detected = detect_directory(&mod_root, Some(&known_root.to_string_lossy()));
+        let expected_known_root = path_string(&known_root);
 
         let _ = fs::remove_dir_all(mod_root);
+        let _ = fs::remove_dir_all(&known_root);
         assert_eq!(detected.kind, OpenDirectoryKind::ExternalMod);
-        assert_eq!(detected.starsector_root, Some("D:/known-root".to_string()));
+        assert_eq!(detected.starsector_root, Some(expected_known_root));
         assert!(detected.overview.is_none());
     }
 
@@ -411,5 +421,10 @@ mod tests {
         let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
         fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    fn path_string(path: &Path) -> String {
+        let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+        path.to_string_lossy().to_string()
     }
 }

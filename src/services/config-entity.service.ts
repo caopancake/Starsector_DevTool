@@ -84,7 +84,7 @@ export async function listConfigFactionRecords(sessionId: ProjectSessionId): Pro
   }));
 }
 
-export async function queryConfigFactionPreviewImages(sessionId: ProjectSessionId, id: string): Promise<ConfigFactionPreviewImages> {
+export async function queryFactionPreviewImages(sessionId: ProjectSessionId, id: string): Promise<ConfigFactionPreviewImages> {
   const entity = await getFactionEntityRecord(sessionId, id);
   return hydrateFactionPreviewImages(sessionId, entity);
 }
@@ -125,9 +125,7 @@ export async function listSkinEntities(sessionId: ProjectSessionId): Promise<Ski
 }
 
 export function saveModInfo(sessionId: string, modRoot: string, data: RowData): Promise<WriteResult> {
-  return writeModFiles(sessionId, modRoot, [
-    { relPath: 'mod_info.json', afterText: JSON.stringify(data, null, 2), afterDataBase64: null, previousRelPath: null },
-  ]);
+  return writeModFiles(sessionId, modRoot, [{ relPath: 'mod_info.json', afterText: JSON.stringify(data, null, 2), afterDataBase64: null }]);
 }
 
 export function saveIndexedConfigEntity(write: IndexedConfigEntityWrite): Promise<WriteResult> {
@@ -157,7 +155,6 @@ export function createVariantEntity(sessionId: string, modRoot: string, hullId: 
     sessionId,
     modRoot,
     previousId: null,
-    previousRelPath: null,
     nextId: variantId,
     data: createDefaultVariant(hullId, variantId),
   });
@@ -176,7 +173,6 @@ export function createSkinEntity(sessionId: string, modRoot: string, baseHullId:
     sessionId,
     modRoot,
     previousId: null,
-    previousRelPath: null,
     nextId: skinHullId,
     data: createDefaultSkin(baseHullId, skinHullId),
   });

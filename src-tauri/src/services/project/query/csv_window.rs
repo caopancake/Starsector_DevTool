@@ -1,11 +1,11 @@
 use super::super::{
     cache::{
-        ensure_registered_session_table_rows, loaded_registered_csv_rows, registered_session_table,
+        ensure_registered_table_rows, loaded_registered_csv_rows, registered_session_table,
         session_for_mut, sessions,
     },
     model::SessionCsvRow,
+    table_definitions::{csv_table_row_resource_ref, csv_table_supports_faction_filter},
 };
-use super::resources_shared::table_row_resource_ref;
 use crate::{
     errors::{AppError, AppResult},
     models::{
@@ -26,7 +26,7 @@ pub fn query_csv_table_window(
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?;
     let session = session_for_mut(&mut guard, session_id)?;
-    ensure_registered_session_table_rows(session, table)?;
+    ensure_registered_table_rows(session, table)?;
     let table_data = registered_session_table(session, table)?;
     let rows_ref = loaded_registered_csv_rows(session, table)?;
     let search = search.unwrap_or_default().trim().to_lowercase();
@@ -64,12 +64,12 @@ pub fn query_csv_row_preview(
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?;
     let session = session_for_mut(&mut guard, session_id)?;
-    ensure_registered_session_table_rows(session, table)?;
+    ensure_registered_table_rows(session, table)?;
     let row = loaded_registered_csv_rows(session, table)?
         .iter()
         .find(|row| row.row_key == row_key);
     Ok(CsvRowPreview {
-        resource_ref: row.and_then(|row| table_row_resource_ref(session, table, &row.row)),
+        resource_ref: row.and_then(|row| csv_table_row_resource_ref(session, table, &row.row)),
     })
 }
 
@@ -79,7 +79,10 @@ fn csv_row_matches(
     faction: &CsvFactionFilter,
     table: CsvTableKey,
 ) -> bool {
-    if let Some(faction_id) = faction.faction_id_for_table(table) {
+    if let Some(faction_id) = faction
+        .faction_id()
+        .filter(|_| csv_table_supports_faction_filter(table))
+    {
         let row_faction = row
             .row
             .get(CSV_FACTION_FIELD)

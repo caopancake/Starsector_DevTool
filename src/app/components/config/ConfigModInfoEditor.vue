@@ -4,10 +4,13 @@
       <h1>Mod 信息</h1>
     </header>
 
-    <SchemaFormRenderer v-if="schema" :schema="schema" v-model="local" :runtime-context="schemaRuntimeContext" />
+    <div v-if="externalUpdateNotice" class="config-external-update-note">{{ externalUpdateNotice }}</div>
+
+    <SchemaFormRenderer v-if="schema" :schema="schema" v-model="draftData" :runtime-context="schemaRuntimeContext" />
 
     <footer class="settings-footer">
-      <n-button type="primary" :loading="saving" @click="save">保存</n-button>
+      <n-button v-if="hasPendingExternalData" secondary type="warning" @click="loadPendingExternalData">载入外部版本</n-button>
+      <n-button type="primary" :loading="saving" :disabled="!dirty" @click="save">保存</n-button>
     </footer>
   </div>
 </template>
@@ -21,7 +24,16 @@ import { useConfigModInfoViewModel } from '@/app/composables/use-config-mod-info
 const { getMergedSchema, loadCoreFields } = useCoreSchema();
 void loadCoreFields();
 const schema = computed(() => getMergedSchema('mod-info'));
-const { local, saving, schemaRuntimeContext, saveModInfo } = useConfigModInfoViewModel();
+const {
+  dirty,
+  draftData,
+  externalUpdateNotice,
+  hasPendingExternalData,
+  loadPendingExternalData,
+  saving,
+  schemaRuntimeContext,
+  saveModInfo,
+} = useConfigModInfoViewModel();
 
 async function save() {
   await saveModInfo(schema.value);

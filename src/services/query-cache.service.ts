@@ -1,8 +1,5 @@
 import { recordPerformance } from '@/services/performance.service';
-import type { ProjectManifest, ResourceRef, TableKey } from '@/shared/types';
-import { parseCsvSource } from '@/domain/tables/csv-source-options';
-import { normalizedProjectPath, normalizedRelativePathAffects, normalizeFsPath } from '@/shared/lib/paths';
-import { isResourceRef, sameResourceRef } from '@/shared/lib/resource-ref';
+import type { EntityKind, InvalidatedQueryScope, ProjectInvalidation } from '@/shared/types';
 
 export type QueryCacheKind =
   | 'csv-table-window'
@@ -10,8 +7,7 @@ export type QueryCacheKind =
   | 'csv-row-preview'
   | 'hull-references'
   | 'entity-detail'
-  | 'entity-list'
-  | 'resource-data-urls';
+  | 'entity-list';
 
 export interface QueryIdentity {
   queryKind: QueryCacheKind;
@@ -30,8 +26,8 @@ interface PendingQueryEntry extends QueryIdentity {
 }
 
 export interface QueryCacheInvalidationEvent {
+  invalidation: ProjectInvalidation | null;
   queries: QueryIdentity[];
-  queryKinds: QueryCacheKind[];
   sessionId: string;
   scope: 'paths' | 'session';
 }
@@ -42,16 +38,14 @@ const cache = new Map<string, QueryCacheEntry>();
 const pending = new Map<string, PendingQueryEntry>();
 const keyVersions = new Map<string, number>();
 const invalidationListeners = new Set<QueryCacheInvalidationListener>();
-const TAG_METADATA_TABLE: TableKey = 'specialItems';
-const FACTION_METADATA_DIR = 'data/world/factions';
-const SHIP_SPEC_DIR = 'data/hulls';
-const SKIN_SPEC_DIR = 'data/hulls/skins';
-const VARIANT_SPEC_DIR = 'data/variants';
-const WEAPON_SPEC_DIR = 'data/weapons';
-const PROJECTILE_SPEC_DIR = 'data/weapons/proj';
-const SYSTEM_SPEC_DIR = 'data/shipsystems';
-const SKILL_SPEC_DIR = 'data/characters/skills';
-const MISSION_DIR = 'data/missions';
+const LRU_CAPACITY: Record<QueryCacheKind, number> = {
+  'csv-table-window': 80,
+  'csv-source-options': 240,
+  'csv-row-preview': 400,
+  'hull-references': 128,
+  'entity-detail': 128,
+  'entity-list': 128,
+};
 
 export async function queryCached<T>(
   sessionId: string,
@@ -63,6 +57,7 @@ export async function queryCached<T>(
   const startedAt = performance.now();
   const cached = cache.get(key);
   if (cached) {
+    touchCacheEntry(key, cached);
     recordPerformance('frontend.queryCache', performance.now() - startedAt, { queryKind, hit: true });
     return cached.value as T;
   }
@@ -75,12 +70,13 @@ export async function queryCached<T>(
   const loaded = loader()
     .then((value) => {
       if ((keyVersions.get(key) ?? 0) === version) {
-        cache.set(key, { queryKind, parameters, sessionId, value });
+        setCacheEntry(key, { queryKind, parameters, sessionId, value });
       }
       return value;
     })
     .finally(() => {
-      pending.delete(key);
+      if (pending.get(key)?.promise === loaded) pending.delete(key);
+      if (!pending.has(key) && !cache.has(key)) keyVersions.delete(key);
     });
   pending.set(key, { queryKind, parameters, promise: loaded, sessionId, version });
   const value = await loaded;
@@ -94,6 +90,7 @@ export function invalidateQueryCacheForSession(sessionId: string) {
     if (entry.sessionId !== sessionId) continue;
     invalidatedQueries.push(queryIdentity(entry));
     cache.delete(key);
+    keyVersions.delete(key);
   }
   for (const [key, entry] of pending.entries()) {
     if (entry.sessionId !== sessionId) continue;
@@ -101,70 +98,98 @@ export function invalidateQueryCacheForSession(sessionId: string) {
     bumpKeyVersion(key);
     pending.delete(key);
   }
-  notifyQueryCacheInvalidated(sessionId, invalidatedQueries, 'session');
+  notifyQueryCacheInvalidated(sessionId, invalidatedQueries, 'session', null);
 }
 
-export function invalidateQueryCacheByPaths(manifest: ProjectManifest, changedPaths: string[]) {
-  if (changedPaths.length === 0) return;
-  const projectPaths = changedPaths.map((path) => normalizedProjectPath(manifest.modRoot, path)).filter((path) => !path.external);
-  if (projectPaths.length === 0) return;
-  const affectedTables = new Set(
-    Object.entries(manifest.tableSummaries)
-      .filter(
-        ([, summary]) =>
-          summary?.path && projectPaths.some((path) => normalizedRelativePathAffects(path.relative, normalizeFsPath(summary.path))),
-      )
-      .map(([table]) => table),
-  );
-  const relativePaths = projectPaths.map((path) => path.relative);
+export function invalidateQueryCacheByProject(sessionId: string, invalidation: ProjectInvalidation) {
   const invalidatedQueries: QueryIdentity[] = [];
   for (const [key, entry] of cache.entries()) {
-    if (entry.sessionId !== manifest.sessionId) continue;
-    if (shouldInvalidateQuery(entry, affectedTables, relativePaths)) {
+    if (entry.sessionId !== sessionId) continue;
+    if (shouldInvalidateQuery(entry, invalidation)) {
       invalidatedQueries.push(queryIdentity(entry));
       cache.delete(key);
+      keyVersions.delete(key);
     }
   }
   for (const [key, entry] of pending.entries()) {
-    if (entry.sessionId !== manifest.sessionId) continue;
-    if (shouldInvalidateQuery(entry, affectedTables, relativePaths)) {
+    if (entry.sessionId !== sessionId) continue;
+    if (shouldInvalidateQuery(entry, invalidation)) {
       invalidatedQueries.push(queryIdentity(entry));
       bumpKeyVersion(key);
       pending.delete(key);
     }
   }
-  notifyQueryCacheInvalidated(manifest.sessionId, invalidatedQueries, 'paths');
+  notifyQueryCacheInvalidated(sessionId, invalidatedQueries, 'paths', invalidation);
 }
 
-export function subscribeQueryCacheInvalidation(listener: QueryCacheInvalidationListener): () => void {
+export function subscribeQueryInvalidations(listener: QueryCacheInvalidationListener): () => void {
   invalidationListeners.add(listener);
   return () => invalidationListeners.delete(listener);
 }
 
-export function queryCacheInvalidationIncludes(
-  event: QueryCacheInvalidationEvent,
-  queryKind: QueryCacheKind,
-  matches: (parameters: Record<string, unknown>) => boolean = () => true,
-): boolean {
+export function hasQueryInvalidation(event: QueryCacheInvalidationEvent, queryKind: QueryCacheKind): boolean {
   if (event.scope === 'session') return false;
-  return event.queries.some((query) => query.queryKind === queryKind && matches(query.parameters));
+  return event.queries.some((query) => query.queryKind === queryKind);
 }
 
-export function queryCacheInvalidationIncludesResourceIdentity(event: QueryCacheInvalidationEvent, resources: ResourceRef[]): boolean {
-  if (resources.length === 0) return false;
+export function hasEntityInvalidation(
+  event: QueryCacheInvalidationEvent,
+  queryKind: 'entity-detail' | 'entity-list',
+  kind: EntityKind,
+  id: string | null = null,
+): boolean {
   if (event.scope === 'session') return false;
   return event.queries.some((query) => {
-    if (query.queryKind !== 'resource-data-urls') return false;
-    const queryResources = query.parameters.resources;
-    if (!Array.isArray(queryResources)) return true;
-    return queryResources.some(
-      (resource) => !isResourceRef(resource) || resources.some((candidate) => sameResourceRef(candidate, resource)),
-    );
+    if (query.queryKind !== queryKind) return false;
+    if (queryParameterText(query.parameters, 'kind') !== kind) return false;
+    if (id === null) return true;
+    return queryParameterText(query.parameters, 'id') === id;
   });
+}
+
+export function hasSourceInvalidation(event: QueryCacheInvalidationEvent, source: string): boolean {
+  if (event.scope === 'session') return false;
+  if (event.invalidation) {
+    return event.invalidation.queryScopes.some((scope) => queryScopeMatchesSourceOptions(scope, source));
+  }
+  return event.queries.some(
+    (query) => query.queryKind === 'csv-source-options' && queryParameterText(query.parameters, 'source') === source,
+  );
+}
+
+export function hasTableInvalidation(event: QueryCacheInvalidationEvent, queryKind: 'csv-table-window', table: string): boolean {
+  if (event.scope === 'session') return false;
+  return event.queries.some((query) => query.queryKind === queryKind && queryParameterText(query.parameters, 'table') === table);
 }
 
 function bumpKeyVersion(key: string) {
   keyVersions.set(key, (keyVersions.get(key) ?? 0) + 1);
+}
+
+function touchCacheEntry(key: string, entry: QueryCacheEntry) {
+  cache.delete(key);
+  cache.set(key, entry);
+}
+
+function setCacheEntry(key: string, entry: QueryCacheEntry) {
+  cache.set(key, entry);
+  evictCacheEntries(entry.sessionId, entry.queryKind);
+}
+
+function evictCacheEntries(sessionId: string, queryKind: QueryCacheKind) {
+  let count = 0;
+  const capacity = LRU_CAPACITY[queryKind];
+  for (const entry of cache.values()) {
+    if (entry.sessionId === sessionId && entry.queryKind === queryKind) count += 1;
+  }
+  if (count <= capacity) return;
+  for (const [key, entry] of cache.entries()) {
+    if (entry.sessionId !== sessionId || entry.queryKind !== queryKind) continue;
+    cache.delete(key);
+    keyVersions.delete(key);
+    count -= 1;
+    if (count <= capacity) return;
+  }
 }
 
 function queryIdentity(query: QueryIdentity): QueryIdentity {
@@ -174,47 +199,62 @@ function queryIdentity(query: QueryIdentity): QueryIdentity {
   };
 }
 
-function notifyQueryCacheInvalidated(sessionId: string, queries: QueryIdentity[], scope: QueryCacheInvalidationEvent['scope']) {
+function notifyQueryCacheInvalidated(
+  sessionId: string,
+  queries: QueryIdentity[],
+  scope: QueryCacheInvalidationEvent['scope'],
+  invalidation: ProjectInvalidation | null,
+) {
   if (queries.length === 0) return;
   const event: QueryCacheInvalidationEvent = {
+    invalidation,
     queries,
-    queryKinds: [...new Set(queries.map((query) => query.queryKind))],
     sessionId,
     scope,
   };
   for (const listener of invalidationListeners) listener(event);
 }
 
-function shouldInvalidateQuery(entry: QueryIdentity, affectedTables: Set<string>, normalizedPaths: string[]): boolean {
+function shouldInvalidateQuery(entry: QueryIdentity, invalidation: ProjectInvalidation): boolean {
+  if (invalidation.session) return true;
+  if (invalidation.queryScopes.length === 0) return false;
   switch (entry.queryKind) {
-    case 'resource-data-urls':
-      return shouldInvalidateResourceQuery(entry.parameters.resources, normalizedPaths);
     case 'csv-table-window':
     case 'csv-row-preview': {
       const table = queryParameterText(entry.parameters, 'table');
-      return table ? affectedTables.has(table) : true;
+      return invalidation.queryScopes.some((scope) => scope.kind === entry.queryKind && (!scope.table || scope.table === table));
     }
     case 'csv-source-options': {
       const source = queryParameterText(entry.parameters, 'source');
-      return shouldInvalidateCsvSourceOptions(source, affectedTables, normalizedPaths);
+      return invalidation.queryScopes.some((scope) => queryScopeMatchesSourceOptions(scope, source));
     }
     case 'hull-references':
-      return normalizedPaths.some(pathIsShipOrSkinSpecPath);
-    case 'entity-detail':
+      return invalidation.queryScopes.some((scope) => scope.kind === 'hull-references');
+    case 'entity-detail': {
+      const kind = queryParameterText(entry.parameters, 'kind');
+      const id = queryParameterText(entry.parameters, 'id');
+      return invalidation.queryScopes.some((scope) => queryScopeMatchesEntity(scope, 'entity-detail', kind, id));
+    }
     case 'entity-list': {
       const kind = queryParameterText(entry.parameters, 'kind');
-      return shouldInvalidateEntityQuery(kind, affectedTables, normalizedPaths);
+      const id = queryParameterText(entry.parameters, 'id');
+      return invalidation.queryScopes.some((scope) => queryScopeMatchesEntity(scope, 'entity-list', kind, id));
     }
   }
 }
 
-function shouldInvalidateCsvSourceOptions(source: string | null, affectedTables: Set<string>, normalizedPaths: string[]): boolean {
-  const parsed = parseCsvSource(source);
-  if (!parsed) return true;
-  if (affectedTables.has(parsed.table)) return true;
-  if (parsed.column === 'tags') return affectedTables.has(TAG_METADATA_TABLE) || normalizedPaths.some(pathIsFactionMetadataPath);
-  if (parsed.column === 'id') return csvSourceOptionResourceRefsDependOnPaths(parsed.table, normalizedPaths);
-  return false;
+function queryScopeMatchesSourceOptions(scope: InvalidatedQueryScope, source: string | null): boolean {
+  if (scope.kind !== 'csv-source-options') return false;
+  if (scope.source) return scope.source === source;
+  if (scope.table) return sourceTable(source) === scope.table;
+  return true;
+}
+
+function sourceTable(source: string | null): string | null {
+  if (!source) return null;
+  const trimmed = source.startsWith('csv:') ? source.slice(4) : source;
+  const separator = trimmed.indexOf('.');
+  return separator > 0 ? trimmed.slice(0, separator) : null;
 }
 
 function queryParameterText(parameters: Record<string, unknown>, key: string): string | null {
@@ -222,96 +262,15 @@ function queryParameterText(parameters: Record<string, unknown>, key: string): s
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
-function shouldInvalidateResourceQuery(resources: unknown, normalizedPaths: string[]): boolean {
-  if (!Array.isArray(resources)) return normalizedPaths.length > 0;
-  return resources.some((resource) => {
-    if (!isResourceRef(resource)) return true;
-    if (resource.source !== 'mod') return false;
-    const relPath = normalizeFsPath(resource.relPath);
-    return normalizedPaths.some((path) => normalizedRelativePathAffects(path, relPath));
-  });
-}
-
-function pathIsFactionMetadataPath(path: string): boolean {
-  return path === FACTION_METADATA_DIR || path.startsWith(`${FACTION_METADATA_DIR}/`);
-}
-
-function shouldInvalidateEntityQuery(kind: string | null, affectedTables: Set<string>, paths: string[]): boolean {
-  switch (kind) {
-    case 'ship':
-      return paths.some(pathIsShipSpecPath);
-    case 'weapon':
-      return affectedTables.has('weapons') || paths.some(pathIsWeaponSpecPath);
-    case 'projectile':
-      return paths.some(pathIsProjectileSpecPath);
-    case 'system':
-      return paths.some(pathIsSystemSpecPath);
-    case 'skill':
-      return paths.some(pathIsSkillSpecPath);
-    case 'faction':
-      return paths.some(pathIsFactionMetadataPath);
-    case 'mission':
-      return paths.some(pathIsMissionPath);
-    case 'variant':
-      return paths.some((path) => pathIsVariantSpecPath(path) || pathIsShipOrSkinSpecPath(path));
-    case 'skin':
-      return paths.some((path) => pathIsSkinSpecPath(path) || pathIsShipSpecPath(path));
-    default:
-      return true;
-  }
-}
-
-function csvSourceOptionResourceRefsDependOnPaths(table: TableKey, paths: string[]): boolean {
-  switch (table) {
-    case 'ships':
-      return paths.some(pathIsShipOrSkinSpecPath);
-    case 'weapons':
-      return paths.some(pathIsWeaponSpecPath);
-    case 'wings':
-      return paths.some((path) => pathIsVariantSpecPath(path) || pathIsShipOrSkinSpecPath(path));
-    default:
-      return false;
-  }
-}
-
-function pathIsShipOrSkinSpecPath(path: string): boolean {
-  return pathIsShipSpecPath(path) || pathIsSkinSpecPath(path);
-}
-
-function pathIsShipSpecPath(path: string): boolean {
-  return pathIsSpecFile(path, SHIP_SPEC_DIR, '.ship');
-}
-
-function pathIsSkinSpecPath(path: string): boolean {
-  return pathIsSpecFile(path, SKIN_SPEC_DIR, '.skin');
-}
-
-function pathIsVariantSpecPath(path: string): boolean {
-  return pathIsSpecFile(path, VARIANT_SPEC_DIR, '.variant');
-}
-
-function pathIsWeaponSpecPath(path: string): boolean {
-  return pathIsSpecFile(path, WEAPON_SPEC_DIR, '.wpn');
-}
-
-function pathIsProjectileSpecPath(path: string): boolean {
-  return pathIsSpecFile(path, PROJECTILE_SPEC_DIR, '.proj');
-}
-
-function pathIsSystemSpecPath(path: string): boolean {
-  return pathIsSpecFile(path, SYSTEM_SPEC_DIR, '.system');
-}
-
-function pathIsSkillSpecPath(path: string): boolean {
-  return pathIsSpecFile(path, SKILL_SPEC_DIR, '.skill');
-}
-
-function pathIsMissionPath(path: string): boolean {
-  return path === MISSION_DIR || path.startsWith(`${MISSION_DIR}/`);
-}
-
-function pathIsSpecFile(path: string, dir: string, extension: string): boolean {
-  return normalizedRelativePathAffects(path, dir) || (path.startsWith(`${dir}/`) && path.endsWith(extension));
+function queryScopeMatchesEntity(
+  scope: InvalidatedQueryScope,
+  queryKind: 'entity-detail' | 'entity-list',
+  kind: string | null,
+  id: string | null,
+): boolean {
+  if (scope.kind !== queryKind) return false;
+  if (!scope.entity) return true;
+  return scope.entity.kind === kind && (!scope.entity.id || !id || scope.entity.id === id);
 }
 
 function queryCacheKey(sessionId: string, queryKind: QueryCacheKind, parameters: Record<string, unknown>) {

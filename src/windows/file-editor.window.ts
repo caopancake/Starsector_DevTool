@@ -20,7 +20,7 @@ export type OpenFileEditorWindowRequest = FileEditorRequest & {
 export function openFileEditorWindow(request: OpenFileEditorWindowRequest): Promise<void> {
   return openManagedWindow({
     labelPrefix: 'file-editor',
-    singletonKey: JSON.stringify([request.modRoot, request.path]),
+    singletonKey: JSON.stringify([request.sessionId, request.modRoot, request.path]),
     title: request.title ?? '文件编辑器',
     urlParams: {
       window: 'file-editor',

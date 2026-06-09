@@ -1,6 +1,7 @@
-use crate::models::required_nullable;
+use crate::models::{required_nullable, ProjectInvalidation};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -32,8 +33,25 @@ pub struct AssociatedFileChange {
     pub after_text: Option<String>,
     #[serde(deserialize_with = "required_nullable")]
     pub after_data_base64: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssociatedSpecChange {
+    pub action: AssociatedSpecChangeAction,
+    pub id: String,
     #[serde(default, deserialize_with = "required_nullable")]
-    pub previous_rel_path: Option<String>,
+    pub previous_id: Option<String>,
+    #[serde(default)]
+    pub row: Map<String, Value>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AssociatedSpecChangeAction {
+    Create,
+    Delete,
+    Rename,
 }
 
 #[derive(Debug, Serialize)]
@@ -76,7 +94,7 @@ pub enum FileChangeReplayDirection {
     Redo,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum EditorSpecKind {
     Ship,
@@ -126,15 +144,30 @@ pub struct FileSnapshot {
 #[serde(rename_all = "camelCase")]
 pub struct WriteResult<T = ()> {
     pub changes: Vec<FileChangeRecord>,
-    pub invalidated_paths: Vec<String>,
+    pub invalidation: ProjectInvalidation,
     pub key_map: Vec<CsvRowKeyMapping>,
     pub refreshed_entity: Option<T>,
     pub warnings: Vec<String>,
 }
 
 impl<T> WriteResult<T> {
-    pub fn invalidated_paths(&self) -> &[String] {
-        &self.invalidated_paths
+    pub fn new(
+        changes: Vec<FileChangeRecord>,
+        key_map: Vec<CsvRowKeyMapping>,
+        refreshed_entity: Option<T>,
+        warnings: Vec<String>,
+    ) -> Self {
+        let invalidation = ProjectInvalidation {
+            paths: changed_paths_for_changes(&changes),
+            ..ProjectInvalidation::default()
+        };
+        Self {
+            changes,
+            invalidation,
+            key_map,
+            refreshed_entity,
+            warnings,
+        }
     }
 
     pub fn refreshed_entity(&self) -> Option<&T> {
@@ -143,6 +176,41 @@ impl<T> WriteResult<T> {
 
     pub fn warnings(&self) -> &[String] {
         &self.warnings
+    }
+}
+
+impl WriteResult<()> {
+    pub fn from_changes(changes: Vec<FileChangeRecord>) -> Self {
+        Self::new(changes, Vec::new(), None, Vec::new())
+    }
+}
+
+impl<T> WriteResult<T> {
+    pub fn from_refreshed_entity(changes: Vec<FileChangeRecord>, refreshed_entity: T) -> Self {
+        Self::new(changes, Vec::new(), Some(refreshed_entity), Vec::new())
+    }
+}
+
+fn changed_paths_for_changes(changes: &[FileChangeRecord]) -> Vec<String> {
+    let mut paths = Vec::new();
+    for change in changes {
+        push_unique_path(&mut paths, change.path.clone());
+        for file in change.before_files.iter().chain(change.after_files.iter()) {
+            push_unique_path(
+                &mut paths,
+                Path::new(&change.path)
+                    .join(&file.rel_path)
+                    .to_string_lossy()
+                    .to_string(),
+            );
+        }
+    }
+    paths
+}
+
+fn push_unique_path(paths: &mut Vec<String>, path: String) {
+    if !paths.iter().any(|candidate| candidate == &path) {
+        paths.push(path);
     }
 }
 
@@ -188,15 +256,25 @@ mod tests {
     }
 
     #[test]
-    fn write_result_model_stays_explicit() {
-        let result: WriteResult<()> = WriteResult {
-            changes: Vec::new(),
-            invalidated_paths: vec!["data/test.csv".to_string()],
-            key_map: Vec::new(),
-            refreshed_entity: None,
-            warnings: vec!["warn".to_string()],
-        };
-        assert_eq!(result.invalidated_paths(), ["data/test.csv"]);
+    fn write_result_serializes_current_model_shape() {
+        let result: WriteResult<()> =
+            WriteResult::new(Vec::new(), Vec::new(), None, vec!["warn".to_string()]);
+        let serialized = serde_json::to_value(&result).unwrap();
+        let object = serialized.as_object().unwrap();
+        let mut keys: Vec<&str> = object.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            [
+                "changes",
+                "invalidation",
+                "keyMap",
+                "refreshedEntity",
+                "warnings"
+            ]
+        );
+        assert!(serialized.get("invalidation").is_some());
+        assert_eq!(result.invalidation.paths, [] as [&str; 0]);
         assert!(result.refreshed_entity().is_none());
         assert_eq!(result.warnings(), ["warn"]);
     }

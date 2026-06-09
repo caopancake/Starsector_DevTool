@@ -4,7 +4,7 @@ import {
   isSelectOptionGroup,
   selectOptionText,
   type SelectOption,
-} from '@/domain/schema/schema-registry';
+} from '@/domain/schema/schema-options';
 import { TABLE_KEYS, type TableKey } from '@/shared/types';
 
 export interface CsvSourceIndex {

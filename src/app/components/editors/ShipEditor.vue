@@ -1,7 +1,13 @@
 <template>
   <div class="modal-backdrop">
     <div ref="editorWindowRef" class="editor-window" tabindex="-1">
-      <EditorHeader title="舰船编辑器" :subtitle="str(localShip.hullName) || hullId">
+      <EditorHeader
+        title="舰船编辑器"
+        :subtitle="str(localShip.hullName) || hullId"
+        :dirty="dirty"
+        :external-update-notice="externalUpdateNotice"
+        @load-external="$emit('load-external')"
+      >
         <div class="ship-mode-controls">
           <div class="segmented ship-mode-tabs">
             <button v-for="m in modes" :key="m.value" :class="{ active: mode === m.value }" @click="setMode(m.value)">
@@ -251,8 +257,11 @@ const props = defineProps<{
   hullId: string;
   ship: RowData;
   spriteData?: string;
+  draftRevision: number;
+  dirty: boolean;
+  externalUpdateNotice: string;
 }>();
-const emit = defineEmits<{ close: []; 'save-requested': [ship: RowData] }>();
+const emit = defineEmits<{ close: []; 'save-requested': []; 'draft-changed': [ship: RowData]; 'load-external': [] }>();
 const feedback = useAppFeedback();
 const editorWindowRef = ref<HTMLElement>();
 const stageRef = ref<HTMLElement>();
@@ -1425,21 +1434,27 @@ async function uploadShipSprite(event: Event) {
   }
 }
 function save() {
-  emit('save-requested', localShip.value);
+  emit('save-requested');
 }
 watch(
-  () => props.ship,
-  (ship) => {
-    localShip.value = normalizeShipSpec(ship);
+  () => props.draftRevision,
+  () => {
+    localShip.value = normalizeShipSpec(props.ship);
     builtInWeaponsText.value = JSON.stringify(localShip.value.builtInWeapons || {}, null, 2);
     selected.value = null;
     activeTarget.value = null;
     inspectorLock.value = null;
     clearHoverPreview();
   },
-  { deep: true },
 );
-watch(localShip, draw, { deep: true });
+watch(
+  localShip,
+  (ship) => {
+    emit('draft-changed', ship);
+    draw();
+  },
+  { deep: true, flush: 'sync' },
+);
 watch(() => props.spriteData, loadSprite);
 onMounted(() => {
   window.addEventListener('resize', resizeCanvas);

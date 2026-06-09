@@ -8,6 +8,8 @@ import {
 } from '@/orchestrators/file-editor-window.orchestrator';
 import { normalizeFsPath } from '@/shared/lib/paths';
 import type { UnlistenFn } from '@/windows/tauri.events';
+import { useEditTargetDraftSession } from '@/app/composables/use-edit-target-draft-session';
+import { useTextHistory } from '@/app/composables/use-text-history';
 
 export interface FileEditorViewModelParams {
   filePath: string | null;
@@ -20,6 +22,12 @@ export interface FileEditorViewModelParams {
   line: string | null;
 }
 
+interface FileEditorTarget {
+  filePath: string;
+  modRoot: string;
+  sessionId: string;
+}
+
 export function useFileEditorViewModel(params: FileEditorViewModelParams) {
   const feedback = useAppFeedback();
   const title = ref(params.title);
@@ -27,39 +35,71 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
   const contextSeverity = ref(params.contextSeverity);
   const contextMessage = ref(params.contextMessage);
   const targetLine = ref(normalizeLine(params.line));
-  const text = ref('');
-  const originalText = ref('');
-  const loading = ref(false);
-  const saving = ref(false);
-  const undoStack = ref<string[]>([]);
-  const redoStack = ref<string[]>([]);
+  const draftSession = useEditTargetDraftSession<string, FileEditorTarget>({
+    emptyValue: '',
+    load: async (target) => {
+      const loaded = await loadEditableFileData(target.sessionId, target.modRoot, target.filePath);
+      return { value: loaded.text };
+    },
+    save: async (target, draft) => {
+      const result = await writeEditableFileText(target.sessionId, target.modRoot, target.filePath, draft);
+      await emitFileEditorSaved({
+        modRoot: target.modRoot,
+        path: target.filePath,
+        sessionId: target.sessionId,
+        writeResult: result,
+      });
+      return { value: draft };
+    },
+    targetKey: (target) => fileEditorTargetKey(target),
+  });
+  const textHistory = useTextHistory();
   let unlistenFocusLine: UnlistenFn | null = null;
   let unlistenTextApplied: UnlistenFn | null = null;
+  let disposed = false;
 
-  const dirty = computed(() => text.value !== originalText.value);
+  const text = draftSession.draftValue;
+  const dirty = draftSession.dirty;
   const lineCount = computed(() => Math.max(1, text.value.split(/\r\n|\r|\n/).length));
-  const canUndo = computed(() => undoStack.value.length > 0);
-  const canRedo = computed(() => redoStack.value.length > 0);
+  const canUndo = textHistory.canUndo;
+  const canRedo = textHistory.canRedo;
   const isErrorContext = computed(() => contextSeverity.value === 'error');
+  const hasPendingExternalText = draftSession.hasPendingExternalValue;
+  const externalTextNotice = computed(() => (draftSession.hasPendingExternalValue.value ? '外部文本已更新，当前未保存草稿已保留。' : ''));
 
   async function initialize() {
+    disposed = false;
     await loadFile();
+    if (disposed) return;
     unlistenFocusLine = await listenFileEditorFocusLine((event) => {
+      if (disposed) return;
       contextMessage.value = event.message ?? '';
       contextLabel.value = event.contextLabel ?? '信息';
       contextSeverity.value = event.contextSeverity ?? 'info';
       targetLine.value = normalizeEventLine(event.line);
     });
+    if (disposed) {
+      unlistenFocusLine?.();
+      unlistenFocusLine = null;
+      return;
+    }
     unlistenTextApplied = await listenFileEditorTextApplied((event) => {
-      if (!params.filePath || !params.modRoot) return;
+      if (disposed) return;
+      if (!params.filePath || !params.modRoot || !params.sessionId) return;
+      if (event.sessionId !== params.sessionId) return;
       if (normalizeFsPath(event.modRoot) !== normalizeFsPath(params.modRoot)) return;
       if (normalizeFsPath(event.path) !== normalizeFsPath(params.filePath)) return;
-      setTextSnapshot(event.text);
-      originalText.value = event.text;
+      applyExternalText(event.text);
     });
+    if (disposed) {
+      unlistenTextApplied?.();
+      unlistenTextApplied = null;
+    }
   }
 
   function dispose() {
+    disposed = true;
+    draftSession.dispose();
     unlistenFocusLine?.();
     unlistenFocusLine = null;
     unlistenTextApplied?.();
@@ -67,90 +107,60 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
   }
 
   async function loadFile() {
-    if (!params.filePath) {
-      feedback.error('缺少文件路径');
-      return;
-    }
-    if (!params.modRoot) {
-      feedback.error('缺少文件读取根目录');
-      return;
-    }
-    if (!params.sessionId) {
-      feedback.error('缺少文件编辑器 session');
-      return;
-    }
-    loading.value = true;
+    const target = fileEditorTarget();
+    if (!target) return;
     try {
-      const loaded = await loadEditableFileData(params.sessionId, params.modRoot, params.filePath);
-      setTextSnapshot(loaded.text);
-      originalText.value = loaded.text;
+      const loaded = await draftSession.loadTarget(target);
+      if (loaded) textHistory.clear();
     } catch (error) {
       feedback.error(error, '打开文件失败');
-    } finally {
-      loading.value = false;
     }
   }
 
   async function saveFile() {
-    if (!params.filePath) {
-      feedback.error('缺少文件路径');
-      return;
-    }
-    if (!params.modRoot) {
-      feedback.error('缺少文件写入根目录');
-      return;
-    }
-    if (!params.sessionId) {
-      feedback.error('缺少文件编辑器 session');
-      return;
-    }
-    if (saving.value || loading.value) return;
-    saving.value = true;
+    if (!fileEditorTarget()) return;
+    if (draftSession.saving.value || draftSession.loading.value) return;
     try {
-      const newText = text.value;
-      const result = await writeEditableFileText(params.sessionId, params.modRoot, params.filePath, newText);
-      originalText.value = newText;
-      await emitFileEditorSaved({
-        modRoot: params.modRoot,
-        path: params.filePath,
-        sessionId: params.sessionId,
-        writeResult: result,
-      });
+      const saved = await draftSession.saveDraft();
+      if (!saved || disposed) return;
       feedback.success('文件已保存');
     } catch (error) {
       feedback.error(error, '保存文件失败');
-    } finally {
-      saving.value = false;
     }
   }
 
   function cancelChanges() {
-    setTextSnapshot(originalText.value);
+    draftSession.resetDraft();
+    textHistory.clear();
   }
 
-  function setTextSnapshot(nextText: string) {
-    text.value = nextText;
-    undoStack.value = [];
-    redoStack.value = [];
+  function loadPendingExternalText() {
+    draftSession.loadPendingExternal();
+    textHistory.clear();
   }
 
   function updateText(nextText: string) {
     if (nextText === text.value) return;
-    undoStack.value.push(text.value);
-    redoStack.value = [];
-    text.value = nextText;
+    textHistory.pushChange(text.value);
+    draftSession.setDraft(nextText);
   }
 
   function undoEdit() {
     if (!canUndo.value) return;
-    redoStack.value.push(text.value);
-    text.value = undoStack.value.pop() ?? text.value;
+    draftSession.setDraft(textHistory.undo(text.value));
   }
 
   function redoEdit() {
     if (!canRedo.value) return;
-    undoStack.value.push(text.value);
-    text.value = redoStack.value.pop() ?? text.value;
+    draftSession.setDraft(textHistory.redo(text.value));
+  }
+
+  function applyExternalText(nextText: string) {
+    const target = fileEditorTarget();
+    if (!target) return;
+    const wasDirty = dirty.value;
+    draftSession.applyExternalForTarget(target, nextText);
+    if (!wasDirty) textHistory.clear();
   }
 
   return {
@@ -160,9 +170,11 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
     contextMessage,
     targetLine,
     text,
-    loading,
-    saving,
+    loading: draftSession.loading,
+    saving: draftSession.saving,
     dirty,
+    hasPendingExternalText,
+    externalTextNotice,
     lineCount,
     canUndo,
     canRedo,
@@ -171,10 +183,31 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
     dispose,
     saveFile,
     cancelChanges,
+    loadPendingExternalText,
     updateText,
     undoEdit,
     redoEdit,
   };
+
+  function fileEditorTarget(): FileEditorTarget | null {
+    if (!params.filePath) {
+      feedback.error('缺少文件路径');
+      return null;
+    }
+    if (!params.modRoot) {
+      feedback.error('缺少文件读取根目录');
+      return null;
+    }
+    if (!params.sessionId) {
+      feedback.error('缺少文件编辑器 session');
+      return null;
+    }
+    return { filePath: params.filePath, modRoot: params.modRoot, sessionId: params.sessionId };
+  }
+}
+
+function fileEditorTargetKey(target: FileEditorTarget): string {
+  return `${target.sessionId}\n${normalizeFsPath(target.modRoot)}\n${normalizeFsPath(target.filePath)}`;
 }
 
 function normalizeLine(value: string | null): number | undefined {

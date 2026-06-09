@@ -1,7 +1,13 @@
 <template>
   <div class="modal-backdrop">
     <div class="projectile-window">
-      <EditorHeader title="弹体编辑器" :subtitle="projectileId" />
+      <EditorHeader
+        title="弹体编辑器"
+        :subtitle="projectileId"
+        :dirty="dirty"
+        :external-update-notice="externalUpdateNotice"
+        @load-external="$emit('load-external')"
+      />
       <div class="projectile-body">
         <n-collapse v-model:expanded-names="expandedSections" :theme-overrides="editorCollapseTheme">
           <n-collapse-item title="基础属性" name="basic">
@@ -97,7 +103,7 @@
       <EditorFooter note="结构化 JSON 写回，内部字段会被后端剔除。">
         <template #actions>
           <n-button @click="$emit('close')">关闭</n-button>
-          <n-button type="primary" @click="emit('save-requested', localProjectile)">保存</n-button>
+          <n-button type="primary" @click="emit('save-requested')">保存</n-button>
         </template>
       </EditorFooter>
     </div>
@@ -123,8 +129,16 @@ const props = defineProps<{
   sessionId: string;
   projectileId: string;
   projectile?: RowData;
+  draftRevision: number;
+  dirty: boolean;
+  externalUpdateNotice: string;
 }>();
-const emit = defineEmits<{ close: []; 'save-requested': [projectile: RowData] }>();
+const emit = defineEmits<{
+  close: [];
+  'save-requested': [];
+  'draft-changed': [projectile: RowData];
+  'load-external': [];
+}>();
 const feedback = useAppFeedback();
 const localProjectile = ref<RowData>(normalizeProjectileSpec(props.projectile || { id: props.projectileId, specClass: 'projectile' }));
 const expandedSections = ref(['basic']);
@@ -189,11 +203,17 @@ async function uploadSpriteFile(field: string, event: Event) {
   }
 }
 watch(
-  () => props.projectile,
-  (projectile) => {
-    localProjectile.value = normalizeProjectileSpec(projectile || { id: props.projectileId, specClass: 'projectile' });
+  () => props.draftRevision,
+  () => {
+    localProjectile.value = normalizeProjectileSpec(props.projectile || { id: props.projectileId, specClass: 'projectile' });
     genericJson.value = JSON.stringify(localProjectile.value, null, 2);
   },
-  { deep: true },
+);
+watch(
+  localProjectile,
+  (projectile) => {
+    emit('draft-changed', projectile);
+  },
+  { deep: true, flush: 'sync' },
 );
 </script>

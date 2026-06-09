@@ -12,12 +12,9 @@ import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import type { ResourceRef, RowData, SkinFile } from '@/shared/types';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
-import { selectOptionResourceRefs, type SelectOption } from '@/domain/schema/schema-registry';
-import {
-  queryCacheInvalidationIncludes,
-  queryCacheInvalidationIncludesResourceIdentity,
-  subscribeQueryCacheInvalidation,
-} from '@/services/query-cache.service';
+import type { SelectOption } from '@/domain/schema/schema-options';
+import { hasEntityInvalidation, hasQueryInvalidation, subscribeQueryInvalidations } from '@/services/query-cache.service';
+import { hasResourceInvalidation, subscribeResourceInvalidations } from '@/services/resource-cache.service';
 
 export function useConfigSkinViewModel() {
   const selectedSkinId = ref<string | null>(null);
@@ -38,8 +35,7 @@ export function useConfigSkinViewModel() {
   async function loadSkins() {
     const requestId = ++skinsRequestId;
     const sessionId = project.activeSessionId;
-    const manifest = project.activeManifest;
-    if (!sessionId || !manifest) {
+    if (!sessionId) {
       skins.value = [];
       skinSprites.value = {};
       skinSpriteResourceRefs.value = [];
@@ -52,7 +48,6 @@ export function useConfigSkinViewModel() {
     const loadedSkins = await listSkinEntities(sessionId);
     if (requestId !== skinsRequestId || sessionId !== project.activeSessionId) return;
     skins.value = loadedSkins;
-    project.updateEntitySummary(manifest.modRoot, 'skins', skins.value.length);
     await loadSkinSprites();
     const nextSelected = selectedId ? skins.value.find((skin) => skin.skinHullId === selectedId) : null;
     if (selectedEntityDataChanged(previousSelected, nextSelected)) skinDataRevision.value += 1;
@@ -76,8 +71,8 @@ export function useConfigSkinViewModel() {
         sourceSkins.map((skin) => skin.skinHullId),
       );
       if (requestId !== skinSpritesRequestId || sessionId !== project.activeSessionId || sourceSkins !== skins.value) return;
-      skinSprites.value = resources.sprites;
       skinSpriteResourceRefs.value = resources.resourceRefs;
+      skinSprites.value = resources.sprites;
     } catch (error) {
       feedback.error(error, '读取舰船皮肤缩略图失败');
     }
@@ -162,15 +157,8 @@ export function useConfigSkinViewModel() {
       feedback.warning(`舰船皮肤 "${nextSkinHullId}" 已存在`);
       return null;
     }
-    const renameContext = configEntityRenameContext(current.skinHullId, current.relPath, nextSkinHullId);
-    const skin = await saveSkinAction(
-      saveSessionId,
-      saveModRoot,
-      nextSkinHullId,
-      data,
-      renameContext.previousId,
-      renameContext.previousRelPath,
-    );
+    const renameContext = configEntityRenameContext(current.skinHullId, nextSkinHullId);
+    const skin = await saveSkinAction(saveSessionId, saveModRoot, nextSkinHullId, data, renameContext.previousId);
     if (project.activeManifest?.modRoot !== saveModRoot || project.activeManifest.sessionId !== saveSessionId) return skin;
     await loadSkins();
     selectedSkinId.value = skin.skinHullId;
@@ -184,21 +172,28 @@ export function useConfigSkinViewModel() {
 
   watch(() => project.activeSessionId, loadSkins, { immediate: true });
   watch([() => project.activeSessionId, () => settings.isPlainEditMode], () => void loadHullOptions(), { immediate: true });
-  const unsubscribeQueryCacheInvalidation = subscribeQueryCacheInvalidation((event) => {
+  const stopQueryInvalidation = subscribeQueryInvalidations((event) => {
     if (event.sessionId !== project.activeSessionId) return;
-    const skinsChanged = queryCacheInvalidationIncludes(event, 'entity-list', (parameters) => parameters.kind === 'skin');
-    const hullReferencesChanged = queryCacheInvalidationIncludes(event, 'hull-references');
-    const skinSpriteResourcesChanged = queryCacheInvalidationIncludesResourceIdentity(event, skinSpriteResourceRefs.value);
-    const hullOptionResourcesChanged = queryCacheInvalidationIncludesResourceIdentity(event, selectOptionResourceRefs(hullOptions.value));
+    const skinsChanged = hasEntityInvalidation(event, 'entity-list', 'skin');
+    const hullReferenceQueryChanged = hasQueryInvalidation(event, 'hull-references');
     if (skinsChanged) void loadSkins();
-    if (hullReferencesChanged || skinSpriteResourcesChanged) {
+    if (hullReferenceQueryChanged) {
       void loadSkinSprites();
     }
-    if (hullReferencesChanged || hullOptionResourcesChanged) {
+    if (hullReferenceQueryChanged) {
       void loadHullOptions();
     }
   });
-  onUnmounted(unsubscribeQueryCacheInvalidation);
+  const stopResourceInvalidation = subscribeResourceInvalidations((event) => {
+    if (event.sessionId !== project.activeSessionId) return;
+    if (!hasResourceInvalidation(event, skinSpriteResourceRefs.value)) return;
+    void loadSkinSprites();
+    void loadHullOptions();
+  });
+  onUnmounted(() => {
+    stopQueryInvalidation();
+    stopResourceInvalidation();
+  });
 
   return {
     selectedSkinId,

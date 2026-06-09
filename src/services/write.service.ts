@@ -1,19 +1,23 @@
 import {
+  applyFileChangeSet,
   createIndexedConfigEntity,
   createSkinEntity,
   createVariantEntity,
   deleteIndexedConfigEntity,
   deleteSkinEntity,
   deleteVariantEntity,
+  saveCsvPatch,
+  saveEditorSpec,
   saveIndexedConfigEntity,
+  saveModFiles,
   saveSkinEntity,
+  saveTextFile,
   saveVariantEntity,
-} from '@/shared/api/config-entity-api';
-import { applyFileChangeSet, saveEditorSpec, saveModFiles, saveTextFile } from '@/shared/api/files-api';
-import { saveCsvPatch } from '@/shared/api/tables-api';
-import { uploadSprite } from '@/shared/api/assets-api';
+  uploadSprite,
+} from '@/shared/api/write-api';
 import type {
   AssociatedFileChange,
+  AssociatedSpecChange,
   CsvRowPatch,
   DeleteIndexedConfigEntityWrite,
   DeleteSkinEntityWrite,
@@ -35,9 +39,9 @@ export async function writeCsvPatch(
   modRoot: string,
   table: TableKey,
   patches: CsvRowPatch[],
-  associatedFiles: AssociatedFileChange[],
+  associatedSpecs: AssociatedSpecChange[],
 ): Promise<WriteResult> {
-  return saveCsvPatch(sessionId, modRoot, table, patches, associatedFiles);
+  return saveCsvPatch(sessionId, modRoot, table, patches, associatedSpecs);
 }
 
 export async function writeTextFile(sessionId: string, modRoot: string, path: string, text: string): Promise<WriteResult> {

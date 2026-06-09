@@ -2,8 +2,9 @@ import { computed, ref, watch } from 'vue';
 import { queryCoreFields } from '@/services/assets.service';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useProjectStore } from '@/stores/project.store';
-import { getSchema, mergeSchemaWithCoreFields } from '@/domain/schema/schema-registry';
-import { recordLogBestEffort } from '@/services/app-config.service';
+import { mergeSchemaWithCoreFields } from '@/domain/schema/schema-core-fields';
+import { getSchema } from '@/domain/schema/schema-registry';
+import { recordLogBestEffort } from '@/services/app-feedback-log.service';
 import { formatError } from '@/shared/lib/errors';
 import type { FileSchema } from '@/domain/schema/schema.types';
 

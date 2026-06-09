@@ -3,9 +3,8 @@ import { AppError, withCause } from '@/shared/lib/errors';
 import { queryResourceDataUrls } from '@/services/resource-cache.service';
 import { writeEditorSpec, writeSpriteUpload } from '@/services/write.service';
 import { WEAPON_SPRITE_FIELDS } from '@/domain/editors/lib/weapon-sprite-fields';
-import { editorSpecExtension } from '@/domain/editors/editor-kind-metadata';
+import { defaultEditorSpec } from '@/domain/editors/editor-definitions';
 import { requireRowData } from '@/shared/lib/row-data';
-import { defaultShip } from '@/shared/lib/starsector';
 import { loadImportedEditorSpecFile } from '@/shared/api/files-api';
 import type {
   EditorSpecKind,
@@ -76,13 +75,10 @@ export async function queryEditorEntityBundle(
   kind: EditorWindowKind,
   id: string,
 ): Promise<EditorEntityBundle> {
-  return EDITOR_ENTITY_BUNDLE_LOADERS[kind](sessionId, id);
+  return BUNDLE_LOADERS[kind](sessionId, id);
 }
 
-export async function refreshEditorBundleResourceData(
-  sessionId: ProjectSessionId,
-  bundle: EditorEntityBundle,
-): Promise<EditorEntityBundle> {
+export async function refreshBundleResources(sessionId: ProjectSessionId, bundle: EditorEntityBundle): Promise<EditorEntityBundle> {
   if (bundle.kind === 'ship') {
     return {
       ...bundle,
@@ -95,13 +91,13 @@ export async function refreshEditorBundleResourceData(
   return bundle;
 }
 
-export async function refreshEditorBundleProjectileDependencies(
+export async function refreshBundleProjectiles(
   sessionId: ProjectSessionId,
   bundle: EditorEntityBundle,
   options: { projectileSpecs: boolean; projectileOptions: boolean },
 ): Promise<EditorEntityBundle> {
   if (bundle.kind !== 'weapon' && bundle.kind !== 'weapon-preview') return bundle;
-  const nextProjectileSpecs = options.projectileSpecs ? await queryLoadedProjectileSpecs(sessionId, bundle.projectileSpecs) : null;
+  const nextProjectileSpecs = options.projectileSpecs ? await queryProjectileSpecs(sessionId, bundle.projectileSpecs) : null;
   if (bundle.kind === 'weapon') {
     return {
       ...bundle,
@@ -115,7 +111,7 @@ export async function refreshEditorBundleProjectileDependencies(
   };
 }
 
-const EDITOR_ENTITY_BUNDLE_LOADERS: Record<EditorWindowKind, (sessionId: ProjectSessionId, id: string) => Promise<EditorEntityBundle>> = {
+const BUNDLE_LOADERS: Record<EditorWindowKind, (sessionId: ProjectSessionId, id: string) => Promise<EditorEntityBundle>> = {
   ship: queryShipEditorBundle,
   weapon: (sessionId, id) => queryWeaponEditorBundle(sessionId, id),
   projectile: queryProjectileEditorBundle,
@@ -125,7 +121,7 @@ const EDITOR_ENTITY_BUNDLE_LOADERS: Record<EditorWindowKind, (sessionId: Project
 
 async function queryShipEditorBundle(sessionId: ProjectSessionId, id: string): Promise<ShipEditorEntityBundle> {
   const ship = await querySessionEntity(sessionId, 'ship', id);
-  const shipSpec = ship ? requireEditorRowData(ship.data, `舰船 ${id} 数据无效`) : defaultShipSpec(id);
+  const shipSpec = ship ? requireEditorRowData(ship.data, `舰船 ${id} 数据无效`) : defaultEditorSpec('ship', id);
   return {
     kind: 'ship',
     ship: shipSpec,
@@ -176,7 +172,7 @@ async function queryWeaponLikeBundle(
 
 async function queryProjectileEditorBundle(sessionId: ProjectSessionId, id: string): Promise<ProjectileEditorEntityBundle> {
   const projectile = await querySessionEntity(sessionId, 'projectile', id);
-  const spec = projectile ? requireEditorRowData(projectile.data, `弹体 ${id} 数据无效`) : defaultProjectileSpec(id);
+  const spec = projectile ? requireEditorRowData(projectile.data, `弹体 ${id} 数据无效`) : defaultEditorSpec('projectile', id);
   return {
     kind: 'projectile',
     projectile: spec,
@@ -189,7 +185,7 @@ async function querySystemEditorBundle(sessionId: ProjectSessionId, id: string):
   const system = await querySessionEntity(sessionId, 'system', id);
   return {
     kind: 'system',
-    system: system ? requireEditorRowData(system.data, `战术系统 ${id} 数据无效`) : defaultSystemSpec(id),
+    system: system ? requireEditorRowData(system.data, `战术系统 ${id} 数据无效`) : defaultEditorSpec('system', id),
     isNew: !system,
   };
 }
@@ -201,22 +197,13 @@ export async function saveEditorSpecByKind(
   id: string,
   data: RowData,
 ): Promise<WriteResult> {
-  const extension = editorSpecExtension(kind);
-  ensureSpecContext(modRoot, id, extension);
-  data[EDITOR_SPEC_ID_FIELDS[kind]] = data[EDITOR_SPEC_ID_FIELDS[kind]] || id;
+  ensureSpecContext(modRoot, id);
   try {
     return await writeEditorSpec(sessionId, modRoot, kind, id, data);
   } catch (error) {
-    throw withCause(`保存 ${id}.${extension} 失败`, error, `save-${kind}-spec`);
+    throw withCause(`保存 ${id} spec 失败`, error, `save-${kind}-spec`);
   }
 }
-
-const EDITOR_SPEC_ID_FIELDS: Record<EditorSpecKind, string> = {
-  ship: 'hullId',
-  weapon: 'id',
-  projectile: 'id',
-  system: 'id',
-};
 
 export async function loadImportedSpecFile(kind: EditorSpecKind, path: string): Promise<RowData> {
   return loadImportedEditorSpecFile(kind, path);
@@ -232,7 +219,7 @@ export function uploadEditorSprite(
 ) {
   return writeSpriteUpload(sessionId, modRoot, filename, data, subfolder, overwrite).then(
     (write): SpriteUploadResult => ({
-      state: spriteUploadStateFromEntity(write.refreshedEntity),
+      state: spriteUploadState(write.refreshedEntity),
       write,
     }),
   );
@@ -266,10 +253,7 @@ async function queryProjectileOptions(sessionId: ProjectSessionId): Promise<Edit
   return projectiles.map((projectile) => ({ label: projectile.id, value: projectile.id }));
 }
 
-async function queryLoadedProjectileSpecs(
-  sessionId: ProjectSessionId,
-  currentSpecs: Record<string, RowData>,
-): Promise<Record<string, RowData>> {
+async function queryProjectileSpecs(sessionId: ProjectSessionId, currentSpecs: Record<string, RowData>): Promise<Record<string, RowData>> {
   const entries = await Promise.all(
     Object.keys(currentSpecs).map(async (id) => {
       const projectile = await querySessionEntity(sessionId, 'projectile', id);
@@ -288,7 +272,7 @@ function requireEditorRowData(value: unknown, message: string): RowData {
   return requireRowData(value, message);
 }
 
-function spriteUploadStateFromEntity(value: unknown): SpriteUploadState {
+function spriteUploadState(value: unknown): SpriteUploadState {
   const row = requireEditorRowData(value, '贴图上传返回状态无效');
   return {
     ok: row.ok === true,
@@ -299,23 +283,11 @@ function spriteUploadStateFromEntity(value: unknown): SpriteUploadState {
   };
 }
 
-function ensureSpecContext(modRoot: string, id: string, extension: string) {
+function ensureSpecContext(modRoot: string, id: string) {
   if (!modRoot) {
-    throw new AppError(`缺少 .${extension} 保存的 mod 根目录`, { action: 'save-spec' });
+    throw new AppError('缺少 spec 保存的 mod 根目录', { action: 'save-spec' });
   }
   if (!id) {
-    throw new AppError(`缺少 .${extension} 保存 id`, { action: 'save-spec' });
+    throw new AppError('缺少 spec 保存 id', { action: 'save-spec' });
   }
-}
-
-function defaultShipSpec(id: string): RowData {
-  return defaultShip(id);
-}
-
-function defaultProjectileSpec(id: string): RowData {
-  return { id, specClass: 'projectile' };
-}
-
-function defaultSystemSpec(id: string): RowData {
-  return { id, type: 'STAT_MOD' };
 }

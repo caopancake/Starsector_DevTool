@@ -21,8 +21,8 @@ export function useFileHistoryViewModel() {
   const undoDisplayItems = computed(() => [...undoStack.value].reverse());
   const redoDisplayItems = computed(() => [...redoStack.value].reverse());
   const historyCount = computed(() => undoStack.value.length + redoStack.value.length);
-  const canUndo = computed(() => Boolean(fileHistory.peekFileUndo(activeMod.value?.modRoot ?? null)));
-  const canRedo = computed(() => Boolean(fileHistory.peekFileRedo(activeMod.value?.modRoot ?? null)));
+  const canUndo = computed(() => Boolean(fileHistory.peekSavedWriteUndo(activeMod.value?.modRoot ?? null)));
+  const canRedo = computed(() => Boolean(fileHistory.peekSavedWriteRedo(activeMod.value?.modRoot ?? null)));
 
   function confirmClear() {
     const modData = activeMod.value;

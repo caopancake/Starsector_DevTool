@@ -1,11 +1,11 @@
 use super::super::{
     cache::{
-        ensure_registered_session_table_rows, load_core_csv_table, load_core_source_data,
-        loaded_csv_rows, loaded_registered_csv_rows, session_for_mut, sessions,
+        ensure_registered_table_rows, load_core_csv_table, load_core_source_data, loaded_csv_rows,
+        loaded_registered_csv_rows, session_for_mut, sessions,
     },
     model::{is_comment_row, string_from_row, CoreSourceData, ProjectSession, SessionCsvRow},
+    table_definitions::csv_table_source_resource_ref,
 };
-use super::resources_shared::source_option_resource_ref;
 use crate::{
     errors::{AppError, AppResult},
     models::{CsvTableKey, ResourceSource, SourceOptionGroup, SourceOptionOrigin},
@@ -35,7 +35,7 @@ pub fn query_csv_source_options(
     let session = session_for_mut(&mut guard, session_id)?;
     let (table, column) = parse_csv_source(source)?;
     let table_key = table.as_str();
-    ensure_registered_session_table_rows(session, table)?;
+    ensure_registered_table_rows(session, table)?;
     {
         let csv = session
             .csv_tables
@@ -201,7 +201,7 @@ fn source_options_from_rows(
             let label = source_option_label_for_row(row, column, value, metadata_catalog);
             let description = source_option_description(value, metadata_catalog);
             let resource_ref = if is_id_column {
-                source_option_resource_ref(
+                csv_table_source_resource_ref(
                     resource_source,
                     context.table,
                     value,
@@ -351,7 +351,7 @@ fn add_mod_blueprint_package_metadata(
     metadata: &mut HashMap<String, SourceTokenMetadata>,
     session: &mut super::super::model::ProjectSession,
 ) -> AppResult<()> {
-    ensure_registered_session_table_rows(session, CsvTableKey::SpecialItems)?;
+    ensure_registered_table_rows(session, CsvTableKey::SpecialItems)?;
     for row in loaded_registered_csv_rows(session, CsvTableKey::SpecialItems)? {
         add_blueprint_package_metadata(metadata, &row.row);
     }

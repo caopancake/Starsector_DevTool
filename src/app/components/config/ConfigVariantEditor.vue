@@ -6,24 +6,28 @@
         <p>{{ selectedVariant.relPath }}</p>
       </div>
       <div class="variant-editor-actions">
+        <n-button v-if="hasPendingExternalData" size="small" secondary type="warning" @click="loadPendingExternalData">
+          载入外部版本
+        </n-button>
         <n-button size="small" secondary type="error" @click="confirmDeleteVariant">删除</n-button>
         <n-button type="primary" size="small" :loading="saving" @click="save">保存</n-button>
       </div>
     </header>
+    <div v-if="externalUpdateNotice" class="config-external-update-note">{{ externalUpdateNotice }}</div>
     <div class="variant-editor-body">
-      <SchemaFormRenderer :schema="schema" v-model="localVariant" :runtime-context="schemaRuntimeContext" />
+      <SchemaFormRenderer :schema="schema" v-model="draftData" :runtime-context="schemaRuntimeContext" />
     </div>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, toRef } from 'vue';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import type { RowData, VariantFile } from '@/shared/types';
-import { deepClone } from '@/shared/lib/starsector';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { getSchema } from '@/domain/schema/schema-registry';
 import { createSchemaRuntimeContext } from '@/app/composables/use-schema-runtime-context';
+import { useConfigVariantEditorViewModel } from '@/app/composables/use-config-variant-editor-view-model';
 
 const props = defineProps<{
   variantId: string;
@@ -38,34 +42,21 @@ const emit = defineEmits<{ saved: [variantId: string | null] }>();
 
 const feedback = useAppFeedback();
 
-const localVariant = ref<RowData>({});
-const saving = ref(false);
-
 const schema = computed(() => getSchema('variant'));
 const schemaRuntimeContext = computed(() =>
   props.modRoot && props.sessionId ? createSchemaRuntimeContext(props.modRoot, props.sessionId) : null,
 );
 const variants = computed(() => [...props.variants]);
-const selectedVariant = computed(() => variants.value.find((variant) => variant.variantId === props.variantId) ?? null);
-
-async function save() {
-  const current = selectedVariant.value;
-  const saveModRoot = props.modRoot;
-  const saveSessionId = props.sessionId;
-  if (!current || !saveModRoot || !saveSessionId) return;
-  saving.value = true;
-  try {
-    const saved = await props.saveVariant(saveSessionId, saveModRoot, current, localVariant.value);
-    if (props.modRoot !== saveModRoot || props.sessionId !== saveSessionId) return;
-    if (!saved) return;
-    localVariant.value = deepClone(saved.data);
-    emit('saved', saved.variantId);
-  } catch (error) {
-    feedback.error(error, '保存装配失败');
-  } finally {
-    saving.value = false;
-  }
-}
+const { draftData, externalUpdateNotice, hasPendingExternalData, loadPendingExternalData, save, saving, selectedVariant } =
+  useConfigVariantEditorViewModel({
+    dataRevision: toRef(props, 'dataRevision'),
+    modRoot: toRef(props, 'modRoot'),
+    onSaved: (variantId) => emit('saved', variantId),
+    saveVariant: props.saveVariant,
+    sessionId: toRef(props, 'sessionId'),
+    variantId: toRef(props, 'variantId'),
+    variants,
+  });
 
 function confirmDeleteVariant() {
   const current = selectedVariant.value;
@@ -95,13 +86,4 @@ async function deleteVariantTarget(deleteSessionId: string, deleteModRoot: strin
   }
   return true;
 }
-
-watch(
-  () => [props.variantId, props.dataRevision] as const,
-  () => {
-    const variant = selectedVariant.value;
-    localVariant.value = variant ? deepClone(variant.data) : {};
-  },
-  { immediate: true },
-);
 </script>

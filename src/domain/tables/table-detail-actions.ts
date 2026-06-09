@@ -1,12 +1,12 @@
 import { rowSpecId } from '@/shared/lib/starsector';
-import { joinRootRelativePath, pathBasename } from '@/shared/lib/paths';
+import { joinRootRelativePath } from '@/shared/lib/paths';
 import type { EditorWindowKind, RowData, TableKey } from '@/shared/types';
 import { isCsvCommentRow } from '@/domain/tables/csv-comment-row';
 import { associatedSpecEditorKinds, associatedSpecRelPath } from '@/domain/tables/associated-specs';
-import { editorWindowLabel } from '@/domain/editors/editor-kind-metadata';
+import { editorWindowLabel } from '@/domain/editors/editor-definitions';
 
 export type TableDetailAction =
-  | { type: 'file-editor'; modRoot: string; path: string; sessionId: string; title: string; contextLabel: string; message: string }
+  | { type: 'file-editor'; modRoot: string; path: string; sessionId: string; title: string; contextLabel?: string; message?: string }
   | {
       type: 'editor-window';
       kind: EditorWindowKind;
@@ -32,18 +32,15 @@ export function detailActionsForRow(
   const id = rowSpecId(row, table);
   if (!id) return [];
   const relPath = associatedSpecRelPath(table, id);
-  if (!relPath) return [];
-  return [
-    specFileAction(context, relPath),
-    ...associatedSpecEditorKinds(table).map((kind) => ({
-      type: 'editor-window' as const,
-      kind,
-      modRoot: context.modRoot,
-      sessionId: context.sessionId,
-      starsectorRoot: context.starsectorRoot,
-      id,
-    })),
-  ];
+  const editorActions: TableDetailAction[] = associatedSpecEditorKinds(table).map((kind) => ({
+    type: 'editor-window' as const,
+    kind,
+    modRoot: context.modRoot,
+    sessionId: context.sessionId,
+    starsectorRoot: context.starsectorRoot,
+    id,
+  }));
+  return relPath ? [...editorActions, specFileAction(context, relPath)] : editorActions;
 }
 
 export function detailActionLabel(action: TableDetailAction): string {
@@ -58,14 +55,11 @@ export function detailActionKey(action: TableDetailAction): string {
 }
 
 function specFileAction(context: TableDetailActionContext, relPath: string): TableDetailAction {
-  const title = pathBasename(relPath);
   return {
     type: 'file-editor',
     modRoot: context.modRoot,
     path: joinRootRelativePath(context.modRoot, relPath),
     sessionId: context.sessionId,
     title: '文件编辑器',
-    contextLabel: title,
-    message: title,
   };
 }

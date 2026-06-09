@@ -1,5 +1,6 @@
 import type { FileChangeRecord } from '@/shared/types/history.types';
 import type { RowData } from '@/shared/types/json.types';
+import type { ProjectInvalidation } from '@/shared/types/query.types';
 
 export interface CsvRowKeyMapping {
   previousKey: string;
@@ -8,7 +9,7 @@ export interface CsvRowKeyMapping {
 
 export interface WriteResult {
   changes: FileChangeRecord[];
-  invalidatedPaths: string[];
+  invalidation: ProjectInvalidation;
   keyMap: CsvRowKeyMapping[];
   refreshedEntity: RowData | null;
   warnings: string[];
@@ -33,7 +34,15 @@ export interface AssociatedFileChange {
   relPath: string;
   afterText: string | null;
   afterDataBase64: string | null;
-  previousRelPath: string | null;
+}
+
+export type AssociatedSpecChangeAction = 'create' | 'delete' | 'rename';
+
+export interface AssociatedSpecChange {
+  action: AssociatedSpecChangeAction;
+  id: string;
+  previousId: string | null;
+  row: RowData;
 }
 
 export type CsvRowPatchAction = 'upsert' | 'delete';

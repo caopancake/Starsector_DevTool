@@ -1,6 +1,6 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::read_utf8_no_bom,
+    io::{read_utf8_no_bom, validate_walk_entry},
     parsers::parse_starsector_json,
 };
 use serde_json::{Map, Value};
@@ -40,6 +40,7 @@ pub fn load_json_dir(dir: &Path, ext: &str) -> AppResult<Vec<Value>> {
                 AppError::message(error.to_string()),
             )
         })?;
+        validate_walk_entry(entry.path(), "JSON directory")?;
         if entry.path().extension().and_then(|s| s.to_str()) == Some(ext) {
             values.push(read_json_file(entry.path())?);
         }

@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
-import { groupSelectOptions, type SelectOption } from '@/domain/schema/schema-registry';
+import { groupSelectOptions, type SelectOption } from '@/domain/schema/schema-options';
 
 const props = defineProps<{
   anchor: { height: number; left: number; top: number; width: number };

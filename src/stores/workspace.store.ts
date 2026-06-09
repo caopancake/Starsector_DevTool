@@ -2,16 +2,13 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import type {
   ConfigView,
-  GameModSummary,
   GameOverviewData,
-  GameScanWarning,
   ModEntry,
   PersistedWorkspace,
   TableKey,
   WorkspaceColumnWidths,
   WorkspaceView,
 } from '@/shared/types';
-import { getNextActiveKeyAfterRemoval } from '@/shared/lib/store-utils';
 import { gameModsDirectoryPath } from '@/shared/lib/paths';
 
 export const useWorkspaceStore = defineStore('workspace', () => {
@@ -29,9 +26,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const hasLoadedMods = computed(() => mods.value.size > 0);
   const hasGameWorkspace = computed(() => gameOverview.value !== null);
   const hasWorkspaceContext = computed(() => hasGameWorkspace.value || hasLoadedMods.value);
-  const modList = loadedModList;
-  const modCount = loadedModCount;
-  const hasAnyMod = hasLoadedMods;
   const gameWorkspace = computed(() =>
     gameOverview.value
       ? {
@@ -64,28 +58,31 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     entry.version = version;
   }
 
-  function removeMod(modRoot: string) {
+  function removeLoadedModEntry(modRoot: string) {
     mods.value.delete(modRoot);
     expandedMods.value.delete(modRoot);
     cleanupColumnWidthsForMod(modRoot);
-    activeModRoot.value = getNextActiveKeyAfterRemoval(activeModRoot.value, [...mods.value.keys()], modRoot, null);
-    if (!activeModRoot.value) currentView.value = 'overview';
+    if (activeModRoot.value === modRoot) {
+      activeModRoot.value = null;
+      currentView.value = 'overview';
+      configView.value = 'mod-overview';
+    }
   }
 
-  function setActiveMod(modRoot: string) {
+  function activateModOverview(modRoot: string) {
     if (!mods.value.has(modRoot)) return;
     activeModRoot.value = modRoot;
     currentView.value = 'config';
     configView.value = 'mod-overview';
   }
 
-  function setActiveTable(modRoot: string) {
+  function activateModTable(modRoot: string) {
     if (!mods.value.has(modRoot)) return;
     activeModRoot.value = modRoot;
     currentView.value = 'table';
   }
 
-  function setActiveConfig(modRoot: string, view: ConfigView) {
+  function activateModConfig(modRoot: string, view: ConfigView) {
     if (!mods.value.has(modRoot)) return;
     activeModRoot.value = modRoot;
     currentView.value = 'config';
@@ -100,33 +97,32 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
-  function navigateTo(view: WorkspaceView) {
-    currentView.value = view;
+  function showOverview() {
+    currentView.value = 'overview';
+  }
+
+  function showSettings() {
+    currentView.value = 'settings';
+  }
+
+  function showAbout() {
+    currentView.value = 'about';
   }
 
   function setGameOverview(overview: GameOverviewData | null) {
     gameOverview.value = overview;
-    currentView.value = 'overview';
-  }
-
-  function setGameWorkspace(starsectorRoot: string, coreAvailable: boolean, mods: GameModSummary[], warnings: GameScanWarning[]) {
-    setGameOverview({
-      starsectorRoot,
-      coreAvailable,
-      modsDir: gameModsDirectoryPath(starsectorRoot),
-      mods,
-      warnings,
-    });
+    showOverview();
   }
 
   function isModImported(modRoot: string): boolean {
     return mods.value.has(modRoot);
   }
 
-  function restoreFrom(persisted: PersistedWorkspace) {
+  function applyPersistedWorkspaceSnapshot(persisted: PersistedWorkspace) {
     for (const mod of persisted.mods) {
       registerMod({ modRoot: mod.modRoot, displayName: mod.displayName, version: mod.version, status: 'loading' });
     }
+    activeModRoot.value = null;
     currentView.value = 'overview';
     configView.value = 'mod-overview';
     expandedMods.value = new Set(persisted.expandedMods);
@@ -147,8 +143,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       mods: loadedModList.value
         .filter((m) => m.status !== 'error')
         .map((m) => ({ modRoot: m.modRoot, displayName: m.displayName, version: m.version })),
-      activeModRoot: activeModRoot.value,
-      currentView: currentView.value,
+      activeModRoot: null,
+      currentView: 'overview',
       expandedMods: [...expandedMods.value],
       starsectorRoot: gameOverview.value?.starsectorRoot ?? null,
       gameMods: gameOverview.value?.mods ?? [],
@@ -189,24 +185,22 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     hasGameWorkspace,
     hasLoadedMods,
     hasWorkspaceContext,
-    hasAnyMod,
     loadedModCount,
     loadedModList,
-    modCount,
-    modList,
     mods,
+    activateModConfig,
+    activateModOverview,
+    activateModTable,
+    applyPersistedWorkspaceSnapshot,
     getColumnWidths,
     isModImported,
-    navigateTo,
     registerMod,
-    removeMod,
-    restoreFrom,
-    setActiveConfig,
+    removeLoadedModEntry,
     setColumnWidths,
     setGameOverview,
-    setGameWorkspace,
-    setActiveMod,
-    setActiveTable,
+    showAbout,
+    showOverview,
+    showSettings,
     toPersistedState,
     toggleExpanded,
     updateModInfo,

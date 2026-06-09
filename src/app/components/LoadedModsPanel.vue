@@ -5,7 +5,7 @@
       :key="mod.modRoot"
       class="overview-mod-card"
       :class="{ 'card-active': workspace.activeModRoot === mod.modRoot }"
-      @click="workspace.setActiveMod(mod.modRoot)"
+      @click="navigateToModOverview(mod.modRoot)"
     >
       <div class="mod-card-header">
         <strong>{{ mod.displayName }}</strong>
@@ -21,9 +21,11 @@
 <script setup lang="ts">
 import { useTablesStore } from '@/stores/tables.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
+import { useWorkspaceNavigationActions } from '@/app/composables/use-workspace-navigation-actions';
 
 const workspace = useWorkspaceStore();
 const tables = useTablesStore();
+const { navigateToModOverview } = useWorkspaceNavigationActions();
 
 function statusLabel(status: string): string {
   if (status === 'ready') return '已加载';

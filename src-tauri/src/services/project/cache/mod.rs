@@ -17,7 +17,7 @@ pub(crate) use core::{
     load_core_csv_table, load_core_ship_files, load_core_skin_files, load_core_source_data,
 };
 pub(crate) use csv::{
-    ensure_registered_session_table_rows, ensure_session_table_rows, loaded_csv_rows,
+    ensure_registered_table_rows, ensure_session_table_rows, loaded_csv_rows,
     loaded_registered_csv_rows, registered_session_table, registered_session_table_mut,
 };
 pub(crate) use invalidation::invalidate_session_path;

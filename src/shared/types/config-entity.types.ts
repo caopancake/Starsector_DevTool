@@ -4,7 +4,6 @@ export interface ConfigFileEntityWrite {
   sessionId: string;
   modRoot: string;
   previousId: string | null;
-  previousRelPath: string | null;
   nextId: string;
   data: RowData;
 }

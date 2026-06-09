@@ -6,13 +6,9 @@ import { createCsvGridModel } from '@/domain/tables/csv-grid-model';
 import { csvColumnSchemaFor } from '@/domain/tables/csv-column-schema';
 import { recordPerformance } from '@/services/performance.service';
 import { queryTableRowPreviewDataUrl, queryTableSourceOptions, queryTableWindow } from '@/services/csv-table.service';
-import type { SelectOption } from '@/domain/schema/schema-registry';
-import {
-  queryCacheInvalidationIncludes,
-  queryCacheInvalidationIncludesResourceIdentity,
-  subscribeQueryCacheInvalidation,
-} from '@/services/query-cache.service';
-import { isResourceRef } from '@/shared/lib/resource-ref';
+import type { SelectOption } from '@/domain/schema/schema-options';
+import { hasSourceInvalidation, hasTableInvalidation, subscribeQueryInvalidations } from '@/services/query-cache.service';
+import { hasResourceInvalidation, subscribeResourceInvalidations } from '@/services/resource-cache.service';
 import type { CsvRowPreviewTarget, ResourceRef } from '@/shared/types';
 
 export function useCsvTableViewModel() {
@@ -59,7 +55,11 @@ export function useCsvTableViewModel() {
         lastWidthTable = '';
         return;
       }
-      tables.resetTableWindow(table);
+      if (tables.hasTableDirtyChanges(table)) {
+        tables.markTableExternalUpdate(table);
+        return;
+      }
+      tables.discardTableDraftForReload(table);
       if (table !== lastWidthTable) {
         lockedColumnWidths.value = {};
         const modRoot = tables.activeModRoot;
@@ -67,7 +67,7 @@ export function useCsvTableViewModel() {
         lastWidthTable = table;
       }
       await loadTableWindow(0, 240);
-      await reloadSourceOptionsForVisibleColumns();
+      await reloadVisibleSourceOptions();
       lockColumnWidthsForLoadedModel();
     },
     { immediate: true },
@@ -89,24 +89,30 @@ export function useCsvTableViewModel() {
     }
   }
 
-  const unsubscribeQueryCacheInvalidation = subscribeQueryCacheInvalidation((event) => {
+  const stopQueryInvalidation = subscribeQueryInvalidations((event) => {
     if (event.sessionId !== project.activeSessionId) return;
-    const tableWindowChanged = queryCacheInvalidationIncludes(
-      event,
-      'csv-table-window',
-      (parameters) => parameters.table === tables.currentTab,
-    );
-    if (tableWindowChanged) void reloadCurrentTableWindow();
+    const tableWindowChanged = hasTableInvalidation(event, 'csv-table-window', tables.currentTab);
+    if (tableWindowChanged) {
+      if (tables.hasTableDirtyChanges(tables.currentTab)) {
+        tables.markTableExternalUpdate(tables.currentTab);
+      } else {
+        void reloadCurrentTableWindow();
+      }
+    }
     const sources = visibleSourceIds();
-    const optionsChanged = queryCacheInvalidationIncludes(event, 'csv-source-options', (parameters) => {
-      const source = parameters.source;
-      return typeof source === 'string' && sources.has(source);
-    });
-    const resourcesChanged = queryCacheInvalidationIncludesResourceIdentity(event, loadedSourceOptionResourceRefs());
-    if (!optionsChanged && !resourcesChanged) return;
-    void reloadSourceOptionsForVisibleColumns();
+    const optionsChanged = [...sources].some((source) => hasSourceInvalidation(event, source));
+    if (!optionsChanged) return;
+    void reloadVisibleSourceOptions();
   });
-  onUnmounted(unsubscribeQueryCacheInvalidation);
+  const stopResourceInvalidation = subscribeResourceInvalidations((event) => {
+    if (event.sessionId !== project.activeSessionId) return;
+    if (!hasResourceInvalidation(event, loadedSourceResourceRefs())) return;
+    void reloadVisibleSourceOptions();
+  });
+  onUnmounted(() => {
+    stopQueryInvalidation();
+    stopResourceInvalidation();
+  });
 
   function clearLocalQueryState() {
     loadedWindowKeys.value = new Set();
@@ -117,10 +123,15 @@ export function useCsvTableViewModel() {
     const table = tables.currentTab;
     windowRequestId += 1;
     clearLocalQueryState();
-    tables.resetTableWindow(table);
+    tables.discardTableDraftForReload(table);
     await loadTableWindow(0, 240);
-    await reloadSourceOptionsForVisibleColumns();
+    await reloadVisibleSourceOptions();
     lockColumnWidthsForLoadedModel();
+  }
+
+  async function loadExternalTableUpdate() {
+    tables.loadExternalTableDraft(tables.currentTab);
+    await reloadCurrentTableWindow();
   }
 
   function lockColumnWidthsForLoadedModel() {
@@ -166,7 +177,7 @@ export function useCsvTableViewModel() {
     tables.applyTableWindow(window);
   }
 
-  async function reloadSourceOptionsForVisibleColumns() {
+  async function reloadVisibleSourceOptions() {
     const sessionId = project.activeSessionId;
     if (!sessionId) return;
     const requestId = ++sourceOptionsRequestId;
@@ -198,9 +209,12 @@ export function useCsvTableViewModel() {
     return new Set(tables.visibleColumns.map((column) => csvColumnSchemaFor(tables.currentTab, column)?.source).filter(isSourceId));
   }
 
-  function loadedSourceOptionResourceRefs(): ResourceRef[] {
+  function loadedSourceResourceRefs(): ResourceRef[] {
     return [...loadedSourceOptions.value.values()].flatMap((options) =>
-      options.flatMap((option) => (option.children ?? [option]).map((entry) => entry.resourceRef).filter(isResourceRef)),
+      options.flatMap((option) => [
+        ...(option.resourceRef ? [option.resourceRef] : []),
+        ...(option.children ?? []).flatMap((child) => (child.resourceRef ? [child.resourceRef] : [])),
+      ]),
     );
   }
 
@@ -227,6 +241,7 @@ export function useCsvTableViewModel() {
     effectiveColumns,
     effectiveTotalWidthPx,
     sourceIndex,
+    loadExternalTableUpdate,
     loadTableWindow,
     querySelectedRowPreview,
     setColumnWidth,

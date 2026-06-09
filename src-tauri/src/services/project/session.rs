@@ -10,11 +10,9 @@ use super::{
 };
 use crate::{
     errors::{AppError, AppResult},
-    io::{
-        load_json_dir_by_id, normalized_path_key, read_csv_data,
-        validate_absolute_path_without_parent,
-    },
+    io::{load_json_dir_by_id, read_csv_data, FsRootBoundary},
     models::{CsvTableKey, EntitySummaries, ProjectManifest, TableSummary},
+    models::{ProjectInvalidation, ProjectSessionInvalidationResult},
 };
 use std::{
     collections::BTreeMap,
@@ -35,10 +33,9 @@ pub fn ensure_project_session_mod_root(session_id: &str, mod_root: &str) -> AppR
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?;
     let session = super::cache::session_for(&guard, session_id)?;
-    let expected_root =
-        validate_absolute_path_without_parent(Path::new(&session.manifest.mod_root), "mod root")?;
-    let actual_root = validate_absolute_path_without_parent(Path::new(mod_root), "mod root")?;
-    if normalized_path_key(expected_root) != normalized_path_key(actual_root) {
+    let expected_root = FsRootBoundary::new(Path::new(&session.manifest.mod_root), "mod root")?;
+    let actual_root = FsRootBoundary::new(Path::new(mod_root), "mod root")?;
+    if expected_root.root() != actual_root.root() {
         return Err(AppError::message(format!(
             "project session {session_id} does not own mod root: {mod_root}"
         )));
@@ -49,15 +46,19 @@ pub fn ensure_project_session_mod_root(session_id: &str, mod_root: &str) -> AppR
 pub fn invalidate_project_session(
     session_id: &str,
     changed_paths: Vec<String>,
-) -> AppResult<ProjectManifest> {
+) -> AppResult<ProjectSessionInvalidationResult> {
     let mut guard = sessions()
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?;
     let session = session_for_mut(&mut guard, session_id)?;
+    let mut invalidation = ProjectInvalidation::default();
     for changed_path in changed_paths {
-        invalidate_session_path(session, &changed_path)?;
+        invalidation.merge(invalidate_session_path(session, &changed_path)?);
     }
-    Ok(session.manifest.clone())
+    Ok(ProjectSessionInvalidationResult {
+        manifest: session.manifest.clone(),
+        invalidation,
+    })
 }
 
 pub fn invalidate_core_cache(starsector_root: &str) -> AppResult<()> {
@@ -83,13 +84,19 @@ pub(super) fn build_project_session(
     starsector_root_override: Option<&Path>,
     trace: &mut PerformanceTrace,
 ) -> AppResult<ProjectSession> {
+    let mod_root_boundary = FsRootBoundary::new(mod_root, "mod root")?;
+    let mod_root = mod_root_boundary.root();
     let session_id = new_session_id();
     let starsector_root = starsector_root_override
         .map(Path::to_path_buf)
         .or_else(|| root::infer_starsector_root(mod_root));
-    if let Some(root) = starsector_root.as_ref() {
-        validate_absolute_path_without_parent(root, "starsector root")?;
-    }
+    let starsector_root = starsector_root
+        .as_deref()
+        .map(|root| {
+            FsRootBoundary::new(root, "starsector root")
+                .map(|boundary| boundary.root().to_path_buf())
+        })
+        .transpose()?;
     let core_available = starsector_root
         .as_ref()
         .is_some_and(|root| root.join("starsector-core").exists());
@@ -137,14 +144,17 @@ pub(super) fn build_project_session(
         trace,
     )?;
 
-    let table_summaries = crate::models::CSV_TABLES
+    let table_summaries = super::table_definitions::csv_table_definitions()
         .iter()
-        .map(|(key, _)| {
-            let table = csv_tables.get(key.as_str()).ok_or_else(|| {
-                AppError::message(format!("missing registered CSV table: {}", key.as_str()))
+        .map(|definition| {
+            let table = csv_tables.get(definition.key.as_str()).ok_or_else(|| {
+                AppError::message(format!(
+                    "missing registered CSV table: {}",
+                    definition.key.as_str()
+                ))
             })?;
             Ok((
-                *key,
+                definition.key,
                 TableSummary {
                     path: table.path.clone(),
                     header: table.header.clone(),
@@ -171,6 +181,7 @@ pub(super) fn build_project_session(
         mod_root: mod_root.to_string_lossy().to_string(),
         starsector_root: starsector_root.map(|path| path.to_string_lossy().to_string()),
         core_available,
+        associated_spec_tables: super::entity_definitions::associated_spec_tables(),
         mod_info,
         table_summaries,
         table_entity_summaries,
@@ -193,19 +204,20 @@ pub(super) fn build_project_session(
 }
 
 pub(super) fn build_session_csv_tables(_mod_root: &Path) -> BTreeMap<String, SessionCsvTable> {
-    let mut tables: BTreeMap<String, SessionCsvTable> = crate::models::CSV_TABLES
-        .iter()
-        .map(|(key, rel)| {
-            (
-                key.as_str().to_string(),
-                SessionCsvTable {
-                    header: Vec::new(),
-                    path: (*rel).to_string(),
-                    rows: None,
-                },
-            )
-        })
-        .collect();
+    let mut tables: BTreeMap<String, SessionCsvTable> =
+        super::table_definitions::csv_table_definitions()
+            .iter()
+            .map(|definition| {
+                (
+                    definition.key.as_str().to_string(),
+                    SessionCsvTable {
+                        header: Vec::new(),
+                        path: definition.rel_path.to_string(),
+                        rows: None,
+                    },
+                )
+            })
+            .collect();
     tables.insert(
         MISSION_LIST_TABLE_KEY.to_string(),
         SessionCsvTable {
@@ -221,17 +233,17 @@ pub(super) fn build_table_entity_summaries(
     mod_root: &Path,
     entity_summaries: &EntitySummaries,
 ) -> AppResult<BTreeMap<CsvTableKey, usize>> {
-    crate::models::CSV_TABLES
+    super::table_definitions::csv_table_definitions()
         .iter()
-        .map(|(key, rel_path)| {
-            let count = match key {
-                CsvTableKey::Ships => entity_summaries.ships,
-                CsvTableKey::Weapons => entity_summaries.weapons,
-                CsvTableKey::ShipSystems => entity_summaries.systems,
-                CsvTableKey::Skills => entity_summaries.skills,
-                _ => count_valid_csv_entities(mod_root, *key, rel_path)?,
+        .map(|definition| {
+            let count = if let Some(count) =
+                super::table_definitions::csv_table_entity_summary(definition.key, entity_summaries)
+            {
+                count
+            } else {
+                count_valid_csv_entities(mod_root, definition.key, definition.rel_path)?
             };
-            Ok((*key, count))
+            Ok((definition.key, count))
         })
         .collect()
 }
@@ -241,7 +253,7 @@ pub(super) fn count_valid_csv_entities(
     table: CsvTableKey,
     rel_path: &str,
 ) -> AppResult<usize> {
-    let id_field = csv_entity_id_field(table);
+    let id_field = super::table_definitions::csv_table_entity_id_field(table);
     let csv = read_csv_data(&mod_root.join(rel_path))?;
     Ok(csv
         .rows
@@ -249,13 +261,6 @@ pub(super) fn count_valid_csv_entities(
         .filter(|row| !super::model::is_comment_row(row))
         .filter(|row| super::model::string_from_row(row, id_field).is_some())
         .count())
-}
-
-fn csv_entity_id_field(table: CsvTableKey) -> &'static str {
-    match table {
-        CsvTableKey::SimOpponents => "variant id",
-        _ => "id",
-    }
 }
 
 pub(super) fn new_session_id() -> String {

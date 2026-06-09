@@ -1,8 +1,10 @@
 import { watch } from 'vue';
 import { cell, formatModVersion } from '@/shared/lib/starsector';
+import type { PersistedMod, ProjectManifest } from '@/shared/types';
 import { useWorkspaceStore } from '@/stores/workspace.store';
-import { restoreWorkspaceMod } from '@/orchestrators/open-directory.orchestrator';
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
+import { hydrateOpenedModRuntime, openModProjectManifest } from '@/orchestrators/directory-opening.orchestrator';
+import { measurePerformance } from '@/services/performance.service';
 import { scanWorkspaceOverview } from '@/services/session.service';
 import { loadPersistedWorkspace, savePersistedWorkspace } from '@/services/workspace-state.service';
 
@@ -48,7 +50,7 @@ export async function restorePersistedWorkspace(options: RestoreWorkspaceOptions
   const persisted = await loadPersistedWorkspace();
   if (persisted.mods.length === 0 && !persisted.starsectorRoot) return;
 
-  workspace.restoreFrom(persisted);
+  workspace.applyPersistedWorkspaceSnapshot(persisted);
   if (persisted.starsectorRoot) {
     const overview = await scanWorkspaceOverview(persisted.starsectorRoot);
     workspace.setGameOverview(overview);
@@ -56,7 +58,7 @@ export async function restorePersistedWorkspace(options: RestoreWorkspaceOptions
 
   for (const mod of persisted.mods) {
     try {
-      const loaded = await restoreWorkspaceMod(mod, persisted.starsectorRoot ?? options.knownStarsectorRoot);
+      const loaded = await restorePersistedModProject(mod, persisted.starsectorRoot ?? options.knownStarsectorRoot);
       const name = cell(loaded.modInfo?.name) || mod.displayName;
       const version = formatModVersion(loaded.modInfo?.version) || mod.version;
       workspace.updateModInfo(mod.modRoot, name, version);
@@ -70,14 +72,16 @@ export async function restorePersistedWorkspace(options: RestoreWorkspaceOptions
     }
   }
 
-  if (persisted.activeModRoot && workspace.isModImported(persisted.activeModRoot)) {
-    const activeMod = workspace.mods.get(persisted.activeModRoot);
-    if (activeMod?.status === 'ready') {
-      workspace.activeModRoot = persisted.activeModRoot;
-    }
-  }
-  workspace.navigateTo('overview');
+  workspace.showOverview();
   await options.loadCoreFields?.();
 }
 
 export type WorkspacePersistenceWatcher = ReturnType<typeof watchWorkspacePersistence>;
+
+async function restorePersistedModProject(mod: PersistedMod, starsectorRoot: string | null): Promise<ProjectManifest> {
+  const loaded = await openModProjectManifest(mod.modRoot, starsectorRoot);
+  measurePerformance('frontend.hydrateDirectoryOpenedModRuntime', { modRoot: mod.modRoot, activate: false }, () =>
+    hydrateOpenedModRuntime(mod.modRoot, loaded, false),
+  );
+  return loaded;
+}

@@ -40,17 +40,18 @@
 
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
-import type { RowData, SchemaRuntimeContext } from '@/shared/types';
+import type { RowData } from '@/shared/types';
+import type { SchemaRuntimeContext } from '@/domain/schema/schema-runtime';
 import type { FileSchema, SectionSchema } from '@/domain/schema/schema.types';
 import {
   getExtraFieldSource,
-  getNestedValue,
-  getSchemaKeys,
-  getSections,
+  getSchemaFieldKeys,
+  getSchemaSections,
   isMultiSourceSchema,
   isSchemaInternalKey,
-  setNestedValue,
-} from '@/domain/schema/schema-registry';
+  schemaSectionCollapseIdentity,
+} from '@/domain/schema/schema-sections';
+import { getNestedValue, setNestedValue } from '@/domain/schema/schema-values';
 import SchemaFieldRenderer from '@/app/components/schema/SchemaFieldRenderer.vue';
 import JsonFieldEditor from '@/shared/ui/JsonFieldEditor.vue';
 
@@ -64,9 +65,9 @@ const emit = defineEmits<{
   'update:modelValue': [value: RowData];
 }>();
 
-const sections = computed<SectionSchema[]>(() => getSections(props.schema));
+const sections = computed<SectionSchema[]>(() => getSchemaSections(props.schema));
 
-const schemaKeys = computed<string[]>(() => getSchemaKeys(props.schema));
+const schemaKeys = computed<string[]>(() => getSchemaFieldKeys(props.schema));
 
 const extraSource = computed(() => getExtraFieldSource(props.schema));
 
@@ -100,7 +101,7 @@ function syncCollapsedSections() {
   }
 }
 
-watch(() => JSON.stringify([props.schema.id, sections.value.map((section) => [section.id, section.collapsed])]), syncCollapsedSections, {
+watch(() => schemaSectionCollapseIdentity(props.schema), syncCollapsedSections, {
   immediate: true,
 });
 

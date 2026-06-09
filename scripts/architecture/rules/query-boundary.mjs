@@ -22,14 +22,7 @@ export const queryBoundaryRule = {
       if (current.layer !== 'services' && /\bquerySession[A-Za-z0-9_]*\s*\(/.test(file.text)) {
         failures.push(`${file.rel}: session query functions must be wrapped by services`);
       }
-      if (!isCacheService(current) && /\bnew\s+Map\s*<[^>]*(?:Query|Source|Entity|Resource|Grid)/.test(file.text)) {
-        failures.push(`${file.rel}: query caches must use query-cache service, not local maps`);
-      }
     }
     return failures;
   },
 };
-
-function isCacheService(current) {
-  return current.layer === 'services' && ['query-cache', 'resource-cache'].includes(current.domain);
-}

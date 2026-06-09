@@ -1,5 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { GameOverviewData, OpenDirectoryResult, ProjectManifest, ProjectSessionId } from '@/shared/types';
+import type {
+  GameOverviewData,
+  OpenDirectoryResult,
+  ProjectManifest,
+  ProjectSessionId,
+  ProjectSessionInvalidationResult,
+} from '@/shared/types';
 
 export function openProjectSession(modRoot: string, starsectorRoot: string | null): Promise<ProjectManifest> {
   return invoke('open_project_session', { payload: { modRoot, starsectorRoot } });
@@ -9,7 +15,7 @@ export function closeProjectSession(sessionId: ProjectSessionId): Promise<void> 
   return invoke('close_project_session', { payload: { sessionId } });
 }
 
-export function invalidateProjectSession(sessionId: ProjectSessionId, changedPaths: string[]): Promise<ProjectManifest> {
+export function invalidateProjectSession(sessionId: ProjectSessionId, changedPaths: string[]): Promise<ProjectSessionInvalidationResult> {
   return invoke('invalidate_project_session', { payload: { sessionId, changedPaths } });
 }
 

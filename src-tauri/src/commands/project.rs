@@ -8,7 +8,8 @@ use crate::{
     },
     models::{
         CsvRowPreview, CsvTableWindow, EntityData, GameOverviewData, HullReferencesResult,
-        OpenDirectoryResult, ProjectManifest, ResourceDataUrlBatchResult, SourceOptionGroup,
+        OpenDirectoryResult, ProjectManifest, ProjectSessionInvalidationResult,
+        ResourceDataUrlBatchResult, SourceOptionGroup,
     },
     services,
 };
@@ -95,7 +96,7 @@ pub fn query_resource_data_urls(
 #[tauri::command]
 pub fn invalidate_project_session(
     payload: InvalidateProjectSessionPayload,
-) -> Result<ProjectManifest, String> {
+) -> Result<ProjectSessionInvalidationResult, String> {
     services::project::invalidate_project_session(&payload.session_id, payload.changed_paths)
         .map_err(|e| e.to_string())
 }

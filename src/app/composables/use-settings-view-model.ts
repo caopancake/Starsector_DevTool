@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue';
 import { pickDirectoryDialog } from '@/shared/runtime/dialog.runtime';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
-import { clearConfig, clearLog, loadLogStatus, openConfigFolder, openLogFile } from '@/services/app-config.service';
+import { clearConfig, clearLog, loadLogStatus, openConfigFolder, openLogFile } from '@/services/app-feedback-log.service';
 import { reloadCurrentWebviewWindow } from '@/windows/current.window';
 import { useSettingsStore } from '@/stores/settings.store';
 

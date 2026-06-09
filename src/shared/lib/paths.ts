@@ -75,8 +75,3 @@ export function normalizedProjectPath(root: string, path: string): { external: b
   }
   return { external: isAbsoluteFsPath(path), relative: normalizedPath };
 }
-
-export function normalizedRelativePathAffects(changedRelativePath: string, targetRelativePath: string): boolean {
-  if (changedRelativePath === '') return true;
-  return targetRelativePath === changedRelativePath || targetRelativePath.startsWith(`${changedRelativePath}/`);
-}

@@ -1,23 +1,71 @@
 import { frontendFile } from '../shared/files.mjs';
 
+const storePath = 'src/stores/workspace.store.ts';
+const workspaceDocPath = '.cursor/modules/workspace.md';
+const oldWorkspaceNames = ['modList', 'modCount', 'hasAnyMod', 'setGameWorkspace', 'restoreFrom'];
+const directWorkspaceWrites = [
+  { name: 'activeModRoot', pattern: /\bworkspace\.activeModRoot\s*=(?!=)/ },
+  { name: 'currentView', pattern: /\bworkspace\.currentView\s*=(?!=)/ },
+  { name: 'configView', pattern: /\bworkspace\.configView\s*=(?!=)/ },
+];
+const oldWorkspaceCalls = [
+  { name: 'removeMod', pattern: /\bworkspace\.removeMod\s*\(/ },
+  { name: 'setActiveMod', pattern: /\bworkspace\.setActiveMod\s*\(/ },
+  { name: 'setActiveTable', pattern: /\bworkspace\.setActiveTable\s*\(/ },
+  { name: 'setActiveConfig', pattern: /\bworkspace\.setActiveConfig\s*\(/ },
+  { name: 'navigateTo', pattern: /\bworkspace\.navigateTo\s*\(/ },
+];
+const componentActivationCalls = /\bworkspace\.(?:activateModOverview|activateModTable|activateModConfig)\s*\(/;
+const directoryOpeningDetails = /\b(?:openModProjectManifest|hydrateOpenedModRuntime|rollbackFailedModOpening)\b/;
+const lifecycleDetailCalls = /\b(?:invalidateQueryCacheForSession|invalidateResourceCacheForSession|closeProject)\b/;
+
 export const workspaceModuleBoundaryRule = {
   name: 'workspace-module-boundary',
   check(files) {
     const failures = [];
     for (const file of files) {
-      if (!frontendFile(file.rel)) continue;
-      if (/\bcloseWorkspace\s*\(|\bconfirmCloseWorkspace\s*\(/.test(file.text)) {
-        if (!/\bcloseProject\b|\bcloseProjectSession\b|\breleaseProjectSession\b|\binvalidateProjectSession\b/.test(file.text)) {
-          failures.push(`${file.rel}: workspace lifecycle actions must release or invalidate ProjectSession state`);
-        }
-        if (!/\bclearQueryCache\b|\binvalidateQueryCache\b|\binvalidateQueryCacheForSession\b/.test(file.text)) {
-          failures.push(`${file.rel}: workspace lifecycle actions must clear query cache state`);
-        }
-        if (!/\bclearResourceCache\b|\binvalidateResourceCache\b|\binvalidateResourceCacheForSession\b/.test(file.text)) {
-          failures.push(`${file.rel}: workspace lifecycle actions must clear resource cache state`);
-        }
+      if (frontendFile(file.rel)) {
+        checkFrontendWorkspaceBoundary(file, failures);
+      }
+      if (file.rel === workspaceDocPath) {
+        checkWorkspaceDocumentBoundary(file, failures);
       }
     }
     return failures;
   },
 };
+
+function checkFrontendWorkspaceBoundary(file, failures) {
+  for (const name of oldWorkspaceNames) {
+    if (new RegExp(`\\b${name}\\b`).test(file.text)) {
+      failures.push(`${file.rel}: workspace old API name "${name}" must not remain in frontend code`);
+    }
+  }
+
+  for (const call of oldWorkspaceCalls) {
+    if (call.pattern.test(file.text)) {
+      failures.push(`${file.rel}: workspace.${call.name} is not a public workspace runtime action`);
+    }
+  }
+
+  if (file.rel !== storePath) {
+    for (const write of directWorkspaceWrites) {
+      if (write.pattern.test(file.text)) {
+        failures.push(`${file.rel}: workspace.${write.name} must be changed through workspace store domain actions`);
+      }
+    }
+  }
+
+  if (file.rel.startsWith('src/app/components/') && componentActivationCalls.test(file.text)) {
+    failures.push(`${file.rel}: components must activate loaded Mods through workspace navigation actions`);
+  }
+}
+
+function checkWorkspaceDocumentBoundary(file, failures) {
+  if (directoryOpeningDetails.test(file.text)) {
+    failures.push(`${file.rel}: workspace document must not expand Directory Opening internal function names`);
+  }
+  if (lifecycleDetailCalls.test(file.text)) {
+    failures.push(`${file.rel}: workspace document must not list session/cache cleanup calls as script steps`);
+  }
+}

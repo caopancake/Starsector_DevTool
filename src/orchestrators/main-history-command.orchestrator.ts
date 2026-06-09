@@ -4,7 +4,7 @@ import { useProjectStore } from '@/stores/project.store';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { useTablesStore } from '@/stores/tables.store';
 
-export async function undoMainWindow(feedback: AppFeedback) {
+export async function dispatchMainUndoCommand(feedback: AppFeedback) {
   const tables = useTablesStore();
   const currentTableCsvHistory = useTablesEditHistoryStore();
   const project = useProjectStore();
@@ -21,7 +21,7 @@ export async function undoMainWindow(feedback: AppFeedback) {
   replayNextFileUndo(project, tables, feedback);
 }
 
-export async function redoMainWindow(feedback: AppFeedback) {
+export async function dispatchMainRedoCommand(feedback: AppFeedback) {
   const tables = useTablesStore();
   const currentTableCsvHistory = useTablesEditHistoryStore();
   const project = useProjectStore();

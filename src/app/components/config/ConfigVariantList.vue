@@ -69,7 +69,7 @@
 import { computed, h, ref, watch } from 'vue';
 import { useSettingsStore } from '@/stores/settings.store';
 import type { VariantFile } from '@/shared/types';
-import { isSelectOptionGroup, selectOptionText, type SelectOption } from '@/domain/schema/schema-registry';
+import { isSelectOptionGroup, selectOptionText, type SelectOption } from '@/domain/schema/schema-options';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 
 const props = defineProps<{

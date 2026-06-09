@@ -1,8 +1,7 @@
-import type { AssociatedFileChange, CsvRowPatch } from '@/shared/types';
+import type { AssociatedSpecChange, CsvRowPatch } from '@/shared/types';
 import type { ProjectManifest, TableKey } from '@/shared/types';
 import type { ModTableState } from '@/shared/types/workspace.types';
-import { recordFileSave, refreshProjectSessionAfterWrite } from '@/orchestrators/file-save.orchestrator';
-import { getAssociatedFileCandidates, isAssociatedFileForTable } from '@/domain/tables/associated-file-candidates';
+import { getAssociatedSpecCandidates } from '@/domain/tables/associated-spec-candidates';
 import { isCsvDeletedRow } from '@/domain/tables/csv-dirty';
 import { saveTablePatch } from '@/services/csv-table.service';
 import { useTablesStore } from '@/stores/tables.store';
@@ -10,12 +9,13 @@ import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { useProjectStore } from '@/stores/project.store';
 import { resolveTableRowKey, TABLE_ROW_KEY_FIELD } from '@/domain/tables/table-row-key';
 import { isLoadedCsvTableRow } from '@/domain/tables/csv-table-rows';
-import type { AssociatedFileCandidate } from '@/domain/tables/associated-file-candidates';
+import type { AssociatedSpecCandidate } from '@/domain/tables/associated-spec-candidates';
+import { completeSavedWrite } from '@/orchestrators/file-history-session.orchestrator';
 
 export type TableSaveResult = 'saved' | 'noop';
 
 export interface CapturedTableSaveTarget {
-  associatedFileCandidates: AssociatedFileCandidate[];
+  associatedSpecCandidates: AssociatedSpecCandidate[];
   manifest: ProjectManifest;
   modRoot: string;
   state: ModTableState;
@@ -30,17 +30,17 @@ export function captureActiveTableSaveTarget(manifest: ProjectManifest | null): 
 
   tables.finishCellEdit();
   const table = state.currentTab;
-  const associatedFileCandidates = getAssociatedFileCandidates(state, table, resolveTableRowKey);
-  return { associatedFileCandidates, manifest, modRoot, state, table };
+  const associatedSpecCandidates = getAssociatedSpecCandidates(state, table, manifest.associatedSpecTables, resolveTableRowKey);
+  return { associatedSpecCandidates, manifest, modRoot, state, table };
 }
 
 export async function saveCapturedTableChanges(
   target: CapturedTableSaveTarget | null,
-  associatedFiles: AssociatedFileChange[],
+  associatedSpecs: AssociatedSpecChange[],
 ): Promise<TableSaveResult> {
   const tables = useTablesStore();
   if (!target || tables.saving) return 'noop';
-  if (!isCapturedTableSaveTargetCurrent(target)) return 'noop';
+  if (!isTableSaveTargetCurrent(target)) return 'noop';
   const state = target.state;
 
   tables.setSaving(true);
@@ -49,17 +49,18 @@ export async function saveCapturedTableChanges(
     if (Object.keys(state.dirty[table]).length === 0) return 'noop';
 
     const csvEditHistory = useTablesEditHistoryStore();
-    const tableAssociatedFiles = associatedFiles.filter((file) => isAssociatedFileForTable(table, file.relPath));
     const patches = buildCurrentTablePatches(state, table);
-    const result = await saveTablePatch(manifest.sessionId, modRoot, table, patches, tableAssociatedFiles);
-    if (!isCapturedTableSaveTargetCurrent(target)) return 'saved';
-    tables.applySavedRowKeyMapForMod(modRoot, table, result.keyMap);
-    tables.markTableSavedForMod(modRoot, table);
-
+    const result = await saveTablePatch(manifest.sessionId, modRoot, table, patches, associatedSpecs);
+    if (!isTableSaveTargetCurrent(target)) return 'saved';
     if (result.changes.length > 0) {
+      await completeSavedWrite({ modRoot, result, label: `保存 ${table} CSV`, sessionId: manifest.sessionId }, useProjectStore());
+      if (!isTableSaveTargetCurrent(target)) return 'saved';
+      tables.applySavedRowKeyMapForMod(modRoot, table, result.keyMap);
+      tables.markTableSavedForMod(modRoot, table);
       csvEditHistory.clearCsvEditHistory(modRoot, table);
-      recordFileSave(modRoot, result, `保存 ${table} CSV`, manifest.sessionId);
-      await refreshProjectSessionAfterWrite(modRoot, result, manifest.sessionId);
+    } else {
+      tables.applySavedRowKeyMapForMod(modRoot, table, result.keyMap);
+      tables.markTableSavedForMod(modRoot, table);
     }
     return 'saved';
   } finally {
@@ -67,7 +68,7 @@ export async function saveCapturedTableChanges(
   }
 }
 
-function isCapturedTableSaveTargetCurrent(target: CapturedTableSaveTarget): boolean {
+function isTableSaveTargetCurrent(target: CapturedTableSaveTarget): boolean {
   const tables = useTablesStore();
   const project = useProjectStore();
   const currentManifest = project.getManifest(target.modRoot);

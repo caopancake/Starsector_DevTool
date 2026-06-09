@@ -1,4 +1,7 @@
-use crate::errors::{AppError, AppResult};
+use crate::{
+    errors::{AppError, AppResult},
+    io::paths::validate_walk_entry,
+};
 use std::{fs, path::Path};
 
 const UTF8_BOM: &[u8] = &[0xef, 0xbb, 0xbf];
@@ -17,6 +20,9 @@ pub fn read_utf8_no_bom(path: &Path) -> AppResult<String> {
 }
 
 pub fn read_text_bytes_no_bom(path: &Path) -> AppResult<Vec<u8>> {
+    if path.exists() {
+        validate_walk_entry(path, "text file")?;
+    }
     let bytes = fs::read(path).map_err(|error| {
         AppError::context(
             format!("读取文本文件失败 ({})", path.display()),

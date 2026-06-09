@@ -23,6 +23,7 @@ pub(super) fn load_variant_files(
                 AppError::message(error.to_string()),
             )
         })?;
+        crate::io::validate_walk_entry(entry.path(), "variant directory")?;
         if entry.path().extension().and_then(|s| s.to_str()) != Some("variant") {
             continue;
         }
@@ -68,6 +69,7 @@ pub(super) fn load_skin_files(mod_root: &Path) -> AppResult<(Vec<SkinFile>, Vec<
                 AppError::message(error.to_string()),
             )
         })?;
+        crate::io::validate_walk_entry(entry.path(), "skin directory")?;
         if entry.path().extension().and_then(|s| s.to_str()) != Some("skin") {
             continue;
         }

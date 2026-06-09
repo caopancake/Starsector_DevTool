@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { AppLogEntry, AppLogStatus, AppSettings } from '@/shared/types';
+import type { AppLogEntry, AppLogStatus } from '@/shared/types/app-log.types';
 
 export function appendAppLog(entry: AppLogEntry): Promise<void> {
   return invoke('append_app_log', { payload: { entry } });
@@ -23,12 +23,4 @@ export function clearConfigFiles(): Promise<void> {
 
 export function clearAppLogFile(): Promise<AppLogStatus> {
   return invoke('clear_app_log_file');
-}
-
-export function loadAppSettings(): Promise<AppSettings> {
-  return invoke('load_app_settings');
-}
-
-export function saveAppSettings(settings: AppSettings): Promise<void> {
-  return invoke('save_app_settings', { payload: { settings } });
 }

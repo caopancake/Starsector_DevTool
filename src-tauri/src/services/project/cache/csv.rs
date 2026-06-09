@@ -101,7 +101,9 @@ pub(crate) fn ensure_session_table_rows(
             csv.header = vec!["mission".to_string()];
         }
     }
-    if CsvTableKey::from_key(table).is_some_and(table_supports_faction_filter) {
+    if CsvTableKey::from_key(table)
+        .is_some_and(super::super::table_definitions::csv_table_supports_faction_filter)
+    {
         annotate_faction_rows(&mut csv.rows, &session.tag_map);
     }
     let rows = csv
@@ -121,15 +123,11 @@ pub(crate) fn ensure_session_table_rows(
     Ok(())
 }
 
-pub(crate) fn ensure_registered_session_table_rows(
+pub(crate) fn ensure_registered_table_rows(
     session: &mut ProjectSession,
     table: CsvTableKey,
 ) -> AppResult<()> {
     ensure_session_table_rows(session, table.as_str())
-}
-
-fn table_supports_faction_filter(table: CsvTableKey) -> bool {
-    matches!(table, CsvTableKey::Ships | CsvTableKey::Weapons)
 }
 
 fn annotate_faction_rows(
@@ -190,6 +188,7 @@ mod tests {
                 mod_root: "mod".to_string(),
                 starsector_root: None,
                 core_available: false,
+                associated_spec_tables: Vec::new(),
                 mod_info: Value::Object(Map::new()),
                 table_summaries: BTreeMap::new(),
                 table_entity_summaries: BTreeMap::new(),
@@ -236,6 +235,7 @@ mod tests {
                 mod_root: root.to_string_lossy().to_string(),
                 starsector_root: None,
                 core_available: false,
+                associated_spec_tables: Vec::new(),
                 mod_info: Value::Object(Map::new()),
                 table_summaries: BTreeMap::new(),
                 table_entity_summaries: BTreeMap::new(),

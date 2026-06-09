@@ -2,7 +2,7 @@ import type { CsvGridRowSlot, CsvLoadedRowSlot, CsvTableRows, RowData, TableKey 
 import { cell } from '@/shared/lib/starsector';
 import { csvColumnSchemaFor, csvListValues, type CsvColumnSchema } from '@/domain/tables/csv-column-schema';
 import { createCsvSourceIndex, sourceOptions, type CsvSourceIndex } from '@/domain/tables/csv-source-options';
-import { flattenSelectOptions, type SelectOption } from '@/domain/schema/schema-registry';
+import { flattenSelectOptions, type SelectOption } from '@/domain/schema/schema-options';
 
 export interface CsvGridColumn {
   className: string;

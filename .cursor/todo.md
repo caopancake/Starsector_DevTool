@@ -3,17 +3,17 @@
 ## Phase 1: Ralph 循环
 
 - [ ] 执行 Ralph 循环。
-- [ ] 目标和循环记录维护在 `.cursor/PROGRESS.md`。
+- [ ] 目标和循环记录维护在 `.cursor/ralph-progress.md`。
 
-## Phase 2: 加载改善性能验收与回归
+## Phase 2: ProjectSession invalidation 精度修复
 
-- [ ] `Kratogen_TA` 打开 Mod 目标小于 1 秒。
-- [ ] `ProjectManifest` 体积必须显著低于历史约 42MB。
-- [ ] 切换宽表目标小于 50ms；点击行、激活编辑和滚动跳变接近无感。
-- [ ] descriptions.csv 不再在打开 Mod 时阻塞首屏；进入描述文本表时解析或 query 成本必须可定位。
-- [ ] 验收纯文本和增强控件两种编辑模式下 CSV Grid 视觉不偏移、不闪烁、不丢编辑值。
-- [ ] 验收原版引用、缩略图 fallback、皮肤 hull 引用、联队预览、schema 下拉、保存、file history replay、贴图上传和关闭工作区语义不变。
-- [ ] 清空 log 后用 `D:\Starsector\mods\Kratogen_TA` 记录打开 Mod、切换宽表、source query、resource batch query 和 CSV grid model 的 PERF 日志。
+- [ ] 将 ProjectSession invalidation 从实体整类 `id: null` 粗粒度影响，收敛为能定位具体实体时必须携带实体 ID。
+- [ ] spec 单文件路径必须按统一 entity definition 推导具体实体影响：`.ship`、`.wpn`、`.proj`、`.system`、`.skill`、`.variant`、`.skin`、Faction `.faction`。
+- [ ] CSV patch 保存必须从 row patch、rowKey 映射和关联 spec 动作产出具体实体影响；无法从路径直接定位的整表外部变化继续使用正式整表 scope。
+- [ ] directory changeset 必须从 before/after snapshot 枚举受影响 spec 文件，生成对应实体影响；不能只用目录路径粗暴清整类。
+- [ ] rename 必须同时失效旧 ID 和新 ID；delete 必须能从 before state 或旧 session 索引拿到旧 ID。
+- [ ] 前端 query cache 按 `InvalidatedEntityRef.id` 精确清理 entity-detail；`id: null` 只用于正式全类影响。
+- [ ] 补 Rust 测试覆盖 spec 修改、删除、rename、CSV patch create/delete/rename、目录回放和整表外部变化的 invalidation 输出。
 - [ ] 跑前端格式、类型、lint、编码检查和 Rust test、fmt、clippy。
 
 ## Phase 3: 外置文本 JSON 支持

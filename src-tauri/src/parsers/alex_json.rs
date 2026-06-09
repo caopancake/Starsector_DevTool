@@ -56,64 +56,86 @@ pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
     cleaned = normalize_single_quoted_strings(&cleaned);
 
     // Vanilla and mods often leave a final comma before `}` or `]`; strict JSON rejects that.
-    cleaned = replace_outside_strings(&cleaned, |segment| {
-        trailing_re.replace_all(segment, "$1").to_string()
-    });
+    cleaned = remove_trailing_commas(&cleaned, trailing_re);
 
     // Faction and spec files may omit quotes around object keys, for example `id:"hegemony"`.
-    cleaned = replace_outside_strings(&cleaned, |segment| {
-        key_re.replace_all(segment, "$1\"$2\":").to_string()
-    });
+    cleaned = quote_object_keys(&cleaned, key_re);
 
     // Some weapon specs use Python/Java-like boolean spelling; strict JSON only accepts lowercase.
-    cleaned = replace_outside_strings(&cleaned, |segment| {
-        bool_literal_re
-            .replace_all(segment, |captures: &regex::Captures| {
-                format!("{}{}", &captures[1], captures[2].to_ascii_lowercase())
-            })
-            .to_string()
-    });
+    cleaned = normalize_bool_literals(&cleaned, bool_literal_re);
 
     // Quote unquoted identifier values (enum-like and lowercase IDs in Starsector)
-    cleaned = replace_outside_strings(&cleaned, |segment| {
-        value_re
-            .replace_all(segment, |captures: &regex::Captures| {
-                let ident = &captures[2];
-                if ident == "true" || ident == "false" || ident == "null" {
-                    captures[0].to_string()
-                } else {
-                    format!("{}\"{}\"", &captures[1], ident)
-                }
-            })
-            .to_string()
-    });
+    cleaned = quote_identifier_values(&cleaned, value_re);
 
     // Strip leading plus signs (+100 → 100, +0.5 → 0.5) that Java parsers accept.
-    cleaned = replace_outside_strings(&cleaned, |segment| {
-        leading_plus_re.replace_all(segment, "$1$2").to_string()
-    });
+    cleaned = normalize_leading_plus_numbers(&cleaned, leading_plus_re);
 
     // Normalize leading-dot decimals (.5 → 0.5, -.5 → -0.5) before strict JSON parsing.
-    cleaned = replace_outside_strings(&cleaned, |segment| {
-        leading_dot_number_re
-            .replace_all(segment, "$1${2}0.$3")
-            .to_string()
-    });
+    cleaned = normalize_leading_dot_numbers(&cleaned, leading_dot_number_re);
 
     // Strip Java float suffixes (1f → 1, 0.5f → 0.5)
-    cleaned = replace_outside_strings(&cleaned, |segment| {
-        float_suffix_re.replace_all(segment, "$1").to_string()
-    });
+    cleaned = normalize_float_suffix_numbers(&cleaned, float_suffix_re);
 
     // Normalize leading-zero integers (000 → 0, 007 → 7) that Java parsers accept.
-    cleaned = replace_outside_strings(&cleaned, |segment| {
-        leading_zero_int_re
-            .replace_all(segment, "$1${2}$3")
-            .to_string()
-    });
+    cleaned = normalize_leading_zero_integers(&cleaned, leading_zero_int_re);
 
     let end = first_json_object_end(&cleaned).unwrap_or(cleaned.len());
     Ok(serde_json::from_str(&cleaned[..end])?)
+}
+
+fn remove_trailing_commas(text: &str, rule: &Regex) -> String {
+    replace_outside_strings(text, |segment| rule.replace_all(segment, "$1").to_string())
+}
+
+fn quote_object_keys(text: &str, rule: &Regex) -> String {
+    replace_outside_strings(text, |segment| {
+        rule.replace_all(segment, "$1\"$2\":").to_string()
+    })
+}
+
+fn normalize_bool_literals(text: &str, rule: &Regex) -> String {
+    replace_outside_strings(text, |segment| {
+        rule.replace_all(segment, |captures: &regex::Captures| {
+            format!("{}{}", &captures[1], captures[2].to_ascii_lowercase())
+        })
+        .to_string()
+    })
+}
+
+fn quote_identifier_values(text: &str, rule: &Regex) -> String {
+    replace_outside_strings(text, |segment| {
+        rule.replace_all(segment, |captures: &regex::Captures| {
+            let ident = &captures[2];
+            if ident == "true" || ident == "false" || ident == "null" {
+                captures[0].to_string()
+            } else {
+                format!("{}\"{}\"", &captures[1], ident)
+            }
+        })
+        .to_string()
+    })
+}
+
+fn normalize_leading_plus_numbers(text: &str, rule: &Regex) -> String {
+    replace_outside_strings(text, |segment| {
+        rule.replace_all(segment, "$1$2").to_string()
+    })
+}
+
+fn normalize_leading_dot_numbers(text: &str, rule: &Regex) -> String {
+    replace_outside_strings(text, |segment| {
+        rule.replace_all(segment, "$1${2}0.$3").to_string()
+    })
+}
+
+fn normalize_float_suffix_numbers(text: &str, rule: &Regex) -> String {
+    replace_outside_strings(text, |segment| rule.replace_all(segment, "$1").to_string())
+}
+
+fn normalize_leading_zero_integers(text: &str, rule: &Regex) -> String {
+    replace_outside_strings(text, |segment| {
+        rule.replace_all(segment, "$1${2}$3").to_string()
+    })
 }
 
 fn strip_hash_comments(text: &str) -> String {
@@ -597,6 +619,58 @@ mod tests {
     }
 
     #[test]
+    fn parses_fixed_projectile_spec_shape() {
+        let text = r#"{
+            id: armaa_flamer_shot2,
+            specClass: projectile,
+            spawnType: PROJECTILE,
+            collisionClass: PROJECTILE_FF,
+            collisionClassByFighter: PROJECTILE_NO_FF,
+            length: 10f,
+            width: .5,
+            fadeTime: +0.25,
+            fringeColor: [255, 100, 000, 255],
+            renderHints: [RENDER_BARREL_BELOW, RENDER_LOADED_MISSILES],
+            textureType: ROUGH,
+        }"#;
+        let parsed = parse_starsector_json(text).unwrap();
+        assert_eq!(parsed["id"], "armaa_flamer_shot2");
+        assert_eq!(parsed["spawnType"], "PROJECTILE");
+        assert_eq!(parsed["collisionClass"], "PROJECTILE_FF");
+        assert_eq!(parsed["length"], 10);
+        assert_eq!(parsed["width"], 0.5);
+        assert_eq!(parsed["fadeTime"], 0.25);
+        assert_eq!(parsed["fringeColor"][2], 0);
+        assert_eq!(parsed["renderHints"][1], "RENDER_LOADED_MISSILES");
+        assert_eq!(parsed["textureType"], "ROUGH");
+    }
+
+    #[test]
+    fn parses_fixed_mod_info_shape() {
+        let text = r#"{
+            id: 'demo_mod',
+            name: "Demo # Mod",
+            version: { major: '1'; minor: 0002; patch: +3; },
+            gameVersion: "0.97a-RC11",
+            jars: ["jars/demo.jar",],
+            modPlugin: "demo.scripts.DemoPlugin",
+            description: "hash # and semicolon; stay in string",
+        }"#;
+        let parsed = parse_starsector_json(text).unwrap();
+        assert_eq!(parsed["id"], "demo_mod");
+        assert_eq!(parsed["name"], "Demo # Mod");
+        assert_eq!(parsed["version"]["major"], "1");
+        assert_eq!(parsed["version"]["minor"], 2);
+        assert_eq!(parsed["version"]["patch"], 3);
+        assert_eq!(parsed["jars"][0], "jars/demo.jar");
+        assert_eq!(parsed["modPlugin"], "demo.scripts.DemoPlugin");
+        assert_eq!(
+            parsed["description"],
+            "hash # and semicolon; stay in string"
+        );
+    }
+
+    #[test]
     fn strips_leading_plus_from_numbers() {
         let text = r#"{
             "renderOrderMod":+100,
@@ -610,57 +684,5 @@ mod tests {
         assert_eq!(parsed["offset"][1], 3);
         assert_eq!(parsed["negative"], -5);
         assert_eq!(parsed["plusInString"], "value is +10");
-    }
-}
-
-#[cfg(test)]
-mod integration_tests {
-    use super::*;
-    use crate::io::read_utf8_no_bom;
-
-    #[test]
-    fn parse_real_hegemony_faction_if_available() {
-        let path = "J:/Starsector/starsector-core/data/world/factions/hegemony.faction";
-        if let Ok(content) = read_utf8_no_bom(std::path::Path::new(path)) {
-            let result = parse_starsector_json(&content);
-            assert!(
-                result.is_ok(),
-                "Failed to parse hegemony.faction: {:?}",
-                result.err()
-            );
-            let parsed = result.unwrap();
-            assert_eq!(parsed["id"], "hegemony");
-        }
-    }
-
-    #[test]
-    fn parse_real_tritachyon_faction_if_available() {
-        let path = "J:/Starsector/starsector-core/data/world/factions/tritachyon.faction";
-        if let Ok(content) = read_utf8_no_bom(std::path::Path::new(path)) {
-            let result = parse_starsector_json(&content);
-            assert!(
-                result.is_ok(),
-                "Failed to parse tritachyon.faction: {:?}",
-                result.err()
-            );
-            let parsed = result.unwrap();
-            assert_eq!(parsed["id"], "tritachyon");
-        }
-    }
-
-    #[test]
-    fn parse_real_armaa_proj_if_available() {
-        let path =
-            "J:/Starsector/mods/ArmaArmatura_V3.2.5/data/weapons/proj/armaa_flamer_shot2.proj";
-        if let Ok(content) = read_utf8_no_bom(std::path::Path::new(path)) {
-            let result = parse_starsector_json(&content);
-            assert!(
-                result.is_ok(),
-                "Failed to parse armaa_flamer_shot2.proj: {:?}",
-                result.err()
-            );
-            let parsed = result.unwrap();
-            assert_eq!(parsed["id"], "armaa_flamer_shot2");
-        }
     }
 }

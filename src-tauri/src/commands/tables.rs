@@ -11,7 +11,7 @@ pub fn save_csv_patch(payload: SaveCsvPatchPayload) -> Result<WriteResult, Strin
         &payload.session_id,
         payload.table,
         payload.patches,
-        payload.associated_files,
+        payload.associated_specs,
     )
     .map_err(|e| e.to_string())
 }

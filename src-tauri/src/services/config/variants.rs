@@ -1,12 +1,9 @@
 use crate::{
-    domain::config::{
-        build_variant_file, validate_config_file_rel_path, validate_config_id, variant_rel_path,
-    },
+    domain::config::{build_variant_file, validate_config_id},
     errors::{AppError, AppResult},
-    io::{
-        invalidated_paths_for_changes, read_json_file, strip_internal_fields, FileChangeSetBuilder,
-    },
-    models::WriteResult,
+    io::{read_json_file, strip_internal_fields, FileChangeSetBuilder},
+    models::{EntityKind, WriteResult},
+    services::project::entity_definitions::entity_spec_definition,
 };
 use serde_json::Value;
 use std::path::Path;
@@ -14,7 +11,6 @@ use std::path::Path;
 pub fn save_variant_entity(
     mod_root: &str,
     previous_id: Option<&str>,
-    previous_rel_path: Option<&str>,
     next_id: &str,
     data: Value,
 ) -> AppResult<WriteResult<Value>> {
@@ -24,8 +20,8 @@ pub fn save_variant_entity(
         .filter(|value| !value.trim().is_empty())
         .map(|value| validate_config_id(value, "无效装配 ID").map(str::to_string))
         .transpose()?;
-    let previous_rel_path = previous_rel_path.filter(|value| !value.trim().is_empty());
-    let next_rel_path = variant_rel_path(&next_id);
+    let definition = variant_spec_definition()?;
+    let next_rel_path = definition.default_rel_path(&next_id);
     let renamed = previous_id.as_deref().is_some_and(|id| id != next_id);
     let target = mod_root.join(&next_rel_path);
     if renamed && target.exists() {
@@ -43,22 +39,19 @@ pub fn save_variant_entity(
         )));
     }
 
-    let mut builder = FileChangeSetBuilder::new(mod_root);
+    let mut builder = FileChangeSetBuilder::new(mod_root)?;
     if renamed {
-        let previous = previous_rel_path.ok_or_else(|| AppError::message("缺少旧装配路径"))?;
-        require_variant_file_target(mod_root, previous, previous_id.as_deref().unwrap())?;
+        let previous = definition.default_rel_path(previous_id.as_deref().unwrap());
+        require_variant_file_target(mod_root, &previous, previous_id.as_deref().unwrap())?;
         builder.text_file(previous, None)?;
     }
     builder.text_file(&next_rel_path, Some(serde_json::to_string_pretty(&clean)?))?;
     let changes = builder.apply()?;
 
-    Ok(WriteResult {
-        invalidated_paths: invalidated_paths_for_changes(&changes),
+    Ok(WriteResult::from_refreshed_entity(
         changes,
-        key_map: Vec::new(),
-        refreshed_entity: Some(serde_json::to_value(variant_file)?),
-        warnings: Vec::new(),
-    })
+        serde_json::to_value(variant_file)?,
+    ))
 }
 
 pub fn create_variant_entity(
@@ -66,7 +59,7 @@ pub fn create_variant_entity(
     next_id: &str,
     data: Value,
 ) -> AppResult<WriteResult<Value>> {
-    save_variant_entity(mod_root, None, None, next_id, data)
+    save_variant_entity(mod_root, None, next_id, data)
 }
 
 pub fn delete_variant_entity(
@@ -76,20 +69,14 @@ pub fn delete_variant_entity(
 ) -> AppResult<WriteResult> {
     validate_config_id(variant_id, "无效装配 ID")?;
     require_variant_file_target(Path::new(mod_root), rel_path, variant_id)?;
-    let mut builder = FileChangeSetBuilder::new(Path::new(mod_root));
+    let mut builder = FileChangeSetBuilder::new(Path::new(mod_root))?;
     builder.text_file(rel_path, None)?;
     let changes = builder.apply()?;
-    Ok(WriteResult {
-        invalidated_paths: invalidated_paths_for_changes(&changes),
-        changes,
-        key_map: Vec::new(),
-        refreshed_entity: None,
-        warnings: Vec::new(),
-    })
+    Ok(WriteResult::from_changes(changes))
 }
 
 fn require_variant_file_target(mod_root: &Path, rel_path: &str, variant_id: &str) -> AppResult<()> {
-    validate_config_file_rel_path(rel_path, "data/variants", "variant", "装配路径无效")?;
+    variant_spec_definition()?.validate_rel_path(rel_path, "装配路径无效")?;
     let data = read_json_file(&mod_root.join(rel_path))?;
     let file = build_variant_file(mod_root, rel_path, &data)?;
     if file.variant_id != variant_id {
@@ -98,6 +85,13 @@ fn require_variant_file_target(mod_root: &Path, rel_path: &str, variant_id: &str
         )));
     }
     Ok(())
+}
+
+fn variant_spec_definition() -> crate::errors::AppResult<
+    &'static crate::services::project::entity_definitions::ProjectEntitySpecDefinition,
+> {
+    entity_spec_definition(EntityKind::Variant)
+        .ok_or_else(|| AppError::message("装配 spec 定义不存在"))
 }
 
 #[cfg(test)]
@@ -127,7 +121,6 @@ mod tests {
         let result = save_variant_entity(
             &root.to_string_lossy(),
             Some("old"),
-            Some("data/variants/old.variant"),
             "new",
             serde_json::json!({"variantId": "new", "hullId": "hull", "weaponGroups": [{}]}),
         )
@@ -161,7 +154,7 @@ mod tests {
     }
 
     #[test]
-    fn variant_delete_uses_file_history() {
+    fn variant_delete_returns_replayable_changeset() {
         let root = temp_dir("variant_entity_delete");
         fs::create_dir_all(root.join("data/variants")).unwrap();
         write_utf8_no_bom(
@@ -230,7 +223,6 @@ mod tests {
 
         let result = save_variant_entity(
             &root.to_string_lossy(),
-            None,
             None,
             "new",
             serde_json::json!({"variantId": "other", "hullId": "hull"}),

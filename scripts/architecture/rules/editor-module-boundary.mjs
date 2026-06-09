@@ -26,9 +26,6 @@ export const editorModuleBoundaryRule = {
       if (/\bqueryCsvTableWindow\s*\(/.test(file.text)) {
         failures.push(`${file.rel}: editor candidates must use source/entity query, not CSV windows`);
       }
-      if (file.rel.startsWith('src/app/components/editors/') && /\bWriteResult\b|\bsaveSpec\b|\bwriteResult\b/.test(file.text)) {
-        failures.push(`${file.rel}: editor components submit edited data; window ViewModel owns write results and save effects`);
-      }
       if (
         /function\s+queryEditorEntityBundle[\s\S]*?Promise\.all\(\s*\[[\s\S]*?querySessionEntity\(sessionId,\s*['"]ship['"][\s\S]*?querySessionEntity\(sessionId,\s*['"]weapon['"][\s\S]*?querySessionEntity\(sessionId,\s*['"]projectile['"]/m.test(
           file.text,

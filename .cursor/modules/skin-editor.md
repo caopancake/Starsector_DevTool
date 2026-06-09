@@ -29,7 +29,7 @@
 - Skin Editor 组件拥有当前选中 `.skin` 的本地表单 draft，不拥有列表查询、写盘、history 或 session 刷新。
 - Skin List 组件拥有新建弹窗输入和删除确认 UI，不拥有最终写盘目标验证。
 - Skin ViewModel 拥有 Skin 页面运行态，包括当前选中 ID、列表、缩略图、hull 选项和 data revision。
-- Skin 创建、保存、删除必须通过 config save orchestrator 进入文件级 history 和 session invalidation。
+- Skin 创建、保存、删除必须通过 config save orchestrator 进入文件级 history 和 ProjectSession refresh。
 - Skin 缩略图和 hull 下拉只能消费 hull reference query 返回的 `ResourceRef`，前端不能构造资源引用。
 - Skin schema runtime context 必须使用当前 Skin ViewModel 暴露的 `modRoot + sessionId`，不能重新读取 active manifest。
 - `.skin` 模块不拥有 `.ship`、`.variant`、CSV 表格、文件编辑器或贴图上传的保存目标。
@@ -74,8 +74,8 @@
 8. shared config API 调用 Rust `create_skin_entity`。
 9. Rust command 校验 `sessionId + modRoot` 仍属于同一 ProjectSession。
 10. Rust Skin service 使用 `data/hulls/skins/{skinHullId}.skin` 作为新建目标并写入 pretty JSON。
-11. Rust 返回带 `changes`、`invalidatedPaths` 和 `refreshedEntity` 的 `WriteResult`。
-12. config save orchestrator 记录文件级 history 并按写盘结果刷新 ProjectSession。
+11. Rust 返回带 `changes`、`invalidation` 和 `refreshedEntity` 的 `WriteResult`。
+12. config save orchestrator 通过 File History Session 记录文件级 history，并按写盘结果刷新 ProjectSession。
 13. ViewModel 在当前 manifest 仍匹配发起身份时重载 Skin 列表并选中新建项。
 
 ### 保存 Skin
@@ -86,15 +86,15 @@
 4. 编辑器捕获当前 `SkinFile`、`sessionId`、`modRoot` 和本地 draft。
 5. ViewModel 校验 active manifest 仍匹配保存身份。
 6. ViewModel 校验 `skinHullId` 与 `baseHullId` 非空、`skinHullId` 为配置 ID、当前列表无冲突。
-7. ViewModel 根据旧 `skinHullId + relPath` 与新 `skinHullId` 构造 rename context。
-8. ViewModel 调用 `saveSkinAction(sessionId, modRoot, nextSkinHullId, data, previousId, previousRelPath)`。
+7. ViewModel 根据旧 `skinHullId` 与新 `skinHullId` 构造 rename context。
+8. ViewModel 调用 `saveSkinAction(sessionId, modRoot, nextSkinHullId, data, previousId)`。
 9. shared config API 调用 Rust `save_skin_entity`。
 10. Rust command 校验 `sessionId + modRoot` 仍属于同一 ProjectSession。
-11. Rust Skin service 校验新 ID、旧 ID、旧 relPath、目标路径和写入数据中的 `skinHullId`。
-12. 若重命名，Rust 校验旧 relPath 属于 `data/hulls/skins/*.skin` 且文件内容 ID 匹配旧 ID。
+11. Rust Skin service 校验新 ID、旧 ID、目标路径和写入数据中的 `skinHullId`。
+12. 若重命名，Rust 按旧 ID 推导旧 `.skin` 路径并校验文件内容 ID 匹配旧 ID。
 13. Rust 在同一个 changeset 中删除旧 `.skin` 并写入新 `.skin`；非重命名时只写目标文件。
 14. Rust 返回 `WriteResult`，并在 `refreshedEntity` 中返回新的 SkinFile。
-15. config save orchestrator 记录文件级 history 并按写盘结果刷新 ProjectSession。
+15. config save orchestrator 通过 File History Session 记录文件级 history，并按写盘结果刷新 ProjectSession。
 16. ViewModel 在当前 manifest 仍匹配保存身份时重载 Skin 列表并选中保存后的 `skinHullId`。
 17. 编辑器在 props 仍匹配保存身份时用返回数据重置本地 draft。
 
@@ -109,17 +109,17 @@
 7. Rust Skin service 校验 `skinHullId` 为配置 ID。
 8. Rust Skin service 校验 relPath 属于 `data/hulls/skins/*.skin` 且文件内容 `skinHullId` 匹配被删除 ID。
 9. Rust 构建单文件删除 changeset 并写盘。
-10. config save orchestrator 记录文件级 history 并按写盘结果刷新 ProjectSession。
+10. config save orchestrator 通过 File History Session 记录文件级 history，并按写盘结果刷新 ProjectSession。
 11. ViewModel 在当前 manifest 仍匹配删除身份时重载 Skin 列表。
 12. 若删除项是当前选中项，ViewModel 选择列表中第一个 Skin 或清空选中项。
 
 ### Cache 失效同步
 
-1. 主窗口保存编排按 `WriteResult.invalidatedPaths` 调用 ProjectSession invalidation。
+1. 主窗口保存编排按 `WriteResult.invalidation.paths` 调用 ProjectSession refresh。
 2. Rust session invalidation 识别 `data/hulls/skins/*.skin` 变更。
 3. Rust 重新加载 `skin_files` 并更新 manifest skin 统计。
 4. Rust 同步刷新 variant/skin warning 集合。
-5. 前端 query cache 对 `entity-list kind=skin`、`hull-references` 和命中的 resource identity 发出失效事件。
+5. 前端 query cache 对 `entity-list kind=skin`、`hull-references` 发出 query 失效事件，resource cache 对命中的 `ResourceRef` 发出资源失效事件。
 6. Skin ViewModel 收到当前 session 的 Skin entity list 失效后重载列表。
 7. Skin ViewModel 收到 hull references 或 Skin 缩略图资源失效后重载缩略图。
 8. Skin ViewModel 收到 hull references 或 hull 选项资源失效后重载 hull 下拉选项。
@@ -132,10 +132,11 @@
 - `skinHullId` 必须是配置 ID，且在当前 Mod Skin 列表内唯一。
 - `skinHullId` 是合法 hull reference，hull 引用查询必须把 Skin 与 Ship 一起返回。
 - 创建路径必须固定为 `data/hulls/skins/{skinHullId}.skin`。
-- 删除和重命名旧目标必须校验 relPath 的目录、扩展名、路径组件和文件内容 ID。
+- 删除目标必须校验 relPath 的目录、扩展名、路径组件和文件内容 ID。
+- 重命名旧目标必须由后端按旧 ID 推导，并校验文件内容 ID。
 - 保存写入数据中的 `skinHullId` 必须与保存目标 ID 一致。
 - 保存允许修改 `skinHullId`，但必须在同一 changeset 中完成旧文件删除与新文件写入。
-- 创建、保存、删除都必须记录文件级 history，并用 Rust 返回的 WriteResult 刷新 ProjectSession。
+- 创建、保存、删除都必须通过 File History Session 记录文件级 history，并用 Rust 返回的 WriteResult 刷新 ProjectSession。
 - Skin 组件只能调用 ViewModel 暴露的动作，不能直接调用 query service、resource cache、write service 或 shared API。
 - Skin 删除确认和新建弹窗必须使用打开时捕获的 `sessionId + modRoot`，不能在确认时重新读取 active manifest。
 - Skin 编辑器本地 draft 只能在切换选中 ID 或当前实体数据 revision 改变时重置。

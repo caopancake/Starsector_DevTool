@@ -16,7 +16,7 @@
 - `src/windows/editor.window.ts`：按 `weapon-preview + modRoot + weaponId` 单例化预览窗口。
 - `src-tauri/src/services/project/query/entities.rs`：拥有武器 entity 的 CSV 注册边界、`.wpn` 组装和 projectile entity 读取。
 - `src-tauri/src/services/project/query/resources.rs`：拥有资源 data URL 批量读取和返回顺序。
-- `src-tauri/src/services/project/query/resources_shared.rs`：拥有武器 sprite 字段到 `ResourceRef` 的映射和 Mod/Core 资源读取语义。
+- `src-tauri/src/services/project/resources_shared.rs`：拥有武器 sprite 字段到 `ResourceRef` 的映射和 Mod/Core 资源读取语义。
 
 ## 边界
 
@@ -87,10 +87,10 @@
 
 1. 预览窗口监听 `project-session-invalidated`。
 2. session invalidation 事件的 `sessionId + modRoot` 必须匹配当前预览窗口身份。
-3. ViewModel 将 invalidated paths 应用到本地 resource cache 与 query cache。
+3. ViewModel 将 invalidation 应用到本地 resource cache 与 query cache。
 4. query cache 失效命中当前 weapon entity detail 时，ViewModel 静默重新查询完整 preview bundle。
 5. query cache 失效命中已加载 projectile detail 时，ViewModel 只刷新当前 bundle 的 projectile specs。
-6. query cache 失效命中当前 resource identity 时，ViewModel 只刷新 sprite data URL。
+6. resource cache 失效命中当前 weapon resource refs 时，ViewModel 只刷新 sprite data URL。
 7. 失效未命中当前 weapon、已加载 projectile 或当前 resource 时，预览窗口不刷新。
 
 ## 规范

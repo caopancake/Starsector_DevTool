@@ -22,20 +22,20 @@ export interface ConfigModOverviewModel {
 const OVERVIEW_TABLE_KEYS: TableKey[] = ['ships', 'weapons', 'wings', 'hullmods', 'shipSystems', 'industries', 'skills'];
 
 export function buildConfigModOverview(manifest: ProjectManifest | null | undefined): ConfigModOverviewModel {
-  const breakdown = manifest ? configModOverviewBreakdown(manifest) : [];
+  const breakdown = manifest ? overviewBreakdown(manifest) : [];
   return {
     modName: cell(manifest?.modInfo?.name) || 'Mod 概览',
     modVersion: formatModVersion(manifest?.modInfo?.version),
     modRootText: manifest?.modRoot || '未加载',
     coreAvailable: Boolean(manifest?.coreAvailable),
-    coreResourceText: configModOverviewCoreResourceText(manifest),
+    coreResourceText: coreResourceText(manifest),
     tableTotal: totalByCategory(breakdown, 'table'),
     configTotal: totalByCategory(breakdown, 'config'),
     breakdown,
   };
 }
 
-function configModOverviewBreakdown(manifest: ProjectManifest): ConfigModOverviewBreakdownItem[] {
+function overviewBreakdown(manifest: ProjectManifest): ConfigModOverviewBreakdownItem[] {
   return [
     ...OVERVIEW_TABLE_KEYS.map((key) => ({
       label: MODULE_LABELS[key],
@@ -49,7 +49,7 @@ function configModOverviewBreakdown(manifest: ProjectManifest): ConfigModOvervie
   ];
 }
 
-function configModOverviewCoreResourceText(manifest: ProjectManifest | null | undefined): string {
+function coreResourceText(manifest: ProjectManifest | null | undefined): string {
   if (!manifest?.coreAvailable) return '未找到可用于贴图、Schema 和引用回退的 starsector-core';
   return manifest.starsectorRoot ? gameCoreDirectoryPath(manifest.starsectorRoot) : '已找到 starsector-core';
 }

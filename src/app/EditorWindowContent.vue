@@ -15,8 +15,13 @@
       :hull-id="target.id"
       :ship="shipEditorData.ship"
       :sprite-data="shipSpriteForEditor"
+      :draft-revision="draftRevision"
+      :dirty="draftDirty"
+      :external-update-notice="externalUpdateNotice"
       @close="closeWindow"
-      @save-requested="saveEditorData('ship', $event)"
+      @save-requested="saveEditorData('ship')"
+      @draft-changed="updateEditorDraft('ship', $event)"
+      @load-external="loadPendingExternalSpec"
     />
     <WeaponEditor
       v-else-if="weaponEditorData && target"
@@ -27,8 +32,13 @@
       :sprite-data="weaponEditorData.weaponSpriteData"
       :projectiles="weaponEditorData.projectileSpecs"
       :projectile-options="weaponEditorData.projectileOptions"
+      :draft-revision="draftRevision"
+      :dirty="draftDirty"
+      :external-update-notice="externalUpdateNotice"
       @close="closeWindow"
-      @save-requested="saveEditorData('weapon', $event)"
+      @save-requested="saveEditorData('weapon')"
+      @draft-changed="updateEditorDraft('weapon', $event)"
+      @load-external="loadPendingExternalSpec"
       @edit-projectile="openProjectile"
       @preview="openPreview"
     />
@@ -38,16 +48,26 @@
       :session-id="target.sessionId"
       :projectile-id="target.id"
       :projectile="projectileEditorData.projectile"
+      :draft-revision="draftRevision"
+      :dirty="draftDirty"
+      :external-update-notice="externalUpdateNotice"
       @close="closeWindow"
-      @save-requested="saveEditorData('projectile', $event)"
+      @save-requested="saveEditorData('projectile')"
+      @draft-changed="updateEditorDraft('projectile', $event)"
+      @load-external="loadPendingExternalSpec"
     />
     <SystemEditor
       v-else-if="systemEditorData && target"
       :mod-root="target.modRoot"
       :system-id="target.id"
       :system="systemEditorData.system"
+      :draft-revision="draftRevision"
+      :dirty="draftDirty"
+      :external-update-notice="externalUpdateNotice"
       @close="closeWindow"
-      @save-requested="saveEditorData('system', $event)"
+      @save-requested="saveEditorData('system')"
+      @draft-changed="updateEditorDraft('system', $event)"
+      @load-external="loadPendingExternalSpec"
     />
     <WeaponFirePreview
       v-else-if="weaponPreviewData && target"
@@ -77,7 +97,7 @@ import { useSettingsStore } from '@/stores/settings.store';
 import { closeCurrentWindow } from '@/windows/current.window';
 import { useEditorWindowViewModel } from '@/app/composables/use-editor-window-view-model';
 import type { EditorWindowKind } from '@/shared/types';
-import { isEditorWindowKind } from '@/domain/editors/editor-kind-metadata';
+import { isEditorWindowKind } from '@/domain/editors/editor-definitions';
 
 const params = new window.URLSearchParams(window.location.search);
 const kind = ref<EditorWindowKind>(parseKind(params.get('kind')));
@@ -98,10 +118,15 @@ const {
   errorText,
   weaponForEditor,
   shipSpriteForEditor,
+  draftDirty,
+  draftRevision,
+  externalUpdateNotice,
   missingEditorText,
   initializeEditorWindow,
   disposeEditorWindow,
   saveEditorData,
+  updateEditorDraft,
+  loadPendingExternalSpec,
 } = useEditorWindowViewModel({ sessionId, modRoot, id, kind: kind.value });
 
 function parseKind(value: string | null): EditorWindowKind {

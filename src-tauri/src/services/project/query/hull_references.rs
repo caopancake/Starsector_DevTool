@@ -1,9 +1,9 @@
 use super::super::cache::{session_for, sessions};
+use super::super::resources_shared::{resource_ref, skin_resource_ref};
 use super::super::{
     cache::{load_core_ship_files, load_core_skin_files},
     model::{string_field, ProjectSession},
 };
-use super::resources_shared::{resource_ref, skin_resource_ref};
 use crate::{
     errors::{AppError, AppResult},
     models::{

@@ -1,11 +1,9 @@
 import { computed } from 'vue';
 import { queryTableSourceOptions } from '@/services/csv-table.service';
-import {
-  queryCacheInvalidationIncludes,
-  queryCacheInvalidationIncludesResourceIdentity,
-  subscribeQueryCacheInvalidation,
-} from '@/services/query-cache.service';
-import type { ProjectManifest, SchemaRuntimeContext } from '@/shared/types';
+import { hasSourceInvalidation, subscribeQueryInvalidations } from '@/services/query-cache.service';
+import { hasResourceInvalidation, subscribeResourceInvalidations } from '@/services/resource-cache.service';
+import type { SchemaRuntimeContext } from '@/domain/schema/schema-runtime';
+import type { ProjectManifest } from '@/shared/types';
 
 export function useSchemaRuntimeContext(manifest: () => ProjectManifest | null | undefined) {
   return computed<SchemaRuntimeContext | null>(() => {
@@ -20,13 +18,21 @@ export function createSchemaRuntimeContext(modRoot: string, sessionId: string): 
     sessionId,
     querySourceOptions: (source, currentValues, search, limit) =>
       queryTableSourceOptions(sessionId, source, currentValues, search ?? null, limit ?? null),
-    subscribeSourceOptionInvalidation: (source, resources, listener) =>
-      subscribeQueryCacheInvalidation((event) => {
+    subscribeSourceOptionInvalidation: (source, resources, listener) => {
+      const stopQueryInvalidation = subscribeQueryInvalidations((event) => {
         if (event.sessionId !== sessionId) return;
-        const optionsChanged = queryCacheInvalidationIncludes(event, 'csv-source-options', (parameters) => parameters.source === source);
-        const resourcesChanged = queryCacheInvalidationIncludesResourceIdentity(event, resources());
-        if (!optionsChanged && !resourcesChanged) return;
+        if (!hasSourceInvalidation(event, source)) return;
         listener();
-      }),
+      });
+      const stopResourceInvalidation = subscribeResourceInvalidations((event) => {
+        if (event.sessionId !== sessionId) return;
+        if (!hasResourceInvalidation(event, resources())) return;
+        listener();
+      });
+      return () => {
+        stopQueryInvalidation();
+        stopResourceInvalidation();
+      };
+    },
   };
 }

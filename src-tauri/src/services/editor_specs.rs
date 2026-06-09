@@ -2,11 +2,14 @@ use crate::{
     domain::config::validate_config_id,
     errors::{AppError, AppResult},
     io::{
-        build_text_change, invalidated_paths_for_changes, read_json_file, strip_internal_fields,
-        validate_absolute_path_without_parent,
+        build_text_change, read_json_file, strip_internal_fields, validate_safe_absolute_path,
+        validate_walk_entry,
     },
     models::{EditorSpecKind, FileChangeReplayDirection, WriteResult},
-    services::file_changes::apply_file_change_set,
+    services::{
+        file_changes::apply_file_change_set,
+        project::entity_definitions::{editor_spec_definition, ProjectEntitySpecDefinition},
+    },
 };
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -18,7 +21,7 @@ pub fn save_editor_spec(
     id: &str,
     data: Value,
 ) -> AppResult<WriteResult> {
-    let id = validate_config_id(id, kind.invalid_id_message())?;
+    let id = validate_config_id(id, editor_spec_definition(kind).invalid_id_message)?;
     let target = find_editor_spec_target(Path::new(mod_root), kind, id)?;
     let clean = strip_internal_fields(&data);
     let text = serde_json::to_string_pretty(&clean)?;
@@ -28,54 +31,24 @@ pub fn save_editor_spec(
         FileChangeReplayDirection::Redo,
         vec![change.clone()],
     )?;
-    let changes = vec![change];
-    Ok(WriteResult {
-        invalidated_paths: invalidated_paths_for_changes(&changes),
-        changes,
-        key_map: Vec::new(),
-        refreshed_entity: None,
-        warnings: Vec::new(),
-    })
+    Ok(WriteResult::from_changes(vec![change]))
 }
 
 pub fn load_imported_editor_spec_file(kind: EditorSpecKind, path: String) -> AppResult<Value> {
     let path = Path::new(&path);
-    validate_imported_editor_spec_path(kind, path)?;
+    validate_imported_editor_spec_path(editor_spec_definition(kind), path)?;
     read_json_file(path)
 }
 
-impl EditorSpecKind {
-    fn invalid_id_message(self) -> &'static str {
-        match self {
-            Self::Ship => "无效舰船 ID",
-            Self::Weapon => "无效武器 ID",
-            Self::Projectile => "无效弹体 ID",
-            Self::System => "无效战术系统 ID",
-        }
-    }
-
-    fn extension(self) -> &'static str {
-        match self {
-            Self::Ship => "ship",
-            Self::Weapon => "wpn",
-            Self::Projectile => "proj",
-            Self::System => "system",
-        }
-    }
-}
-
 fn find_editor_spec_target(mod_root: &Path, kind: EditorSpecKind, id: &str) -> AppResult<PathBuf> {
-    let target = match kind {
-        EditorSpecKind::Ship => find_json_target(mod_root, "data/hulls", "ship", "hullId", id),
-        EditorSpecKind::Weapon => find_json_target(mod_root, "data/weapons", "wpn", "id", id),
-        EditorSpecKind::Projectile => {
-            find_json_target(mod_root, "data/weapons/proj", "proj", "id", id)
-        }
-        EditorSpecKind::System => {
-            find_json_target(mod_root, "data/shipsystems", "system", "id", id)
-        }
-    }?;
-    Ok(target)
+    let definition = editor_spec_definition(kind);
+    find_json_target(
+        mod_root,
+        definition.dir,
+        definition.extension_without_dot(),
+        definition.id_field,
+        id,
+    )
 }
 
 fn find_json_target(
@@ -100,6 +73,7 @@ fn find_json_target(
                     dir.display()
                 ))
             })?;
+            validate_walk_entry(entry.path(), "editor spec directory")?;
             if entry.path().extension().and_then(|s| s.to_str()) != Some(ext) {
                 continue;
             }
@@ -112,12 +86,17 @@ fn find_json_target(
     Ok(dir.join(format!("{id}.{ext}")))
 }
 
-fn validate_imported_editor_spec_path(kind: EditorSpecKind, path: &Path) -> AppResult<()> {
-    validate_absolute_path_without_parent(path, "imported editor spec")?;
-    if path.extension().and_then(|value| value.to_str()) != Some(kind.extension()) {
+fn validate_imported_editor_spec_path(
+    definition: &ProjectEntitySpecDefinition,
+    path: &Path,
+) -> AppResult<()> {
+    validate_safe_absolute_path(path, "imported editor spec")?;
+    validate_walk_entry(path, "imported editor spec")?;
+    let extension = definition.extension_without_dot();
+    if path.extension().and_then(|value| value.to_str()) != Some(extension) {
         return Err(AppError::message(format!(
             "imported editor spec extension must be .{}: {}",
-            kind.extension(),
+            extension,
             path.display()
         )));
     }
@@ -151,9 +130,10 @@ mod tests {
         )
         .unwrap();
 
-        let text = read_utf8_no_bom(&root.join("data/weapons/nested/demo.wpn")).unwrap();
+        let target = root.join("data/weapons/nested/demo.wpn");
+        let text = read_utf8_no_bom(&target).unwrap();
         let _ = fs::remove_dir_all(root);
-        assert_eq!(result.invalidated_paths.len(), 1);
+        assert_eq!(invalidation_paths(&result), [target]);
         assert!(text.contains("\"weaponType\": \"ENERGY\""));
     }
 
@@ -170,9 +150,10 @@ mod tests {
         )
         .unwrap();
 
-        let text = read_utf8_no_bom(&root.join("data/hulls/demo.ship")).unwrap();
+        let target = root.join("data/hulls/demo.ship");
+        let text = read_utf8_no_bom(&target).unwrap();
         let _ = fs::remove_dir_all(root);
-        assert_eq!(result.invalidated_paths.len(), 1);
+        assert_eq!(invalidation_paths(&result), [target]);
         assert!(text.contains("\"hullId\": \"demo\""));
     }
 
@@ -273,6 +254,23 @@ mod tests {
     }
 
     #[test]
+    fn load_imported_editor_spec_file_rejects_link_file() {
+        let Some((root, outside, link)) = temp_linked_file("load_imported_spec_link") else {
+            return;
+        };
+        write_utf8_no_bom(&outside, r#"{"id":"demo","weaponType":"ENERGY"}"#).unwrap();
+
+        let result = load_imported_editor_spec_file(
+            EditorSpecKind::Weapon,
+            link.to_string_lossy().to_string(),
+        );
+
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_file(outside);
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn load_imported_editor_spec_file_reads_matching_spec() {
         let root = temp_dir("load_imported_spec_reads");
         let path = root.join("demo.wpn");
@@ -296,5 +294,45 @@ mod tests {
         let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
         fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    fn temp_linked_file(
+        name: &str,
+    ) -> Option<(std::path::PathBuf, std::path::PathBuf, std::path::PathBuf)> {
+        let root = temp_dir(&format!("{name}_root"));
+        let outside = std::env::temp_dir().join(format!("{name}_outside.wpn"));
+        let link = root.join("demo.wpn");
+        if create_file_link(&outside, &link).is_err() {
+            let _ = fs::remove_dir_all(root);
+            return None;
+        }
+        Some((root, outside, link))
+    }
+
+    #[cfg(windows)]
+    fn create_file_link(target: &std::path::Path, link: &std::path::Path) -> std::io::Result<()> {
+        std::os::windows::fs::symlink_file(target, link)
+    }
+
+    #[cfg(unix)]
+    fn create_file_link(target: &std::path::Path, link: &std::path::Path) -> std::io::Result<()> {
+        std::os::unix::fs::symlink(target, link)
+    }
+
+    #[cfg(not(any(windows, unix)))]
+    fn create_file_link(_target: &std::path::Path, _link: &std::path::Path) -> std::io::Result<()> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "file links are unsupported on this platform",
+        ))
+    }
+
+    fn invalidation_paths(result: &WriteResult) -> Vec<PathBuf> {
+        result
+            .invalidation
+            .paths
+            .iter()
+            .map(PathBuf::from)
+            .collect()
     }
 }

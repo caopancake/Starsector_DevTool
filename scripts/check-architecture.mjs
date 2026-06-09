@@ -1,11 +1,12 @@
 import { collectArchitectureFiles } from './architecture/shared/files.mjs';
 import { rules } from './architecture/rules/index.mjs';
 import { architectureRulesSelfBoundaryRule } from './architecture/self-boundary.mjs';
+import { noNameExistenceChecksRule } from './architecture/no-name-existence-checks.mjs';
 
 const files = await collectArchitectureFiles(process.cwd());
 const failures = [];
 
-for (const rule of [architectureRulesSelfBoundaryRule, ...rules]) {
+for (const rule of [architectureRulesSelfBoundaryRule, noNameExistenceChecksRule, ...rules]) {
   failures.push(...rule.check(files));
 }
 

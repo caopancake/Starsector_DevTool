@@ -9,32 +9,35 @@
 - `src/app/EditorWindowContent.vue`：解析编辑器窗口 URL 参数，按 `kind=weapon` 挂载武器编辑器并打开弹体编辑器或发射预览窗口。
 - `src/app/components/editors/WeaponEditor.vue`：拥有 `.wpn` 本地草稿、炮塔/固定视图、发射点画布交互、贴图字段、检查器和局部 undo/redo。
 - `src/app/components/editors/WeaponFirePreview.vue`：消费 weapon bundle 的 `.wpn`、CSV row、关联 projectile specs 和贴图 data URL 执行只读发射预览。
+- `src/app/composables/use-draft-session.ts`：拥有编辑器窗口主 `.wpn` spec 的 base、draft、dirty、外部更新暂存和 draft revision。
 - `src/app/composables/use-editor-window-view-model.ts`：拥有编辑器窗口目标、weapon bundle 读取、缺失 spec 处理、保存编排、弹体依赖刷新和缓存失效响应。
-- `src/domain/editors/editor-kind-metadata.ts`：定义武器编辑器窗口 kind、spec kind、标题、扩展名和缺失目标文案。
+- `src/domain/editors/editor-definitions.ts`：定义编辑器窗口 UI 定义表，包含窗口尺寸、标题、默认数据和缺失目标文案。
 - `src/domain/editors/lib/normalize.ts`：定义武器 spec 进入编辑器前的发射点数组归一化。
 - `src/domain/editors/lib/weapon-sprite-fields.ts`：定义武器贴图字段集合、炮塔/固定视图字段分组和绘制顺序。
-- `src/domain/tables/associated-specs.ts`：定义 weapons 行关联 `.wpn` 默认文本、关联路径、武器编辑器入口和发射预览入口。
-- `src/domain/tables/table-detail-actions.ts`：从 weapons 表格行生成文件编辑器入口、武器编辑器窗口入口和发射预览入口。
+- `src/domain/tables/associated-specs.ts`：定义 weapons 行关联 `.wpn` 文本入口路径、武器编辑器入口和发射预览入口；关联 `.wpn` 写盘路径、扩展名、ID 字段和默认内容由后端实体/spec definition 拥有。
+- `src/domain/tables/table-detail-actions.ts`：从 weapons 表格行生成武器编辑器窗口入口、发射预览入口和文件编辑器入口，并保证文件编辑器入口排在操作栏最下方。
 - `src/orchestrators/editor-window.orchestrator.ts`：封装编辑器 spec 保存事件的窗口广播和监听。
-- `src/orchestrators/file-save.orchestrator.ts`：在主窗口消费编辑器保存事件，记录文件级 history 并刷新 ProjectSession。
+- `src/orchestrators/file-history-session.orchestrator.ts`：在主窗口保存事件链路中完成文件级 history 记录、ProjectSession 刷新和保存完成边界。
+- `src/orchestrators/file-save.orchestrator.ts`：在主窗口消费编辑器保存事件并转交 File History Session。
 - `src/services/editor.service.ts`：封装 weapon entity bundle 读取、弹体依赖读取、贴图资源加载、导入 spec 读取和 spec 保存 service。
 - `src/shared/api/files-api.ts`：封装 `load_imported_editor_spec_file` 和 `save_editor_spec` Tauri command。
 - `src/shared/lib/starsector.ts`：定义缺失 `.wpn` 时由 weapon CSV row 派生的默认武器 spec。
 - `src/windows/editor.window.ts`：定义武器编辑器和发射预览窗口请求、窗口单例 key、URL 参数和窗口尺寸。
 - `src-tauri/src/commands/files.rs`：校验保存命令的 ProjectSession 归属并调用 Rust editor spec service。
-- `src-tauri/src/services/editor_specs.rs`：按 spec kind 定位、读取、校验、写入 `.wpn` 文件并构造 changeset。
+- `src-tauri/src/services/editor_specs.rs`：按后端实体/spec definition 定位、读取、校验、写入 `.wpn` 文件并构造 changeset。
 - `src-tauri/src/services/project/query/entities.rs`：从 ProjectSession 的 weapon CSV 注册行构造 weapon entity、`.wpn` spec 和 CSV row。
-- `src-tauri/src/services/project/query/resources_shared.rs`：从武器贴图字段构造 weapon `ResourceRef`。
+- `src-tauri/src/services/project/resources_shared.rs`：从武器贴图字段构造 weapon `ResourceRef`。
 
 ## 边界
 
 - DetailPane 只生成 weapons 行的编辑和预览入口，不拥有武器窗口状态、`.wpn` 草稿或预览运行态。
 - EditorWindowContent 只解析窗口参数、选择组件、转发保存事件和打开关联窗口，不拥有 weapon entity query、保存、history 或资源缓存。
-- Rust editor spec service 拥有 `.wpn` 目标定位、候选目录遍历、候选 spec 解析、路径安全、ID 校验、JSON pretty 写入和 changeset 构造。
+- Rust editor spec service 拥有 `.wpn` spec definition、目标定位、候选目录遍历、候选 spec 解析、路径安全、ID 校验、JSON pretty 写入和 changeset 构造。
 - Rust files command 拥有 `save_editor_spec` 写入前的 `sessionId + modRoot` 校验。
 - Rust ProjectSession query 拥有 weapon entity 的注册边界：weapon entity 必须来自 `weapon_data.csv` 的正式注册行。
 - WeaponEditor 组件拥有武器编辑界面的本地草稿、炮塔/固定视图、发射点选择、拖拽状态、贴图字段输入、检查器展开状态和局部历史。
-- WeaponEditor 组件只通过 `save-requested` 输出完整 `.wpn` 草稿，不调用 shared API、write service 或 history store。
+- 编辑器窗口 ViewModel 通过 Draft Session 拥有 `.wpn` 的基准 spec、当前 draft、dirty 状态、外部更新暂存和 draft revision。
+- WeaponEditor 组件只通过 `draft-changed` 汇报本地 working copy，并通过 `save-requested` 请求保存当前 ViewModel draft，不调用 shared API、write service 或 history store。
 - WeaponFirePreview 只消费传入的 `.wpn`、weapon CSV row、弹体 specs 和贴图 data URL，不保存任何文件。
 - 主窗口保存事件监听只消费 `editor-spec-saved`，不拥有编辑器窗口草稿、弹体缓存或预览状态。
 - 武器 entity bundle 读取归属 editor service；组件不得直接调用 query service、resource cache 或 Tauri command。
@@ -51,8 +54,8 @@
 
 1. 用户在 weapons 表格选中非注释行。
 2. 详情面板调用表格详情 action domain。
-3. 表格详情 action domain 从行数据提取武器 ID 并生成 `kind=weapon` 的 editor window action。
-4. 主窗口 shell action 调用通用编辑器窗口打开入口。
+3. 表格详情 action domain 从行数据提取武器 ID，生成 `kind=weapon` 的 editor window action、发射预览 action，并追加关联 `.wpn` 文本 file editor action。
+4. 用户触发武器编辑器 action 后，主窗口 shell action 调用通用编辑器窗口打开入口。
 5. 窗口模块按 `weapon + modRoot + id` 单例化编辑器窗口并写入 URL 参数。
 6. 新窗口挂载编辑器窗口应用。
 7. EditorWindowContent 解析 `kind`、`sessionId`、`modRoot`、`id` 和设置参数。
@@ -94,22 +97,23 @@
 8. Rust files command 校验 `sessionId + modRoot`。
 9. Rust editor spec service 校验武器 ID 并在 `data/weapons` 中定位已存在 `id` 匹配的 `.wpn`。
 10. Rust editor spec service 剥离内部字段、写入 pretty JSON 文本并返回 `WriteResult`。
-11. ViewModel 将保存后的 spec 应用到本窗口 bundle。
+11. ViewModel 通过 Draft Session 将保存后的 spec 提升为本窗口草稿基准，清空 dirty 和外部更新暂存。
 12. ViewModel 广播 `editor-spec-saved`，携带 `sessionId + modRoot + kind + id + spec + WriteResult`。
-13. 主窗口保存事件监听校验当前 manifest session 仍匹配后记录文件级 history。
-14. 主窗口按 `WriteResult.invalidatedPaths` 刷新 ProjectSession 并广播 session invalidation。
+13. 主窗口保存事件监听把保存事件交给 File History Session。
+14. File History Session 校验当前 manifest session 仍匹配后记录文件级 history。
+15. File History Session 按 `WriteResult.invalidation.paths` 刷新 ProjectSession 并广播 session invalidation。
 
 ### 刷新武器窗口派生数据
 
-1. 主窗口或其它编辑器窗口完成写入并广播 ProjectSession invalidation。
-2. 武器编辑器窗口接收与当前 `sessionId + modRoot` 匹配的 invalidation。
-3. 编辑器窗口 ViewModel 将 invalidation 应用于本窗口 query cache 和 resource cache。
-4. query cache 事件命中当前 weapon entity detail 时，ViewModel 重新查询完整 weapon bundle。
+1. 主窗口或其它编辑器窗口完成写入并广播 ProjectSession refresh 事件。
+2. 武器编辑器窗口接收与当前 `sessionId + modRoot` 匹配的 refresh 事件。
+3. 编辑器窗口 ViewModel 将 refresh event 应用于本窗口 query cache 和 resource cache。
+4. query cache 事件命中当前 weapon entity detail 时，ViewModel 重新查询 weapon bundle；dirty 为 false 时通过 Draft Session 更新 draft，dirty 为 true 时暂存外部 spec 并保留当前 draft。
 5. query cache 事件命中已加载 projectile detail 时，ViewModel 只刷新 `projectileSpecs`。
 6. query cache 事件命中 projectile entity-list 时，ViewModel 只刷新 `projectileOptions`。
 7. resource cache 事件命中当前 bundle 的 weapon resource refs 时，ViewModel 只刷新 `weaponSpriteData`。
 8. 派生刷新返回后，ViewModel 校验 request id、bundle identity 和窗口目标仍一致。
-9. ViewModel 更新弹体依赖、projectile options 或贴图 data URL。
+9. ViewModel 更新弹体依赖、projectile options 或贴图 data URL；派生刷新不得改变 `.wpn` draft revision。
 
 ### 打开关联弹体
 
@@ -136,7 +140,7 @@
 4. editor service 通过 write service 调用 sprite upload API。
 5. Rust 资源写入链路返回上传状态和 `WriteResult`。
 6. 上传成功且存在 changeset 时，sprite upload orchestrator 广播 `sprite-upload-saved`。
-7. 主窗口保存事件监听记录贴图文件级 history 并刷新 ProjectSession。
+7. 主窗口保存事件监听把贴图保存事件交给 File History Session，完成文件级 history 记录和 ProjectSession 刷新。
 8. WeaponEditor 上传回调用返回路径更新本地贴图字段，并用本次 data URL 刷新对应贴图预览。
 
 ## 规范
@@ -155,6 +159,8 @@
 - Rust 写入 `.wpn` 前必须剥离 schema 或编辑器内部字段。
 - WeaponEditor 的未选中发射点、hover 发射点、active 发射点和检查器锁定目标必须以 null 表达。
 - WeaponEditor 的局部 undo/redo 上限和栈内容只保存在编辑器窗口内存中，不持久化。
+- WeaponEditor 只能在 `draftRevision` 变化时用父级 draft 重置本地 working copy；贴图 data URL、projectile options 和已加载 projectile specs 变化不得重置本地 working copy。
+- 当前 `.wpn` dirty 时，外部保存或主实体失效只能写入待载入外部版本提示，不能覆盖当前 draft。
 - WeaponFirePreview 必须保持只读，不得发出 `save-requested`、`editor-spec-saved` 或 sprite upload saved 事件。
 - ViewModel 接收异步 bundle、弹体依赖或资源刷新结果前必须校验 request id、bundle identity 和当前窗口目标。
 - 保存事件必须携带 `sessionId + modRoot + kind + id + spec + WriteResult`，不得只广播文件路径或 ID。
@@ -172,6 +178,7 @@
 - 在 WeaponEditor 组件中直接调用 shared files API，会绕过窗口 ViewModel 的保存事件、history 和 session invalidation。
 - 在 projectile options 变化时重查完整 weapon bundle，会覆盖窗口内未保存的 `.wpn` 草稿。
 - 在资源 data URL 失效时重置完整 weapon bundle，会覆盖窗口内未保存的 `.wpn` 草稿。
+- 在 dirty 状态下把外部保存事件直接应用到 WeaponEditor props，会覆盖窗口内未保存的 `.wpn` 草稿。
 - 只用文件名定位保存目标会忽略已有嵌套 `.wpn` 中的正式 `id`。
 - 主窗口不校验 session 就记录保存事件，会把已关闭或重载 Mod 的 changeset 写入错误 history。
 - 预览窗口写入 `.wpn`、`.proj` 或 CSV 会破坏只读预览边界。

@@ -21,29 +21,6 @@ pub enum CsvTableKey {
     Descriptions,
 }
 
-pub const CSV_TABLES: [(CsvTableKey, &str); 14] = [
-    (CsvTableKey::Ships, "data/hulls/ship_data.csv"),
-    (CsvTableKey::Weapons, "data/weapons/weapon_data.csv"),
-    (CsvTableKey::Wings, "data/hulls/wing_data.csv"),
-    (CsvTableKey::Hullmods, "data/hullmods/hull_mods.csv"),
-    (
-        CsvTableKey::ShipSystems,
-        "data/shipsystems/ship_systems.csv",
-    ),
-    (CsvTableKey::Industries, "data/campaign/industries.csv"),
-    (CsvTableKey::Skills, "data/characters/skills/skill_data.csv"),
-    (CsvTableKey::Abilities, "data/campaign/abilities.csv"),
-    (CsvTableKey::Commodities, "data/campaign/commodities.csv"),
-    (CsvTableKey::SpecialItems, "data/campaign/special_items.csv"),
-    (CsvTableKey::Submarkets, "data/campaign/submarkets.csv"),
-    (
-        CsvTableKey::MarketConditions,
-        "data/campaign/market_conditions.csv",
-    ),
-    (CsvTableKey::SimOpponents, "data/campaign/sim_opponents.csv"),
-    (CsvTableKey::Descriptions, "data/strings/descriptions.csv"),
-];
-
 pub const CSV_FACTION_FIELD: &str = "_faction";
 pub const CSV_DEFAULT_FACTION_ID: &str = "other";
 
@@ -68,9 +45,23 @@ impl CsvTableKey {
     }
 
     pub fn from_key(value: &str) -> Option<Self> {
-        CSV_TABLES
-            .iter()
-            .find_map(|(key, _)| (key.as_str() == value).then_some(*key))
+        match value {
+            "ships" => Some(Self::Ships),
+            "weapons" => Some(Self::Weapons),
+            "wings" => Some(Self::Wings),
+            "hullmods" => Some(Self::Hullmods),
+            "shipSystems" => Some(Self::ShipSystems),
+            "industries" => Some(Self::Industries),
+            "skills" => Some(Self::Skills),
+            "abilities" => Some(Self::Abilities),
+            "commodities" => Some(Self::Commodities),
+            "specialItems" => Some(Self::SpecialItems),
+            "submarkets" => Some(Self::Submarkets),
+            "marketConditions" => Some(Self::MarketConditions),
+            "simOpponents" => Some(Self::SimOpponents),
+            "descriptions" => Some(Self::Descriptions),
+            _ => None,
+        }
     }
 }
 
@@ -85,10 +76,7 @@ pub enum CsvFactionFilter {
 }
 
 impl CsvFactionFilter {
-    pub fn faction_id_for_table(&self, table: CsvTableKey) -> Option<&str> {
-        if !matches!(table, CsvTableKey::Ships | CsvTableKey::Weapons) {
-            return None;
-        }
+    pub fn faction_id(&self) -> Option<&str> {
         match self {
             Self::All => None,
             Self::Faction { faction_id } => Some(faction_id.as_str()),
@@ -112,11 +100,85 @@ pub struct ProjectManifest {
     pub mod_root: String,
     pub starsector_root: Option<String>,
     pub core_available: bool,
+    pub associated_spec_tables: Vec<CsvTableKey>,
     pub mod_info: Value,
     pub table_summaries: BTreeMap<CsvTableKey, TableSummary>,
     pub table_entity_summaries: BTreeMap<CsvTableKey, usize>,
     pub entity_summaries: EntitySummaries,
     pub warnings: Vec<GameScanWarning>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectInvalidation {
+    pub paths: Vec<String>,
+    pub tables: Vec<CsvTableKey>,
+    pub entities: Vec<InvalidatedEntityRef>,
+    pub resources: Vec<InvalidatedResourceScope>,
+    pub query_scopes: Vec<InvalidatedQueryScope>,
+    pub session: bool,
+}
+
+impl ProjectInvalidation {
+    pub fn merge(&mut self, other: Self) {
+        push_unique_all(&mut self.paths, other.paths);
+        push_unique_all(&mut self.tables, other.tables);
+        push_unique_all(&mut self.entities, other.entities);
+        push_unique_all(&mut self.resources, other.resources);
+        push_unique_all(&mut self.query_scopes, other.query_scopes);
+        self.session |= other.session;
+    }
+}
+
+fn push_unique_all<T: PartialEq>(target: &mut Vec<T>, values: Vec<T>) {
+    for value in values {
+        if !target.contains(&value) {
+            target.push(value);
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectSessionInvalidationResult {
+    pub manifest: ProjectManifest,
+    pub invalidation: ProjectInvalidation,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct InvalidatedEntityRef {
+    pub kind: EntityKind,
+    pub id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct InvalidatedResourceScope {
+    pub source: ResourceSource,
+    pub rel_path: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct InvalidatedQueryScope {
+    pub kind: InvalidatedQueryKind,
+    pub table: Option<CsvTableKey>,
+    pub source: Option<String>,
+    pub entity: Option<InvalidatedEntityRef>,
+    pub resource: Option<InvalidatedResourceScope>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum InvalidatedQueryKind {
+    CsvTableWindow,
+    CsvSourceOptions,
+    CsvRowPreview,
+    HullReferences,
+    EntityDetail,
+    EntityList,
+    ResourceDataUrls,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

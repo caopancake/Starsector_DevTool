@@ -2,16 +2,30 @@
   <main class="file-editor-page" :data-theme="settings.theme">
     <header class="file-editor-header">
       <div class="file-editor-heading">
-        <div class="file-editor-title">{{ title }}</div>
-        <div class="file-editor-path" :title="filePathText">{{ filePathText }}</div>
+        <div class="file-editor-title-row">
+          <div class="file-editor-title" :title="fileName">{{ fileName }}</div>
+          <div class="file-editor-status" :class="{ dirty, saving, loading }">{{ fileStatusText }}</div>
+        </div>
+        <div class="file-editor-path" :title="filePathText">{{ displayPath }}</div>
+        <div class="file-editor-meta" aria-label="文件信息">
+          <span>{{ fileTypeText }}</span>
+          <span>{{ lineCount }} 行</span>
+          <span>{{ modRootName }}</span>
+        </div>
       </div>
       <div class="file-editor-actions">
+        <n-button v-if="hasPendingExternalText" secondary type="warning" @click="loadExternalText">载入外部文本</n-button>
         <n-button :disabled="!dirty || saving" @click="cancelFileChanges">取消</n-button>
         <n-button type="primary" :loading="saving" :disabled="!dirty" @click="saveFile">保存</n-button>
       </div>
     </header>
 
-    <section v-if="contextMessage" :class="['file-editor-message', { danger: isErrorContext }]">
+    <section v-if="externalTextNotice" class="file-editor-message warning">
+      <span>外部更新</span>
+      <p>{{ externalTextNotice }}</p>
+    </section>
+
+    <section v-if="showContextMessage" :class="['file-editor-message', { danger: isErrorContext }]">
       <span>{{ contextLabel }}</span>
       <p>{{ contextMessage }}</p>
     </section>
@@ -42,10 +56,11 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { useFileEditorViewModel } from '@/app/composables/use-file-editor-view-model';
 import { useSettingsStore } from '@/stores/settings.store';
 import { closeCurrentWebviewWindow } from '@/windows/current.window';
+import { pathBasename, pathBelongsToRoot, relativePathFromRoot } from '@/shared/lib/paths';
 
 const params = new window.URLSearchParams(window.location.search);
 const settings = useSettingsStore();
@@ -53,12 +68,23 @@ const filePath = params.get('file');
 const modRoot = params.get('modRoot');
 const sessionId = params.get('sessionId');
 const filePathText = filePath ?? '缺少文件路径';
+const fileName = computed(() => (filePath ? pathBasename(filePath) : '缺少文件路径'));
+const displayPath = computed(() => {
+  if (!filePath) return '缺少文件路径';
+  if (modRoot && pathBelongsToRoot(filePath, modRoot)) return relativePathFromRoot(modRoot, filePath);
+  return filePath;
+});
+const fileTypeText = computed(() => {
+  const name = fileName.value;
+  const extension = name.includes('.') ? name.split('.').pop()?.toUpperCase() : '';
+  return extension ? `${extension} 文本` : '文本文件';
+});
+const modRootName = computed(() => (modRoot ? pathBasename(modRoot) : '未知 Mod'));
 const scrollTop = ref(0);
 const lineHeight = 20;
 const textareaRef = ref<HTMLTextAreaElement>();
 const lineGutterRef = ref<HTMLElement>();
 const {
-  title,
   contextLabel,
   contextMessage,
   targetLine,
@@ -66,12 +92,15 @@ const {
   loading,
   saving,
   dirty,
+  hasPendingExternalText,
+  externalTextNotice,
   lineCount,
   isErrorContext,
   initialize,
   dispose,
   saveFile,
   cancelChanges,
+  loadPendingExternalText,
   updateText,
   undoEdit,
   redoEdit,
@@ -84,6 +113,13 @@ const {
   contextSeverity: params.get('contextSeverity') ?? 'info',
   contextMessage: params.get('message') ?? '',
   line: params.get('line'),
+});
+const showContextMessage = computed(() => Boolean(contextMessage.value && (isErrorContext.value || targetLine.value)));
+const fileStatusText = computed(() => {
+  if (loading.value) return '读取中';
+  if (saving.value) return '保存中';
+  if (hasPendingExternalText.value) return '外部文本已更新';
+  return dirty.value ? '未保存' : '已保存';
 });
 
 function syncScroll() {
@@ -118,6 +154,11 @@ function redoTextEdit() {
 
 function cancelFileChanges() {
   cancelChanges();
+  void nextTick(scrollToTargetLine);
+}
+
+function loadExternalText() {
+  loadPendingExternalText();
   void nextTick(scrollToTargetLine);
 }
 

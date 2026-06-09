@@ -2,11 +2,7 @@ import { computed, onUnmounted, ref, watch } from 'vue';
 import { getConfigMissionEditorData, listConfigMissionRecords } from '@/services/config-entity.service';
 import { useProjectStore } from '@/stores/project.store';
 import type { ConfigMissionEditorData, ResourceRef, RowData } from '@/shared/types';
-import {
-  createIndexedConfigEntityAction,
-  deleteIndexedConfigEntityAction,
-  saveIndexedConfigEntityAction,
-} from '@/orchestrators/config-save.orchestrator';
+import { createIndexedEntityAction, deleteIndexedEntityAction, saveIndexedEntityAction } from '@/orchestrators/config-save.orchestrator';
 import {
   buildMissionIndexRow,
   configMissionSaveDraft,
@@ -17,11 +13,8 @@ import {
 import { deepClone } from '@/shared/lib/starsector';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import type { FileSchema } from '@/domain/schema/schema.types';
-import {
-  queryCacheInvalidationIncludes,
-  queryCacheInvalidationIncludesResourceIdentity,
-  subscribeQueryCacheInvalidation,
-} from '@/services/query-cache.service';
+import { hasEntityInvalidation, subscribeQueryInvalidations } from '@/services/query-cache.service';
+import { hasResourceInvalidation, subscribeResourceInvalidations } from '@/services/resource-cache.service';
 
 export function useConfigMissionViewModel() {
   const selectedMission = ref<string | null>(null);
@@ -48,9 +41,8 @@ export function useConfigMissionViewModel() {
 
   async function queryMissions() {
     const requestId = ++missionsRequestId;
-    const manifest = project.activeManifest;
     const activeSessionId = sessionId.value;
-    if (!activeSessionId || !manifest) {
+    if (!activeSessionId) {
       missionRows.value = [];
       missionIcons.value = {};
       missionIconResourceRefs.value = [];
@@ -65,7 +57,6 @@ export function useConfigMissionViewModel() {
     const missions = missionItems.value.map((mission) => mission.id);
     if (!selectedMission.value && missions[0]) selectedMission.value = missions[0];
     if (selectedMission.value && !missions.includes(selectedMission.value)) selectedMission.value = missions[0] ?? null;
-    project.updateEntitySummary(manifest.modRoot, 'missions', missionItems.value.length);
   }
 
   async function queryMissionEditorData(targetSessionId: string, id: string): Promise<ConfigMissionEditorData | null> {
@@ -78,7 +69,7 @@ export function useConfigMissionViewModel() {
       feedback.error('战役 ID 不能包含路径分隔符或 ..');
       return false;
     }
-    await createIndexedConfigEntityAction({
+    await createIndexedEntityAction({
       sessionId: createSessionId,
       modRoot: createModRoot,
       kind: 'mission',
@@ -119,7 +110,7 @@ export function useConfigMissionViewModel() {
 
   async function saveMissionDraft(activeSessionId: string, activeModRoot: string, previousId: string, draft: ConfigMissionSaveDraft) {
     const idChanged = draft.nextId !== previousId;
-    await saveIndexedConfigEntityAction({
+    await saveIndexedEntityAction({
       sessionId: activeSessionId,
       modRoot: activeModRoot,
       kind: 'mission',
@@ -136,7 +127,7 @@ export function useConfigMissionViewModel() {
   }
 
   async function deleteMission(deleteSessionId: string, deleteModRoot: string, id: string, deleteDirectory: boolean): Promise<boolean> {
-    await deleteIndexedConfigEntityAction(deleteSessionId, deleteModRoot, 'mission', id, deleteDirectory);
+    await deleteIndexedEntityAction(deleteSessionId, deleteModRoot, 'mission', id, deleteDirectory);
     feedback.success(`战役 "${id}" 已删除`);
     if (modRoot.value !== deleteModRoot || sessionId.value !== deleteSessionId) return true;
     await queryMissions();
@@ -163,23 +154,29 @@ export function useConfigMissionViewModel() {
   }
 
   watch(() => project.activeSessionId, queryMissions, { immediate: true });
-  const unsubscribeQueryCacheInvalidation = subscribeQueryCacheInvalidation((event) => {
+  const stopQueryInvalidation = subscribeQueryInvalidations((event) => {
     if (event.sessionId !== sessionId.value) return;
-    const missionsChanged = queryCacheInvalidationIncludes(event, 'entity-list', (parameters) => parameters.kind === 'mission');
-    const missionResourcesChanged = queryCacheInvalidationIncludesResourceIdentity(event, missionIconResourceRefs.value);
-    if (missionsChanged) void refreshMissionsAfterDataInvalidation();
-    else if (missionResourcesChanged) void refreshMissionsAfterResourceInvalidation();
+    const missionsChanged = hasEntityInvalidation(event, 'entity-list', 'mission');
+    if (missionsChanged) void refreshMissionData();
   });
-  onUnmounted(unsubscribeQueryCacheInvalidation);
+  const stopResourceInvalidation = subscribeResourceInvalidations((event) => {
+    if (event.sessionId !== sessionId.value) return;
+    if (!hasResourceInvalidation(event, missionIconResourceRefs.value)) return;
+    void refreshMissionResources();
+  });
+  onUnmounted(() => {
+    stopQueryInvalidation();
+    stopResourceInvalidation();
+  });
 
-  async function refreshMissionsAfterDataInvalidation() {
+  async function refreshMissionData() {
     await queryMissions();
     refreshToken.value += 1;
     missionEditorReloadToken.value += 1;
     missionIconRefreshToken.value += 1;
   }
 
-  async function refreshMissionsAfterResourceInvalidation() {
+  async function refreshMissionResources() {
     await queryMissions();
     refreshToken.value += 1;
     missionIconRefreshToken.value += 1;

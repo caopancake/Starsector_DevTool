@@ -1,7 +1,13 @@
 <template>
   <div class="modal-backdrop">
     <div ref="editorWindowRef" class="editor-window" tabindex="-1">
-      <EditorHeader title="武器编辑器" :subtitle="weaponId">
+      <EditorHeader
+        title="武器编辑器"
+        :subtitle="weaponId"
+        :dirty="dirty"
+        :external-update-notice="externalUpdateNotice"
+        @load-external="$emit('load-external')"
+      >
         <div class="ship-mode-controls">
           <div class="segmented ship-mode-tabs">
             <button :class="{ active: viewMode === 'turret' }" @click="setView('turret')">
@@ -273,10 +279,15 @@ const props = defineProps<{
   spriteData?: Record<string, string>;
   projectiles: Record<string, RowData>;
   projectileOptions: { label: string; value: string }[];
+  draftRevision: number;
+  dirty: boolean;
+  externalUpdateNotice: string;
 }>();
 const emit = defineEmits<{
   close: [];
-  'save-requested': [weapon: RowData];
+  'save-requested': [];
+  'draft-changed': [weapon: RowData];
+  'load-external': [];
   editProjectile: [id: string];
   preview: [id: string];
 }>();
@@ -831,19 +842,18 @@ async function uploadSpriteField(field: WeaponSpriteField, event: Event) {
   }
 }
 function save() {
-  emit('save-requested', localWeapon.value);
+  emit('save-requested');
 }
 watch(
-  () => props.weapon,
-  (weapon) => {
-    localWeapon.value = normalizeWeaponSpec(weapon);
+  () => props.draftRevision,
+  () => {
+    localWeapon.value = normalizeWeaponSpec(props.weapon);
     selected.value = null;
     hovered.value = null;
     activeBarrel.value = null;
     inspectorLock.value = null;
     hoverPreview.value = null;
   },
-  { deep: true },
 );
 watch(
   () => props.spriteData,
@@ -853,7 +863,14 @@ watch(
   },
   { deep: true },
 );
-watch(localWeapon, draw, { deep: true });
+watch(
+  localWeapon,
+  (weapon) => {
+    emit('draft-changed', weapon);
+    draw();
+  },
+  { deep: true, flush: 'sync' },
+);
 onMounted(() => {
   window.addEventListener('resize', resizeCanvas);
   window.addEventListener('keydown', onKeyDown);

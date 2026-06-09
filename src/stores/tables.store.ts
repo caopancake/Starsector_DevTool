@@ -2,7 +2,6 @@ import { defineStore } from 'pinia';
 import { computed, reactive, ref } from 'vue';
 import {
   TABLE_KEYS,
-  CSV_FACTION_FIELD,
   type CsvRowKeyMapping,
   type CsvTableRows,
   type CsvTableWindow,
@@ -11,22 +10,39 @@ import {
   type RowData,
   type TableKey,
 } from '@/shared/types';
-import { cell, deepClone, getColumns, MODULE_LABELS, rowDisplayId } from '@/shared/lib/starsector';
+import { getColumns, MODULE_LABELS } from '@/shared/lib/starsector';
 import { isInternalJsonFieldKey } from '@/shared/lib/json-fields';
 import { getNextActiveKeyAfterRemoval } from '@/shared/lib/store-utils';
-import { createCsvDeletedRow, createCsvDirtyCells, csvDirtyCells, hasCsvDirtyCells } from '@/domain/tables/csv-dirty';
-import {
-  DEFAULT_CSV_FACTION_FILTER,
-  csvFactionFilterFromOptionValue,
-  csvFactionFilterOptionValue,
-  defaultCsvFactionId,
-} from '@/domain/tables/csv-faction-filter';
+import { csvDirtyCells } from '@/domain/tables/csv-dirty';
+import { DEFAULT_CSV_FACTION_FILTER, filterFromOptionValue, filterOptionValue } from '@/domain/tables/csv-faction-filter';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
-import { TABLE_ROW_KEY_FIELD, resolveTableRowKey } from '@/domain/tables/table-row-key';
+import {
+  applyCsvTableWindowDraft,
+  applySavedCsvRowKeyMapDraft,
+  cancelCsvCellEditDraft,
+  clearCsvTableExternalUpdateDraft,
+  createCsvRowDraft,
+  csvTableRowKey,
+  deleteSelectedCsvRowDraft,
+  discardCsvTableWindowForReloadDraft,
+  finishCsvCellEditDraft,
+  hasCsvTableDraftChanges,
+  markCsvTableExternalUpdateDraft,
+  markCsvTableSavedDraft,
+  replaceCsvTableDraft,
+  setCsvCellValueDraft,
+  setCsvEditingValueDraft,
+  startCsvCellEditDraft,
+  type CsvDraftResult,
+} from '@/domain/tables/csv-table-draft';
 import { isLoadedCsvTableRow } from '@/domain/tables/csv-table-rows';
 
 function emptyDirtyState(): ModTableState['dirty'] {
   return emptyTableRecord(() => ({}));
+}
+
+function emptyExternalUpdateState(): Record<TableKey, boolean> {
+  return emptyTableRecord(() => false);
 }
 
 function emptyTablesRecord(): Record<TableKey, CsvTableRows> {
@@ -53,6 +69,7 @@ function createModTableState(): ModTableState {
     totalRows: emptyCountRecord(),
     filteredRows: emptyCountRecord(),
     dirty: emptyDirtyState(),
+    pendingExternalTableUpdates: emptyExternalUpdateState(),
     currentTab: 'ships',
     currentFaction: DEFAULT_CSV_FACTION_FILTER,
     searchText: '',
@@ -69,17 +86,6 @@ function applyManifestSummaries(state: ModTableState, manifest: ProjectManifest)
     state.totalRows[key] = summary.totalRows ?? 0;
     state.filteredRows[key] = summary.totalRows ?? 0;
   }
-}
-
-function mergeWindowRows(currentRows: CsvTableRows, windowRows: RowData[], start: number, rowCount: number): CsvTableRows {
-  const nextRows = Array.from(
-    { length: Math.max(currentRows.length, start + windowRows.length, rowCount) },
-    (_, index) => currentRows[index] ?? null,
-  );
-  for (let index = 0; index < windowRows.length; index += 1) {
-    nextRows[start + index] = windowRows[index];
-  }
-  return nextRows;
 }
 
 export const useTablesStore = defineStore('tables', () => {
@@ -108,9 +114,9 @@ export const useTablesStore = defineStore('tables', () => {
     },
   });
   const currentFactionOptionValue = computed({
-    get: () => csvFactionFilterOptionValue(currentFaction.value),
+    get: () => filterOptionValue(currentFaction.value),
     set: (v) => {
-      currentFaction.value = csvFactionFilterFromOptionValue(v);
+      currentFaction.value = filterFromOptionValue(v);
     },
   });
   const searchText = computed({
@@ -167,6 +173,10 @@ export const useTablesStore = defineStore('tables', () => {
     const state = getActiveState();
     if (!state) return false;
     return Object.keys(state.dirty[state.currentTab]).length > 0 || state.editing?.tab === state.currentTab;
+  });
+  const hasCurrentTableExternalUpdate = computed(() => {
+    const state = getActiveState();
+    return state ? state.pendingExternalTableUpdates[state.currentTab] : false;
   });
   const canUndoCurrentTableEdit = computed(() =>
     activeRoot.value ? csvEditHistory.canUndoCsvEdit(activeRoot.value, currentTab.value) : false,
@@ -226,21 +236,29 @@ export const useTablesStore = defineStore('tables', () => {
   function applyTableWindow(window: CsvTableWindow) {
     const state = getActiveState();
     if (!state) return;
-    const table = window.table;
-    state.headers[table] = [...window.header];
-    state.totalRows[table] = window.totalRows;
-    state.filteredRows[table] = window.filteredRows;
-    const rows = window.rows.map((item) => ({
-      ...deepClone(item.row),
-      [TABLE_ROW_KEY_FIELD]: item.rowKey,
-    }));
-    const mergedRows = mergeWindowRows(state.tables[table], rows, window.start, window.filteredRows);
-    state.tables[table] = mergedRows;
-    state.originalTables[table] = mergeWindowRows(state.originalTables[table], deepClone(rows), window.start, window.filteredRows);
+    applyCsvTableWindowDraft(state, window);
+  }
+
+  function hasTableDirtyChanges(tab: TableKey): boolean {
+    const state = getActiveState();
+    if (!state) return false;
+    return hasCsvTableDraftChanges(state, tab);
+  }
+
+  function markTableExternalUpdate(tab: TableKey) {
+    const state = getActiveState();
+    if (!state) return;
+    markCsvTableExternalUpdateDraft(state, tab);
+  }
+
+  function clearTableExternalUpdate(tab: TableKey) {
+    const state = getActiveState();
+    if (!state) return;
+    clearCsvTableExternalUpdateDraft(state, tab);
   }
 
   function tableRowKey(row: RowData, index: number): string {
-    return tableRowKeyForTab(currentTab.value, row, index);
+    return csvTableRowKey(currentTab.value, row, index);
   }
 
   function selectRowByKey(rowKey: string | null) {
@@ -252,62 +270,30 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   function startCellEditByKey(rowKey: string, col: string, value: string) {
-    editing.value = { tab: currentTab.value, rowKey, col, value };
+    const state = getActiveState();
+    if (state) startCsvCellEditDraft(state, rowKey, col, value);
   }
 
   function setEditingValue(value: string) {
     const state = getActiveState();
-    if (state?.editing) state.editing.value = value;
+    if (state) setCsvEditingValueDraft(state, value);
   }
 
   function finishCellEdit() {
     const state = getActiveState();
-    if (!state || !state.editing) return;
-    const { tab, rowKey, col, value } = state.editing;
-    applyCellValue(state, tab, rowKey, col, value);
-    state.editing = null;
+    if (!state) return;
+    pushCsvDraftResult(state.currentTab, finishCsvCellEditDraft(state));
   }
 
   function updateCellValueByKey(rowKey: string, col: string, value: string) {
     const state = getActiveState();
     if (!state) return;
-    applyCellValue(state, state.currentTab, rowKey, col, value);
-  }
-
-  function applyCellValue(state: ModTableState, tab: TableKey, rowKey: string, col: string, value: string) {
-    const row = state.tables[tab].find(
-      (candidate, index): candidate is RowData => isLoadedCsvTableRow(candidate) && tableRowKeyForTab(tab, candidate, index) === rowKey,
-    );
-    if (!row) return;
-    const previousValue = cell(row[col]);
-    row[col] = value;
-    const original = state.originalTables[tab].find(
-      (candidate, index): candidate is RowData => isLoadedCsvTableRow(candidate) && tableRowKeyForTab(tab, candidate, index) === rowKey,
-    );
-    const originalValue = cell(original?.[col]);
-    if (value !== originalValue) {
-      const cells = ensureDirtyCells(state, tab, rowKey);
-      cells[col] = value;
-    } else if (state.dirty[tab][rowKey]) {
-      const cells = csvDirtyCells(state.dirty[tab][rowKey]);
-      if (cells) delete cells[col];
-      if (!hasCsvDirtyCells(state.dirty[tab][rowKey])) delete state.dirty[tab][rowKey];
-    }
-    state.editing = null;
-
-    if (value !== previousValue) {
-      if (!activeRoot.value) return;
-      csvEditHistory.pushCsvEditEvent(
-        activeRoot.value,
-        tab,
-        { type: 'csv-cell-edit', tab, rowKey, col, previousValue, newValue: value },
-        `编辑 ${tab} [${col}]`,
-      );
-    }
+    pushCsvDraftResult(state.currentTab, setCsvCellValueDraft(state, state.currentTab, rowKey, col, value));
   }
 
   function cancelCellEdit() {
-    editing.value = null;
+    const state = getActiveState();
+    if (state) cancelCsvCellEditDraft(state);
   }
 
   function undoCurrentTableEdit(): boolean {
@@ -321,94 +307,13 @@ export const useTablesStore = defineStore('tables', () => {
   async function addNewRow() {
     const state = getActiveState();
     if (!state) return;
-    const tab = state.currentTab;
-    const id = `new_${tab}_${Date.now()}`;
-    const header = state.headers[tab];
-    const row: RowData = {};
-    for (const col of header) row[col] = '';
-    if ('id' in row) row.id = id;
-    if ('name' in row) row.name = id;
-    row[CSV_FACTION_FIELD] = defaultCsvFactionId();
-
-    row[TABLE_ROW_KEY_FIELD] = `${tab}:new:${state.nextRowKey++}`;
-    state.tables[tab].push(row);
-    state.totalRows[tab] += 1;
-    state.filteredRows[tab] += 1;
-    const rowKey = tableRowKeyForTab(tab, row, state.tables[tab].length - 1);
-    selectedRowKey.value = rowKey;
-    markFullRowDirty(state, tab, row);
-
-    if (!activeRoot.value) return;
-    csvEditHistory.pushCsvEditEvent(
-      activeRoot.value,
-      tab,
-      { type: 'row-create', tab, rowKey, rowIndex: state.tables[tab].length - 1, row: deepClone(row) },
-      `新建 ${tab} 行: ${id}`,
-    );
+    pushCsvDraftResult(state.currentTab, createCsvRowDraft(state, Date.now()));
   }
 
   async function deleteSelected() {
     const state = getActiveState();
     if (!state) return;
-    const tab = state.currentTab;
-    const rowKey = state.selectedRowKey;
-    if (!rowKey) return;
-
-    const row = state.tables[tab].find(
-      (candidate, index): candidate is RowData => isLoadedCsvTableRow(candidate) && tableRowKeyForTab(tab, candidate, index) === rowKey,
-    );
-    if (!row) {
-      state.selectedRowKey = null;
-      return;
-    }
-
-    const rowIndex = state.tables[tab].findIndex(
-      (candidate, index) => isLoadedCsvTableRow(candidate) && tableRowKeyForTab(tab, candidate, index) === rowKey,
-    );
-    const id = rowDisplayId(row) || `第 ${rowIndex + 1} 行`;
-    state.tables[tab] = state.tables[tab].filter((r) => r !== row);
-    state.totalRows[tab] = Math.max(0, state.totalRows[tab] - 1);
-    state.filteredRows[tab] = Math.max(0, state.filteredRows[tab] - 1);
-    if (rowKey) {
-      const originalExists = state.originalTables[tab].some(
-        (candidate, index) => isLoadedCsvTableRow(candidate) && tableRowKeyForTab(tab, candidate, index) === rowKey,
-      );
-      if (originalExists) {
-        state.dirty[tab][rowKey] = createCsvDeletedRow();
-      } else {
-        delete state.dirty[tab][rowKey];
-      }
-    }
-    state.selectedRowKey = null;
-
-    if (!activeRoot.value) return;
-    csvEditHistory.pushCsvEditEvent(
-      activeRoot.value,
-      tab,
-      { type: 'row-delete', tab, rowKey, rowIndex, row: deepClone(row) },
-      `删除 ${tab} 行: ${id}`,
-    );
-  }
-
-  function tableRowKeyForTab(tab: TableKey, row: RowData, index: number): string {
-    return resolveTableRowKey(tab, row, index);
-  }
-
-  function markFullRowDirty(state: ModTableState, tab: TableKey, row: RowData) {
-    const rowKey = tableRowKeyForTab(tab, row, state.tables[tab].indexOf(row));
-    state.dirty[tab][rowKey] = createCsvDirtyCells();
-    const cells = csvDirtyCells(state.dirty[tab][rowKey]);
-    if (!cells) return;
-    for (const [key, value] of Object.entries(row)) {
-      if (!isInternalJsonFieldKey(key)) cells[key] = cell(value);
-    }
-  }
-
-  function ensureDirtyCells(state: ModTableState, tab: TableKey, rowKey: string): Record<string, string> {
-    const existingCells = csvDirtyCells(state.dirty[tab][rowKey]);
-    if (existingCells) return existingCells;
-    state.dirty[tab][rowKey] = createCsvDirtyCells();
-    return csvDirtyCells(state.dirty[tab][rowKey]) ?? {};
+    pushCsvDraftResult(state.currentTab, deleteSelectedCsvRowDraft(state));
   }
 
   function getActiveModTableState(): ModTableState | undefined {
@@ -422,49 +327,36 @@ export const useTablesStore = defineStore('tables', () => {
   function replaceTableForMod(modRoot: string, tab: TableKey, rows: RowData[]) {
     const state = stateMap.get(modRoot);
     if (!state) return;
-    state.tables[tab] = deepClone(rows);
-    state.originalTables[tab] = deepClone(state.tables[tab]);
-    state.dirty[tab] = {};
+    replaceCsvTableDraft(state, tab, rows);
   }
 
-  function resetTableWindow(tab: TableKey) {
+  function discardTableDraftForReload(tab: TableKey) {
     const state = getActiveState();
     if (!state) return;
-    state.tables[tab] = [];
-    state.originalTables[tab] = [];
-    state.dirty[tab] = {};
-    if (state.currentTab === tab) {
-      state.selectedRowKey = null;
-      state.editing = null;
-    }
+    discardCsvTableWindowForReloadDraft(state, tab);
+  }
+
+  function loadExternalTableDraft(tab: TableKey) {
+    const state = getActiveState();
+    if (!state) return;
+    discardCsvTableWindowForReloadDraft(state, tab);
   }
 
   function markTableSavedForMod(modRoot: string, tab: TableKey) {
     const state = stateMap.get(modRoot);
     if (!state) return;
-    state.originalTables[tab] = deepClone(state.tables[tab]);
-    state.dirty[tab] = {};
+    markCsvTableSavedDraft(state, tab);
   }
 
   function applySavedRowKeyMapForMod(modRoot: string, tab: TableKey, keyMap: CsvRowKeyMapping[]) {
     const state = stateMap.get(modRoot);
-    if (!state || keyMap.length === 0) return;
-    const mapped = new Map(keyMap.map((item) => [item.previousKey, item.nextKey]));
-    for (const row of state.tables[tab]) {
-      if (!isLoadedCsvTableRow(row)) continue;
-      const rowKey = cell(row[TABLE_ROW_KEY_FIELD]);
-      const nextKey = mapped.get(rowKey);
-      if (nextKey) row[TABLE_ROW_KEY_FIELD] = nextKey;
-    }
-    for (const row of state.originalTables[tab]) {
-      if (!isLoadedCsvTableRow(row)) continue;
-      const rowKey = cell(row[TABLE_ROW_KEY_FIELD]);
-      const nextKey = mapped.get(rowKey);
-      if (nextKey) row[TABLE_ROW_KEY_FIELD] = nextKey;
-    }
-    if (state.selectedRowKey) {
-      state.selectedRowKey = mapped.get(state.selectedRowKey) ?? state.selectedRowKey;
-    }
+    if (!state) return;
+    applySavedCsvRowKeyMapDraft(state, tab, keyMap);
+  }
+
+  function pushCsvDraftResult(table: TableKey, result: CsvDraftResult) {
+    if (!activeRoot.value || !result.historyOperation || !result.historyLabel) return;
+    csvEditHistory.pushCsvDraftOperation(activeRoot.value, table, result.historyOperation, result.historyLabel);
   }
 
   function setSaving(value: boolean) {
@@ -483,6 +375,7 @@ export const useTablesStore = defineStore('tables', () => {
     filteredRowCount,
     filteredRows,
     hasCurrentTableChanges,
+    hasCurrentTableExternalUpdate,
     hasAnyTableChanges,
     hasAnyTableDirtyChanges,
     isDirty,
@@ -501,22 +394,26 @@ export const useTablesStore = defineStore('tables', () => {
     finishCellEdit,
     getActiveModTableState,
     getModTableState,
+    loadExternalTableDraft,
     hasModDirtyChanges,
     hydrate,
     hydrateWithoutActivate,
     markTableSavedForMod,
+    markTableExternalUpdate,
     removeModState,
     replaceTableForMod,
-    resetTableWindow,
+    discardTableDraftForReload,
     redoCurrentTableEdit,
     rowsFor,
     selectRowByKey,
     setSaving,
+    clearTableExternalUpdate,
     startCellEditByKey,
     setEditingValue,
     switchTab,
     applySavedRowKeyMapForMod,
     applyTableWindow,
+    hasTableDirtyChanges,
     tableRowKey,
     undoCurrentTableEdit,
     updateCellValueByKey,

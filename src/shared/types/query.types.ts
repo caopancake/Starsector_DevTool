@@ -21,23 +21,58 @@ export type DiscoveredFieldType =
 
 export type ProjectSessionId = string;
 
-export interface SchemaRuntimeContext {
-  modRoot: string;
-  sessionId: ProjectSessionId;
-  querySourceOptions?: (source: string, currentValues: string[], search?: string, limit?: number) => Promise<HydratedSourceOptionGroup[]>;
-  subscribeSourceOptionInvalidation?: (source: string, resources: () => ResourceRef[], listener: () => void) => () => void;
-}
-
 export interface ProjectManifest {
   sessionId: ProjectSessionId;
   modRoot: string;
   starsectorRoot: string | null;
   coreAvailable: boolean;
+  associatedSpecTables: TableKey[];
   modInfo: RowData;
   tableSummaries: Record<TableKey, TableSummary>;
   tableEntitySummaries: Record<TableKey, number>;
   entitySummaries: EntitySummaries;
   warnings: GameScanWarning[];
+}
+
+export interface ProjectInvalidation {
+  paths: string[];
+  tables: TableKey[];
+  entities: InvalidatedEntityRef[];
+  resources: InvalidatedResourceScope[];
+  queryScopes: InvalidatedQueryScope[];
+  session: boolean;
+}
+
+export interface ProjectSessionInvalidationResult {
+  manifest: ProjectManifest;
+  invalidation: ProjectInvalidation;
+}
+
+export interface InvalidatedEntityRef {
+  kind: EntityKind;
+  id: string | null;
+}
+
+export interface InvalidatedResourceScope {
+  source: ResourceSource;
+  relPath: string;
+}
+
+export type InvalidatedQueryKind =
+  | 'csv-table-window'
+  | 'csv-source-options'
+  | 'csv-row-preview'
+  | 'hull-references'
+  | 'entity-detail'
+  | 'entity-list'
+  | 'resource-data-urls';
+
+export interface InvalidatedQueryScope {
+  kind: InvalidatedQueryKind;
+  table: TableKey | null;
+  source: string | null;
+  entity: InvalidatedEntityRef | null;
+  resource: InvalidatedResourceScope | null;
 }
 
 export interface TableSummary {

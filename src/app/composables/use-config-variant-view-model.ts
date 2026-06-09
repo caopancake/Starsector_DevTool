@@ -12,12 +12,9 @@ import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import type { ResourceRef, RowData, VariantFile } from '@/shared/types';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
-import { selectOptionResourceRefs, type SelectOption } from '@/domain/schema/schema-registry';
-import {
-  queryCacheInvalidationIncludes,
-  queryCacheInvalidationIncludesResourceIdentity,
-  subscribeQueryCacheInvalidation,
-} from '@/services/query-cache.service';
+import type { SelectOption } from '@/domain/schema/schema-options';
+import { hasEntityInvalidation, hasQueryInvalidation, subscribeQueryInvalidations } from '@/services/query-cache.service';
+import { hasResourceInvalidation, subscribeResourceInvalidations } from '@/services/resource-cache.service';
 
 export function useConfigVariantViewModel() {
   const selectedVariantId = ref<string | null>(null);
@@ -38,8 +35,7 @@ export function useConfigVariantViewModel() {
   async function loadVariants() {
     const requestId = ++variantsRequestId;
     const sessionId = project.activeSessionId;
-    const manifest = project.activeManifest;
-    if (!sessionId || !manifest) {
+    if (!sessionId) {
       variants.value = [];
       variantSprites.value = {};
       variantSpriteResourceRefs.value = [];
@@ -52,7 +48,6 @@ export function useConfigVariantViewModel() {
     const loadedVariants = await listVariantEntities(sessionId);
     if (requestId !== variantsRequestId || sessionId !== project.activeSessionId) return;
     variants.value = loadedVariants;
-    project.updateEntitySummary(manifest.modRoot, 'variants', variants.value.length);
     await loadVariantSprites();
     const nextSelected = selectedId ? variants.value.find((variant) => variant.variantId === selectedId) : null;
     if (selectedEntityDataChanged(previousSelected, nextSelected)) variantDataRevision.value += 1;
@@ -76,10 +71,10 @@ export function useConfigVariantViewModel() {
         sourceVariants.map((variant) => variant.hullId),
       );
       if (requestId !== variantSpritesRequestId || sessionId !== project.activeSessionId || sourceVariants !== variants.value) return;
+      variantSpriteResourceRefs.value = resources.resourceRefs;
       variantSprites.value = Object.fromEntries(
         sourceVariants.map((variant) => [variant.variantId, resources.sprites[variant.hullId] ?? '']),
       );
-      variantSpriteResourceRefs.value = resources.resourceRefs;
     } catch (error) {
       feedback.error(error, '读取装配缩略图失败');
     }
@@ -164,15 +159,8 @@ export function useConfigVariantViewModel() {
       feedback.warning(`装配 "${nextVariantId}" 已存在`);
       return null;
     }
-    const renameContext = configEntityRenameContext(current.variantId, current.relPath, nextVariantId);
-    const variant = await saveVariantAction(
-      saveSessionId,
-      saveModRoot,
-      nextVariantId,
-      data,
-      renameContext.previousId,
-      renameContext.previousRelPath,
-    );
+    const renameContext = configEntityRenameContext(current.variantId, nextVariantId);
+    const variant = await saveVariantAction(saveSessionId, saveModRoot, nextVariantId, data, renameContext.previousId);
     if (project.activeManifest?.modRoot !== saveModRoot || project.activeManifest.sessionId !== saveSessionId) return variant;
     await loadVariants();
     selectedVariantId.value = variant.variantId;
@@ -186,21 +174,28 @@ export function useConfigVariantViewModel() {
 
   watch(() => project.activeSessionId, loadVariants, { immediate: true });
   watch([() => project.activeSessionId, () => settings.isPlainEditMode], () => void loadHullOptions(), { immediate: true });
-  const unsubscribeQueryCacheInvalidation = subscribeQueryCacheInvalidation((event) => {
+  const stopQueryInvalidation = subscribeQueryInvalidations((event) => {
     if (event.sessionId !== project.activeSessionId) return;
-    const variantsChanged = queryCacheInvalidationIncludes(event, 'entity-list', (parameters) => parameters.kind === 'variant');
-    const hullReferencesChanged = queryCacheInvalidationIncludes(event, 'hull-references');
-    const variantSpriteResourcesChanged = queryCacheInvalidationIncludesResourceIdentity(event, variantSpriteResourceRefs.value);
-    const hullOptionResourcesChanged = queryCacheInvalidationIncludesResourceIdentity(event, selectOptionResourceRefs(hullOptions.value));
+    const variantsChanged = hasEntityInvalidation(event, 'entity-list', 'variant');
+    const hullReferenceQueryChanged = hasQueryInvalidation(event, 'hull-references');
     if (variantsChanged) void loadVariants();
-    if (hullReferencesChanged || variantSpriteResourcesChanged) {
+    if (hullReferenceQueryChanged) {
       void loadVariantSprites();
     }
-    if (hullReferencesChanged || hullOptionResourcesChanged) {
+    if (hullReferenceQueryChanged) {
       void loadHullOptions();
     }
   });
-  onUnmounted(unsubscribeQueryCacheInvalidation);
+  const stopResourceInvalidation = subscribeResourceInvalidations((event) => {
+    if (event.sessionId !== project.activeSessionId) return;
+    if (!hasResourceInvalidation(event, variantSpriteResourceRefs.value)) return;
+    void loadVariantSprites();
+    void loadHullOptions();
+  });
+  onUnmounted(() => {
+    stopQueryInvalidation();
+    stopResourceInvalidation();
+  });
 
   return {
     selectedVariantId,

@@ -1,4 +1,7 @@
-use crate::errors::{AppError, AppResult};
+use crate::{
+    errors::{AppError, AppResult},
+    io::FsRootBoundary,
+};
 use base64::{engine::general_purpose, Engine as _};
 #[cfg(test)]
 use serde_json::Value;
@@ -62,7 +65,8 @@ pub(super) fn load_sprite_data_url_from_root(
     root: &Path,
     sprite: &str,
 ) -> AppResult<Option<String>> {
-    load_sprite_data_url(root, None, sprite)
+    let boundary = FsRootBoundary::new(root, "resource root")?;
+    load_sprite_data_url_from_boundary(&boundary, None, sprite)
 }
 
 pub(super) fn load_sprite_data_url(
@@ -70,11 +74,24 @@ pub(super) fn load_sprite_data_url(
     core_dir: Option<&Path>,
     sprite: &str,
 ) -> AppResult<Option<String>> {
+    let mod_boundary = FsRootBoundary::new(mod_root, "mod resource root")?;
+    let core_boundary = core_dir
+        .filter(|core| core.exists())
+        .map(|core| FsRootBoundary::new(core, "core resource root"))
+        .transpose()?;
+    load_sprite_data_url_from_boundary(&mod_boundary, core_boundary.as_ref(), sprite)
+}
+
+fn load_sprite_data_url_from_boundary(
+    mod_root: &FsRootBoundary,
+    core_dir: Option<&FsRootBoundary>,
+    sprite: &str,
+) -> AppResult<Option<String>> {
     let Some(rel) = validate_sprite_relative_path(sprite)? else {
         return Ok(None);
     };
     // Try mod directory first
-    let mod_path = mod_root.join(&rel);
+    let mod_path = mod_root.resolve_relative(&rel, "sprite path")?;
     if mod_path.is_file() {
         let bytes = fs::read(&mod_path).map_err(|error| {
             AppError::context(
@@ -89,7 +106,7 @@ pub(super) fn load_sprite_data_url(
     }
     // Fallback: try starsector-core directory
     if let Some(core) = core_dir {
-        let core_path = core.join(&rel);
+        let core_path = core.resolve_relative(&rel, "core sprite path")?;
         if core_path.is_file() {
             let bytes = fs::read(&core_path).map_err(|error| {
                 AppError::context(

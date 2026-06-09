@@ -4,7 +4,7 @@ import naive from 'naive-ui';
 import App from '@/app/App.vue';
 import EditorWindowApp from '@/app/EditorWindowApp.vue';
 import FileEditorApp from '@/app/FileEditorApp.vue';
-import { loadSettings } from '@/services/app-config.service';
+import { loadSettings } from '@/services/app-settings.service';
 import { initializeSettingsStore } from '@/stores/settings.store';
 import { showCurrentWindow } from '@/windows/current.window';
 import './styles/index.css';

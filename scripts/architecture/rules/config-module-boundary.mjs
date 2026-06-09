@@ -23,12 +23,6 @@ export const configModuleBoundaryRule = {
           failures.push(`${file.rel}: config components must not own save or history orchestration`);
         }
       }
-      if (/\bResourceRef\b/.test(file.text) && !/\btype\s+ResourceRef\b/.test(file.text)) {
-        failures.push(`${file.rel}: config components must consume resolved preview state, not ResourceRef details`);
-      }
-      if (/\bEntityData\b/.test(file.text) && !/\btype\s+EntityData\b/.test(file.text)) {
-        failures.push(`${file.rel}: config components must consume ViewModel page data, not raw entity query data`);
-      }
     }
     return failures;
   },

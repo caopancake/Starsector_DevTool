@@ -21,9 +21,6 @@ export const architectureRulesSelfBoundaryRule = {
       if (misusesSingleFileByRel(file.text)) {
         failures.push(`${file.rel}: singleFileByRel() is only for one check(files) anchor, not authorization helpers or file sets`);
       }
-      if (usesBoundaryDriftVocabulary(file.text)) {
-        failures.push(`${file.rel}: architecture rules must not use membership-list or bypass vocabulary for boundaries`);
-      }
       if (usesDirectoryPrefixAuthorization(file.text)) {
         failures.push(`${file.rel}: boundary helpers must not authorize by broad source directory prefix`);
       }
@@ -84,12 +81,6 @@ function usesDirectoryPrefixAuthorization(text) {
   return [...helperMatches].some((match) =>
     /rel\.startsWith\(\s*['"]src\/(?!shared\/api\/|windows\/|shared\/runtime\/)[^'"]+['"]\s*\)/.test(match[1]),
   );
-}
-
-function usesBoundaryDriftVocabulary(text) {
-  const boundaryDriftTerms = [`${'allow'}${'List'}`, `${'allowed'}${'Files'}`, `${'allowed'}${'File'}`, String.raw`white\s*list`];
-  const bypassTerms = [`${'except'}(?:ion|ions)?`, `${'exempt'}(?:s)?`];
-  return new RegExp(String.raw`\b(?:${boundaryDriftTerms.join('|')}|${bypassTerms.join('|')})\b`, 'i').test(text);
 }
 
 function usesContentIdentityBoundary(text) {

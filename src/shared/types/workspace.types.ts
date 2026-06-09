@@ -20,6 +20,7 @@ export interface ModTableState {
   totalRows: Record<TableKey, number>;
   filteredRows: Record<TableKey, number>;
   dirty: Record<TableKey, Record<string, CsvDirtyRow>>;
+  pendingExternalTableUpdates: Record<TableKey, boolean>;
   currentTab: TableKey;
   currentFaction: CsvFactionFilter;
   searchText: string;

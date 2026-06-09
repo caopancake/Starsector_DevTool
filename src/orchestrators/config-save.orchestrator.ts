@@ -1,6 +1,5 @@
 import type { IndexedConfigKind, SkinFile, VariantFile, WriteResult } from '@/shared/types';
 import type { RowData } from '@/shared/types';
-import { recordFileSave, refreshProjectSessionAfterWrite } from '@/orchestrators/file-save.orchestrator';
 import {
   createIndexedConfigEntity,
   saveIndexedConfigEntity,
@@ -17,6 +16,8 @@ import {
   variantEntityData,
 } from '@/services/config-entity.service';
 import { indexedConfigHistoryLabel } from '@/domain/config/config-entities';
+import { useProjectStore } from '@/stores/project.store';
+import { completeSavedWrite } from '@/orchestrators/file-history-session.orchestrator';
 
 export async function saveModInfoAction(sessionId: string, modRoot: string, data: RowData): Promise<WriteResult> {
   const result = await saveModInfo(sessionId, modRoot, data);
@@ -24,7 +25,7 @@ export async function saveModInfoAction(sessionId: string, modRoot: string, data
   return result;
 }
 
-export async function saveIndexedConfigEntityAction(write: {
+export async function saveIndexedEntityAction(write: {
   sessionId: string;
   modRoot: string;
   kind: IndexedConfigKind;
@@ -40,7 +41,7 @@ export async function saveIndexedConfigEntityAction(write: {
   return entity.entityId;
 }
 
-export async function createIndexedConfigEntityAction(write: {
+export async function createIndexedEntityAction(write: {
   sessionId: string;
   modRoot: string;
   kind: IndexedConfigKind;
@@ -56,7 +57,7 @@ export async function createIndexedConfigEntityAction(write: {
   return entity.entityId;
 }
 
-export async function deleteIndexedConfigEntityAction(
+export async function deleteIndexedEntityAction(
   sessionId: string,
   modRoot: string,
   kind: IndexedConfigKind,
@@ -74,13 +75,11 @@ export async function saveVariantAction(
   variantId: string,
   data: RowData,
   previousId: string | null,
-  previousRelPath: string | null,
 ): Promise<VariantFile> {
   const result = await saveVariantEntity({
     sessionId,
     modRoot,
     previousId,
-    previousRelPath,
     nextId: variantId,
     data,
   });
@@ -108,13 +107,11 @@ export async function saveSkinAction(
   skinHullId: string,
   data: RowData,
   previousId: string | null,
-  previousRelPath: string | null,
 ): Promise<SkinFile> {
   const result = await saveSkinEntity({
     sessionId,
     modRoot,
     previousId,
-    previousRelPath,
     nextId: skinHullId,
     data,
   });
@@ -136,8 +133,6 @@ export async function deleteSkinAction(sessionId: string, modRoot: string, relPa
   return result;
 }
 
-async function recordConfigWrite(modRoot: string, sessionId: string | null, result: WriteResult, label: string) {
-  if (!sessionId) return;
-  recordFileSave(modRoot, result, label, sessionId);
-  await refreshProjectSessionAfterWrite(modRoot, result, sessionId);
+async function recordConfigWrite(modRoot: string, sessionId: string, result: WriteResult, label: string) {
+  await completeSavedWrite({ modRoot, sessionId, result, label }, useProjectStore());
 }

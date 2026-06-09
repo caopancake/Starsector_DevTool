@@ -1,6 +1,6 @@
-import { openManagedWindow, type ManagedWindowSize } from '@/windows/managed.window';
+import { openManagedWindow } from '@/windows/managed.window';
 import type { AppSettings, EditorWindowKind, ProjectSessionId } from '@/shared/types';
-import { editorWindowTitle } from '@/domain/editors/editor-kind-metadata';
+import { editorWindowDefinition, editorWindowTitle } from '@/domain/editors/editor-definitions';
 export type { EditorSpecSavedEvent } from '@/windows/window.events';
 
 export interface EditorWindowRequest {
@@ -13,15 +13,8 @@ export interface EditorWindowRequest {
   title?: string;
 }
 
-const EDITOR_WINDOW_SIZES: Record<EditorWindowKind, ManagedWindowSize> = {
-  ship: { width: 1160, height: 760, minWidth: 860, minHeight: 560 },
-  weapon: { width: 1160, height: 760, minWidth: 860, minHeight: 560 },
-  projectile: { width: 900, height: 760, minWidth: 720, minHeight: 520 },
-  system: { width: 900, height: 760, minWidth: 720, minHeight: 520 },
-  'weapon-preview': { width: 1120, height: 760, minWidth: 760, minHeight: 520 },
-};
-
 export async function openEditorWindow(request: EditorWindowRequest): Promise<void> {
+  const definition = editorWindowDefinition(request.kind);
   await openManagedWindow({
     labelPrefix: `editor-${request.kind}`,
     singletonKey: JSON.stringify([request.kind, request.modRoot, request.id]),
@@ -35,7 +28,7 @@ export async function openEditorWindow(request: EditorWindowRequest): Promise<vo
       settings: JSON.stringify(request.settings),
       starsectorRoot: request.starsectorRoot,
     },
-    size: EDITOR_WINDOW_SIZES[request.kind],
+    size: definition.size,
   });
 }
 

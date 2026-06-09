@@ -1,10 +1,7 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::{
-        load_json_dir_by_id, normalized_path_key, read_csv_data,
-        validate_absolute_path_without_parent,
-    },
-    models::{CsvTableKey, SkinFile, VariantFile, CSV_TABLES},
+    io::{load_json_dir_by_id, read_csv_data, FsRootBoundary},
+    models::{CsvTableKey, SkinFile, VariantFile},
 };
 use serde_json::Value;
 use std::{
@@ -15,6 +12,7 @@ use std::{
 use super::super::{
     model::{CoreCache, CoreSourceData, SessionCsvRow, SessionCsvTable},
     spec_files::{load_skin_files, load_variant_files},
+    table_definitions::csv_table_definition,
 };
 use super::core_caches;
 
@@ -45,15 +43,17 @@ pub(crate) fn replace_core_cache(starsector_root: &str, cache: CoreCache) -> App
 }
 
 pub(super) fn core_cache_key(starsector_root: &str) -> AppResult<String> {
-    let root =
-        validate_absolute_path_without_parent(Path::new(starsector_root), "starsector root")?;
-    Ok(normalized_path_key(root))
+    let root = FsRootBoundary::new(Path::new(starsector_root), "starsector root")?;
+    Ok(root
+        .root()
+        .to_string_lossy()
+        .replace('\\', "/")
+        .to_ascii_lowercase())
 }
 
 pub(crate) fn core_dir(starsector_root: &str) -> AppResult<PathBuf> {
-    let root =
-        validate_absolute_path_without_parent(Path::new(starsector_root), "starsector root")?;
-    Ok(root.join("starsector-core"))
+    let root = FsRootBoundary::new(Path::new(starsector_root), "starsector root")?;
+    Ok(root.root().join("starsector-core"))
 }
 
 pub(crate) fn load_core_csv_table(
@@ -65,12 +65,7 @@ pub(crate) fn load_core_csv_table(
     if let Some(csv) = cache.csv_tables.get(table_key) {
         return Ok(Some(csv.clone()));
     }
-    let Some(rel) = CSV_TABLES
-        .iter()
-        .find_map(|(key, rel)| (*key == table).then_some(*rel))
-    else {
-        return Ok(None);
-    };
+    let rel = csv_table_definition(table).rel_path;
     let core_dir = core_dir(starsector_root)?;
     if !core_dir.exists() {
         replace_core_cache(starsector_root, cache)?;
@@ -167,14 +162,15 @@ pub(crate) fn load_core_source_data(
     table: CsvTableKey,
 ) -> AppResult<CoreSourceData> {
     let mut data = CoreSourceData::default();
-    match table {
-        CsvTableKey::Ships => data.ship_files = load_core_ship_files(starsector_root)?,
-        CsvTableKey::Weapons => data.weapon_specs = load_core_weapon_specs(starsector_root)?,
-        CsvTableKey::Wings => {
-            data.ship_files = load_core_ship_files(starsector_root)?;
-            data.variant_files = load_core_variant_files(starsector_root)?;
-        }
-        _ => {}
+    let requirements = csv_table_definition(table).core_source_requirements;
+    if requirements.ships {
+        data.ship_files = load_core_ship_files(starsector_root)?;
+    }
+    if requirements.weapons {
+        data.weapon_specs = load_core_weapon_specs(starsector_root)?;
+    }
+    if requirements.variants {
+        data.variant_files = load_core_variant_files(starsector_root)?;
     }
     Ok(data)
 }

@@ -2,7 +2,6 @@ mod csv_window;
 mod entities;
 mod hull_references;
 mod resources;
-pub(super) mod resources_shared;
 mod source_options;
 
 pub use csv_window::{query_csv_row_preview, query_csv_table_window};

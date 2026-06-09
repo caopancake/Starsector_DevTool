@@ -1,4 +1,4 @@
-import { recordLogBestEffort } from '@/services/app-config.service';
+import { recordLogBestEffort } from '@/services/app-feedback-log.service';
 import { formatError } from '@/shared/lib/errors';
 
 export function recordWindowEventHandlerError(error: unknown, event: string): void {

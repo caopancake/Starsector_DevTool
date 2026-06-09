@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { reactive, ref } from 'vue';
 import type { ModTableState, TableKey } from '@/shared/types';
 import { applyCsvEditRedo, applyCsvEditUndo } from '@/domain/tables/csv-edit-history';
-import type { CsvEditHistoryEntry, CsvEditHistoryEvent } from '@/shared/types/tables-edit-history.types';
+import type { CsvDraftOperation, CsvEditHistoryEntry } from '@/shared/types/tables-edit-history.types';
 
 interface CsvEditHistoryState {
   undoStack: CsvEditHistoryEntry[];
@@ -40,10 +40,10 @@ export const useTablesEditHistoryStore = defineStore('tablesEditHistory', () => 
     return stateMap.get(modRoot)?.get(table);
   }
 
-  function pushCsvEditEvent(modRoot: string, table: TableKey, event: CsvEditHistoryEvent, label: string) {
+  function pushCsvDraftOperation(modRoot: string, table: TableKey, operation: CsvDraftOperation, label: string) {
     if (!modRoot) return;
     const state = getOrCreateState(modRoot, table);
-    state.undoStack.push({ id: nextId(), timestamp: Date.now(), event, label });
+    state.undoStack.push({ id: nextId(), timestamp: Date.now(), operation, label });
     state.redoStack.length = 0;
     trimToLimit(state, historyLimit.value);
   }
@@ -102,7 +102,7 @@ export const useTablesEditHistoryStore = defineStore('tablesEditHistory', () => 
     canUndoCsvEdit,
     clearCsvEditHistory,
     clearForMod,
-    pushCsvEditEvent,
+    pushCsvDraftOperation,
     redoCsvEdit,
     setHistoryLimit,
     undoCsvEdit,

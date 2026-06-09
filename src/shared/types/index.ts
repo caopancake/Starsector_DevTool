@@ -1,9 +1,13 @@
 export type { JsonValue, RowData } from '@/shared/types/json.types';
-export type { AccentPreset, AppLogEntry, AppLogLevel, AppLogStatus, AppSettings, AppTheme, EditMode } from '@/shared/types/settings.types';
-export { ACCENT_PRESET_VALUES, APP_LOG_LEVELS, APP_THEMES, EDIT_MODES } from '@/shared/types/settings.types';
+export type { AccentPreset, AppSettings, AppTheme, EditMode } from '@/shared/types/settings.types';
+export { ACCENT_PRESET_VALUES, APP_THEMES, EDIT_MODES } from '@/shared/types/settings.types';
+export type { AppLogEntry, AppLogLevel, AppLogStatus } from '@/shared/types/app-log.types';
+export { APP_LOG_LEVELS } from '@/shared/types/app-log.types';
 export type { FileChangeKind, FileChangeRecord, FileChangeReplayDirection, FileSnapshot } from '@/shared/types/history.types';
 export type {
   AssociatedFileChange,
+  AssociatedSpecChange,
+  AssociatedSpecChangeAction,
   CsvRowKeyMapping,
   CsvRowPatch,
   CsvRowPatchAction,
@@ -57,14 +61,19 @@ export type {
   HydratedSourceOptionGroup,
   OpenDirectoryKind,
   OpenDirectoryResult,
+  InvalidatedEntityRef,
+  InvalidatedQueryKind,
+  InvalidatedQueryScope,
+  InvalidatedResourceScope,
+  ProjectInvalidation,
   ProjectManifest,
+  ProjectSessionInvalidationResult,
   ProjectSessionId,
   ResourceDataUrlBatchEntry,
   ResourceDataUrlBatchResult,
   ResourceOwnerKind,
   ResourceRef,
   ResourceSource,
-  SchemaRuntimeContext,
   SourceOption,
   SourceOptionGroup,
   SourceOptionOrigin,
@@ -82,4 +91,4 @@ export type {
   WorkspaceColumnWidths,
   WorkspaceView,
 } from '@/shared/types/workspace.types';
-export type { AppFeedback, ConfirmOptions } from '@/shared/types/feedback.types';
+export type { AppFeedback, ChooseOptions, ConfirmOptions } from '@/shared/types/feedback.types';

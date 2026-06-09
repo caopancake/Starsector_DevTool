@@ -1,5 +1,5 @@
 use super::super::cache::{session_for, sessions};
-use super::resources_shared::{resource_cache_key, resource_data_url};
+use super::super::resources_shared::{resource_cache_key, resource_data_url};
 use crate::{
     errors::{AppError, AppResult},
     models::{ResourceDataUrlBatchEntry, ResourceDataUrlBatchResult, ResourceRef},
@@ -169,6 +169,33 @@ mod tests {
         assert!(error.contains("sprite path is outside resource root"));
     }
 
+    #[test]
+    fn resource_query_rejects_mod_link_parent_escape() {
+        let Some((root, outside, _linked)) = temp_linked_dir("resource_query_link_escape") else {
+            return;
+        };
+        std::fs::write(outside.join("outside.png"), [137, 80, 78, 71]).unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
+        let result = query_resource_data_urls(
+            &manifest.session_id,
+            vec![ResourceRef {
+                source: ResourceSource::Mod,
+                rel_path: "linked/outside.png".to_string(),
+                owner_kind: ResourceOwnerKind::Ship,
+                owner_id: "ship".to_string(),
+                key: "sprite".to_string(),
+            }],
+        );
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(outside);
+        assert!(result.is_err());
+    }
+
     fn temp_dir(name: &str) -> std::path::PathBuf {
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -177,5 +204,37 @@ mod tests {
         let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
         std::fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    fn temp_linked_dir(
+        name: &str,
+    ) -> Option<(std::path::PathBuf, std::path::PathBuf, std::path::PathBuf)> {
+        let root = temp_dir(&format!("{name}_root"));
+        let outside = temp_dir(&format!("{name}_outside"));
+        let link = root.join("linked");
+        if create_dir_link(&outside, &link).is_err() {
+            let _ = std::fs::remove_dir_all(root);
+            let _ = std::fs::remove_dir_all(outside);
+            return None;
+        }
+        Some((root, outside, link))
+    }
+
+    #[cfg(windows)]
+    fn create_dir_link(target: &std::path::Path, link: &std::path::Path) -> std::io::Result<()> {
+        std::os::windows::fs::symlink_dir(target, link)
+    }
+
+    #[cfg(unix)]
+    fn create_dir_link(target: &std::path::Path, link: &std::path::Path) -> std::io::Result<()> {
+        std::os::unix::fs::symlink(target, link)
+    }
+
+    #[cfg(not(any(windows, unix)))]
+    fn create_dir_link(_target: &std::path::Path, _link: &std::path::Path) -> std::io::Result<()> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "directory links are unsupported on this platform",
+        ))
     }
 }

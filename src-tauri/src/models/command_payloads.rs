@@ -4,7 +4,7 @@ use crate::models::{
     required_nullable, required_nullable_non_empty_string,
     workspace::PersistedWorkspace,
     write::{
-        AssociatedFileChange, CsvRowPatch, EditorSpecKind, FileChangeRecord,
+        AssociatedFileChange, AssociatedSpecChange, CsvRowPatch, EditorSpecKind, FileChangeRecord,
         FileChangeReplayDirection, IndexedConfigKind, SpriteSubfolder,
     },
 };
@@ -18,7 +18,7 @@ pub struct SaveCsvPatchPayload {
     pub mod_root: String,
     pub table: CsvTableKey,
     pub patches: Vec<CsvRowPatch>,
-    pub associated_files: Vec<AssociatedFileChange>,
+    pub associated_specs: Vec<AssociatedSpecChange>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -189,8 +189,6 @@ pub struct ConfigFileEntityPayload {
     pub mod_root: String,
     #[serde(deserialize_with = "required_nullable")]
     pub previous_id: Option<String>,
-    #[serde(deserialize_with = "required_nullable")]
-    pub previous_rel_path: Option<String>,
     pub next_id: String,
     pub data: Value,
 }
@@ -401,11 +399,10 @@ mod tests {
     }
 
     #[test]
-    fn config_file_entity_payload_requires_explicit_nullable_previous_path() {
+    fn config_file_entity_payload_requires_explicit_nullable_previous_id() {
         let result = serde_json::from_value::<ConfigFileEntityPayload>(json!({
             "sessionId": "session-1",
             "modRoot": "D:/mods/demo",
-            "previousId": null,
             "nextId": "demo",
             "data": {"id": "demo"}
         }));
@@ -515,7 +512,7 @@ mod tests {
     }
 
     #[test]
-    fn save_csv_patch_payload_requires_explicit_associated_files() {
+    fn save_csv_patch_payload_requires_explicit_associated_specs() {
         let result = serde_json::from_value::<SaveCsvPatchPayload>(json!({
             "sessionId": "session-1",
             "modRoot": "C:/mods/test",
@@ -532,7 +529,7 @@ mod tests {
             "sessionId": "session-1",
             "table": "ships",
             "patches": [],
-            "associatedFiles": []
+            "associatedSpecs": []
         }));
 
         assert!(result.is_err());
@@ -548,7 +545,7 @@ mod tests {
                 "rowKey": "ships:row:0",
                 "action": "delete"
             }],
-            "associatedFiles": []
+            "associatedSpecs": []
         }));
 
         assert!(result.is_err());

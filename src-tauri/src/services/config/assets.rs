@@ -1,9 +1,6 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::{
-        invalidated_paths_for_changes, read_json_file, validate_absolute_path_without_parent,
-        FileChangeSetBuilder,
-    },
+    io::{read_json_file, validate_walk_entry, FileChangeSetBuilder, FsRootBoundary},
     models::{DiscoveredField, DiscoveredFieldType, ResourceSource, SpriteSubfolder, WriteResult},
 };
 use regex::Regex;
@@ -28,36 +25,30 @@ pub fn upload_sprite(
     let rel = format!("{}/{}", sub, sprite_filename).replace('\\', "/");
     let exists = target.exists();
     if exists && !overwrite {
-        return Ok(WriteResult {
-            changes: vec![],
-            invalidated_paths: Vec::new(),
-            key_map: Vec::new(),
-            refreshed_entity: Some(json!({
+        return Ok(WriteResult::from_refreshed_entity(
+            Vec::new(),
+            json!({
                 "ok": false,
                 "exists": true,
                 "path": rel,
                 "overwritten": false,
                 "message": format!("{sprite_filename} already exists. Overwrite?")
-            })),
-            warnings: Vec::new(),
-        });
+            }),
+        ));
     }
-    let mut builder = FileChangeSetBuilder::new(mod_root);
+    let mut builder = FileChangeSetBuilder::new(mod_root)?;
     builder.binary_file(&rel, Some(data))?;
     let changes = builder.apply()?;
-    Ok(WriteResult {
-        invalidated_paths: invalidated_paths_for_changes(&changes),
+    Ok(WriteResult::from_refreshed_entity(
         changes,
-        key_map: Vec::new(),
-        refreshed_entity: Some(json!({
+        json!({
             "ok": true,
             "exists": exists,
             "path": rel,
             "overwritten": exists,
             "message": Value::Null
-        })),
-        warnings: Vec::new(),
-    })
+        }),
+    ))
 }
 
 fn validate_sprite_filename(filename: &str) -> AppResult<&str> {
@@ -76,17 +67,20 @@ fn validate_sprite_filename(filename: &str) -> AppResult<&str> {
 
 /// Scan starsector-core/graphics/ and return all image file paths (relative to starsector-core).
 pub fn scan_core_graphics(starsector_root: &str) -> AppResult<Vec<String>> {
-    let starsector_root =
-        validate_absolute_path_without_parent(Path::new(starsector_root), "starsector root")?;
-    let dir = starsector_root.join("starsector-core").join("graphics");
+    let starsector_root = FsRootBoundary::new(Path::new(starsector_root), "starsector root")?;
+    let dir = starsector_root
+        .root()
+        .join("starsector-core")
+        .join("graphics");
     if !dir.exists() {
         return Ok(vec![]);
     }
-    let core_dir = starsector_root.join("starsector-core");
+    let core_dir = starsector_root.root().join("starsector-core");
     let mut paths = Vec::new();
     for entry in WalkDir::new(&dir) {
         let entry =
             entry.map_err(|error| AppError::message(format!("遍历原版图片目录失败: {error}")))?;
+        validate_walk_entry(entry.path(), "core graphics")?;
         if !entry.file_type().is_file() {
             continue;
         }
@@ -115,9 +109,8 @@ pub fn scan_core_fields(
     starsector_root: &str,
 ) -> AppResult<BTreeMap<String, Vec<DiscoveredField>>> {
     let mut result = BTreeMap::new();
-    let starsector_root =
-        validate_absolute_path_without_parent(Path::new(starsector_root), "starsector root")?;
-    let core_dir = starsector_root.join("starsector-core");
+    let starsector_root = FsRootBoundary::new(Path::new(starsector_root), "starsector root")?;
+    let core_dir = starsector_root.root().join("starsector-core");
     if !core_dir.exists() {
         return Ok(result);
     }
@@ -155,6 +148,7 @@ fn scan_json_fields(dir: &Path, ext: &str) -> AppResult<Vec<DiscoveredField>> {
     for entry in WalkDir::new(dir).max_depth(2) {
         let entry =
             entry.map_err(|error| AppError::message(format!("遍历原版字段目录失败: {error}")))?;
+        validate_walk_entry(entry.path(), "core fields")?;
         if entry.path().extension().and_then(|s| s.to_str()) != Some(ext) {
             continue;
         }
@@ -444,6 +438,40 @@ mod tests {
         assert_eq!(paths, vec!["graphics/ships/demo.png".to_string()]);
     }
 
+    #[test]
+    fn core_graphics_scan_rejects_link_entry() {
+        let Some((root, outside, _linked)) = temp_core_linked_dir(
+            "core_graphics_link_entry",
+            "starsector-core/graphics/linked",
+        ) else {
+            return;
+        };
+        fs::write(outside.join("outside.png"), [1, 2, 3]).unwrap();
+
+        let result = scan_core_graphics(&root.to_string_lossy());
+
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(outside);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn core_field_scan_rejects_link_entry() {
+        let Some((root, outside, _linked)) = temp_core_linked_dir(
+            "core_fields_link_entry",
+            "starsector-core/data/weapons/linked",
+        ) else {
+            return;
+        };
+        crate::io::write_utf8_no_bom(&outside.join("outside.wpn"), r#"{"id":"outside"}"#).unwrap();
+
+        let result = scan_core_fields(&root.to_string_lossy());
+
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(outside);
+        assert!(result.is_err());
+    }
+
     fn temp_dir(name: &str) -> PathBuf {
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -452,5 +480,36 @@ mod tests {
         let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
         fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    fn temp_core_linked_dir(name: &str, rel_link: &str) -> Option<(PathBuf, PathBuf, PathBuf)> {
+        let root = temp_dir(&format!("{name}_root"));
+        let outside = temp_dir(&format!("{name}_outside"));
+        let link = root.join(rel_link);
+        fs::create_dir_all(link.parent().unwrap()).unwrap();
+        if create_dir_link(&outside, &link).is_err() {
+            let _ = fs::remove_dir_all(root);
+            let _ = fs::remove_dir_all(outside);
+            return None;
+        }
+        Some((root, outside, link))
+    }
+
+    #[cfg(windows)]
+    fn create_dir_link(target: &Path, link: &Path) -> std::io::Result<()> {
+        std::os::windows::fs::symlink_dir(target, link)
+    }
+
+    #[cfg(unix)]
+    fn create_dir_link(target: &Path, link: &Path) -> std::io::Result<()> {
+        std::os::unix::fs::symlink(target, link)
+    }
+
+    #[cfg(not(any(windows, unix)))]
+    fn create_dir_link(_target: &Path, _link: &Path) -> std::io::Result<()> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "directory links are unsupported on this platform",
+        ))
     }
 }

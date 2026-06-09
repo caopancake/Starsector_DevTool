@@ -80,7 +80,7 @@ import {
   type CsvColumnSchema,
 } from '@/domain/tables/csv-column-schema';
 import { sourceValue, type CsvSourceIndex } from '@/domain/tables/csv-source-options';
-import type { SelectOption } from '@/domain/schema/schema-registry';
+import type { SelectOption } from '@/domain/schema/schema-options';
 import type { CsvRowPreviewTarget, RowData, TableKey } from '@/shared/types';
 
 const props = defineProps<{

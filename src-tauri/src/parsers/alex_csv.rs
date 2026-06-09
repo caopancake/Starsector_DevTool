@@ -3,20 +3,9 @@ use crate::{
     models::CsvTable,
 };
 use serde_json::{Map, Value};
-use std::time::Instant;
 
 pub fn parse_csv_bytes(path_label: &str, bytes: &[u8]) -> AppResult<CsvTable> {
-    parse_csv_bytes_with_metrics(path_label, bytes, |_, _| {})
-}
-
-pub fn parse_csv_bytes_with_metrics(
-    path_label: &str,
-    bytes: &[u8],
-    mut record_metric: impl FnMut(&str, u128),
-) -> AppResult<CsvTable> {
-    let timer = Instant::now();
     let records = parse_loose_records(path_label, bytes)?;
-    record_metric("alex_csv.records", timer.elapsed().as_millis());
     if records.is_empty() {
         return Ok(CsvTable {
             header: vec![],
@@ -36,7 +25,6 @@ pub fn parse_csv_bytes_with_metrics(
     };
     let header = records[header_index].clone();
     let header_width = header.len();
-    let timer = Instant::now();
     let mut normalized_records = Vec::new();
     for (index, record) in records.iter().skip(header_index + 1).enumerate() {
         normalized_records.push(normalize_record_width(
@@ -46,8 +34,6 @@ pub fn parse_csv_bytes_with_metrics(
             index + header_index + 2,
         )?);
     }
-    record_metric("alex_csv.normalize_rows", timer.elapsed().as_millis());
-    let timer = Instant::now();
     let mut rows = Vec::new();
     for record in normalized_records {
         let mut row = Map::new();
@@ -59,7 +45,6 @@ pub fn parse_csv_bytes_with_metrics(
         }
         rows.push(row);
     }
-    record_metric("alex_csv.assemble_rows", timer.elapsed().as_millis());
     Ok(CsvTable {
         header,
         rows,
@@ -128,6 +113,8 @@ fn parse_loose_records(path_label: &str, bytes: &[u8]) -> AppResult<Vec<Vec<Stri
     let mut field = String::new();
     let mut index = 0;
     let mut in_quotes = false;
+    let mut line_number = 1usize;
+    let mut quoted_field_start_line = None;
     let mut at_field_start = true;
     let mut record_has_content = false;
     while index < bytes.len() {
@@ -141,6 +128,7 @@ fn parse_loose_records(path_label: &str, bytes: &[u8]) -> AppResult<Vec<Vec<Stri
                 } else if quote_closes_field(bytes.get(index + 1).copied()) {
                     index += 1;
                     in_quotes = false;
+                    quoted_field_start_line = None;
                     continue;
                 } else {
                     field.push('"');
@@ -151,10 +139,16 @@ fn parse_loose_records(path_label: &str, bytes: &[u8]) -> AppResult<Vec<Vec<Stri
                 if bytes.get(index + 1) == Some(&b'\n') {
                     index += 2;
                     field.push_str("\r\n");
+                    line_number += 1;
                 } else {
                     index += 1;
                     field.push('\r');
+                    line_number += 1;
                 }
+            } else if byte == b'\n' {
+                index += 1;
+                field.push('\n');
+                line_number += 1;
             } else {
                 let ch = read_csv_text_char(path_label, bytes, &mut index)?;
                 field.push(ch);
@@ -165,6 +159,7 @@ fn parse_loose_records(path_label: &str, bytes: &[u8]) -> AppResult<Vec<Vec<Stri
         if byte == b'"' && at_field_start {
             index += 1;
             in_quotes = true;
+            quoted_field_start_line = Some(line_number);
             at_field_start = false;
             record_has_content = true;
         } else if byte == b',' {
@@ -177,6 +172,7 @@ fn parse_loose_records(path_label: &str, bytes: &[u8]) -> AppResult<Vec<Vec<Stri
             if bytes.get(index) == Some(&b'\n') {
                 index += 1;
             }
+            line_number += 1;
             finish_record(
                 &mut records,
                 &mut record,
@@ -186,6 +182,7 @@ fn parse_loose_records(path_label: &str, bytes: &[u8]) -> AppResult<Vec<Vec<Stri
             );
         } else if byte == b'\n' {
             index += 1;
+            line_number += 1;
             finish_record(
                 &mut records,
                 &mut record,
@@ -199,6 +196,15 @@ fn parse_loose_records(path_label: &str, bytes: &[u8]) -> AppResult<Vec<Vec<Stri
             at_field_start = false;
             record_has_content = true;
         }
+    }
+    if in_quotes {
+        return Err(AppError::context(
+            format!("解析 CSV 失败 ({path_label})"),
+            AppError::message(format!(
+                "unterminated quoted field starting at line {}",
+                quoted_field_start_line.unwrap_or(line_number)
+            )),
+        ));
     }
     if record_has_content || !field.is_empty() || !record.is_empty() {
         record.push(field);
@@ -392,6 +398,20 @@ mod tests {
 
         assert!(error.contains("解析 CSV 失败"));
         assert!(error.contains("csv_short_row.csv"));
+    }
+
+    #[test]
+    fn read_rejects_unterminated_quoted_field_at_eof() {
+        let error = parse_csv_text(
+            "csv_unterminated_quote.csv",
+            "id,text\r\na,\"unterminated\r\nfield",
+        )
+        .unwrap_err()
+        .to_string();
+
+        assert!(error.contains("解析 CSV 失败"));
+        assert!(error.contains("csv_unterminated_quote.csv"));
+        assert!(error.contains("unterminated quoted field starting at line 2"));
     }
 
     #[test]

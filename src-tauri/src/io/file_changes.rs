@@ -1,6 +1,9 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::{read_utf8_no_bom, validate_relative_path_without_parent, write_utf8_no_bom},
+    io::{
+        read_utf8_no_bom, validate_safe_relative_path, validate_walk_entry, write_utf8_no_bom,
+        FsRootBoundary,
+    },
     models::{FileChangeKind, FileChangeRecord, FileSnapshot},
 };
 use base64::{engine::general_purpose, Engine as _};
@@ -8,16 +11,20 @@ use std::{fs, path::Path};
 use walkdir::WalkDir;
 
 pub struct FileChangeSetBuilder {
-    root: std::path::PathBuf,
+    boundary: FsRootBoundary,
     changes: Vec<FileChangeRecord>,
 }
 
 impl FileChangeSetBuilder {
-    pub fn new(root: &Path) -> Self {
-        Self {
-            root: root.to_path_buf(),
+    pub fn new(root: &Path) -> AppResult<Self> {
+        Ok(Self {
+            boundary: FsRootBoundary::new(root, "changeset root")?,
             changes: Vec::new(),
-        }
+        })
+    }
+
+    pub fn root(&self) -> &Path {
+        self.boundary.root()
     }
 
     pub fn text_file(
@@ -42,28 +49,31 @@ impl FileChangeSetBuilder {
         after_text: Option<String>,
         after_data_base64: Option<String>,
     ) -> AppResult<&mut Self> {
-        let rel_path = validate_relative_path(rel_path.as_ref())?;
-        self.changes.push(build_file_change(
-            &self.root.join(rel_path),
-            after_text,
-            after_data_base64,
-        )?);
+        let target = self
+            .boundary
+            .resolve_relative(rel_path.as_ref(), "relative file")?;
+        self.changes
+            .push(build_file_change(&target, after_text, after_data_base64)?);
         Ok(self)
     }
 
-    pub fn absolute_text_file(
+    pub fn root_text_file(
         &mut self,
-        path: &Path,
+        rel_path: impl AsRef<str>,
         after_text: Option<String>,
     ) -> AppResult<&mut Self> {
-        self.changes.push(build_text_change(path, after_text)?);
+        let target = self
+            .boundary
+            .resolve_relative(rel_path.as_ref(), "relative file")?;
+        self.changes.push(build_text_change(&target, after_text)?);
         Ok(self)
     }
 
     pub fn delete_directory(&mut self, rel_path: impl AsRef<str>) -> AppResult<&mut Self> {
-        let rel_path = validate_relative_path(rel_path.as_ref())?;
-        self.changes
-            .push(build_directory_delete_change(&self.root.join(rel_path))?);
+        let target = self
+            .boundary
+            .resolve_relative(rel_path.as_ref(), "relative directory")?;
+        self.changes.push(build_directory_delete_change(&target)?);
         Ok(self)
     }
 
@@ -72,10 +82,12 @@ impl FileChangeSetBuilder {
         source_rel_path: impl AsRef<str>,
         target_rel_path: impl AsRef<str>,
     ) -> AppResult<&mut Self> {
-        let source_rel_path = validate_relative_path(source_rel_path.as_ref())?;
-        let target_rel_path = validate_relative_path(target_rel_path.as_ref())?;
-        let source = self.root.join(source_rel_path);
-        let target = self.root.join(target_rel_path);
+        let source = self
+            .boundary
+            .resolve_relative(source_rel_path.as_ref(), "source directory")?;
+        let target = self
+            .boundary
+            .resolve_relative(target_rel_path.as_ref(), "target directory")?;
         let after_files = if source.exists() {
             snapshot_directory(&source)?
         } else {
@@ -107,6 +119,9 @@ pub fn build_file_change(
     after_text: Option<String>,
     after_data_base64: Option<String>,
 ) -> AppResult<FileChangeRecord> {
+    if path.exists() {
+        validate_walk_entry(path, "file change")?;
+    }
     let before_exists = path.exists();
     let (before_text, before_data_base64) = if before_exists {
         snapshot_file_content(path)?
@@ -131,6 +146,9 @@ pub fn build_file_change(
 }
 
 pub fn build_directory_delete_change(path: &Path) -> AppResult<FileChangeRecord> {
+    if path.exists() {
+        validate_walk_entry(path, "directory change")?;
+    }
     let before_exists = path.exists();
     let before_files = if before_exists {
         snapshot_directory(path)?
@@ -155,6 +173,9 @@ pub fn build_directory_replace_change(
     path: &Path,
     after_files: Vec<FileSnapshot>,
 ) -> AppResult<FileChangeRecord> {
+    if path.exists() {
+        validate_walk_entry(path, "directory change")?;
+    }
     let before_exists = path.exists();
     let before_files = if before_exists {
         snapshot_directory(path)?
@@ -181,38 +202,14 @@ pub fn apply_changes(changes: &[FileChangeRecord], direction: ChangeDirection) -
         let path = Path::new(&change.path);
         rollback.push(build_current_state(path)?);
         if let Err(error) = apply_one(change, direction) {
-            rollback_changes(&rollback);
-            return Err(error);
+            return Err(changeset_apply_error(error, rollback_changes(&rollback)));
         }
     }
     Ok(())
 }
 
-pub fn invalidated_paths_for_changes(changes: &[FileChangeRecord]) -> Vec<String> {
-    let mut paths = Vec::new();
-    for change in changes {
-        push_unique_path(&mut paths, change.path.clone());
-        for file in change.before_files.iter().chain(change.after_files.iter()) {
-            push_unique_path(
-                &mut paths,
-                Path::new(&change.path)
-                    .join(&file.rel_path)
-                    .to_string_lossy()
-                    .to_string(),
-            );
-        }
-    }
-    paths
-}
-
-fn push_unique_path(paths: &mut Vec<String>, path: String) {
-    if !paths.iter().any(|candidate| candidate == &path) {
-        paths.push(path);
-    }
-}
-
 fn validate_relative_path(path: &str) -> AppResult<&Path> {
-    validate_relative_path_without_parent(Path::new(path), "relative file")
+    validate_safe_relative_path(Path::new(path), "relative file")
 }
 
 fn apply_one(change: &FileChangeRecord, direction: ChangeDirection) -> AppResult<()> {
@@ -236,6 +233,9 @@ fn apply_file_change(change: &FileChangeRecord, direction: ChangeDirection) -> A
         ),
     };
     let path = Path::new(&change.path);
+    if path.exists() {
+        validate_walk_entry(path, "file change")?;
+    }
     if exists {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
@@ -261,6 +261,7 @@ fn apply_directory_change(change: &FileChangeRecord, direction: ChangeDirection)
     };
     let path = Path::new(&change.path);
     if path.exists() {
+        validate_walk_entry(path, "directory change")?;
         fs::remove_dir_all(path)?;
     }
     if exists {
@@ -278,6 +279,9 @@ fn apply_directory_change(change: &FileChangeRecord, direction: ChangeDirection)
 }
 
 fn build_current_state(path: &Path) -> AppResult<FileChangeRecord> {
+    if path.exists() {
+        validate_walk_entry(path, "current changeset state")?;
+    }
     if path.is_dir() {
         return Ok(FileChangeRecord {
             kind: FileChangeKind::Directory,
@@ -312,10 +316,27 @@ fn build_current_state(path: &Path) -> AppResult<FileChangeRecord> {
     })
 }
 
-fn rollback_changes(changes: &[FileChangeRecord]) {
+fn rollback_changes(changes: &[FileChangeRecord]) -> Vec<String> {
+    let mut errors = Vec::new();
     for change in changes.iter().rev() {
-        let _ = apply_one(change, ChangeDirection::Redo);
+        if let Err(error) = apply_one(change, ChangeDirection::Redo) {
+            errors.push(format!("{}: {}", change.path, error));
+        }
     }
+    errors
+}
+
+fn changeset_apply_error(apply_error: AppError, rollback_errors: Vec<String>) -> AppError {
+    if rollback_errors.is_empty() {
+        return apply_error;
+    }
+    AppError::context(
+        format!(
+            "changeset apply failed and rollback failed; disk state may be partially changed; rollback errors: {}",
+            rollback_errors.join(" | ")
+        ),
+        apply_error,
+    )
 }
 
 fn snapshot_directory(path: &Path) -> AppResult<Vec<FileSnapshot>> {
@@ -327,6 +348,7 @@ fn snapshot_directory(path: &Path) -> AppResult<Vec<FileSnapshot>> {
                 AppError::message(error.to_string()),
             )
         })?;
+        validate_walk_entry(entry.path(), "directory snapshot")?;
         if !entry.file_type().is_file() {
             continue;
         }
@@ -373,4 +395,63 @@ fn restore_snapshot_file(path: &Path, file: &FileSnapshot) -> AppResult<()> {
     let bytes = general_purpose::STANDARD.decode(data)?;
     fs::write(path, bytes)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        fs,
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    #[test]
+    fn rollback_changes_reports_restore_errors() {
+        let root = temp_dir("rollback_reports_restore_errors");
+        fs::create_dir_all(&root).unwrap();
+        let change = FileChangeRecord {
+            kind: FileChangeKind::File,
+            path: root.to_string_lossy().to_string(),
+            before_exists: true,
+            before_text: Some("before".to_string()),
+            before_data_base64: None,
+            before_files: vec![],
+            after_exists: true,
+            after_text: Some("before".to_string()),
+            after_data_base64: None,
+            after_files: vec![],
+        };
+
+        let errors = rollback_changes(&[change]);
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].contains("rollback_reports_restore_errors"));
+    }
+
+    #[test]
+    fn changeset_apply_error_includes_apply_and_rollback_errors() {
+        let error = changeset_apply_error(
+            AppError::message("apply failed"),
+            vec![
+                "first rollback failed".to_string(),
+                "second rollback failed".to_string(),
+            ],
+        )
+        .to_string();
+
+        assert!(error.contains("changeset apply failed and rollback failed"));
+        assert!(error.contains("apply failed"));
+        assert!(error.contains("first rollback failed"));
+        assert!(error.contains("second rollback failed"));
+    }
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("starsector_devtool_{name}_{unique}"))
+    }
 }

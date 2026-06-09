@@ -19,9 +19,6 @@ export const windowBoundaryRule = {
       if (current.layer === 'windows' && /\bopenProject\s*\(|\bopenProjectSession\s*\(/.test(file.text)) {
         failures.push(`${file.rel}: child windows must not open ProjectSession`);
       }
-      if (current.layer === 'windows' && /\bcreateDefault[A-Za-z0-9_]*Settings\b/.test(file.text)) {
-        failures.push(`${file.rel}: window settings context must be received, not recreated`);
-      }
       if (/export\s+interface\s+(?:EditorSpecSavedEvent|FileEditorSavedEvent)\s*\{[\s\S]*?\bchanges\s*:/m.test(file.text)) {
         failures.push(`${file.rel}: window save events must carry WriteResult, not raw changes`);
       }

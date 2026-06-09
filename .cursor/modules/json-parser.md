@@ -9,6 +9,7 @@
 - `src-tauri/src/domain/config.rs`：消费已解析 JSON 值，校验配置实体 ID、相对路径和 `.variant` / `.skin` 结构。
 - `src-tauri/src/io/json_files.rs`：读取 UTF-8 无 BOM 文本、调用宽松 parser、附加文件路径错误上下文，并递归剥离内部字段。
 - `src-tauri/src/parsers/alex_json.rs`：实现宽松 JSON 清洗、字符串边界保护、strict JSON 解析和负例测试。
+- `scripts/architecture/rules/parser-boundary.mjs`：约束 Mod JSON-like 读取必须经过正式 IO / parser 边界，并禁止 parser 测试依赖本机路径。
 - `src-tauri/src/services/config/indexed_entities.rs`：保存 faction 与 mission 结构化配置时写出 strict pretty JSON。
 - `src-tauri/src/services/config/skins.rs`：读取旧 `.skin` 目标、校验实体匹配，并写出 strict pretty JSON。
 - `src-tauri/src/services/config/variants.rs`：读取旧 `.variant` 目标、校验实体匹配，并写出 strict pretty JSON。
@@ -28,6 +29,7 @@
 - parser 不验证业务必填字段、实体 ID、文件扩展名、目录归属或 source option 语义。
 - parser 输入只允许是已经由 IO 层读取出的文本。
 - parser 输出只允许是 `serde_json::Value` 或解析错误。
+- parser 测试只允许使用固定内联样例或仓库内测试资产，不得依赖本机 Starsector 安装路径。
 - 目录扫描、缺失目录返回空集合、重复 ID 处理和 warning 归 ProjectSession service。
 - 文件路径错误上下文归 IO 层；parser 错误只表达清洗后 strict JSON 解析失败或格式转换失败。
 - 普通文本文件编辑保存保持用户文本原样，不通过 parser 规范化 JSON-like 内容。
@@ -45,9 +47,10 @@
 3. Mod 目录打开 ProjectSession 时读取目标 Mod 的 `mod_info.json`。
 4. IO 层用 UTF-8 无 BOM 读取文本。
 5. IO 层调用 `parse_starsector_json`。
-6. parser 清洗 JSON-like 文本并调用 `serde_json::from_str`。
-7. IO 层给解析错误附加文件路径上下文。
-8. root 或 session service 消费解析结果生成 overview summary 或 ProjectManifest。
+6. parser 按注释、entry separator、单引号、尾逗号、object key、bool、identifier value 和数字 literal 规则清洗文本。
+7. parser 调用 `serde_json::from_str` 作为最终合法性判断。
+8. IO 层给解析错误附加文件路径上下文。
+9. root 或 session service 消费解析结果生成 overview summary 或 ProjectManifest。
 
 ### 读取 spec 索引
 
@@ -89,7 +92,7 @@
 5. service 对 `.variant`、`.skin`、faction、mission descriptor 或 editor spec 执行业务结构校验。
 6. service 使用 `serde_json::to_string_pretty` 生成 strict pretty JSON。
 7. service 把 JSON 文本加入 changeset。
-8. changeset 写盘成功后返回 invalidated paths 和必要的 refreshed entity。
+8. changeset 写盘成功后返回 invalidation 和必要的 refreshed entity。
 9. 写出的文件不保留原始注释、单引号、尾逗号、未加引号 key 或宽松数字写法。
 
 ### 重命名关联 spec
@@ -119,6 +122,7 @@
 - parser 必须支持未加引号 object key。
 - parser 必须在第一个完整 JSON object 结束处截断后续文本。
 - parser 必须通过 `serde_json::from_str` 作为最终合法性判断。
+- parser 规则测试必须确定执行，不能用目标文件不存在时跳过的本机路径样例。
 - parser 必须保留过宽格式负例，不得接受缺逗号字段、未闭合字符串、数字开头 key、双小数点或缺值字段。
 - 读取 JSON-like Mod 文件必须通过 `read_json_file`，不能在 service 内直接调用 strict `serde_json::from_str`。
 - 读取错误必须包含文件路径上下文。
@@ -135,4 +139,5 @@
 - 在 parser 内剥离内部字段，会混淆格式解析和运行时状态清理边界。
 - 在 parser 内校验实体 ID 或路径，会把业务模型错误塞进格式层。
 - 重命名关联 spec 时不经过宽松 parser，会无法处理旧文件中的未加引号 key、单引号或 enum 值。
+- 用本机 Starsector 绝对路径作为 parser 测试输入，会让测试在多数环境中静默跳过。
 - 用普通文本保存链路处理结构化配置，会绕过实体校验、内部字段剥离和 pretty JSON 写回边界。

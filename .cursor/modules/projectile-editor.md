@@ -8,11 +8,13 @@
 
 - `src/app/EditorWindowContent.vue`：解析编辑器窗口 URL 参数，按 `kind=projectile` 挂载弹体编辑器并转交保存事件。
 - `src/app/components/editors/ProjectileEditor.vue`：拥有 `.proj` 本地草稿、projectile/missile 表单、通用 JSON 编辑、贴图上传入口和保存 emit。
+- `src/app/composables/use-draft-session.ts`：拥有编辑器窗口主 `.proj` spec 的 base、draft、dirty、外部更新暂存和 draft revision。
 - `src/app/composables/use-editor-window-view-model.ts`：拥有编辑器窗口目标、projectile bundle 读取、缺失 spec 处理、保存编排、保存事件应用和缓存失效响应。
-- `src/domain/editors/editor-kind-metadata.ts`：定义弹体编辑器窗口 kind、spec kind、标题、扩展名和缺失目标文案。
+- `src/domain/editors/editor-definitions.ts`：定义弹体编辑器窗口 kind、spec kind、标题、默认数据和缺失目标文案。
 - `src/domain/editors/lib/normalize.ts`：定义弹体 spec 进入编辑器前的 engineSlots 字段归一化。
 - `src/orchestrators/editor-window.orchestrator.ts`：封装编辑器 spec 保存事件的窗口广播和监听。
-- `src/orchestrators/file-save.orchestrator.ts`：在主窗口消费编辑器保存事件，记录文件级 history 并刷新 ProjectSession。
+- `src/orchestrators/file-history-session.orchestrator.ts`：在主窗口保存事件链路中完成文件级 history 记录、ProjectSession 刷新和保存完成边界。
+- `src/orchestrators/file-save.orchestrator.ts`：在主窗口消费编辑器保存事件并转交 File History Session。
 - `src/orchestrators/sprite-upload.orchestrator.ts`：封装弹体贴图上传后的窗口保存事件广播。
 - `src/services/editor.service.ts`：封装 projectile entity bundle 读取、导入 spec 读取、spec 保存和 sprite upload service。
 - `src/shared/api/files-api.ts`：封装 `load_imported_editor_spec_file` 和 `save_editor_spec` Tauri command。
@@ -26,7 +28,8 @@
 
 - EditorWindowContent 只解析窗口参数、选择组件和转发事件，不拥有 projectile entity query、保存、history 或 ProjectSession 刷新。
 - ProjectileEditor 组件拥有弹体编辑界面的本地草稿、结构化表单、通用 JSON 输入、展开状态和贴图上传触发。
-- ProjectileEditor 组件只通过 `save-requested` 输出完整 `.proj` 草稿，不调用 shared API、write service 或 history store。
+- 编辑器窗口 ViewModel 通过 Draft Session 拥有 `.proj` 的基准 spec、当前 draft、dirty 状态、外部更新暂存和 draft revision。
+- ProjectileEditor 组件只通过 `draft-changed` 汇报本地 working copy，并通过 `save-requested` 请求保存当前 ViewModel draft，不调用 shared API、write service 或 history store。
 - Rust editor spec service 拥有 `.proj` 目标定位、候选目录遍历、候选 spec 解析、路径安全、ID 校验、JSON pretty 写入和 changeset 构造。
 - Rust files command 拥有 `save_editor_spec` 写入前的 `sessionId + modRoot` 校验。
 - Rust ProjectSession loader 拥有 projectile 的 Mod/Core 合并规则；Mod projectile 覆盖同 ID Core projectile。
@@ -74,7 +77,7 @@
 ### 保存弹体 spec
 
 1. 用户在 ProjectileEditor 触发保存。
-2. ProjectileEditor emit `save-requested` 并传出当前 `.proj` 草稿。
+2. ProjectileEditor emit `save-requested`，由 ViewModel 读取当前 `.proj` draft。
 3. EditorWindowContent 调用编辑器窗口 ViewModel 的保存入口。
 4. ViewModel 捕获窗口目标 `sessionId + modRoot + id`。
 5. ViewModel 调用 editor service 的 `saveEditorSpecByKind()`。
@@ -83,27 +86,28 @@
 8. Rust files command 校验 `sessionId + modRoot`。
 9. Rust editor spec service 校验弹体 ID 并在 `data/weapons/proj` 中定位已存在 `id` 匹配的 `.proj`。
 10. Rust editor spec service 剥离内部字段、写入 pretty JSON 文本并返回 `WriteResult`。
-11. ViewModel 将保存后的 spec 应用到本窗口 bundle。
+11. ViewModel 通过 Draft Session 将保存后的 spec 提升为本窗口草稿基准，清空 dirty 和外部更新暂存。
 12. ViewModel 广播 `editor-spec-saved`，携带 `sessionId + modRoot + kind + id + spec + WriteResult`。
-13. 主窗口保存事件监听校验当前 manifest session 仍匹配后记录文件级 history。
-14. 主窗口按 `WriteResult.invalidatedPaths` 刷新 ProjectSession 并广播 session invalidation。
+13. 主窗口保存事件监听把保存事件交给 File History Session。
+14. File History Session 校验当前 manifest session 仍匹配后记录文件级 history。
+15. File History Session 按 `WriteResult.invalidation.paths` 刷新 ProjectSession 并广播 session invalidation。
 
 ### 同步弹体保存事件
 
 1. 任一弹体编辑器窗口广播 `editor-spec-saved`。
 2. 其它编辑器窗口接收同一 `sessionId + modRoot` 的保存事件。
-3. 弹体窗口在事件 ID 等于当前目标 ID 时应用保存后的 projectile spec。
+3. 弹体窗口在事件 ID 等于当前目标 ID 时，dirty 为 false 则通过 Draft Session 应用保存后的 projectile spec，dirty 为 true 则暂存外部 spec 并保留当前 draft。
 4. 武器编辑器或发射预览窗口在事件 ID 已存在于当前 `projectileSpecs` 时更新对应 projectile spec。
 5. 不相关窗口忽略该保存事件。
 
 ### 刷新弹体窗口
 
-1. 主窗口或其它编辑器窗口完成写入并广播 ProjectSession invalidation。
-2. 弹体编辑器窗口接收与当前 `sessionId + modRoot` 匹配的 invalidation。
-3. 编辑器窗口 ViewModel 将 invalidation 应用于本窗口 query cache 和 resource cache。
+1. 主窗口或其它编辑器窗口完成写入并广播 ProjectSession refresh 事件。
+2. 弹体编辑器窗口接收与当前 `sessionId + modRoot` 匹配的 refresh 事件。
+3. 编辑器窗口 ViewModel 将 refresh event 应用于本窗口 query cache 和 resource cache。
 4. query cache 事件命中当前 projectile entity detail 时，ViewModel 重新查询 projectile bundle。
 5. bundle 查询返回后，ViewModel 校验 request id 和窗口目标仍一致。
-6. ViewModel 更新 projectile bundle 并传回 ProjectileEditor。
+6. dirty 为 false 时，ViewModel 通过 Draft Session 更新 projectile bundle 和 draft；dirty 为 true 时，ViewModel 暂存外部 spec 并保留当前 draft。
 
 ### 上传弹体贴图
 
@@ -113,7 +117,7 @@
 4. editor service 通过 write service 调用 sprite upload API。
 5. Rust 资源写入链路返回上传状态和 `WriteResult`。
 6. 上传成功且存在 changeset 时，sprite upload orchestrator 广播 `sprite-upload-saved`。
-7. 主窗口保存事件监听记录贴图文件级 history 并刷新 ProjectSession。
+7. 主窗口保存事件监听把贴图保存事件交给 File History Session，完成文件级 history 记录和 ProjectSession 刷新。
 8. ProjectileEditor 上传回调用返回路径更新本地 `bulletSprite` 或 `sprite` 字段。
 
 ## 规范
@@ -132,6 +136,8 @@
 - `specClass=projectile` 时表单必须保留 spawnType、bulletSprite、length、width、颜色、texture、collisionClass、fadeTime 和 hitGlowRadius 字段。
 - 不识别的 `specClass` 必须通过通用 JSON 编辑入口保留完整对象。
 - ViewModel 接收异步 bundle 返回前必须校验 request id 和当前窗口目标。
+- ProjectileEditor 只能在 `draftRevision` 变化时用父级 draft 重置本地 working copy；sprite upload 回填以外的外部刷新不得覆盖本地 working copy。
+- 当前 `.proj` dirty 时，外部保存或主实体失效只能写入待载入外部版本提示，不能覆盖当前 draft。
 - 保存事件必须携带 `sessionId + modRoot + kind + id + spec + WriteResult`，不得只广播文件路径或 ID。
 - 主窗口记录 `.proj` 保存 history 前必须确认 `modRoot` 仍加载且 session ID 与保存事件一致。
 - 武器窗口同步 projectile 保存事件时，只能更新已加载的 `projectileSpecs[id]`，不得重查或覆盖当前 weapon spec 草稿。
@@ -143,6 +149,7 @@
 - 候选 `.proj` 解析失败时继续写默认路径，会在损坏文件旁创建重复 spec。
 - 在 ProjectileEditor 组件中直接调用 shared files API，会绕过窗口 ViewModel 的保存事件、history 和 session invalidation。
 - 在弹体保存事件到达武器窗口时重查完整 weapon bundle，会覆盖武器窗口内未保存的 `.wpn` 草稿。
+- 在 dirty 状态下把外部保存事件直接应用到 ProjectileEditor props，会覆盖窗口内未保存的 `.proj` 草稿。
 - 保存 Core fallback projectile 时直接覆盖 Core 文件，会破坏当前 Mod 写入边界。
 - 只用文件名定位保存目标会忽略已有嵌套 `.proj` 中的正式 `id`。
 - 主窗口不校验 session 就记录保存事件，会把已关闭或重载 Mod 的 changeset 写入错误 history。

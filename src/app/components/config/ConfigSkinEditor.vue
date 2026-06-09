@@ -6,24 +6,28 @@
         <p>{{ selectedSkin.relPath }}</p>
       </div>
       <div class="skin-editor-actions">
+        <n-button v-if="hasPendingExternalData" size="small" secondary type="warning" @click="loadPendingExternalData">
+          载入外部版本
+        </n-button>
         <n-button size="small" secondary type="error" @click="confirmDeleteSkin">删除</n-button>
         <n-button type="primary" size="small" :loading="saving" @click="save">保存</n-button>
       </div>
     </header>
+    <div v-if="externalUpdateNotice" class="config-external-update-note">{{ externalUpdateNotice }}</div>
     <div class="skin-editor-body">
-      <SchemaFormRenderer :schema="schema" v-model="localSkin" :runtime-context="schemaRuntimeContext" />
+      <SchemaFormRenderer :schema="schema" v-model="draftData" :runtime-context="schemaRuntimeContext" />
     </div>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, toRef } from 'vue';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import type { RowData, SkinFile } from '@/shared/types';
-import { deepClone } from '@/shared/lib/starsector';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { getSchema } from '@/domain/schema/schema-registry';
 import { createSchemaRuntimeContext } from '@/app/composables/use-schema-runtime-context';
+import { useConfigSkinEditorViewModel } from '@/app/composables/use-config-skin-editor-view-model';
 
 const props = defineProps<{
   skinHullId: string;
@@ -38,34 +42,21 @@ const emit = defineEmits<{ saved: [skinHullId: string | null] }>();
 
 const feedback = useAppFeedback();
 
-const localSkin = ref<RowData>({});
-const saving = ref(false);
-
 const schema = computed(() => getSchema('skin'));
 const schemaRuntimeContext = computed(() =>
   props.modRoot && props.sessionId ? createSchemaRuntimeContext(props.modRoot, props.sessionId) : null,
 );
 const skins = computed(() => [...props.skins]);
-const selectedSkin = computed(() => skins.value.find((skin) => skin.skinHullId === props.skinHullId) ?? null);
-
-async function save() {
-  const current = selectedSkin.value;
-  const saveModRoot = props.modRoot;
-  const saveSessionId = props.sessionId;
-  if (!current || !saveModRoot || !saveSessionId) return;
-  saving.value = true;
-  try {
-    const saved = await props.saveSkin(saveSessionId, saveModRoot, current, localSkin.value);
-    if (props.modRoot !== saveModRoot || props.sessionId !== saveSessionId) return;
-    if (!saved) return;
-    localSkin.value = deepClone(saved.data);
-    emit('saved', saved.skinHullId);
-  } catch (error) {
-    feedback.error(error, '保存舰船皮肤失败');
-  } finally {
-    saving.value = false;
-  }
-}
+const { draftData, externalUpdateNotice, hasPendingExternalData, loadPendingExternalData, save, saving, selectedSkin } =
+  useConfigSkinEditorViewModel({
+    dataRevision: toRef(props, 'dataRevision'),
+    modRoot: toRef(props, 'modRoot'),
+    onSaved: (skinHullId) => emit('saved', skinHullId),
+    saveSkin: props.saveSkin,
+    sessionId: toRef(props, 'sessionId'),
+    skinHullId: toRef(props, 'skinHullId'),
+    skins,
+  });
 
 function confirmDeleteSkin() {
   const current = selectedSkin.value;
@@ -95,13 +86,4 @@ async function deleteSkinTarget(deleteSessionId: string, deleteModRoot: string, 
   }
   return true;
 }
-
-watch(
-  () => [props.skinHullId, props.dataRevision] as const,
-  () => {
-    const skin = selectedSkin.value;
-    localSkin.value = skin ? deepClone(skin.data) : {};
-  },
-  { immediate: true },
-);
 </script>

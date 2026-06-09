@@ -28,7 +28,7 @@ export const useProjectStore = defineStore('project', () => {
     return getManifest(modRoot)?.sessionId ?? null;
   }
 
-  function removeModData(modRoot: string) {
+  function removeProjectManifest(modRoot: string) {
     manifests.value.delete(modRoot);
     activeModRoot.value = getNextActiveKeyAfterRemoval(activeModRoot.value, [...manifests.value.keys()], modRoot, null);
   }
@@ -37,26 +37,13 @@ export const useProjectStore = defineStore('project', () => {
     loading.value = value;
   }
 
-  function setProjectManifest(manifest: ProjectManifest) {
+  function registerProjectManifest(manifest: ProjectManifest) {
     manifests.value.set(manifest.modRoot, manifest);
   }
 
-  function updateManifest(modRoot: string, patch: Partial<ProjectManifest>) {
-    const current = manifests.value.get(modRoot);
-    if (!current) return;
-    manifests.value.set(modRoot, { ...current, ...patch });
-  }
-
-  function updateEntitySummary(modRoot: string, key: keyof ProjectManifest['entitySummaries'], count: number) {
-    const current = manifests.value.get(modRoot);
-    if (!current) return;
-    manifests.value.set(modRoot, {
-      ...current,
-      entitySummaries: {
-        ...current.entitySummaries,
-        [key]: count,
-      },
-    });
+  function replaceProjectManifest(manifest: ProjectManifest) {
+    if (!manifests.value.has(manifest.modRoot)) return;
+    manifests.value.set(manifest.modRoot, manifest);
   }
 
   return {
@@ -69,11 +56,10 @@ export const useProjectStore = defineStore('project', () => {
     projectName,
     getManifest,
     getSessionId,
-    removeModData,
+    removeProjectManifest,
+    registerProjectManifest,
+    replaceProjectManifest,
     setActiveModRoot,
     setLoading,
-    setProjectManifest,
-    updateEntitySummary,
-    updateManifest,
   };
 });

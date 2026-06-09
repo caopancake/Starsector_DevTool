@@ -4,7 +4,7 @@ import { writeCsvPatch } from '@/services/write.service';
 import { recordPerformance } from '@/services/performance.service';
 import { isResourceRef } from '@/shared/lib/resource-ref';
 import type {
-  AssociatedFileChange,
+  AssociatedSpecChange,
   CsvFactionFilter,
   CsvRowPatch,
   CsvTableWindow,
@@ -60,9 +60,9 @@ export function saveTablePatch(
   modRoot: string,
   table: TableKey,
   patches: CsvRowPatch[],
-  associatedFiles: AssociatedFileChange[],
+  associatedSpecs: AssociatedSpecChange[],
 ): Promise<WriteResult> {
-  return writeCsvPatch(sessionId, modRoot, table, patches, associatedFiles);
+  return writeCsvPatch(sessionId, modRoot, table, patches, associatedSpecs);
 }
 
 export async function queryTableRowPreviewDataUrl(sessionId: ProjectSessionId, table: TableKey, rowKey: string): Promise<string> {

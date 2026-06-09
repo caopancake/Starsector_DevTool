@@ -1,4 +1,4 @@
-import type { ProjectManifest, RowData } from '@/shared/types';
+import type { ProjectInvalidation, ProjectManifest, RowData } from '@/shared/types';
 import type { WriteResult } from '@/shared/types';
 import type { AppSettings } from '@/shared/types';
 import type { EditorSpecKind } from '@/shared/types';
@@ -41,6 +41,7 @@ export interface FileEditorSavedEvent {
 export interface FileEditorTextAppliedEvent {
   modRoot: string;
   path: string;
+  sessionId: string;
   text: string;
 }
 
@@ -54,7 +55,7 @@ export interface SpriteUploadSavedEvent {
 
 export interface ProjectSessionInvalidatedEvent {
   manifest: ProjectManifest;
-  invalidatedPaths: string[];
+  invalidation: ProjectInvalidation;
 }
 
 export type AppSettingsChangedEvent = AppSettings;
