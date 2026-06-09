@@ -5,7 +5,7 @@ import { useWorkspaceStore } from '@/stores/workspace.store';
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
 import { hydrateOpenedModRuntime, openModProjectManifest } from '@/orchestrators/directory-opening.orchestrator';
 import { measurePerformance } from '@/services/performance.service';
-import { scanWorkspaceOverview } from '@/services/session.service';
+import { scanDirectoryGameOverview } from '@/services/session.service';
 import { loadPersistedWorkspace, savePersistedWorkspace } from '@/services/workspace-state.service';
 
 interface RestoreWorkspaceOptions {
@@ -52,7 +52,7 @@ export async function restorePersistedWorkspace(options: RestoreWorkspaceOptions
 
   workspace.applyPersistedWorkspaceSnapshot(persisted);
   if (persisted.starsectorRoot) {
-    const overview = await scanWorkspaceOverview(persisted.starsectorRoot);
+    const overview = await scanDirectoryGameOverview(persisted.starsectorRoot);
     workspace.setGameOverview(overview);
   }
 

@@ -6,8 +6,8 @@
 
 ## 参考
 
-- `src-tauri/src/commands/app_config.rs`：暴露 settings 读取和保存 command。
-- `src-tauri/src/models/app_config.rs`：定义 `AppSettings`、主题、强调色、编辑模式和 history limit 的 wire 模型。
+- `src-tauri/src/commands/app_settings.rs`：暴露 settings 读取和保存 command。
+- `src-tauri/src/models/app_settings.rs`：定义 `AppSettings`、主题、强调色、编辑模式和 history limit 的 wire 模型。
 - `src-tauri/src/services/app_settings.rs`：拥有 `settings.json` 默认值、UTF-8 无 BOM 读取和 strict JSON 保存。
 - `src/app/App.vue`：在主窗口提供 Naive UI config provider，并启动 settings persistence 或 settings mirror。
 - `src/app/components/SettingsPage.vue`：渲染设置控件，设置修改只写 settings store。

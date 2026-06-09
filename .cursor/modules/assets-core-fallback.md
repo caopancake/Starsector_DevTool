@@ -18,11 +18,12 @@
 - `src/shared/lib/resource-ref.ts`：提供 `ResourceRef` wire 校验和完整身份比较。
 - `src-tauri/src/commands/assets.rs`：接收资源写入和原版扫描 payload，并在上传前校验 session 与 Mod root。
 - `src-tauri/src/commands/project.rs`：接收资源批量 query、hull reference query 和 ProjectSession refresh payload。
-- `src-tauri/src/services/config/assets.rs`：执行贴图上传 changeset、原版字段扫描和原版图片路径扫描。
+- `src-tauri/src/services/project/resources/`：执行 ResourceRef 构造、资源 data URL 读取、贴图上传 changeset 和原版图片路径扫描。
+- `src-tauri/src/services/schema/core_fields.rs`：执行原版字段扫描，向 schema 合并层提供 `DiscoveredField`。
 - `src-tauri/src/services/project/cache/core.rs`：按 Starsector root 归属缓存原版 CSV、舰船、武器、装配和皮肤索引。
-- `src-tauri/src/services/project/resources_shared.rs`：拥有通用实体 `ResourceRef` 构造 helper 和资源 data URL 读取。
+- `src-tauri/src/services/project/resources/refs.rs`：拥有通用实体 `ResourceRef` 构造 helper 和资源 data URL 读取。
 - `src-tauri/src/services/project/table_definitions.rs`：拥有 CSV 表行、source option 和表图标资源抽取定义。
-- `src-tauri/src/services/project/sprites.rs`：校验资源相对路径并读取图片文件生成 data URL。
+- `src-tauri/src/services/project/resources/sprites.rs`：校验资源相对路径并读取图片文件生成 data URL。
 
 ## 边界
 
@@ -66,8 +67,8 @@
 2. root 为空时清空 core field 状态。
 3. root 非空且未加载时调用 `queryCoreFields(root)`。
 4. `scanCoreFields` 以 payload 对象调用 `scan_core_fields` command。
-5. Rust 将 Starsector root canonicalize 为只读 root 边界，并拒绝 parent-dir 和链接父链。
-6. Rust 扫描 `starsector-core` 下 faction、ship 和 weapon JSON 文件，遇到链接目录或链接文件直接返回错误。
+5. Rust schema core fields service 将 Starsector root canonicalize 为只读 root 边界，并拒绝 parent-dir 和链接父链。
+6. Rust schema core fields service 扫描 `starsector-core` 下 faction、ship 和 weapon JSON 文件，遇到链接目录或链接文件直接返回错误。
 7. Rust 对 JSON 文件读取、遍历、解析和对象结构错误直接返回错误。
 8. Rust 返回按文件类型归类的 `DiscoveredField[]`，字段类型使用 `DiscoveredFieldType`。
 9. 前端只在当前 root 仍等于发起 root 时发布扫描结果。
@@ -108,7 +109,7 @@
 3. `uploadEditorSpriteAction` 调用 `uploadEditorSprite(sessionId, modRoot, filename, data, subfolder, overwrite=false)`。
 4. shared API 以 `UploadSpritePayload` 调用 `upload_sprite` command。
 5. Rust command 校验 `sessionId + modRoot` 仍属于同一个 ProjectSession。
-6. Rust 上传 service 校验 `SpriteSubfolder`、`.png` 文件名、目标相对目录和覆盖语义。
+6. Rust Project Resources upload service 校验 `SpriteSubfolder`、`.png` 文件名、目标相对目录和覆盖语义。
 7. 目标存在且不允许覆盖时，Rust 返回无 changes 的存在状态，不写盘。
 8. UI 收到存在状态后通过确认对话框取得覆盖意图。
 9. 覆盖确认后重新调用上传链路并提交 `overwrite=true`。

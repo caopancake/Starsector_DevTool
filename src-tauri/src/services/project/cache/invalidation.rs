@@ -1,12 +1,12 @@
 use crate::{
     errors::AppResult,
-    io::{normalized_path_key, path_uses_parent_dir},
+    io::FsRootBoundary,
     models::{
         CsvTableKey, EntityKind, InvalidatedEntityRef, InvalidatedQueryKind, InvalidatedQueryScope,
         InvalidatedResourceScope, ProjectInvalidation, ResourceSource,
     },
 };
-use std::path::{Component, Path};
+use std::path::Path;
 
 use super::super::{entity_definitions, model::ProjectSession, root, table_definitions};
 
@@ -14,7 +14,9 @@ pub(crate) fn invalidate_session_path(
     session: &mut ProjectSession,
     changed_path: &str,
 ) -> AppResult<ProjectInvalidation> {
-    let Some(project_path) = project_scoped_changed_path(&session.manifest.mod_root, changed_path)
+    let boundary = FsRootBoundary::new(Path::new(&session.manifest.mod_root), "mod root")?;
+    let Some(project_path) =
+        boundary.resolve_changed_path_to_relative(changed_path, "changed path")?
     else {
         return Ok(ProjectInvalidation::default());
     };
@@ -38,30 +40,6 @@ pub(crate) fn invalidate_session_path(
         }
     }
     Ok(invalidation)
-}
-
-fn project_scoped_changed_path(mod_root: &str, changed_path: &str) -> Option<String> {
-    let path = Path::new(changed_path);
-    if path_uses_parent_dir(path) {
-        return None;
-    }
-    let normalized_path = normalized_path_key(path);
-    if !path.is_absolute() {
-        if path
-            .components()
-            .any(|part| matches!(part, Component::Prefix(_)))
-        {
-            return None;
-        }
-        return Some(normalized_path);
-    }
-    let normalized_root = normalized_path_key(Path::new(mod_root));
-    if normalized_path == normalized_root {
-        return Some(String::new());
-    }
-    normalized_path
-        .strip_prefix(&format!("{normalized_root}/"))
-        .map(ToOwned::to_owned)
 }
 
 #[derive(Default)]
@@ -387,33 +365,6 @@ mod tests {
             EntityKind::Ship,
             "backup/data/hulls/demo.ship"
         ));
-    }
-
-    #[test]
-    fn project_scoped_changed_path_rejects_external_absolute_paths() {
-        assert_eq!(
-            project_scoped_changed_path("D:/mods/current", "D:/mods/current/data/hulls/demo.ship"),
-            Some("data/hulls/demo.ship".to_string())
-        );
-        assert_eq!(
-            project_scoped_changed_path("D:/mods/current", "data/hulls/demo.ship"),
-            Some("data/hulls/demo.ship".to_string())
-        );
-        assert_eq!(
-            project_scoped_changed_path("D:/mods/current", "D:/mods/other/data/hulls/demo.ship"),
-            None
-        );
-        assert_eq!(
-            project_scoped_changed_path("D:/mods/current", "data/hulls/../weapons/demo.wpn"),
-            None
-        );
-        assert_eq!(
-            project_scoped_changed_path(
-                "D:/mods/current",
-                "D:/mods/current/data/hulls/../weapons/demo.wpn"
-            ),
-            None
-        );
     }
 
     #[test]

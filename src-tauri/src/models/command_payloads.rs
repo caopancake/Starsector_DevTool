@@ -1,8 +1,9 @@
 use crate::models::{
-    app_config::{AppLogEntry, AppSettings},
+    app_log::AppLogEntry,
+    app_settings::AppSettings,
     project::{CsvFactionFilter, CsvTableKey, EntityKind, ProjectSessionId, ResourceRef},
     required_nullable, required_nullable_non_empty_string,
-    workspace::PersistedWorkspace,
+    workspace_persistence::PersistedWorkspace,
     write::{
         AssociatedFileChange, AssociatedSpecChange, CsvRowPatch, EditorSpecKind, FileChangeRecord,
         FileChangeReplayDirection, IndexedConfigKind, SpriteSubfolder,

@@ -36,7 +36,7 @@ export const writeBoundaryRule = {
         if (target.layer === 'services' && target.domain === 'session' && current.layer === 'orchestrators') {
           if (
             current.domain !== 'project-session-refresh' &&
-            current.domain !== 'open-directory' &&
+            current.domain !== 'directory-opening' &&
             current.domain !== 'workspace-persistence'
           ) {
             failures.push(`${file.rel}: project session mutation belongs to project session orchestrators`);

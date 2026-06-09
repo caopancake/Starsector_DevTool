@@ -4,7 +4,7 @@ import type { AppFeedback } from '@/shared/types';
 import { useSettingsStore } from '@/stores/settings.store';
 import { openEditorWindow } from '@/windows/editor.window';
 import { useProjectStore } from '@/stores/project.store';
-import { pickDirectory, scanWorkspaceOverview } from '@/services/session.service';
+import { pickDirectory, scanDirectoryGameOverview } from '@/services/session.service';
 import { captureActiveTableSaveTarget, saveCapturedTableChanges } from '@/orchestrators/table-save.orchestrator';
 import { useTablesStore } from '@/stores/tables.store';
 import type { AssociatedSpecCandidate } from '@/domain/tables/associated-spec-candidates';
@@ -106,7 +106,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     const root = workspace.gameOverview?.starsectorRoot;
     if (!root) return;
     try {
-      const overview = await scanWorkspaceOverview(root);
+      const overview = await scanDirectoryGameOverview(root);
       workspace.setGameOverview(overview);
       settings.setStarsectorRoot(overview.starsectorRoot);
       recordLogBestEffort({ level: 'info', message: `刷新工作区：${overview.starsectorRoot}`, path: null, line: null });

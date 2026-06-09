@@ -1,14 +1,14 @@
-use super::{
+use super::super::{
     model::{string_field, ProjectSession, WEAPON_SPRITE_FIELDS},
-    sprites,
     table_definitions::hull_resource_ref,
 };
+use super::sprites;
 use crate::errors::{AppError, AppResult};
 use crate::models::{ResourceOwnerKind, ResourceRef, ResourceSource, SkinFile};
 use serde_json::{json, Value};
 use std::{collections::BTreeMap, path::PathBuf};
 
-pub(super) fn resource_data_url(
+pub(in crate::services::project) fn resource_data_url(
     session: &ProjectSession,
     resource: &ResourceRef,
 ) -> AppResult<Option<String>> {
@@ -34,7 +34,7 @@ pub(super) fn resource_data_url(
     }
 }
 
-pub(super) fn resource_cache_key(resource: &ResourceRef) -> String {
+pub(in crate::services::project) fn resource_cache_key(resource: &ResourceRef) -> String {
     json!([
         resource.source.as_str(),
         resource.rel_path,
@@ -45,7 +45,10 @@ pub(super) fn resource_cache_key(resource: &ResourceRef) -> String {
     .to_string()
 }
 
-pub(super) fn ship_resource_refs(id: &str, data: &Value) -> BTreeMap<String, ResourceRef> {
+pub(in crate::services::project) fn ship_resource_refs(
+    id: &str,
+    data: &Value,
+) -> BTreeMap<String, ResourceRef> {
     let mut refs = BTreeMap::new();
     if let Some(sprite) = string_field(data, "spriteName") {
         refs.insert(
@@ -62,7 +65,10 @@ pub(super) fn ship_resource_refs(id: &str, data: &Value) -> BTreeMap<String, Res
     refs
 }
 
-pub(super) fn weapon_resource_refs(id: &str, data: &Value) -> BTreeMap<String, ResourceRef> {
+pub(in crate::services::project) fn weapon_resource_refs(
+    id: &str,
+    data: &Value,
+) -> BTreeMap<String, ResourceRef> {
     let mut refs = BTreeMap::new();
     for field in WEAPON_SPRITE_FIELDS {
         if let Some(sprite) = string_field(data, field) {
@@ -81,15 +87,21 @@ pub(super) fn weapon_resource_refs(id: &str, data: &Value) -> BTreeMap<String, R
     refs
 }
 
-pub(super) fn projectile_resource_refs(_id: &str, _data: &Value) -> BTreeMap<String, ResourceRef> {
+pub(in crate::services::project) fn projectile_resource_refs(
+    _id: &str,
+    _data: &Value,
+) -> BTreeMap<String, ResourceRef> {
     BTreeMap::new()
 }
 
-pub(super) fn system_resource_refs(_id: &str, _data: &Value) -> BTreeMap<String, ResourceRef> {
+pub(in crate::services::project) fn system_resource_refs(
+    _id: &str,
+    _data: &Value,
+) -> BTreeMap<String, ResourceRef> {
     BTreeMap::new()
 }
 
-pub(super) fn variant_resource_refs(
+pub(in crate::services::project) fn variant_resource_refs(
     session: &ProjectSession,
     data: &Value,
 ) -> BTreeMap<String, ResourceRef> {
@@ -102,7 +114,7 @@ pub(super) fn variant_resource_refs(
     refs
 }
 
-pub(super) fn skin_entity_resource_refs(
+pub(in crate::services::project) fn skin_entity_resource_refs(
     session: &ProjectSession,
     id: &str,
     data: &Value,
@@ -127,7 +139,10 @@ pub(super) fn skin_entity_resource_refs(
     refs
 }
 
-pub(super) fn faction_resource_refs(id: &str, data: &Value) -> BTreeMap<String, ResourceRef> {
+pub(in crate::services::project) fn faction_resource_refs(
+    id: &str,
+    data: &Value,
+) -> BTreeMap<String, ResourceRef> {
     let mut refs = BTreeMap::new();
     if let Some(logo) = string_field(data, "logo") {
         refs.insert(
@@ -156,7 +171,10 @@ pub(super) fn faction_resource_refs(id: &str, data: &Value) -> BTreeMap<String, 
     refs
 }
 
-pub(super) fn mission_resource_refs(id: &str, data: &Value) -> BTreeMap<String, ResourceRef> {
+pub(in crate::services::project) fn mission_resource_refs(
+    id: &str,
+    data: &Value,
+) -> BTreeMap<String, ResourceRef> {
     let mut refs = BTreeMap::new();
     if let Some(icon) = data
         .get("descriptor")
@@ -177,7 +195,7 @@ pub(super) fn mission_resource_refs(id: &str, data: &Value) -> BTreeMap<String, 
     refs
 }
 
-pub(super) fn skin_resource_ref(
+pub(in crate::services::project) fn skin_resource_ref(
     source: ResourceSource,
     ship_files: &BTreeMap<String, Value>,
     skin: &SkinFile,
@@ -208,7 +226,7 @@ pub(super) fn skin_resource_ref(
         })
 }
 
-pub(super) fn resource_ref(
+pub(in crate::services::project) fn resource_ref(
     source: ResourceSource,
     rel_path: &str,
     owner_kind: ResourceOwnerKind,
@@ -227,6 +245,7 @@ pub(super) fn resource_ref(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::project::table_definitions;
     use serde_json::Map;
 
     #[test]
@@ -277,7 +296,7 @@ mod tests {
             Value::String("graphics/icons/skill.png".to_string()),
         );
 
-        let resource = super::super::table_definitions::csv_table_icon_resource_ref(
+        let resource = table_definitions::csv_table_icon_resource_ref(
             ResourceSource::Mod,
             crate::models::CsvTableKey::Skills,
             &row,

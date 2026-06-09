@@ -4,13 +4,7 @@ import { useProjectStore } from '@/stores/project.store';
 import { completeSavedWrite } from '@/orchestrators/file-history-session.orchestrator';
 import type { WriteResult } from '@/shared/types';
 
-export async function completeSpriteUploadSaved(
-  modRoot: string,
-  result: WriteResult,
-  overwritten: boolean,
-  filename: string,
-  sessionId: string,
-) {
+async function completeSpriteUploadSaved(modRoot: string, result: WriteResult, overwritten: boolean, filename: string, sessionId: string) {
   const action = overwritten ? '覆盖贴图' : '上传贴图';
   await completeSavedWrite({ modRoot, result, label: `${action}: ${filename}`, sessionId }, useProjectStore());
 }

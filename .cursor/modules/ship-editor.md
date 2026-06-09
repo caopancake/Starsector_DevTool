@@ -21,10 +21,10 @@
 - `src/shared/api/files-api.ts`：封装 `load_imported_editor_spec_file` 和 `save_editor_spec` Tauri command。
 - `src/shared/lib/starsector.ts`：定义新建舰船默认 spec 和基础字段读取工具。
 - `src/windows/editor.window.ts`：定义舰船编辑器窗口请求、窗口单例 key、URL 参数和窗口尺寸。
-- `src-tauri/src/commands/files.rs`：校验保存命令的 ProjectSession 归属并调用 Rust editor spec service。
-- `src-tauri/src/services/editor_specs.rs`：按后端实体/spec definition 定位、读取、校验、写入 `.ship` 文件并构造 changeset。
+- `src-tauri/src/commands/editor_config.rs`：校验保存命令的 ProjectSession 归属并调用 Rust editor spec service。
+- `src-tauri/src/services/editor_config/spec_files.rs`：按后端实体/spec definition 定位、读取、校验、写入 `.ship` 文件并构造 changeset。
 - `src-tauri/src/services/project/query/entities.rs`：从 ProjectSession 的 ship entity 输出 `.ship` spec 和资源引用。
-- `src-tauri/src/services/project/resources_shared.rs`：从 `spriteName` 构造舰船贴图 `ResourceRef`。
+- `src-tauri/src/services/project/resources/refs.rs`：从 `spriteName` 构造舰船贴图 `ResourceRef`。
 
 ## 边界
 

@@ -1,10 +1,10 @@
+use crate::domain::editor_config_definitions::entity_spec_definition;
 use crate::{
     domain::config::validate_config_id,
     errors::{AppError, AppResult},
     io::{read_csv_data, strip_internal_fields, FileChangeSetBuilder},
     models::{EntityKind, IndexedConfigKind, WriteResult},
     parsers::render_csv_text,
-    services::project::entity_definitions::entity_spec_definition,
 };
 use serde_json::{Map, Value};
 use std::path::Path;

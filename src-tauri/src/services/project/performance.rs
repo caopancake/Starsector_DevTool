@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
-pub(super) struct PerformanceTrace {
+pub(crate) struct PerformanceTrace {
     name: &'static str,
     started_at: Instant,
     stages: Vec<PerformanceStage>,
@@ -15,12 +15,12 @@ struct PerformanceStage {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct PerformanceTimer {
+pub(crate) struct PerformanceTimer {
     started_at: Instant,
 }
 
 impl PerformanceTrace {
-    pub(super) fn new(name: &'static str) -> Self {
+    pub(crate) fn new(name: &'static str) -> Self {
         Self {
             name,
             started_at: Instant::now(),
@@ -28,11 +28,11 @@ impl PerformanceTrace {
         }
     }
 
-    pub(super) fn timer(&self) -> PerformanceTimer {
+    pub(crate) fn timer(&self) -> PerformanceTimer {
         PerformanceTimer::start()
     }
 
-    pub(super) fn record_stage(
+    pub(crate) fn record_stage(
         &mut self,
         name: &'static str,
         timer: PerformanceTimer,
@@ -48,7 +48,7 @@ impl PerformanceTrace {
         });
     }
 
-    pub(super) fn log_messages(&self, root_fields: &[(&str, String)]) -> Vec<String> {
+    pub(crate) fn log_messages(&self, root_fields: &[(&str, String)]) -> Vec<String> {
         let mut messages = vec![render_message(
             self.name,
             self.started_at.elapsed(),
@@ -73,13 +73,13 @@ impl PerformanceTrace {
 }
 
 impl PerformanceTimer {
-    pub(super) fn start() -> Self {
+    pub(crate) fn start() -> Self {
         Self {
             started_at: Instant::now(),
         }
     }
 
-    pub(super) fn elapsed_ms(&self) -> u128 {
+    pub(crate) fn elapsed_ms(&self) -> u128 {
         self.started_at.elapsed().as_millis()
     }
 }

@@ -1,7 +1,7 @@
 use super::{
     cache::{load_core_ship_files, load_core_skin_files},
     model::{string_field, string_from_row, weapon_sprite_path, CoreSourceData, ProjectSession},
-    resources_shared::{resource_ref, skin_resource_ref},
+    resources::{resource_ref, skin_resource_ref},
 };
 use crate::{
     errors::AppResult,

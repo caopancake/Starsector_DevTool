@@ -19,7 +19,7 @@
 - `src/shared/types/history.types.ts`：拥有前端 `FileChangeRecord`、`FileSnapshot` 和 replay direction 的显式字段模型。
 - `src/shared/types/write.types.ts`：拥有 `WriteResult` 统一写入结果类型。
 - `src/stores/file-history.store.ts`：拥有按 modRoot 隔离的文件级 undo/redo 栈、peek、commit、清空和长度裁剪。
-- `src-tauri/src/commands/files.rs`：拥有 `apply_file_change_set` command，并在回放前校验 `sessionId + modRoot`。
+- `src-tauri/src/commands/file_changes.rs`：拥有 `apply_file_change_set` command，并在回放前校验 `sessionId + modRoot`。
 - `src-tauri/src/io/file_changes.rs`：拥有 changeset 构建、文件/目录快照、UTF-8 文本写入、二进制回放、路径失效展开和失败回滚。
 - `src-tauri/src/models/write.rs`：拥有 Rust `FileChangeRecord`、`FileSnapshot`、`FileChangeReplayDirection` 和 `WriteResult` 模型。
 - `src-tauri/src/services/file_changes.rs`：拥有 command-facing 文件写入和 changeset 回放 service，负责路径归属校验和回放结果构造。

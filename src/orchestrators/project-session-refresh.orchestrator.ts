@@ -9,7 +9,7 @@ import { isAbsoluteFsPath, pathBelongsToRoot, pathIsProjectScopedChangedPath } f
 import { AppError } from '@/shared/lib/errors';
 import type { ProjectManifest, WriteResult } from '@/shared/types';
 
-export function emitProjectSessionInvalidated(event: ProjectSessionInvalidatedEvent) {
+function emitProjectSessionInvalidated(event: ProjectSessionInvalidatedEvent) {
   return emitWindowEvent(WINDOW_EVENTS.projectSessionInvalidated, event);
 }
 

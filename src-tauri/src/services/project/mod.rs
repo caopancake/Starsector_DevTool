@@ -1,25 +1,24 @@
 mod cache;
 pub(crate) mod entity_definitions;
-mod entry;
 mod factions;
 mod model;
 mod performance;
 mod projectiles;
 mod query;
-mod resources_shared;
+mod resources;
 mod root;
 mod session;
 mod spec_files;
-mod sprites;
 mod table_definitions;
 mod write;
 
-pub use entry::open_project_session_with_root;
+pub(crate) use performance::PerformanceTrace;
 pub use query::{
     query_csv_row_preview, query_csv_source_options, query_csv_table_window, query_entity,
     query_entity_list, query_hull_references, query_resource_data_urls,
 };
-pub use root::{detect_directory, scan_game_overview};
+pub use resources::{scan_core_graphics, upload_sprite};
+pub(crate) use session::open_project_session_traced;
 pub use session::{
     close_project_session, ensure_project_session_mod_root, invalidate_core_cache,
     invalidate_project_session,

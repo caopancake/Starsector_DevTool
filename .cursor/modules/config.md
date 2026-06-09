@@ -24,11 +24,11 @@
 - `src/shared/api/config-entity-api.ts`：封装 indexed entity、Variant 和 Skin 的 Tauri write command。
 - `src/shared/api/files-api.ts`：封装 `mod_info.json` 使用的通用 `save_mod_files` command。
 - `src/shared/api/query-api.ts`：封装配置列表和详情读取使用的 ProjectSession entity query command。
-- `src-tauri/src/commands/config.rs`：校验写入 payload 的 `sessionId + modRoot` 后调用 Rust 配置写入 service。
-- `src-tauri/src/domain/config.rs`：定义配置 ID、配置文件 relPath、VariantFile 和 SkinFile 的 Rust 正式模型。
-- `src-tauri/src/services/config/indexed_entities.rs`：维护 Faction / Mission index CSV、目标文件或目录、changeset 和返回实体。
-- `src-tauri/src/services/config/skins.rs`：维护 `.skin` 单文件实体保存、新旧目标推导、删除 relPath 校验和文件内容 ID 校验，并消费后端实体 spec definition。
-- `src-tauri/src/services/config/variants.rs`：维护 `.variant` 单文件实体保存、新旧目标推导、删除 relPath 校验和文件内容 ID 校验，并消费后端实体 spec definition。
+- `src-tauri/src/commands/editor_config.rs`：校验写入 payload 的 `sessionId + modRoot` 后调用 Rust Editor/Config backend。
+- `src-tauri/src/domain/config.rs`：定义配置 ID、配置文件 relPath、VariantFile 和 SkinFile 的 Rust 正式模型。`src-tauri/src/domain/editor_config_definitions.rs`：集中定义 Editor/Config 与 ProjectSession 共享的 spec 目录、扩展名、id 字段和 invalid id 文案。
+- `src-tauri/src/services/editor_config/indexed_entities.rs`：维护 Faction / Mission index CSV、目标文件或目录、changeset 和返回实体。
+- `src-tauri/src/services/editor_config/skins.rs`：维护 `.skin` 单文件实体保存、新旧目标推导、删除 relPath 校验和文件内容 ID 校验，并消费 Rust domain spec definition。
+- `src-tauri/src/services/editor_config/variants.rs`：维护 `.variant` 单文件实体保存、新旧目标推导、删除 relPath 校验和文件内容 ID 校验，并消费 Rust domain spec definition。
 - `src-tauri/src/services/project/query/entities.rs`：从 ProjectSession 构造 Faction、Mission、Variant 和 Skin 的 query entity 输出。
 
 ## 边界
@@ -43,8 +43,8 @@
 - Rust command 拥有写入前 `sessionId + modRoot` 校验；前端写后目标校验不能替代 Rust 写前校验。
 - Rust indexed entity service 拥有 Faction / Mission 索引 CSV、目标文件或目标目录、ID 校验、索引命中校验和 changeset 构造。
 - Rust ProjectSession query 拥有 Faction、Mission、Variant 和 Skin 的实体输出边界；前端不得自行扫描磁盘补实体。
-- Rust Skin service 拥有 Skin 单文件保存、重命名和删除校验，路径、扩展名和 ID 文案来自后端实体 spec definition。
-- Rust Variant service 拥有 Variant 单文件保存、重命名和删除校验，路径、扩展名和 ID 文案来自后端实体 spec definition。
+- Rust Editor/Config backend 拥有 Skin 单文件保存、重命名和删除校验，路径、扩展名和 ID 文案来自 Rust domain spec definition。
+- Rust Editor/Config backend 拥有 Variant 单文件保存、重命名和删除校验，路径、扩展名和 ID 文案来自 Rust domain spec definition。
 - Skin ViewModel 拥有 Skin 列表状态、选中 ID、hull 引用选项、缩略图、创建保存删除动作和 entity/resource cache 失效响应；Skin Editor ViewModel 拥有详情目标草稿。
 - Variant ViewModel 拥有 Variant 列表状态、选中 ID、hull 引用选项、缩略图、创建保存删除动作和 entity/resource cache 失效响应；Variant Editor ViewModel 拥有详情目标草稿。
 - 文件级 history store 只消费配置保存链路提交的 changeset，不拥有配置页面、配置实体模型、manifest summary 或配置保存目标。
@@ -87,7 +87,7 @@
 4. ViewModel 调用 `saveModInfoAction()`。
 5. 配置保存 orchestrator 调用配置 service。
 6. 配置 service 通过 write service 调用 shared files API 的 `save_mod_files`。
-7. Rust files command 校验 `sessionId + modRoot` 后只写入 `mod_info.json`。
+7. Rust file changes command 校验 `sessionId + modRoot` 后只写入 `mod_info.json`。
 8. 配置保存 orchestrator 把写入结果交给 File History Session。
 9. File History Session 记录文件级保存 history，并使用发起 session 刷新 ProjectSession。
 10. ViewModel 确认 active manifest 仍匹配发起目标后只同步 `modInfo` 字段，并把保存后的数据提升为草稿基准。
@@ -128,7 +128,7 @@
 5. 配置保存 orchestrator 调用配置 service。
 6. 配置 service 通过 write service 调用 shared config entity API。
 7. Rust command 校验 `sessionId + modRoot`。
-8. Rust single-file service 从后端实体 spec definition 取得路径、扩展名和 ID 文案，校验 ID、按旧 ID 推导的旧目标、写入数据 ID 和目标冲突。
+8. Rust Editor/Config backend 从 Rust domain spec definition 取得路径、扩展名和 ID 文案，校验 ID、按旧 ID 推导的旧目标、写入数据 ID 和目标冲突。
 9. Rust service 删除旧文件并写入新文件，或只覆盖当前目标文件。
 10. 配置保存 orchestrator 解析返回实体，并通过 File History Session 完成文件级保存 history 记录和 ProjectSession 刷新。
 11. ViewModel 确认 active target 仍匹配发起目标后刷新列表和选中 ID。
@@ -142,7 +142,7 @@
 5. 配置 service 通过 write service 调用 shared config entity API。
 6. Rust command 校验 `sessionId + modRoot`。
 7. Rust indexed entity service 删除索引行并按选项删除 Faction 文件或 Mission 目录。
-8. Rust single-file service 按后端实体 spec definition 校验 relPath、扩展名和文件内容 ID 后删除 Variant 或 Skin 文件。
+8. Rust Editor/Config backend 按 Rust domain spec definition 校验 relPath、扩展名和文件内容 ID 后删除 Variant 或 Skin 文件。
 9. 配置保存 orchestrator 通过 File History Session 完成文件级保存 history 记录和 ProjectSession 刷新。
 10. ViewModel 确认 active target 仍匹配发起目标后刷新列表并修正选中 ID。
 
@@ -162,12 +162,12 @@
 - ProjectSession entity query 的非对象数据、缺失字段、序列化失败和配置文件解析失败必须作为错误暴露。
 - Rust 写入 payload 的可空字段必须显式传 null，布尔控制字段必须显式传 true 或 false。
 - Rust 写盘前必须校验 `sessionId + modRoot` 指向同一个 ProjectSession。
-- Skin 删除必须按后端实体 spec definition 校验 relPath、扩展名和文件内容 `skinHullId` 与实体 ID 匹配。
+- Skin 删除必须按 Rust domain spec definition 校验 relPath、扩展名和文件内容 `skinHullId` 与实体 ID 匹配。
 - Skin 重命名必须由后端按旧 ID 推导旧目标，且文件内容 `skinHullId` 与旧 ID 匹配。
-- Skin 保存必须按后端实体 spec definition 写入目标路径，且写入数据中的 `skinHullId` 必须与目标 ID 一致。
-- Variant 删除必须按后端实体 spec definition 校验 relPath、扩展名和文件内容 `variantId` 与实体 ID 匹配。
+- Skin 保存必须按 Rust domain spec definition 写入目标路径，且写入数据中的 `skinHullId` 必须与目标 ID 一致。
+- Variant 删除必须按 Rust domain spec definition 校验 relPath、扩展名和文件内容 `variantId` 与实体 ID 匹配。
 - Variant 重命名必须由后端按旧 ID 推导旧目标，且文件内容 `variantId` 与旧 ID 匹配。
-- Variant 保存必须按后端实体 spec definition 写入目标路径，且写入数据中的 `variantId` 必须与目标 ID 一致。
+- Variant 保存必须按 Rust domain spec definition 写入目标路径，且写入数据中的 `variantId` 必须与目标 ID 一致。
 - 单文件 schema entity 的重复 ID 判断和重命名上下文归属配置 domain。
 - 列表 query 返回后必须按发起时的 request id 和 session identity 校验再写入 ViewModel 状态。
 - 详情草稿在选中实体变化时必须载入新编辑目标；同一实体详情数据 revision 或正式数据失效命中 dirty 草稿时只能暂存外部版本并提示，资源 data URL 失效只能刷新预览。

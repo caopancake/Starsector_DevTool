@@ -14,12 +14,14 @@
 - `src/shared/types/query.types.ts`：拥有前端 OpenDirectoryResult、GameOverviewData、GameScanWarning 和 ProjectManifest 类型。
 - `src/stores/project.store.ts`：在打开成功后登记 ProjectSession 返回的完整 ProjectManifest。
 - `src/stores/workspace.store.ts`：拥有游戏概览、已加载 Mod 条目、活动 Mod 和概览导航状态。
-- `src-tauri/src/commands/project.rs`：拥有目录识别、游戏概览和 ProjectSession command 边界。
+- `src-tauri/src/commands/directory_opening.rs`：拥有目录识别、游戏概览和打开 ProjectSession 的 command 边界。
 - `src-tauri/src/models/command_payloads.rs`：拥有目录识别与 session 打开的 payload 显式 nullable wire 语义。
-- `src-tauri/src/models/project.rs`：拥有 Rust 侧目录识别结果、游戏概览、warning 和 ProjectManifest wire 模型。
-- `src-tauri/src/services/project/entry.rs`：拥有 ProjectSession 打开入口和成功打开后的性能日志写入。
-- `src-tauri/src/services/project/root.rs`：拥有游戏目录判定、Mod 目录判定、Starsector root 推导和游戏概览扫描。
-- `src-tauri/src/services/project/session.rs`：在本模块只作为 ProjectSession 打开链路的后端入口。
+- `src-tauri/src/models/directory_opening.rs`：拥有 Rust 侧目录识别结果、游戏概览和 warning wire 模型。
+- `src-tauri/src/models/project.rs`：拥有 ProjectManifest wire 模型。
+- `src-tauri/src/services/directory_opening/detection.rs`：拥有游戏目录判定、Mod 目录判定、Starsector root 推导和目录分类。
+- `src-tauri/src/services/directory_opening/overview.rs`：拥有游戏概览扫描和 Mod 摘要生成。
+- `src-tauri/src/services/directory_opening/session_opening.rs`：拥有打开 ProjectSession command wrapper 和成功打开后的性能日志写入。
+- `src-tauri/src/services/project/session.rs`：在本模块只作为 ProjectSession 构建和 manifest 生成的被调用入口。
 
 ## 边界
 
@@ -52,18 +54,19 @@
 9. Directory Opening 编排调用 ProjectSession 打开 service。
 10. 前端 service 调用 open project session shared API。
 11. shared API 调用 Rust open project session command。
-12. Rust ProjectSession 打开入口返回 ProjectManifest。
-13. Directory Opening 编排把 manifest 登记到 project store。
-14. Directory Opening 编排更新 workspace Mod 名称、版本和 ready 状态。
-15. Directory Opening 编排按 active 判定 hydrate opened mod runtime。
-16. Directory Opening 编排导航回 overview。
-17. workspace shell 展示打开结果和 manifest warning。
+12. Rust Directory Opening command wrapper 调用 ProjectSession service。
+13. Rust ProjectSession service 返回 ProjectManifest。
+14. Directory Opening 编排把 manifest 登记到 project store。
+15. Directory Opening 编排更新 workspace Mod 名称、版本和 ready 状态。
+16. Directory Opening 编排按 active 判定 hydrate opened mod runtime。
+17. Directory Opening 编排导航回 overview。
+18. workspace shell 展示打开结果和 manifest warning。
 
 ### 刷新游戏概览
 
 1. 用户在游戏概览页点击刷新工作区。
 2. workspace shell 读取当前 gameOverview.starsectorRoot。
-3. workspace shell 调用 scan workspace overview service。
+3. workspace shell 调用 scan directory game overview service。
 4. 前端 service 调用 scan game overview shared API。
 5. shared API 调用 Rust scan game overview command。
 6. Rust command 调用游戏概览扫描 service。
@@ -107,7 +110,7 @@
 5. Directory Opening 编排把该 Mod 设置为活动 Mod。
 6. Directory Opening 编排调用 openModProject。
 7. openModProject 调用 openModProjectManifest。
-8. ProjectSession 打开 service 返回 ProjectManifest。
+8. Directory Opening command wrapper 调用 ProjectSession service 并返回 ProjectManifest。
 9. Directory Opening 编排登记 manifest。
 10. Directory Opening 编排更新 workspace Mod 名称、版本和 ready 状态。
 11. Directory Opening 编排判断该 Mod 是否仍为 active。
@@ -159,6 +162,7 @@
 - 打开已加载 Mod 不得重复创建 ProjectSession。
 - 目录识别 command 不得直接写入前端状态或后端 session map。
 - 目录识别、游戏概览和 ProjectSession 打开 command 必须使用 payload 对象作为 wire 边界。
+- Rust 侧目录识别、游戏概览和打开 ProjectSession 的 command 文件必须归 `directory_opening`，不得放回 `commands/project.rs`。
 - 游戏概览扫描必须保留读取失败的路径和底层错误原因。
 - 游戏目录判定必须同时要求 starsector-core 和 mods 为目录。
 - 外部 Mod 可以携带已知 Starsector root，但不得生成游戏概览。

@@ -1,9 +1,9 @@
 use crate::{
     domain::config::{build_skin_file, validate_config_id},
+    domain::editor_config_definitions::entity_spec_definition,
     errors::{AppError, AppResult},
     io::{read_json_file, strip_internal_fields, FileChangeSetBuilder},
     models::{EntityKind, WriteResult},
-    services::project::entity_definitions::entity_spec_definition,
 };
 use serde_json::Value;
 use std::path::Path;
@@ -87,9 +87,9 @@ fn require_skin_file_target(mod_root: &Path, rel_path: &str, skin_hull_id: &str)
     Ok(())
 }
 
-fn skin_spec_definition() -> crate::errors::AppResult<
-    &'static crate::services::project::entity_definitions::ProjectEntitySpecDefinition,
-> {
+fn skin_spec_definition(
+) -> crate::errors::AppResult<&'static crate::domain::editor_config_definitions::EntitySpecDefinition>
+{
     entity_spec_definition(EntityKind::Skin)
         .ok_or_else(|| AppError::message("舰船皮肤 spec 定义不存在"))
 }

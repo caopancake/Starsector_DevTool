@@ -8,7 +8,7 @@ import {
 } from '@/shared/api/app-feedback-log-api';
 import type { AppLogEntry, AppLogStatus } from '@/shared/types/app-log.types';
 
-export function recordLog(entry: AppLogEntry): Promise<void> {
+function recordLog(entry: AppLogEntry): Promise<void> {
   return appendAppLog(entry);
 }
 

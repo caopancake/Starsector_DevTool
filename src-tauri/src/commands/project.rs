@@ -1,31 +1,16 @@
 use crate::{
     models::command_payloads::{
         CloseProjectSessionPayload, CsvRowPreviewPayload, CsvSourceOptionsPayload,
-        CsvTableWindowPayload, DetectDirectoryPayload, HullReferencesPayload,
-        InvalidateCoreCachePayload, InvalidateProjectSessionPayload, OpenProjectSessionPayload,
-        QueryEntityListPayload, QueryEntityPayload, ResourceDataUrlBatchPayload,
-        ScanGameOverviewPayload,
+        CsvTableWindowPayload, HullReferencesPayload, InvalidateCoreCachePayload,
+        InvalidateProjectSessionPayload, QueryEntityListPayload, QueryEntityPayload,
+        ResourceDataUrlBatchPayload,
     },
     models::{
-        CsvRowPreview, CsvTableWindow, EntityData, GameOverviewData, HullReferencesResult,
-        OpenDirectoryResult, ProjectManifest, ProjectSessionInvalidationResult,
-        ResourceDataUrlBatchResult, SourceOptionGroup,
+        CsvRowPreview, CsvTableWindow, EntityData, HullReferencesResult,
+        ProjectSessionInvalidationResult, ResourceDataUrlBatchResult, SourceOptionGroup,
     },
     services,
 };
-
-#[tauri::command]
-pub fn open_project_session(
-    app_handle: tauri::AppHandle,
-    payload: OpenProjectSessionPayload,
-) -> Result<ProjectManifest, String> {
-    services::project::open_project_session_with_root(
-        app_handle,
-        payload.mod_root,
-        payload.starsector_root,
-    )
-    .map_err(|e| e.to_string())
-}
 
 #[tauri::command]
 pub fn close_project_session(payload: CloseProjectSessionPayload) -> Result<(), String> {
@@ -104,17 +89,4 @@ pub fn invalidate_project_session(
 #[tauri::command]
 pub fn invalidate_core_cache(payload: InvalidateCoreCachePayload) -> Result<(), String> {
     services::project::invalidate_core_cache(&payload.starsector_root).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn detect_directory(payload: DetectDirectoryPayload) -> OpenDirectoryResult {
-    services::project::detect_directory(
-        std::path::Path::new(&payload.path),
-        payload.known_starsector_root.as_deref(),
-    )
-}
-
-#[tauri::command]
-pub fn scan_game_overview(payload: ScanGameOverviewPayload) -> GameOverviewData {
-    services::project::scan_game_overview(std::path::Path::new(&payload.starsector_root))
 }

@@ -1,9 +1,9 @@
 use crate::{
     domain::config::{build_variant_file, validate_config_id},
+    domain::editor_config_definitions::entity_spec_definition,
     errors::{AppError, AppResult},
     io::{read_json_file, strip_internal_fields, FileChangeSetBuilder},
     models::{EntityKind, WriteResult},
-    services::project::entity_definitions::entity_spec_definition,
 };
 use serde_json::Value;
 use std::path::Path;
@@ -87,9 +87,9 @@ fn require_variant_file_target(mod_root: &Path, rel_path: &str, variant_id: &str
     Ok(())
 }
 
-fn variant_spec_definition() -> crate::errors::AppResult<
-    &'static crate::services::project::entity_definitions::ProjectEntitySpecDefinition,
-> {
+fn variant_spec_definition(
+) -> crate::errors::AppResult<&'static crate::domain::editor_config_definitions::EntitySpecDefinition>
+{
     entity_spec_definition(EntityKind::Variant)
         .ok_or_else(|| AppError::message("装配 spec 定义不存在"))
 }

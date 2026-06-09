@@ -1,14 +1,18 @@
-pub mod app_config;
+pub mod app_log;
+pub mod app_settings;
 pub mod command_payloads;
+pub mod directory_opening;
 pub mod project;
-pub mod workspace;
+pub mod workspace_persistence;
 pub mod write;
 
 use serde::{Deserialize, Deserializer};
 
-pub use app_config::*;
+pub use app_log::*;
+pub use app_settings::*;
+pub use directory_opening::*;
 pub use project::*;
-pub use workspace::*;
+pub use workspace_persistence::*;
 pub use write::*;
 
 pub fn required_nullable<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>

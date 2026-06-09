@@ -1,5 +1,5 @@
 use super::super::cache::{session_for, sessions};
-use super::super::resources_shared::{resource_cache_key, resource_data_url};
+use super::super::resources::{resource_cache_key, resource_data_url};
 use crate::{
     errors::{AppError, AppResult},
     models::{ResourceDataUrlBatchEntry, ResourceDataUrlBatchResult, ResourceRef},

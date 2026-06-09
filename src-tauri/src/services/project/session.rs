@@ -65,7 +65,7 @@ pub fn invalidate_core_cache(starsector_root: &str) -> AppResult<()> {
     cache::invalidate_core_cache(starsector_root)
 }
 
-pub(super) fn open_project_session_traced(
+pub(crate) fn open_project_session_traced(
     mod_root: &Path,
     starsector_root_override: Option<&Path>,
     trace: &mut PerformanceTrace,
@@ -87,9 +87,7 @@ pub(super) fn build_project_session(
     let mod_root_boundary = FsRootBoundary::new(mod_root, "mod root")?;
     let mod_root = mod_root_boundary.root();
     let session_id = new_session_id();
-    let starsector_root = starsector_root_override
-        .map(Path::to_path_buf)
-        .or_else(|| root::infer_starsector_root(mod_root));
+    let starsector_root = starsector_root_override.map(Path::to_path_buf);
     let starsector_root = starsector_root
         .as_deref()
         .map(|root| {
@@ -129,7 +127,7 @@ pub(super) fn build_project_session(
         [("missions", mission_count.to_string())],
     );
     let timer = trace.timer();
-    let csv_tables = build_session_csv_tables(mod_root);
+    let csv_tables = build_registered_session_csv_tables();
     trace.record_stage(
         "csv_index",
         timer,
@@ -203,7 +201,7 @@ pub(super) fn build_project_session(
     })
 }
 
-pub(super) fn build_session_csv_tables(_mod_root: &Path) -> BTreeMap<String, SessionCsvTable> {
+pub(super) fn build_registered_session_csv_tables() -> BTreeMap<String, SessionCsvTable> {
     let mut tables: BTreeMap<String, SessionCsvTable> =
         super::table_definitions::csv_table_definitions()
             .iter()

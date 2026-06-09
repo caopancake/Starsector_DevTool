@@ -8,7 +8,7 @@ use super::{
         is_comment_row, string_from_row, ProjectSession, SessionCsvRow, MISSION_LIST_REL_PATH,
         MISSION_LIST_TABLE_KEY,
     },
-    resources_shared::{
+    resources::{
         faction_resource_refs, mission_resource_refs, projectile_resource_refs, resource_ref,
         ship_resource_refs, skin_entity_resource_refs, system_resource_refs, variant_resource_refs,
         weapon_resource_refs,
@@ -17,11 +17,18 @@ use super::{
     table_definitions::csv_table_icon_resource_ref,
 };
 use crate::{
+    domain::editor_config_definitions::{
+        associated_spec_definition as domain_associated_spec_definition,
+        associated_spec_tables as domain_associated_spec_tables, EntitySpecDefinition,
+        FACTION_SPEC_DEFINITION, PROJECTILE_SPEC_DEFINITION, SHIP_SPEC_DEFINITION,
+        SKILL_SPEC_DEFINITION, SKIN_SPEC_DEFINITION, SYSTEM_SPEC_DEFINITION,
+        VARIANT_SPEC_DEFINITION, WEAPON_SPEC_DEFINITION,
+    },
     errors::{AppError, AppResult},
     io::{load_json_dir_by_id, read_json_file},
     models::{
-        CsvTableKey, EditorSpecKind, EntityData, EntityKind, InvalidatedQueryKind,
-        ResourceOwnerKind, ResourceRef, ResourceSource, SkinFile, VariantFile,
+        CsvTableKey, EntityData, EntityKind, InvalidatedQueryKind, ResourceOwnerKind, ResourceRef,
+        ResourceSource, SkinFile, VariantFile,
     },
 };
 use serde_json::{Map, Value};
@@ -29,7 +36,7 @@ use std::{collections::BTreeMap, path::Path};
 
 pub(super) struct ProjectEntityDefinition {
     pub kind: EntityKind,
-    pub spec: Option<ProjectEntitySpecDefinition>,
+    pub spec: Option<&'static EntitySpecDefinition>,
     pub csv_table: Option<CsvTableKey>,
     pub source_options: &'static [&'static str],
     pub path_matches: fn(&ProjectEntityDefinition, &str) -> bool,
@@ -41,56 +48,11 @@ pub(super) struct ProjectEntityDefinition {
     pub refresh: fn(&mut ProjectSession) -> AppResult<()>,
 }
 
-#[derive(Clone, Copy)]
-pub struct ProjectEntitySpecDefinition {
-    pub editor_kind: Option<EditorSpecKind>,
-    pub dir: &'static str,
-    pub extension: &'static str,
-    pub id_field: &'static str,
-    pub invalid_id_message: &'static str,
-}
-
-impl ProjectEntitySpecDefinition {
-    pub fn path_matches(self, path: &str) -> bool {
-        path_affects_target(path, self.dir)
-            || (path_is_or_in_dir(path, self.dir) && path.ends_with(self.extension))
-    }
-
-    pub fn extension_without_dot(self) -> &'static str {
-        self.extension.strip_prefix('.').unwrap_or(self.extension)
-    }
-
-    pub fn default_rel_path(self, id: &str) -> String {
-        format!("{}/{}.{}", self.dir, id, self.extension_without_dot())
-    }
-
-    pub fn validate_rel_path(self, rel_path: &str, message: &str) -> AppResult<()> {
-        crate::domain::config::validate_config_file_rel_path(
-            rel_path,
-            self.dir,
-            self.extension_without_dot(),
-            message,
-        )
-    }
-}
-
-pub fn entity_spec_definition(kind: EntityKind) -> Option<&'static ProjectEntitySpecDefinition> {
-    entity_definition(kind).spec.as_ref()
-}
-
 pub(super) fn entity_definition(kind: EntityKind) -> &'static ProjectEntityDefinition {
     PROJECT_ENTITY_DEFINITIONS
         .iter()
         .find(|definition| definition.kind == kind)
         .expect("registered entity kind")
-}
-
-pub fn editor_spec_definition(kind: EditorSpecKind) -> &'static ProjectEntitySpecDefinition {
-    entity_definitions()
-        .iter()
-        .filter_map(|definition| definition.spec.as_ref())
-        .find(|definition| definition.editor_kind == Some(kind))
-        .expect("registered editor spec kind")
 }
 
 pub(super) fn entity_definitions() -> &'static [ProjectEntityDefinition] {
@@ -99,30 +61,18 @@ pub(super) fn entity_definitions() -> &'static [ProjectEntityDefinition] {
 
 pub(super) fn associated_spec_definition(
     table: CsvTableKey,
-) -> Option<&'static ProjectEntitySpecDefinition> {
-    entity_definitions()
-        .iter()
-        .find(|definition| definition.csv_table == Some(table))
-        .and_then(|definition| definition.spec.as_ref())
+) -> Option<&'static EntitySpecDefinition> {
+    domain_associated_spec_definition(table)
 }
 
 pub(super) fn associated_spec_tables() -> Vec<CsvTableKey> {
-    entity_definitions()
-        .iter()
-        .filter_map(|definition| definition.spec.as_ref().and(definition.csv_table))
-        .collect()
+    domain_associated_spec_tables()
 }
 
 const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
     ProjectEntityDefinition {
         kind: EntityKind::Ship,
-        spec: Some(ProjectEntitySpecDefinition {
-            editor_kind: Some(EditorSpecKind::Ship),
-            dir: "data/hulls",
-            extension: ".ship",
-            id_field: "hullId",
-            invalid_id_message: "无效舰船 ID",
-        }),
+        spec: Some(&SHIP_SPEC_DEFINITION),
         csv_table: Some(CsvTableKey::Ships),
         source_options: &["ships.id", "wings.id"],
         path_matches: spec_path_matches,
@@ -135,13 +85,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
     },
     ProjectEntityDefinition {
         kind: EntityKind::Weapon,
-        spec: Some(ProjectEntitySpecDefinition {
-            editor_kind: Some(EditorSpecKind::Weapon),
-            dir: "data/weapons",
-            extension: ".wpn",
-            id_field: "id",
-            invalid_id_message: "无效武器 ID",
-        }),
+        spec: Some(&WEAPON_SPEC_DEFINITION),
         csv_table: Some(CsvTableKey::Weapons),
         source_options: &["weapons.id"],
         path_matches: spec_path_matches,
@@ -154,13 +98,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
     },
     ProjectEntityDefinition {
         kind: EntityKind::Projectile,
-        spec: Some(ProjectEntitySpecDefinition {
-            editor_kind: Some(EditorSpecKind::Projectile),
-            dir: "data/weapons/proj",
-            extension: ".proj",
-            id_field: "id",
-            invalid_id_message: "无效弹体 ID",
-        }),
+        spec: Some(&PROJECTILE_SPEC_DEFINITION),
         csv_table: None,
         source_options: &[],
         path_matches: spec_path_matches,
@@ -173,13 +111,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
     },
     ProjectEntityDefinition {
         kind: EntityKind::System,
-        spec: Some(ProjectEntitySpecDefinition {
-            editor_kind: Some(EditorSpecKind::System),
-            dir: "data/shipsystems",
-            extension: ".system",
-            id_field: "id",
-            invalid_id_message: "无效战术系统 ID",
-        }),
+        spec: Some(&SYSTEM_SPEC_DEFINITION),
         csv_table: Some(CsvTableKey::ShipSystems),
         source_options: &[],
         path_matches: spec_path_matches,
@@ -192,13 +124,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
     },
     ProjectEntityDefinition {
         kind: EntityKind::Skill,
-        spec: Some(ProjectEntitySpecDefinition {
-            editor_kind: None,
-            dir: "data/characters/skills",
-            extension: ".skill",
-            id_field: "id",
-            invalid_id_message: "无效技能 ID",
-        }),
+        spec: Some(&SKILL_SPEC_DEFINITION),
         csv_table: Some(CsvTableKey::Skills),
         source_options: &[],
         path_matches: spec_path_matches,
@@ -211,13 +137,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
     },
     ProjectEntityDefinition {
         kind: EntityKind::Faction,
-        spec: Some(ProjectEntitySpecDefinition {
-            editor_kind: None,
-            dir: "data/world/factions",
-            extension: ".faction",
-            id_field: "id",
-            invalid_id_message: "无效势力 ID",
-        }),
+        spec: Some(&FACTION_SPEC_DEFINITION),
         csv_table: None,
         source_options: &["ships.tags", "weapons.tags"],
         path_matches: faction_path_matches,
@@ -243,13 +163,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
     },
     ProjectEntityDefinition {
         kind: EntityKind::Variant,
-        spec: Some(ProjectEntitySpecDefinition {
-            editor_kind: None,
-            dir: "data/variants",
-            extension: ".variant",
-            id_field: "variantId",
-            invalid_id_message: "无效装配 ID",
-        }),
+        spec: Some(&VARIANT_SPEC_DEFINITION),
         csv_table: None,
         source_options: &["wings.id"],
         path_matches: spec_path_matches,
@@ -262,13 +176,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
     },
     ProjectEntityDefinition {
         kind: EntityKind::Skin,
-        spec: Some(ProjectEntitySpecDefinition {
-            editor_kind: None,
-            dir: "data/hulls/skins",
-            extension: ".skin",
-            id_field: "skinHullId",
-            invalid_id_message: "无效舰船皮肤 ID",
-        }),
+        spec: Some(&SKIN_SPEC_DEFINITION),
         csv_table: None,
         source_options: &["ships.id", "wings.id"],
         path_matches: spec_path_matches,

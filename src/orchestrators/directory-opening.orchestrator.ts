@@ -7,7 +7,7 @@ import { useProjectStore } from '@/stores/project.store';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { useTablesStore } from '@/stores/tables.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
-import { detectWorkspaceDirectory, openProject } from '@/services/session.service';
+import { detectDirectoryTarget, openProject } from '@/services/session.service';
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
 import { measurePerformance } from '@/services/performance.service';
 import { navigateToModOverview } from '@/orchestrators/workspace-navigation.orchestrator';
@@ -22,7 +22,7 @@ type OpenModResult = { alreadyLoaded: true; displayName: string } | { alreadyLoa
 type AfterOpenView = 'overview' | 'mod';
 
 export async function openDirectoryTarget(path: string, knownStarsectorRoot: string | null): Promise<DirectoryOpeningOutcome> {
-  const detected = await detectWorkspaceDirectory(path, knownStarsectorRoot);
+  const detected = await detectDirectoryTarget(path, knownStarsectorRoot);
   const workspace = useWorkspaceStore();
 
   if (detected.kind === 'game-root' && detected.overview) {
@@ -37,14 +37,14 @@ export async function openDirectoryTarget(path: string, knownStarsectorRoot: str
     const loaded = await openModProject(detected.modRoot, detected.starsectorRoot ?? null, 'overview');
     return loaded.alreadyLoaded
       ? { type: 'already-loaded', modName: loaded.displayName }
-      : { type: 'mod-loaded', modName: loaded.displayName, warnings: loaded.warnings };
+      : { type: 'mod-loaded', modName: loaded.displayName, warnings: mergeOpeningWarnings(detected.warnings, loaded.warnings) };
   }
 
   if (detected.kind === 'external-mod' && detected.modRoot) {
     const loaded = await openModProject(detected.modRoot, detected.starsectorRoot ?? null, 'mod');
     return loaded.alreadyLoaded
       ? { type: 'already-loaded', modName: loaded.displayName }
-      : { type: 'mod-loaded', modName: loaded.displayName, warnings: loaded.warnings };
+      : { type: 'mod-loaded', modName: loaded.displayName, warnings: mergeOpeningWarnings(detected.warnings, loaded.warnings) };
   }
 
   return { type: 'unknown', message: detected.warnings[0]?.message ?? '未识别该目录' };
@@ -139,6 +139,10 @@ function rollbackFailedModOpening(modRoot: string) {
   csvEditHistory.clearForMod(modRoot);
   project.removeProjectManifest(modRoot);
   workspace.showOverview();
+}
+
+function mergeOpeningWarnings(detectedWarnings: { message: string }[], manifestWarnings: string[]): string[] {
+  return [...detectedWarnings.map((warning) => warning.message), ...manifestWarnings];
 }
 
 function createLoadingEntry(modRoot: string): ModEntry {

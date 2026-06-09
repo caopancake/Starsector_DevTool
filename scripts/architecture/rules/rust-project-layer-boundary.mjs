@@ -45,6 +45,7 @@ function rustLayer(path) {
   if (path.startsWith('src-tauri/src/commands/')) return 'commands';
   if (path.startsWith('src-tauri/src/services/project/query/')) return 'project-query';
   if (path.startsWith('src-tauri/src/services/project/write/')) return 'project-write';
+  if (path.startsWith('src-tauri/src/services/project/resources/')) return 'project-resources';
   if (path.startsWith('src-tauri/src/services/project/cache/')) return 'project-cache';
   if (projectServiceModule(path, 'mod')) return 'project-root';
   if (projectServiceModule(path, 'session')) return 'project-session';
@@ -92,6 +93,7 @@ function rustLayerFromCratePath(path) {
   if (path.startsWith('crate::commands')) return 'commands';
   if (path.startsWith('crate::services::project::query')) return 'project-query';
   if (path.startsWith('crate::services::project::write')) return 'project-write';
+  if (path.startsWith('crate::services::project::resources')) return 'project-resources';
   if (path.startsWith('crate::services::project::cache')) return 'project-cache';
   if (path.startsWith('crate::services::project::session')) return 'project-session';
   if (path.startsWith('crate::services::project::model')) return 'project-model';
@@ -112,11 +114,12 @@ function validRustDependency(from, to) {
   if (from === 'project-query') return ['project-model', 'project-cache', 'domain', 'io', 'parsers', 'models'].includes(to);
   if (from === 'project-write')
     return ['project-model', 'project-cache', 'project-query', 'domain', 'io', 'parsers', 'models'].includes(to);
+  if (from === 'project-resources') return ['project-model', 'project-cache', 'domain', 'io', 'parsers', 'models', 'services'].includes(to);
   if (from === 'project-cache') return ['project-model', 'domain', 'io', 'parsers', 'models'].includes(to);
   if (from === 'project-session')
     return ['project-model', 'project-cache', 'project-query', 'domain', 'io', 'parsers', 'models'].includes(to);
   if (from === 'project-model') return ['domain', 'models'].includes(to);
-  if (from === 'project-root') return ['project-session', 'project-query', 'models'].includes(to);
+  if (from === 'project-root') return ['project-session', 'project-query', 'project-resources', 'models'].includes(to);
   if (from === 'services') return ['services', 'domain', 'io', 'parsers', 'models'].includes(to);
   if (from === 'domain') return to === 'domain' || to === 'models';
   if (from === 'io') return to === 'io' || to === 'parsers' || to === 'models';

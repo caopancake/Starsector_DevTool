@@ -16,7 +16,7 @@
 - `src/windows/editor.window.ts`：按 `weapon-preview + modRoot + weaponId` 单例化预览窗口。
 - `src-tauri/src/services/project/query/entities.rs`：拥有武器 entity 的 CSV 注册边界、`.wpn` 组装和 projectile entity 读取。
 - `src-tauri/src/services/project/query/resources.rs`：拥有资源 data URL 批量读取和返回顺序。
-- `src-tauri/src/services/project/resources_shared.rs`：拥有武器 sprite 字段到 `ResourceRef` 的映射和 Mod/Core 资源读取语义。
+- `src-tauri/src/services/project/resources/refs.rs`：拥有武器 sprite 字段到 `ResourceRef` 的映射和 Mod/Core 资源读取语义。
 
 ## 边界
 

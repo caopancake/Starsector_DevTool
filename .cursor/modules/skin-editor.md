@@ -16,7 +16,7 @@
 - `src/services/config-resource.service.ts`：拥有 Skin 缩略图和 hull 引用选项的 `ResourceRef` 批量补图。
 - `src/shared/api/config-entity-api.ts`：封装 Skin create/save/delete 的 Tauri command 调用形状。
 - `src-tauri/src/domain/config.rs`：定义 SkinFile、配置 ID、`.skin` relPath 和单文件配置路径校验模型。
-- `src-tauri/src/services/config/skins.rs`：拥有 `.skin` 新建、保存、重命名、删除、目标校验和 changeset 写盘。
+- `src-tauri/src/services/editor_config/skins.rs`：拥有 `.skin` 新建、保存、重命名、删除、目标校验和 changeset 写盘。
 - `src-tauri/src/services/project/spec_files.rs`：拥有 ProjectSession 打开或刷新时的 `.skin` 文件扫描、解析、去重和排序。
 
 ## 边界

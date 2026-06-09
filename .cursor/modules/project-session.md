@@ -13,7 +13,7 @@ ProjectSession / Manifest 缓存系统以 Rust session 为项目运行态权威�
 - `src/services/session.service.ts`：拥有 session 打开、关闭、失效和 core cache 失效的前端 service 入口。
 - `src/services/write.service.ts`：拥有写入 service 入口到 WriteResult 的统一返回边界。
 - `src/shared/api/query-api.ts`：拥有 session query command 的 wire adapter。
-- `src/shared/api/session-api.ts`：拥有 session lifecycle、目录识别和 core cache command 的 wire adapter。
+- `src/shared/api/session-api.ts`：拥有 session lifecycle、Directory Opening 入口和 core cache command 的 wire adapter。
 - `src/stores/project.store.ts`：拥有前端 ProjectManifest registry、活动 Mod root、活动 session 和加载态。
 - `src-tauri/src/services/project/cache/csv.rs`：拥有 Rust session CSV lazy rows、已加载 rows 边界和未知 table 错误语义。
 - `src-tauri/src/services/project/cache/invalidation.rs`：拥有 changed path 归属校验、路径分类、session 索引刷新和 manifest summary 更新。
@@ -75,7 +75,7 @@ ProjectSession / Manifest 缓存系统以 Rust session 为项目运行态权威�
 1. Directory Opening 编排调用 session service 打开 Mod。
 2. session service 调用 shared API。
 3. shared API 调用 Rust open project session command。
-4. Rust command 调用 ProjectSession 打开入口。
+4. Rust Directory Opening command wrapper 调用 ProjectSession 打开入口。
 5. Rust session service 构建 ProjectSession。
 6. Rust session service 生成 ProjectManifest。
 7. Rust session service 把 ProjectSession 写入 session map。

@@ -1,34 +1,12 @@
 use crate::{
     errors::AppResult,
     io::{
-        apply_changes, build_text_change, read_utf8_no_bom, validate_safe_relative_path,
-        ChangeDirection, FileChangeSetBuilder, FsRootBoundary,
+        apply_changes, validate_safe_relative_path, ChangeDirection, FileChangeSetBuilder,
+        FsRootBoundary,
     },
-    models::{
-        AssociatedFileChange, EditableFileData, FileChangeRecord, FileChangeReplayDirection,
-        WriteResult,
-    },
+    models::{AssociatedFileChange, FileChangeRecord, FileChangeReplayDirection, WriteResult},
 };
 use std::path::Path;
-
-pub fn save_text_file(mod_root: &str, path: &str, text: String) -> AppResult<WriteResult> {
-    let path = Path::new(path);
-    let boundary = FsRootBoundary::new(Path::new(mod_root), "mod root")?;
-    let path = boundary.resolve_absolute(path, "file path")?;
-    let change = build_text_change(&path, Some(text))?;
-    apply_changes(std::slice::from_ref(&change), ChangeDirection::Redo)?;
-    Ok(write_result(vec![change]))
-}
-
-pub fn load_editable_file(mod_root: &str, path: String) -> AppResult<EditableFileData> {
-    let target = Path::new(&path);
-    let boundary = FsRootBoundary::new(Path::new(mod_root), "mod root")?;
-    let target = boundary.resolve_absolute(target, "file path")?;
-    read_utf8_no_bom(&target).map(|text| EditableFileData {
-        path: target.display().to_string(),
-        text,
-    })
-}
 
 pub fn save_mod_files(mod_root: &str, files: Vec<AssociatedFileChange>) -> AppResult<WriteResult> {
     let mut builder = FileChangeSetBuilder::new(Path::new(mod_root))?;
@@ -79,8 +57,7 @@ mod tests {
     use super::*;
     use crate::{
         io::{
-            build_directory_delete_change, build_file_change, normalized_path_key,
-            write_utf8_no_bom,
+            build_directory_delete_change, build_file_change, read_utf8_no_bom, write_utf8_no_bom,
         },
         models::{AssociatedFileChange, FileChangeKind, FileChangeReplayDirection, FileSnapshot},
     };
@@ -166,102 +143,6 @@ mod tests {
     }
 
     #[test]
-    fn save_text_file_rejects_path_outside_mod_root() {
-        let root = temp_dir("save_text_file_rejects_external_root");
-        let outside = temp_dir("save_text_file_rejects_external_outside");
-
-        let result = save_text_file(
-            &root.to_string_lossy(),
-            &outside.join("outside.txt").to_string_lossy(),
-            "bad".to_string(),
-        );
-
-        let _ = fs::remove_dir_all(root);
-        let _ = fs::remove_dir_all(outside);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn save_text_file_rejects_parent_dir_escape() {
-        let root = temp_dir("save_text_file_rejects_parent_dir_escape");
-        let escaped = root.join("..").join("outside.txt");
-
-        let result = save_text_file(
-            &root.to_string_lossy(),
-            &escaped.to_string_lossy(),
-            "bad".to_string(),
-        );
-
-        let _ = fs::remove_dir_all(root);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn load_editable_file_rejects_path_outside_mod_root() {
-        let root = temp_dir("load_editable_file_rejects_external_root");
-        let outside = temp_dir("load_editable_file_rejects_external_outside");
-        let outside_file = outside.join("outside.txt");
-        write_utf8_no_bom(&outside_file, "bad").unwrap();
-
-        let result = load_editable_file(
-            &root.to_string_lossy(),
-            outside_file.to_string_lossy().to_string(),
-        );
-
-        let _ = fs::remove_dir_all(root);
-        let _ = fs::remove_dir_all(outside);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn load_editable_file_rejects_parent_dir_escape() {
-        let root = temp_dir("load_editable_file_rejects_parent_dir_escape");
-        let escaped = root.join("..").join("outside.txt");
-
-        let result = load_editable_file(
-            &root.to_string_lossy(),
-            escaped.to_string_lossy().to_string(),
-        );
-
-        let _ = fs::remove_dir_all(root);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn save_text_file_rejects_link_parent_escape() {
-        let Some((root, outside, linked)) = temp_linked_dir("save_text_link_escape") else {
-            return;
-        };
-
-        let result = save_text_file(
-            &root.to_string_lossy(),
-            &linked.join("outside.txt").to_string_lossy(),
-            "bad".to_string(),
-        );
-
-        let _ = fs::remove_dir_all(root);
-        let _ = fs::remove_dir_all(outside);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn load_editable_file_rejects_link_parent_escape() {
-        let Some((root, outside, linked)) = temp_linked_dir("load_text_link_escape") else {
-            return;
-        };
-        write_utf8_no_bom(&outside.join("outside.txt"), "bad").unwrap();
-
-        let result = load_editable_file(
-            &root.to_string_lossy(),
-            linked.join("outside.txt").to_string_lossy().to_string(),
-        );
-
-        let _ = fs::remove_dir_all(root);
-        let _ = fs::remove_dir_all(outside);
-        assert!(result.is_err());
-    }
-
-    #[test]
     fn save_mod_files_rejects_link_parent_escape() {
         let Some((root, outside, _linked)) = temp_linked_dir("save_mod_files_link_escape") else {
             return;
@@ -296,10 +177,12 @@ mod tests {
             .invalidation
             .paths
             .iter()
-            .any(|path| normalized_path_key(Path::new(path)) == normalized_path_key(&dir)));
-        assert!(result.invalidation.paths.iter().any(|path| {
-            normalized_path_key(Path::new(path)) == normalized_path_key(&dir.join("demo.variant"))
-        }));
+            .any(|path| path_string(path) == path_string(&dir)));
+        assert!(result
+            .invalidation
+            .paths
+            .iter()
+            .any(|path| { path_string(path) == path_string(dir.join("demo.variant")) }));
     }
 
     #[test]

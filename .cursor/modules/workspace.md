@@ -18,16 +18,16 @@
 - `src/shared/api/workspace-api.ts`：拥有 workspace load/save command 调用形状。
 - `src/shared/types/workspace.types.ts`：拥有前端 workspace 运行态和持久化 wire 类型。
 - `src/stores/workspace.store.ts`：拥有主窗口 workspace 内存状态、派生状态、持久化投影和列宽状态。
-- `src-tauri/src/commands/workspace.rs`：拥有 workspace Tauri command 边界和 payload 拆解。
-- `src-tauri/src/models/workspace.rs`：拥有 Rust 侧 workspace 持久化数据结构和序列化语义。
-- `src-tauri/src/services/workspace.rs`：拥有工具私有 workspace 文件读取、写入、默认状态和损坏文件错误语义。
+- `src-tauri/src/commands/workspace_persistence.rs`：拥有 workspace persistence Tauri command 边界和 payload 拆解。
+- `src-tauri/src/models/workspace_persistence.rs`：拥有 Rust 侧 workspace 持久化数据结构和序列化语义。
+- `src-tauri/src/services/workspace_persistence.rs`：拥有工具私有 workspace 文件读取、写入、默认状态和损坏文件错误语义。
 
 ## 边界
 
 - ProjectManifest 运行态只通过 ProjectSession 打开和刷新结果进入前端；workspace store 只消费打开成功后的显示条目。
 - ProjectSession 打开结果只能作为 Directory Opening 或启动恢复的输入，workspace 模块不得定义 manifest 字段协议。
-- Rust workspace command 归 command 层拥有，只负责接收 payload、调用 service 和转换错误。
-- Rust workspace service 归后端持久化层拥有，只读写工具私有 workspace 文件。
+- Rust workspace persistence command 归 command 层拥有，只负责接收 payload、调用 service 和转换错误。
+- Rust workspace persistence service 归后端持久化层拥有，只读写工具私有 workspace 文件。
 - Workspace column widths 归 workspace store 拥有，只按 modRoot、table、column 的结构化层级持久化。
 - Workspace currentView 归 workspace store 拥有，启动恢复必须落在 overview。
 - Workspace 持久化模型归 Rust model 和前端 shared type 共同约束，前端不得把 Rust 明确返回的字段当作缺省字段。
@@ -92,8 +92,8 @@
 5. workspace persistence 编排调用 workspace state service 读取持久化 workspace。
 6. workspace state service 调用 shared API。
 7. shared API 调用 Rust load workspace command。
-8. Rust command 调用 workspace service。
-9. workspace service 读取工具私有 workspace 文件；文件缺失时返回默认空工作区。
+8. Rust command 调用 workspace persistence service。
+9. workspace persistence service 读取工具私有 workspace 文件；文件缺失时返回默认空工作区。
 10. 前端收到持久化 workspace 后应用 workspace store 持久化快照。
 11. 存在 Starsector root 时重新扫描游戏概览并覆盖旧概览快照。
 12. workspace persistence 编排逐个调用内部 restore persisted Mod project 链路重开 ProjectSession。
@@ -113,9 +113,9 @@
 5. 计时器触发后 workspace state service 调用 shared API。
 6. shared API 调用 Rust save workspace command。
 7. Rust command 从 payload 中取出 state。
-8. Rust command 调用 workspace service。
-9. workspace service 创建工具私有目录。
-10. workspace service 把 workspace state 写入工具私有 workspace 文件。
+8. Rust command 调用 workspace persistence service。
+9. workspace persistence service 创建工具私有目录。
+10. workspace persistence service 把 workspace state 写入工具私有 workspace 文件。
 11. workspace shell 卸载时 watcher 清理计时器并停止监听。
 
 ## 规范

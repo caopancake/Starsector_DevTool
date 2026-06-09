@@ -1,8 +1,11 @@
-use super::{performance::PerformanceTrace, session};
 use crate::{
     errors::AppResult,
+    io::FsRootBoundary,
     models::{AppLogEntry, AppLogLevel, ProjectManifest},
-    services::app_log,
+    services::{
+        app_log,
+        project::{open_project_session_traced, PerformanceTrace},
+    },
 };
 use std::path::Path;
 
@@ -12,11 +15,17 @@ pub fn open_project_session_with_root(
     starsector_root: Option<String>,
 ) -> AppResult<ProjectManifest> {
     let mut trace = PerformanceTrace::new("project.openSession");
-    let result = session::open_project_session_traced(
-        Path::new(&mod_root),
-        starsector_root.as_deref().map(Path::new),
-        &mut trace,
-    );
+    let mod_root_boundary = FsRootBoundary::new(Path::new(&mod_root), "mod root")?;
+    let mod_root_path = mod_root_boundary.root();
+    let starsector_root = match starsector_root.as_deref() {
+        Some(root) => Some(
+            FsRootBoundary::new(Path::new(root), "starsector root")?
+                .root()
+                .to_path_buf(),
+        ),
+        None => super::overview::infer_starsector_root(mod_root_path),
+    };
+    let result = open_project_session_traced(mod_root_path, starsector_root.as_deref(), &mut trace);
     if result.is_ok() {
         write_performance_trace(app_handle, &trace, &[("modRoot", mod_root)]);
     }

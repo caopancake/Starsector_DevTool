@@ -6,7 +6,7 @@ Rust 文件 IO、路径校验与目录 changeset 模块负责把后端文件读�
 
 ## 参考
 
-- `src-tauri/src/commands/files.rs`：接收文件读取、文件保存、多文件保存和 changeset 回放 command payload，并在进入 service 前校验 ProjectSession 与 Mod 根目录归属。
+- `src-tauri/src/commands/file_editor.rs`：接收文件编辑器读取和保存 command payload，并在进入 service 前校验 ProjectSession 与 Mod 根目录归属。`src-tauri/src/commands/file_changes.rs`：接收多文件保存和 changeset 回放 command payload，并在进入 service 前校验 ProjectSession 与 Mod 根目录归属。
 - `src-tauri/src/io/file_changes.rs`：拥有 `FileChangeSetBuilder`、文件/目录 change 构建、目录快照、应用、回滚和失效路径展开规则。
 - `src-tauri/src/io/paths.rs`：拥有 canonical root 边界、绝对/相对路径解析、parent-dir 拒绝、链接父链拒绝和路径身份规范化工具。
 - `src-tauri/src/io/text.rs`：拥有文本字节读取、UTF-8 BOM 拒绝、已知 CP1252 字节归一化和 UTF-8 无 BOM 写入。

@@ -1,3 +1,4 @@
+use crate::domain::editor_config_definitions::{editor_spec_definition, EntitySpecDefinition};
 use crate::{
     domain::config::validate_config_id,
     errors::{AppError, AppResult},
@@ -6,10 +7,7 @@ use crate::{
         validate_walk_entry,
     },
     models::{EditorSpecKind, FileChangeReplayDirection, WriteResult},
-    services::{
-        file_changes::apply_file_change_set,
-        project::entity_definitions::{editor_spec_definition, ProjectEntitySpecDefinition},
-    },
+    services::file_changes::apply_file_change_set,
 };
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -87,7 +85,7 @@ fn find_json_target(
 }
 
 fn validate_imported_editor_spec_path(
-    definition: &ProjectEntitySpecDefinition,
+    definition: &EntitySpecDefinition,
     path: &Path,
 ) -> AppResult<()> {
     validate_safe_absolute_path(path, "imported editor spec")?;

@@ -17,9 +17,9 @@
 - `src/services/config-resource.service.ts`：通过 hull reference query 和批量资源 query 生成 hull 下拉选项与装配缩略图。
 - `src/services/query-cache.service.ts`：按后端返回的 query scope 失效装配列表、引用选项、缩略图与 source option 缓存。
 - `src/shared/api/config-entity-api.ts`：封装装配写入相关 Tauri command 的 wire 形状。
-- `src-tauri/src/commands/config.rs`：校验写入请求的 `sessionId + modRoot` 归属后调用 config service。
+- `src-tauri/src/commands/editor_config.rs`：校验写入请求的 `sessionId + modRoot` 归属后调用 config service。
 - `src-tauri/src/domain/config.rs`：定义装配 ID、目标相对路径、文件相对路径和 `VariantFile` 构造规则。
-- `src-tauri/src/services/config/variants.rs`：执行 `.variant` 新建、保存、重命名、删除的校验、清洗、changeset 构建和写盘。
+- `src-tauri/src/services/editor_config/variants.rs`：执行 `.variant` 新建、保存、重命名、删除的校验、清洗、changeset 构建和写盘。
 - `src-tauri/src/services/project/query/hull_references.rs`：提供 ship 与 skin hull 引用选项及对应缩略图资源引用。
 - `src-tauri/src/services/project/spec_files.rs`：索引 `data/variants/**/*.variant`，解析文件，去重 `variantId` 并生成扫描 warning。
 

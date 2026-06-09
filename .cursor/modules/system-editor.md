@@ -15,8 +15,8 @@
 - `src/orchestrators/file-save.orchestrator.ts`：在主窗口消费编辑器保存事件并转交 File History Session。
 - `src/services/editor.service.ts`：拥有系统编辑器 entity bundle 查询、默认 spec 构造、导入入口和 spec 保存 service。
 - `src/shared/api/files-api.ts`：封装 `save_editor_spec` 与 `load_imported_editor_spec_file` 的 Tauri command 调用形状。
-- `src-tauri/src/commands/files.rs`：校验 `sessionId + modRoot` 属于同一 ProjectSession 后调用 editor spec service。
-- `src-tauri/src/services/editor_specs.rs`：按 `EditorSpecKind::System` 定位、清理、写入和导入 `.system` JSON-like spec。
+- `src-tauri/src/commands/editor_config.rs`：校验 `sessionId + modRoot` 属于同一 ProjectSession 后调用 editor spec service。
+- `src-tauri/src/services/editor_config/spec_files.rs`：按 `EditorSpecKind::System` 定位、清理、写入和导入 `.system` JSON-like spec。
 - `src-tauri/src/services/project/cache/invalidation.rs`：按 `.system` 写盘路径刷新 ProjectSession 的 system spec 索引和统计。
 
 ## 边界

@@ -6,8 +6,8 @@
 
 ## 参考
 
-- `src-tauri/src/commands/app_config.rs`：暴露日志追加、日志状态、日志打开、配置目录打开、清配置和清日志 command。
-- `src-tauri/src/models/app_config.rs`：定义 `AppLogEntry`、日志等级和日志状态的 wire 模型。
+- `src-tauri/src/commands/app_feedback_log.rs`：暴露日志追加、日志状态、日志打开、配置目录打开、清配置和清日志 command。
+- `src-tauri/src/models/app_log.rs`：定义 `AppLogEntry`、日志等级和日志状态的 wire 模型。
 - `src-tauri/src/services/app_config.rs`：拥有配置目录打开和清空配置文件规则，清空配置时保留日志文件。
 - `src-tauri/src/services/app_log.rs`：拥有 `starsector-devtool.log` 追加、清空、状态读取、打开和 CRLF 日志行渲染。
 - `src/app/app-feedback.ts`：拥有 `AppFeedback` 的 message/dialog 适配、错误日志记录、错误文件引用解析和打开错误文件入口。

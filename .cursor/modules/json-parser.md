@@ -10,10 +10,10 @@
 - `src-tauri/src/io/json_files.rs`：读取 UTF-8 无 BOM 文本、调用宽松 parser、附加文件路径错误上下文，并递归剥离内部字段。
 - `src-tauri/src/parsers/alex_json.rs`：实现宽松 JSON 清洗、字符串边界保护、strict JSON 解析和负例测试。
 - `scripts/architecture/rules/parser-boundary.mjs`：约束 Mod JSON-like 读取必须经过正式 IO / parser 边界，并禁止 parser 测试依赖本机路径。
-- `src-tauri/src/services/config/indexed_entities.rs`：保存 faction 与 mission 结构化配置时写出 strict pretty JSON。
-- `src-tauri/src/services/config/skins.rs`：读取旧 `.skin` 目标、校验实体匹配，并写出 strict pretty JSON。
-- `src-tauri/src/services/config/variants.rs`：读取旧 `.variant` 目标、校验实体匹配，并写出 strict pretty JSON。
-- `src-tauri/src/services/editor_specs.rs`：导入和定位 editor spec 时读取 JSON-like 文件，保存 editor spec 时写出 strict pretty JSON。
+- `src-tauri/src/services/editor_config/indexed_entities.rs`：保存 faction 与 mission 结构化配置时写出 strict pretty JSON。
+- `src-tauri/src/services/editor_config/skins.rs`：读取旧 `.skin` 目标、校验实体匹配，并写出 strict pretty JSON。
+- `src-tauri/src/services/editor_config/variants.rs`：读取旧 `.variant` 目标、校验实体匹配，并写出 strict pretty JSON。
+- `src-tauri/src/services/editor_config/spec_files.rs`：导入和定位 editor spec 时读取 JSON-like 文件，保存 editor spec 时写出 strict pretty JSON。
 - `src-tauri/src/services/project/projectiles.rs`：从 Mod 与 core projectile 目录读取 JSON-like `.proj` 文件并注入运行时来源字段。
 - `src-tauri/src/services/project/root.rs`：读取 `mod_info.json` 生成目录识别、游戏概览和 ProjectSession manifest 数据。
 - `src-tauri/src/services/project/spec_files.rs`：读取 `.variant` 与 `.skin` 文件并转换为正式实体索引。

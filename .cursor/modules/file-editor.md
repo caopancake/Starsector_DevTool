@@ -24,8 +24,8 @@
 - `src/windows/file-editor.window.ts`：拥有文件编辑器窗口请求模型、单例 identity、URL 参数和 focus-line 事件数据。
 - `src/windows/managed.window.ts`：拥有按 singletonKey 哈希生成窗口 label、复用已有窗口和创建新窗口的通用窗口机制。
 - `src/windows/window.events.ts`：拥有 file editor 相关窗口事件 payload 类型。
-- `src-tauri/src/commands/files.rs`：拥有文件编辑器读取和保存 command，并在读写前校验 `sessionId + modRoot`。
-- `src-tauri/src/services/file_changes.rs`：拥有可编辑文件读取、单文件 changeset 构建、Mod 路径归属校验和写盘。
+- `src-tauri/src/commands/file_editor.rs`：拥有文件编辑器读取和保存 command，并在读写前校验 `sessionId + modRoot`。
+- `src-tauri/src/services/file_editor.rs`：拥有 Mod 内文本文件读取、单文件 text changeset 构建、Mod 路径归属校验和写盘。
 
 ## 边界
 
@@ -39,7 +39,7 @@
 - File editor 窗口局部 undo/redo 归 Text History；它只记录 textarea 文本快照，不拥有 base 或 pending external。
 - File history 边界属于主窗口保存事件处理；文件编辑器窗口只发送保存事件，不直接记录 file history。
 - ProjectSession 边界来自窗口打开时传入的 sessionId；读取和保存都必须使用该 sessionId，不得在子窗口重新读取主窗口 active session。
-- Rust 文件 IO 边界属于 file changes service；前端不得直接读取磁盘文本、写文件或绕过 path 归属校验。
+- Rust 文件编辑读写边界属于 file editor service；前端不得直接读取磁盘文本、写文件或绕过 path 归属校验。
 - Settings 边界来自主窗口传入的 settings snapshot；文件编辑器子窗口启动时不能自行读取工具私有 settings。
 - Text replay 边界来自文件级 history 回放事件；文件编辑器只在 `sessionId + modRoot + path` 同时匹配时消费回放文本，dirty 时必须暂存外部文本而不是覆盖 textarea。
 - URL 参数边界属于窗口创建请求；缺失 file、modRoot 或 sessionId 时 ViewModel 只报错，不发起读写。
@@ -82,8 +82,8 @@
 7. files service 调用 shared API。
 8. shared API 调用 Rust `load_editable_file` command。
 9. Rust command 校验 `sessionId + modRoot`。
-10. Rust file changes service 校验 path 是 modRoot 内绝对路径。
-11. Rust file changes service 按 UTF-8 无 BOM 读取文本。
+10. Rust file editor service 校验 path 是 modRoot 内绝对路径。
+11. Rust file editor service 按 UTF-8 无 BOM 读取文本。
 12. Rust 返回 path 和 text。
 13. ViewModel 通过 Edit Target Draft Session 把返回文本写入当前文件目标的 base 和 draft。
 14. ViewModel 清空窗口局部 undo/redo 栈。
@@ -113,9 +113,9 @@
 7. files service 调用 write service。
 8. write service 调用 shared API `save_text_file`。
 9. Rust command 校验 `sessionId + modRoot`。
-10. Rust file changes service 校验 path 归属 modRoot。
-11. Rust file changes service 构建单文件 text change。
-12. Rust file changes service 以 redo 方向写盘并返回 `WriteResult`。
+10. Rust file editor service 校验 path 归属 modRoot。
+11. Rust file editor service 构建单文件 text change。
+12. Rust file editor service 以 redo 方向写盘并返回 `WriteResult`。
 13. ViewModel 通过 Edit Target Draft Session 保存当前文件目标，并在保存事件发送成功后把已保存 text 提升为 base。
 14. ViewModel 清空外部文本暂存。
 15. ViewModel 已发送 file-editor-saved 事件，事件携带 modRoot、path、sessionId 和 WriteResult。

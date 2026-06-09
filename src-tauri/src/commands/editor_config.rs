@@ -1,7 +1,8 @@
 use crate::{
     models::command_payloads::{
         DeleteIndexedConfigEntityPayload, DeleteSkinEntityPayload, DeleteVariantEntityPayload,
-        IndexedConfigEntityPayload, SkinEntityPayload, VariantEntityPayload,
+        IndexedConfigEntityPayload, LoadImportedEditorSpecPayload, SaveEditorSpecPayload,
+        SkinEntityPayload, VariantEntityPayload,
     },
     models::WriteResult,
     services,
@@ -9,12 +10,33 @@ use crate::{
 use serde_json::Value;
 
 #[tauri::command]
+pub fn load_imported_editor_spec_file(
+    payload: LoadImportedEditorSpecPayload,
+) -> Result<Value, String> {
+    services::editor_config::load_imported_editor_spec_file(payload.kind, payload.path)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_editor_spec(payload: SaveEditorSpecPayload) -> Result<WriteResult, String> {
+    services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)
+        .map_err(|e| e.to_string())?;
+    services::editor_config::save_editor_spec(
+        &payload.mod_root,
+        payload.kind,
+        &payload.id,
+        payload.data,
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn save_indexed_config_entity(
     payload: IndexedConfigEntityPayload,
 ) -> Result<WriteResult<Value>, String> {
     services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)
         .map_err(|e| e.to_string())?;
-    services::config::save_indexed_config_entity(
+    services::editor_config::save_indexed_config_entity(
         &payload.mod_root,
         payload.kind,
         payload.previous_id.as_deref(),
@@ -32,7 +54,7 @@ pub fn create_indexed_config_entity(
 ) -> Result<WriteResult<Value>, String> {
     services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)
         .map_err(|e| e.to_string())?;
-    services::config::create_indexed_config_entity(
+    services::editor_config::create_indexed_config_entity(
         &payload.mod_root,
         payload.kind,
         &payload.next_id,
@@ -48,7 +70,7 @@ pub fn delete_indexed_config_entity(
 ) -> Result<WriteResult<Value>, String> {
     services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)
         .map_err(|e| e.to_string())?;
-    services::config::delete_indexed_config_entity(
+    services::editor_config::delete_indexed_config_entity(
         &payload.mod_root,
         payload.kind,
         &payload.id,
@@ -61,7 +83,7 @@ pub fn delete_indexed_config_entity(
 pub fn save_variant_entity(payload: VariantEntityPayload) -> Result<WriteResult<Value>, String> {
     services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)
         .map_err(|e| e.to_string())?;
-    services::config::save_variant_entity(
+    services::editor_config::save_variant_entity(
         &payload.mod_root,
         payload.previous_id.as_deref(),
         &payload.next_id,
@@ -74,15 +96,19 @@ pub fn save_variant_entity(payload: VariantEntityPayload) -> Result<WriteResult<
 pub fn create_variant_entity(payload: VariantEntityPayload) -> Result<WriteResult<Value>, String> {
     services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)
         .map_err(|e| e.to_string())?;
-    services::config::create_variant_entity(&payload.mod_root, &payload.next_id, payload.data)
-        .map_err(|e| e.to_string())
+    services::editor_config::create_variant_entity(
+        &payload.mod_root,
+        &payload.next_id,
+        payload.data,
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn delete_variant_entity(payload: DeleteVariantEntityPayload) -> Result<WriteResult, String> {
     services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)
         .map_err(|e| e.to_string())?;
-    services::config::delete_variant_entity(
+    services::editor_config::delete_variant_entity(
         &payload.mod_root,
         &payload.variant_id,
         &payload.rel_path,
@@ -94,7 +120,7 @@ pub fn delete_variant_entity(payload: DeleteVariantEntityPayload) -> Result<Writ
 pub fn save_skin_entity(payload: SkinEntityPayload) -> Result<WriteResult<Value>, String> {
     services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)
         .map_err(|e| e.to_string())?;
-    services::config::save_skin_entity(
+    services::editor_config::save_skin_entity(
         &payload.mod_root,
         payload.previous_id.as_deref(),
         &payload.next_id,
@@ -107,7 +133,7 @@ pub fn save_skin_entity(payload: SkinEntityPayload) -> Result<WriteResult<Value>
 pub fn create_skin_entity(payload: SkinEntityPayload) -> Result<WriteResult<Value>, String> {
     services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)
         .map_err(|e| e.to_string())?;
-    services::config::create_skin_entity(&payload.mod_root, &payload.next_id, payload.data)
+    services::editor_config::create_skin_entity(&payload.mod_root, &payload.next_id, payload.data)
         .map_err(|e| e.to_string())
 }
 
@@ -115,7 +141,7 @@ pub fn create_skin_entity(payload: SkinEntityPayload) -> Result<WriteResult<Valu
 pub fn delete_skin_entity(payload: DeleteSkinEntityPayload) -> Result<WriteResult, String> {
     services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)
         .map_err(|e| e.to_string())?;
-    services::config::delete_skin_entity(
+    services::editor_config::delete_skin_entity(
         &payload.mod_root,
         &payload.skin_hull_id,
         &payload.rel_path,

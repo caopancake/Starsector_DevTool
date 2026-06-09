@@ -19,8 +19,8 @@
 - `src/services/editor.service.ts`：封装 projectile entity bundle 读取、导入 spec 读取、spec 保存和 sprite upload service。
 - `src/shared/api/files-api.ts`：封装 `load_imported_editor_spec_file` 和 `save_editor_spec` Tauri command。
 - `src/windows/editor.window.ts`：定义弹体编辑器窗口请求、窗口单例 key、URL 参数和窗口尺寸。
-- `src-tauri/src/commands/files.rs`：校验保存命令的 ProjectSession 归属并调用 Rust editor spec service。
-- `src-tauri/src/services/editor_specs.rs`：按 spec kind 定位、读取、校验、写入 `.proj` 文件并构造 changeset。
+- `src-tauri/src/commands/editor_config.rs`：校验保存命令的 ProjectSession 归属并调用 Rust editor spec service。
+- `src-tauri/src/services/editor_config/spec_files.rs`：按 spec kind 定位、读取、校验、写入 `.proj` 文件并构造 changeset。
 - `src-tauri/src/services/project/projectiles.rs`：加载 Mod 和 Core 的 projectile specs，并用 Mod projectile 覆盖同 ID Core fallback。
 - `src-tauri/src/services/project/query/entities.rs`：从 ProjectSession 的 projectile specs 构造 projectile entity 输出。
 

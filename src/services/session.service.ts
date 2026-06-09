@@ -24,11 +24,11 @@ export async function openProject(modRoot: string, starsectorRoot: string | null
   return manifest;
 }
 
-export function scanWorkspaceOverview(starsectorRoot: string): Promise<GameOverviewData> {
+export function scanDirectoryGameOverview(starsectorRoot: string): Promise<GameOverviewData> {
   return scanGameOverview(starsectorRoot);
 }
 
-export function detectWorkspaceDirectory(path: string, knownStarsectorRoot: string | null): Promise<OpenDirectoryResult> {
+export function detectDirectoryTarget(path: string, knownStarsectorRoot: string | null): Promise<OpenDirectoryResult> {
   return detectDirectory(path, knownStarsectorRoot);
 }
 

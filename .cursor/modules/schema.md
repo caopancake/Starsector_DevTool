@@ -28,6 +28,7 @@ Schema 系统负责把静态字段声明、纯函数模型转换、当前表单�
 - `src/domain/schema/schema-runtime.ts`：拥有 `SchemaRuntimeContext`、source option limit 和 schema runtime 类型。
 - `src/domain/schema/schema.types.ts`：定义 schema 文件、section、field、source 和 discovered field 的前端类型。
 - `src/services/csv-table.service.ts`：执行 source option query，并把返回的 `ResourceRef` 批量 hydrate 成带缩略图的前端选项。
+- `src-tauri/src/services/schema/core_fields.rs`：执行原版字段扫描，负责 core field discovery 的后端路径边界、遍历和类型推断。
 - `src-tauri/src/services/project/query/source_options.rs`：生成 `csv:*` source 的当前值、当前 Mod 和原版分组选项，并校验 source table 与列。
 
 ## 边界
@@ -65,8 +66,8 @@ Schema 系统负责把静态字段声明、纯函数模型转换、当前表单�
 
 1. 消费组件调用 `useCoreSchema()`。
 2. `useCoreSchema()` 从设置 store 或活动 manifest 取得 Starsector root。
-3. `loadCoreFields()` 调用 assets service 查询原版字段扫描结果。
-4. assets service 通过 shared API 调用后端 core fields query。
+3. `loadCoreFields()` 调用 assets API 查询原版字段扫描结果。
+4. assets API 通过 `scan_core_fields` command 进入 Rust schema core fields service。
 5. `useCoreSchema()` 在 root 仍匹配时保存 core fields。
 6. 消费组件调用 `getMergedSchema(schemaId)`。
 7. `getMergedSchema()` 取得静态 schema。
