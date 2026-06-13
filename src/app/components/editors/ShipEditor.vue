@@ -1287,18 +1287,22 @@ function setArray(key: string, idx: number, value: number | null) {
 }
 function setSlotLoc(idx: number, value: number | null) {
   if (!selectedSlot.value) return;
-  selectedSlot.value.locations = slotLoc.value;
-  slotLoc.value[idx] = value || 0;
+  const loc = slotLoc.value;
+  loc[idx] = value || 0;
+  selectedSlot.value.locations = loc;
   draw();
 }
 function setEngineLoc(idx: number, value: number | null) {
   if (!selectedEngine.value) return;
-  selectedEngine.value.location = engineLoc.value;
-  engineLoc.value[idx] = value || 0;
+  const loc = engineLoc.value;
+  loc[idx] = value || 0;
+  selectedEngine.value.location = loc;
   draw();
 }
 function setBound(idx: number, value: number | null) {
-  bounds.value[idx] = value || 0;
+  const b = bounds.value;
+  b[idx] = value || 0;
+  localShip.value.bounds = b;
   draw();
 }
 function selectInspectorItem(nextMode: typeof mode.value, index: number, kind: ShipCanvasTarget['kind']) {
