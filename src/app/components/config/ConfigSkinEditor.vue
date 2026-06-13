@@ -21,13 +21,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, toRef } from 'vue';
+import { computed, onMounted, onUnmounted, toRef } from 'vue';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import type { RowData, SkinFile } from '@/shared/types';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { getSchema } from '@/domain/schema/schema-registry';
 import { createSchemaRuntimeContext } from '@/app/composables/use-schema-runtime-context';
 import { useConfigSkinEditorViewModel } from '@/app/composables/use-config-skin-editor-view-model';
+import { registerActiveSaveHandler, unregisterActiveSaveHandler } from '@/shared/lib/save-command-registry';
 
 const props = defineProps<{
   skinHullId: string;
@@ -86,4 +87,7 @@ async function deleteSkinTarget(deleteSessionId: string, deleteModRoot: string, 
   }
   return true;
 }
+
+onMounted(() => registerActiveSaveHandler(save));
+onUnmounted(() => unregisterActiveSaveHandler(save));
 </script>

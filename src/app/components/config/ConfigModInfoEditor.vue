@@ -16,10 +16,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { useCoreSchema } from '@/app/composables/use-core-schema';
 import { useConfigModInfoViewModel } from '@/app/composables/use-config-mod-info-view-model';
+import { registerActiveSaveHandler, unregisterActiveSaveHandler } from '@/shared/lib/save-command-registry';
 
 const { getMergedSchema, loadCoreFields } = useCoreSchema();
 void loadCoreFields();
@@ -38,4 +39,7 @@ const {
 async function save() {
   await saveModInfo(schema.value);
 }
+
+onMounted(() => registerActiveSaveHandler(save));
+onUnmounted(() => unregisterActiveSaveHandler(save));
 </script>

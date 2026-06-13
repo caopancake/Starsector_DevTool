@@ -35,6 +35,7 @@
 </template>
 
 <script setup lang="ts">
+import { onUnmounted, watchEffect } from 'vue';
 import TitleBar from '@/app/TitleBar.vue';
 import NavSidebar from '@/app/components/NavSidebar.vue';
 import OverviewPage from '@/app/components/OverviewPage.vue';
@@ -48,6 +49,7 @@ import { useWorkspaceStore } from '@/stores/workspace.store';
 import { useWorkspaceShellActions } from '@/app/composables/use-workspace-shell-actions';
 import { useMainWindowShortcuts } from '@/app/composables/use-main-window-shortcuts';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
+import { registerActiveSaveHandler, unregisterActiveSaveHandler } from '@/shared/lib/save-command-registry';
 
 const project = useProjectStore();
 const settings = useSettingsStore();
@@ -55,4 +57,25 @@ const workspace = useWorkspaceStore();
 const feedback = useAppFeedback();
 const actions = useWorkspaceShellActions(feedback);
 useMainWindowShortcuts(feedback);
+
+let currentSaveHandler: (() => void | Promise<void>) | null = null;
+
+watchEffect(() => {
+  if (currentSaveHandler) {
+    unregisterActiveSaveHandler(currentSaveHandler);
+    currentSaveHandler = null;
+  }
+
+  if (workspace.currentView === 'table' && project.activeManifest) {
+    currentSaveHandler = actions.saveChanges;
+    registerActiveSaveHandler(currentSaveHandler);
+  }
+});
+
+onUnmounted(() => {
+  if (currentSaveHandler) {
+    unregisterActiveSaveHandler(currentSaveHandler);
+    currentSaveHandler = null;
+  }
+});
 </script>

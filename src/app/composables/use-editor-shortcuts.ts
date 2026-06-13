@@ -2,6 +2,7 @@ import { onMounted, onUnmounted, type Ref } from 'vue';
 
 type ShortcutHandlers = {
   redo: () => void;
+  save?: () => void;
   undo: () => void;
   onKeyDown?: (event: KeyboardEvent) => void;
   scope?: Ref<HTMLElement | undefined>;
@@ -18,6 +19,14 @@ function shouldIgnoreShortcut(event: KeyboardEvent, scope?: HTMLElement) {
 
 export function useEditorShortcuts(handlers: ShortcutHandlers) {
   function onKey(event: KeyboardEvent) {
+    if (event.ctrlKey || event.metaKey) {
+      const key = event.key.toLowerCase();
+      if (key === 's' && handlers.save) {
+        event.preventDefault();
+        handlers.save();
+        return;
+      }
+    }
     if (shouldIgnoreShortcut(event, handlers.scope?.value)) return;
     const isUndoKey = event.ctrlKey && event.key.toLowerCase() === 'z' && !event.shiftKey;
     const isRedoKey = event.ctrlKey && event.key.toLowerCase() === 'z' && event.shiftKey;

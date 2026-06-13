@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, toRef } from 'vue';
+import { computed, onMounted, onUnmounted, toRef } from 'vue';
 import type { RowData } from '@/shared/types';
 import type { SchemaRuntimeContext } from '@/domain/schema/schema-runtime';
 import type { FileSchema } from '@/domain/schema/schema.types';
@@ -38,6 +38,7 @@ import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { useCoreSchema } from '@/app/composables/use-core-schema';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useConfigFactionEditorViewModel } from '@/app/composables/use-config-faction-editor-view-model';
+import { registerActiveSaveHandler, unregisterActiveSaveHandler } from '@/shared/lib/save-command-registry';
 
 const props = defineProps<{
   factionId: string;
@@ -97,4 +98,7 @@ async function deleteFactionTarget(deleteSessionId: string, deleteModRoot: strin
   }
   return true;
 }
+
+onMounted(() => registerActiveSaveHandler(save));
+onUnmounted(() => unregisterActiveSaveHandler(save));
 </script>

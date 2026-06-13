@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, toRef } from 'vue';
+import { computed, onMounted, onUnmounted, toRef } from 'vue';
 import type { ConfigMissionEditorData, RowData } from '@/shared/types';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { getSchema } from '@/domain/schema/schema-registry';
@@ -29,6 +29,7 @@ import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { createSchemaRuntimeContext } from '@/app/composables/use-schema-runtime-context';
 import type { FileSchema } from '@/domain/schema/schema.types';
 import { useConfigMissionEditorViewModel } from '@/app/composables/use-config-mission-editor-view-model';
+import { registerActiveSaveHandler, unregisterActiveSaveHandler } from '@/shared/lib/save-command-registry';
 
 const props = defineProps<{
   missionId: string;
@@ -100,4 +101,7 @@ async function deleteMissionTarget(deleteSessionId: string, deleteModRoot: strin
   }
   return true;
 }
+
+onMounted(() => registerActiveSaveHandler(save));
+onUnmounted(() => unregisterActiveSaveHandler(save));
 </script>

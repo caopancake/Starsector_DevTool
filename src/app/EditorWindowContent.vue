@@ -96,7 +96,7 @@ import { openProjectileEditorWindow, openWeaponPreviewWindow } from '@/windows/e
 import { useSettingsStore } from '@/stores/settings.store';
 import { closeCurrentWindow } from '@/windows/current.window';
 import { useEditorWindowViewModel } from '@/app/composables/use-editor-window-view-model';
-import type { EditorWindowKind } from '@/shared/types';
+import type { EditorSpecKind, EditorWindowKind } from '@/shared/types';
 import { isEditorWindowKind } from '@/domain/editors/editor-definitions';
 
 const params = new window.URLSearchParams(window.location.search);
@@ -159,11 +159,26 @@ function openPreview(weaponId: string) {
   });
 }
 
+function handleEditorWindowKeyDown(event: KeyboardEvent) {
+  if (!(event.ctrlKey || event.metaKey)) return;
+  if (event.key.toLowerCase() !== 's') return;
+  event.preventDefault();
+  const editableKind = resolveEditableKind();
+  if (editableKind) void saveEditorData(editableKind);
+}
+
+function resolveEditableKind(): EditorSpecKind | null {
+  if (kind.value === 'weapon-preview') return null;
+  return kind.value as EditorSpecKind;
+}
+
 onMounted(() => {
+  window.addEventListener('keydown', handleEditorWindowKeyDown);
   void initializeEditorWindow();
 });
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleEditorWindowKeyDown);
   disposeEditorWindow();
 });
 </script>
