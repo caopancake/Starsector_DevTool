@@ -43,10 +43,11 @@ export function useDraftSession<T>(initialValue: T, options: DraftSessionOptions
 
   function loadBase(value: T) {
     const next = clone(value);
+    const draftChanged = !equals(draftValue.value, next);
     baseValue.value = next;
     draftValue.value = clone(next);
     pendingExternalValue.value = null;
-    revision.value += 1;
+    if (draftChanged) revision.value += 1;
   }
 
   function setDraft(value: T) {

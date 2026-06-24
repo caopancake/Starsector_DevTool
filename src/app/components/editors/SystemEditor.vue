@@ -162,7 +162,7 @@
       <EditorFooter note="结构化 JSON 写回，内部字段会被后端剔除。">
         <template #actions>
           <n-button @click="$emit('close')">关闭</n-button>
-          <n-button type="primary" @click="emit('save-requested')">保存</n-button>
+          <n-button type="primary" :disabled="!canSave" :loading="saving" @click="emit('save-requested')">保存</n-button>
         </template>
       </EditorFooter>
     </div>
@@ -188,6 +188,8 @@ const props = defineProps<{
   system?: RowData;
   draftRevision: number;
   dirty: boolean;
+  canSave: boolean;
+  saving: boolean;
   externalUpdateNotice: string;
 }>();
 const emit = defineEmits<{ close: []; 'save-requested': []; 'draft-changed': [system: RowData]; 'load-external': [] }>();

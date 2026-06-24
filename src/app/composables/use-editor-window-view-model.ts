@@ -96,7 +96,9 @@ export function useEditorWindowViewModel(params: {
   const shipSpriteForEditor = computed(() => shipEditorData.value?.shipSpriteData ?? '');
   const draftDirty = draftSession.dirty;
   const draftRevision = draftSession.revision;
+  const draftSaving = draftSession.saving;
   const externalUpdateNotice = draftSession.externalUpdateNotice;
+  const canSaveSpec = computed(() => isEditableWindowKind(params.kind) && (draftDirty.value || Boolean(editorData.value?.isNew)));
 
   const missingEditorText = computed(() => {
     const target = editorWindowTarget();
@@ -179,7 +181,7 @@ export function useEditorWindowViewModel(params: {
 
   async function saveEditorData(kind: EditorSpecKind, data?: RowData): Promise<void> {
     const target = editorWindowTarget();
-    if (!target) return;
+    if (!target || draftSession.saving.value) return;
     if (data) draftSession.setDraft(data);
     const saved = await draftSession.saveDraft();
     if (saved) commitSavedSpecToBundle(kind, target.id, saved.value);
@@ -308,6 +310,8 @@ export function useEditorWindowViewModel(params: {
     shipSpriteForEditor,
     draftDirty,
     draftRevision,
+    draftSaving,
+    canSaveSpec,
     externalUpdateNotice,
     missingEditorText,
     initializeEditorWindow,
@@ -330,7 +334,8 @@ export function useEditorWindowViewModel(params: {
   function commitSavedSpecToBundle(kind: EditorSpecKind, id: string, data: RowData): void {
     if (!editorData.value) return;
     const spec = deepClone(data);
-    editorData.value = applySavedSpecToBundle(editorData.value, kind, id, spec);
+    const applied = applySavedSpecToBundle(editorData.value, kind, id, spec);
+    editorData.value = applied.isNew ? ({ ...applied, isNew: false } as EditorEntityBundle) : applied;
   }
 
   function receiveExternalPrimarySpec(kind: EditorSpecKind, id: string, data: RowData): void {

@@ -17,6 +17,8 @@
       :sprite-data="shipSpriteForEditor"
       :draft-revision="draftRevision"
       :dirty="draftDirty"
+      :can-save="canSaveSpec"
+      :saving="draftSaving"
       :external-update-notice="externalUpdateNotice"
       @close="closeWindow"
       @save-requested="saveEditorData('ship')"
@@ -34,6 +36,8 @@
       :projectile-options="weaponEditorData.projectileOptions"
       :draft-revision="draftRevision"
       :dirty="draftDirty"
+      :can-save="canSaveSpec"
+      :saving="draftSaving"
       :external-update-notice="externalUpdateNotice"
       @close="closeWindow"
       @save-requested="saveEditorData('weapon')"
@@ -50,6 +54,8 @@
       :projectile="projectileEditorData.projectile"
       :draft-revision="draftRevision"
       :dirty="draftDirty"
+      :can-save="canSaveSpec"
+      :saving="draftSaving"
       :external-update-notice="externalUpdateNotice"
       @close="closeWindow"
       @save-requested="saveEditorData('projectile')"
@@ -63,6 +69,8 @@
       :system="systemEditorData.system"
       :draft-revision="draftRevision"
       :dirty="draftDirty"
+      :can-save="canSaveSpec"
+      :saving="draftSaving"
       :external-update-notice="externalUpdateNotice"
       @close="closeWindow"
       @save-requested="saveEditorData('system')"
@@ -120,6 +128,8 @@ const {
   shipSpriteForEditor,
   draftDirty,
   draftRevision,
+  draftSaving,
+  canSaveSpec,
   externalUpdateNotice,
   missingEditorText,
   initializeEditorWindow,

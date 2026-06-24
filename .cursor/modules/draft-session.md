@@ -73,6 +73,7 @@ Draft Session 草稿会话系统负责前端编辑目标的正式草稿状态。
 - `load(target)` 是唯一加载入口，props/store 派生数据也必须通过它返回 snapshot。
 - `save(target, draft)` 可返回后端或保存链路规范化后的 value；未返回时 commit 当前 draft。
 - `loadBase()` 只在加载新基准时使用；`commitSaved()` 只在保存成功后使用。
+- `loadBase()` 只在生成的 draft 与当前 draft 内容不同时递增 revision；内容相同的外部更新或保存回声不得递增 revision。
 - `resetDraft()` 只恢复当前 base，不清空 pending external。
 - `clearTarget()` 必须清空 target identity、loading/saving/error 和草稿值。
 - 文件编辑器 text history 只记录局部文本输入；载入新 target、载入外部文本和非 dirty text-applied 必须清空 text history。
@@ -83,7 +84,7 @@ Draft Session 草稿会话系统负责前端编辑目标的正式草稿状态。
 ## 陷阱
 
 - 业务直接导入 `useDraftSession`，会重新分裂出没有 target identity 和竞态保护的半模型。
-- 保存成功调用 `loadBase()` 会递增 revision，导致专用 editor 子组件无意义重置 working copy。
+- 让 `loadBase()` 在 draft 内容未变时仍递增 revision，会让保存回声和等值外部更新无意义重置专用 editor 子组件的 working copy。
 - 外部更新直接写 draft 会覆盖用户未保存草稿。
 - 在 target session 内导入 service 或 orchestrator，会让通用模块反向拥有业务保存边界。
 - 用普通 `JSON.stringify()` 判断 dirty，会让对象 key 顺序影响草稿状态。

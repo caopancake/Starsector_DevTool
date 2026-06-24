@@ -227,7 +227,7 @@
       <EditorFooter :note="footerNote">
         <template #actions>
           <n-button @click="$emit('close')">关闭</n-button>
-          <n-button type="primary" @click="save">保存</n-button>
+          <n-button type="primary" :disabled="!canSave" :loading="saving" @click="save">保存</n-button>
         </template>
       </EditorFooter>
     </div>
@@ -259,6 +259,8 @@ const props = defineProps<{
   spriteData?: string;
   draftRevision: number;
   dirty: boolean;
+  canSave: boolean;
+  saving: boolean;
   externalUpdateNotice: string;
 }>();
 const emit = defineEmits<{ close: []; 'save-requested': []; 'draft-changed': [ship: RowData]; 'load-external': [] }>();
