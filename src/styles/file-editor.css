@@ -53,16 +53,16 @@
 }
 
 .file-editor-status.dirty {
-  color: var(--color-warning-text);
+  color: var(--color-warning);
   background: var(--color-warning-bg);
-  border-color: var(--color-warning-border-soft);
+  border-color: var(--color-warning-border);
 }
 
 .file-editor-status.saving,
 .file-editor-status.loading {
-  color: var(--color-info-text);
-  background: var(--color-info-bg);
-  border-color: var(--color-info-border-soft);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
 }
 
 .file-editor-path {

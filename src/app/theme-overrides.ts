@@ -1,29 +1,90 @@
-import type { ComputedRef } from 'vue';
 import type { GlobalThemeOverrides } from 'naive-ui/es/config-provider';
-import type { useSettingsStore } from '@/stores/settings.store';
 
-type SettingsStore = ReturnType<typeof useSettingsStore>;
-
-function cssVar(name: string, defaultValue: string): string {
-  if (typeof window === 'undefined') return defaultValue;
-  return window.getComputedStyle(document.documentElement).getPropertyValue(name).trim() || defaultValue;
+function colorToken(name: `--${string}`): string {
+  return `var(${name})`;
 }
 
-export function buildThemeOverrides(settings: SettingsStore): GlobalThemeOverrides {
-  const panel = cssVar('--color-panel', settings.isDark ? '#171a20' : '#ffffff');
-  const surfaceHover = cssVar('--color-surface-hover', settings.isDark ? '#2a2f38' : '#ebebea');
-  const surfaceActive = cssVar('--color-surface-active', settings.isDark ? '#323844' : '#e9e8e4');
-  const border = cssVar('--color-border', settings.isDark ? '#2c323c' : '#e3e2df');
-  const text = cssVar('--color-text', settings.isDark ? '#e6e7eb' : '#1f2328');
-  const danger = cssVar('--color-danger', settings.isDark ? '#f87171' : '#dc2626');
-  const shadow = cssVar('--shadow-floating', settings.isDark ? '0 24px 80px rgba(0, 0, 0, 0.42)' : '0 24px 70px rgba(15, 23, 42, 0.18)');
+export function buildThemeOverrides(): GlobalThemeOverrides {
+  const background = colorToken('--color-bg');
+  const panel = colorToken('--color-panel');
+  const panelMuted = colorToken('--color-panel-muted');
+  const surface = colorToken('--color-surface');
+  const surfaceHover = colorToken('--color-surface-hover');
+  const surfaceActive = colorToken('--color-surface-active');
+  const border = colorToken('--color-border');
+  const text = colorToken('--color-text');
+  const textSoft = colorToken('--color-text-soft');
+  const muted = colorToken('--color-muted');
+  const faint = colorToken('--color-faint');
+  const primary = colorToken('--color-primary');
+  const primaryHover = colorToken('--color-primary-hover');
+  const primaryPressed = colorToken('--color-primary-pressed');
+  const success = colorToken('--color-success');
+  const warning = colorToken('--color-warning');
+  const danger = colorToken('--color-danger');
+  const scrollbar = colorToken('--scrollbar-thumb');
+  const scrollbarHover = colorToken('--scrollbar-thumb-hover');
+  const shadow = colorToken('--shadow-floating');
 
   return {
     common: {
-      primaryColor: settings.activeAccentHex,
-      primaryColorHover: cssVar('--color-primary-hover', settings.activeAccentHex),
-      primaryColorPressed: cssVar('--color-primary-pressed', settings.activeAccentHex),
-      primaryColorSuppl: settings.activeAccentHex,
+      primaryColor: primary,
+      primaryColorHover: primaryHover,
+      primaryColorPressed: primaryPressed,
+      primaryColorSuppl: primary,
+      infoColor: primary,
+      infoColorHover: primaryHover,
+      infoColorPressed: primaryPressed,
+      infoColorSuppl: primary,
+      successColor: success,
+      warningColor: warning,
+      errorColor: danger,
+      textColorBase: text,
+      textColor1: text,
+      textColor2: textSoft,
+      textColor3: muted,
+      textColorDisabled: faint,
+      placeholderColor: muted,
+      placeholderColorDisabled: faint,
+      iconColor: muted,
+      iconColorHover: textSoft,
+      iconColorPressed: text,
+      iconColorDisabled: faint,
+      dividerColor: border,
+      borderColor: border,
+      closeIconColor: muted,
+      closeIconColorHover: textSoft,
+      closeIconColorPressed: text,
+      closeColorHover: surfaceHover,
+      closeColorPressed: surfaceActive,
+      clearColor: muted,
+      clearColorHover: textSoft,
+      clearColorPressed: text,
+      scrollbarColor: scrollbar,
+      scrollbarColorHover: scrollbarHover,
+      progressRailColor: surfaceActive,
+      railColor: surfaceActive,
+      popoverColor: panel,
+      tableColor: panel,
+      cardColor: panel,
+      modalColor: panel,
+      bodyColor: background,
+      inputColor: panel,
+      codeColor: surface,
+      tabColor: panelMuted,
+      actionColor: surface,
+      tableHeaderColor: panelMuted,
+      hoverColor: surfaceHover,
+      tableColorHover: surfaceHover,
+      tableColorStriped: panelMuted,
+      pressedColor: surfaceActive,
+      inputColorDisabled: surface,
+      buttonColor2: surface,
+      buttonColor2Hover: surfaceHover,
+      buttonColor2Pressed: surfaceActive,
+      boxShadow1: shadow,
+      boxShadow2: shadow,
+      boxShadow3: shadow,
     },
     Button: {
       borderRadiusSmall: '5px',
@@ -55,14 +116,7 @@ export function buildThemeOverrides(settings: SettingsStore): GlobalThemeOverrid
       border: '0',
     },
     Switch: {
-      railColorActive: settings.activeAccentHex,
+      railColorActive: primary,
     },
-  };
-}
-
-export function discreteConfigProviderProps(settings: SettingsStore, themeOverrides: ComputedRef<GlobalThemeOverrides>) {
-  return {
-    theme: settings.naiveTheme,
-    themeOverrides: themeOverrides.value,
   };
 }

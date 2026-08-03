@@ -1,7 +1,7 @@
 import type { Ref } from 'vue';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import type { UnlistenFn } from '@/windows/tauri.events';
-import { closeCurrentWindow, listenCurrentWindowCloseRequest } from '@/windows/current.window';
+import { destroyCurrentWindow, listenCurrentWindowCloseRequest } from '@/windows/current.window';
 
 interface DirtyWindowCloseGuardOptions {
   content: string;
@@ -11,7 +11,6 @@ interface DirtyWindowCloseGuardOptions {
 
 export function useDirtyWindowCloseGuard(options: DirtyWindowCloseGuardOptions) {
   const feedback = useAppFeedback();
-  let allowClose = false;
   let disposed = false;
   let prompting = false;
   let unlisten: UnlistenFn | null = null;
@@ -33,9 +32,11 @@ export function useDirtyWindowCloseGuard(options: DirtyWindowCloseGuardOptions) 
   }
 
   async function handleCloseRequested(event: { preventDefault: () => void }): Promise<void> {
-    if (disposed || allowClose || !options.dirty.value) return;
+    if (disposed || !options.dirty.value) return;
     event.preventDefault();
-    if (prompting) return;
+    if (prompting) {
+      return;
+    }
     prompting = true;
     try {
       const choice = await feedback.choose({
@@ -44,12 +45,10 @@ export function useDirtyWindowCloseGuard(options: DirtyWindowCloseGuardOptions) 
         title: options.title,
       });
       if (choice !== 'discard' || disposed) return;
-      allowClose = true;
-      await closeCurrentWindow();
+      await destroyCurrentWindow();
     } catch (error) {
       feedback.error(error, '确认关闭编辑器失败');
     } finally {
-      allowClose = false;
       prompting = false;
     }
   }

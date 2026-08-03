@@ -9,12 +9,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
 import { useSettingsStore } from '@/stores/settings.store';
 import { buildThemeOverrides } from '@/app/theme-overrides';
 import { useSettingsMirror } from '@/app/composables/use-settings-persistence';
 
 const settings = useSettingsStore();
 useSettingsMirror();
-const themeOverrides = computed(() => buildThemeOverrides(settings));
+const themeOverrides = buildThemeOverrides();
 </script>

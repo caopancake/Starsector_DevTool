@@ -8,6 +8,10 @@ export async function closeCurrentWindow(): Promise<void> {
   await appWindow.close();
 }
 
+export async function destroyCurrentWindow(): Promise<void> {
+  await appWindow.destroy();
+}
+
 export function listenCurrentWindowCloseRequest(handler: (event: CloseRequestedEvent) => void | Promise<void>): Promise<UnlistenFn> {
   return appWindow.onCloseRequested(handler);
 }
