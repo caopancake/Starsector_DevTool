@@ -1,9 +1,6 @@
-import { createApp } from 'vue';
+import { createApp, type Component } from 'vue';
 import { createPinia } from 'pinia';
-import naive from 'naive-ui';
-import App from '@/app/App.vue';
-import EditorWindowApp from '@/app/EditorWindowApp.vue';
-import FileEditorApp from '@/app/FileEditorApp.vue';
+import { installNaiveUi } from '@/app/naive-ui.runtime';
 import { loadSettings } from '@/services/app-settings.service';
 import { initializeSettingsStore } from '@/stores/settings.store';
 import { showCurrentWindow } from '@/windows/current.window';
@@ -12,12 +9,25 @@ import './styles/file-editor.css';
 
 const params = new window.URLSearchParams(window.location.search);
 const windowKind = params.get('window');
-const Root = windowKind === 'file-editor' ? FileEditorApp : windowKind === 'editor' ? EditorWindowApp : App;
 
 async function bootstrap() {
-  initializeSettingsStore(await initialSettings());
-  createApp(Root).use(createPinia()).use(naive).mount('#app');
+  const [Root, settings] = await Promise.all([loadWindowRoot(windowKind), initialSettings()]);
+  initializeSettingsStore(settings);
+  const app = createApp(Root).use(createPinia());
+  installNaiveUi(app);
+  app.mount('#app');
   await revealCurrentWindow();
+}
+
+async function loadWindowRoot(kind: string | null): Promise<Component> {
+  switch (kind) {
+    case 'file-editor':
+      return (await import('@/app/FileEditorApp.vue')).default;
+    case 'editor':
+      return (await import('@/app/EditorWindowApp.vue')).default;
+    default:
+      return (await import('@/app/App.vue')).default;
+  }
 }
 
 void bootstrap().catch((error) => {

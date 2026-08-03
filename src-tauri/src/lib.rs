@@ -31,6 +31,7 @@ pub fn run() {
             commands::invalidate_core_cache,
             commands::detect_directory,
             commands::scan_game_overview,
+            commands::create_mod,
             commands::save_csv_patch,
             commands::upload_sprite,
             commands::load_workspace,

@@ -51,7 +51,7 @@
 
 <script setup lang="ts">
 import { computed, h, ref } from 'vue';
-import { NCheckbox } from 'naive-ui';
+import { NCheckbox } from 'naive-ui/es/checkbox';
 import type { RowData } from '@/shared/types';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { configFactionListItems } from '@/domain/config/config-entities';

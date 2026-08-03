@@ -1,6 +1,7 @@
 pub mod csv_files;
 pub mod file_changes;
 pub mod json_files;
+pub(crate) mod mod_creation;
 pub mod paths;
 pub mod text;
 

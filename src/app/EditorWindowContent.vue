@@ -100,6 +100,7 @@ import WeaponEditor from '@/app/components/editors/WeaponEditor.vue';
 import ProjectileEditor from '@/app/components/editors/ProjectileEditor.vue';
 import WeaponFirePreview from '@/app/components/editors/WeaponFirePreview.vue';
 import SystemEditor from '@/app/components/editors/SystemEditor.vue';
+import { useDirtyWindowCloseGuard } from '@/app/composables/use-dirty-window-close-guard';
 import { openProjectileEditorWindow, openWeaponPreviewWindow } from '@/windows/editor.window';
 import { useSettingsStore } from '@/stores/settings.store';
 import { closeCurrentWindow } from '@/windows/current.window';
@@ -138,6 +139,11 @@ const {
   updateEditorDraft,
   loadPendingExternalSpec,
 } = useEditorWindowViewModel({ sessionId, modRoot, id, kind: kind.value });
+const closeGuard = useDirtyWindowCloseGuard({
+  content: '当前 spec 有未保存修改，关闭后这些修改将丢失。',
+  dirty: draftDirty,
+  title: '放弃未保存编辑？',
+});
 
 function parseKind(value: string | null): EditorWindowKind {
   return isEditorWindowKind(value) ? value : 'ship';
@@ -183,11 +189,13 @@ function resolveEditableKind(): EditorSpecKind | null {
 }
 
 onMounted(() => {
+  void closeGuard.install();
   window.addEventListener('keydown', handleEditorWindowKeyDown);
   void initializeEditorWindow();
 });
 
 onUnmounted(() => {
+  closeGuard.dispose();
   window.removeEventListener('keydown', handleEditorWindowKeyDown);
   disposeEditorWindow();
 });

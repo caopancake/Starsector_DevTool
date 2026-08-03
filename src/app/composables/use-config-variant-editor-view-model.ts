@@ -16,6 +16,7 @@ export function useConfigVariantEditorViewModel(params: {
   const selectedVariant = computed(() => params.variants.value.find((variant) => variant.variantId === params.variantId.value) ?? null);
   const draftSession = useConfigEditorDraftSession<RowData, string, VariantFile | null, VariantFile>({
     emptyValue: {},
+    modRoot: params.modRoot,
     load: (variantId) => {
       const variant = params.variants.value.find((candidate) => candidate.variantId === variantId) ?? null;
       return { meta: variant, value: variant ? variant.data : {} };

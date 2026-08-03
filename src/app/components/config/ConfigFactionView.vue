@@ -8,7 +8,7 @@
       :session-id="sessionId"
       :create-faction="createFaction"
       :delete-faction="deleteFaction"
-      @select="selectedFaction = $event"
+      @select="selectFaction"
     />
     <ConfigFactionEditor
       v-if="selectedFaction"
@@ -32,6 +32,7 @@
 <script setup lang="ts">
 import ConfigFactionList from '@/app/components/config/ConfigFactionList.vue';
 import ConfigFactionEditor from '@/app/components/config/ConfigFactionEditor.vue';
+import { useDraftTransitionConfirmation } from '@/app/composables/use-draft-transition-confirmation';
 import { useConfigFactionViewModel } from '@/app/composables/use-config-faction-view-model';
 
 const {
@@ -49,4 +50,17 @@ const {
   queryFactionPreviewImages,
   saveFaction,
 } = useConfigFactionViewModel();
+const { confirmDraftTransition } = useDraftTransitionConfirmation();
+
+function selectFaction(factionId: string | null): void {
+  const nextFactionId = factionId ?? '';
+  if (nextFactionId === selectedFaction.value) return;
+  confirmDraftTransition(modRoot.value, {
+    title: '切换势力？',
+    content: '当前势力有未保存修改，切换后这些修改将丢失。确认继续？',
+    action: () => {
+      selectedFaction.value = nextFactionId;
+    },
+  });
+}
 </script>

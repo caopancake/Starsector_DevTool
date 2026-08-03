@@ -1,5 +1,7 @@
 import { ref, type Ref } from 'vue';
 import { useDraftSession, type DraftSession, type DraftSessionOptions } from '@/app/composables/use-draft-session';
+import { deepClone } from '@/shared/lib/starsector';
+import { stableDeepEqual } from '@/shared/lib/stable-compare';
 
 type MaybePromise<T> = T | Promise<T>;
 
@@ -51,6 +53,8 @@ export function useEditTargetDraftSession<TValue, TTarget, TLoadMeta = unknown, 
   options: EditTargetDraftSessionOptions<TValue, TTarget, TLoadMeta, TSaveMeta>,
 ): EditTargetDraftSession<TValue, TTarget, TLoadMeta, TSaveMeta> {
   const draftSession = useDraftSession(options.emptyValue, options);
+  const clone = options.clone ?? deepClone;
+  const equals = options.equals ?? stableDeepEqual;
   const currentTarget = ref<TTarget | null>(null) as Ref<TTarget | null>;
   const currentTargetKey = ref<string | null>(null);
   const loading = ref(false);
@@ -96,16 +100,17 @@ export function useEditTargetDraftSession<TValue, TTarget, TLoadMeta = unknown, 
     const requestId = ++saveRequestId;
     const target = currentTarget.value;
     const key = currentTargetKey.value;
-    const draft = draftSession.draftValue.value;
+    const submittedDraft = clone(draftSession.draftValue.value);
     saving.value = true;
     saveError.value = null;
     try {
-      const result = await options.save(target, draft);
+      const result = await options.save(target, submittedDraft);
       if (!isCurrentSave(requestId, key)) return null;
-      const snapshot = result ?? { value: draft };
-      draftSession.commitSaved(snapshot.value);
-      options.onSaved?.(target, draftSession.draftValue.value, snapshot.meta);
-      return snapshot;
+      if (!result) return null;
+      if (equals(draftSession.draftValue.value, submittedDraft)) draftSession.commitSaved(result.value);
+      else draftSession.applyExternal(result.value);
+      options.onSaved?.(target, clone(result.value), result.meta);
+      return result;
     } catch (error) {
       if (isCurrentSave(requestId, key)) saveError.value = error;
       throw error;

@@ -1,4 +1,4 @@
-import { watch } from 'vue';
+import { computed, watch } from 'vue';
 import { useProjectStore } from '@/stores/project.store';
 import { saveModInfoAction } from '@/orchestrators/config-save.orchestrator';
 import { deepClone } from '@/shared/lib/starsector';
@@ -6,7 +6,7 @@ import type { FileSchema } from '@/domain/schema/schema.types';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useSchemaRuntimeContext } from '@/app/composables/use-schema-runtime-context';
 import { configModInfoEditorModel, configModInfoSaveData } from '@/domain/config/config-entities';
-import { useEditTargetDraftSession } from '@/app/composables/use-edit-target-draft-session';
+import { useConfigEditorDraftSession } from '@/app/composables/use-config-editor-draft-session';
 import type { ProjectManifest, RowData } from '@/shared/types';
 
 type ModInfoTarget = Pick<ProjectManifest, 'modInfo' | 'modRoot' | 'sessionId'>;
@@ -15,8 +15,9 @@ export function useConfigModInfoViewModel() {
   const project = useProjectStore();
   const feedback = useAppFeedback();
   const schemaRuntimeContext = useSchemaRuntimeContext(() => project.activeManifest);
-  const draftSession = useEditTargetDraftSession<RowData, ModInfoTarget>({
+  const draftSession = useConfigEditorDraftSession<RowData, ModInfoTarget>({
     emptyValue: {},
+    modRoot: computed(() => project.activeManifest?.modRoot ?? null),
     load: (target) => ({ value: configModInfoEditorModel(deepClone(target.modInfo)) }),
     save: async (target, data) => {
       const schema = pendingSaveSchema;

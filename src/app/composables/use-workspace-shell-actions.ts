@@ -1,5 +1,5 @@
 import { h, onMounted, onUnmounted, ref, type Ref } from 'vue';
-import { NCheckbox } from 'naive-ui';
+import { NCheckbox } from 'naive-ui/es/checkbox';
 import type { AppFeedback } from '@/shared/types';
 import { useSettingsStore } from '@/stores/settings.store';
 import { openEditorWindow } from '@/windows/editor.window';
@@ -7,6 +7,7 @@ import { useProjectStore } from '@/stores/project.store';
 import { pickDirectory, scanDirectoryGameOverview } from '@/services/session.service';
 import { captureActiveTableSaveTarget, saveCapturedTableChanges } from '@/orchestrators/table-save.orchestrator';
 import { useTablesStore } from '@/stores/tables.store';
+import { useDraftSessionsStore } from '@/stores/draft-sessions.store';
 import type { AssociatedSpecCandidate } from '@/domain/tables/associated-spec-candidates';
 import type { TableDetailAction } from '@/domain/tables/table-detail-actions';
 import { listenWindowSaveEvents } from '@/orchestrators/window-save.orchestrator';
@@ -30,6 +31,7 @@ import { recordLogBestEffort } from '@/services/app-feedback-log.service';
 export function useWorkspaceShellActions(feedback: AppFeedback) {
   const project = useProjectStore();
   const tables = useTablesStore();
+  const draftSessions = useDraftSessionsStore();
   const settings = useSettingsStore();
   const workspace = useWorkspaceStore();
   const { loadCoreFields } = useCoreSchema();
@@ -118,17 +120,19 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
 
   function confirmCloseWorkspace() {
     const target = captureWorkspaceCloseTarget();
-    const hasDirtyMods = target.modRoots.some((modRoot) => tables.hasModDirtyChanges(modRoot));
+    const hasDirtyMods = target.modRoots.some(
+      (modRoot) => tables.hasModDirtyChanges(modRoot) || draftSessions.hasDirtyDraftForMod(modRoot),
+    );
     feedback.confirmWarning({
       title: '关闭工作区',
-      content: hasDirtyMods ? '当前工作区有未保存的 CSV 修改，关闭后这些修改将丢失。确认关闭？' : '确认关闭当前工作区？',
+      content: hasDirtyMods ? '当前工作区有未保存修改，关闭后这些修改将丢失。确认关闭？' : '确认关闭当前工作区？',
       actionText: '关闭',
       onConfirm: () => closeWorkspace(target),
     });
   }
 
   function confirmRemoveMod(modRoot: string) {
-    if (tables.hasModDirtyChanges(modRoot)) {
+    if (tables.hasModDirtyChanges(modRoot) || draftSessions.hasDirtyDraftForMod(modRoot)) {
       feedback.confirmWarning({
         title: '移除 Mod',
         content: '该 Mod 有未保存修改，移除后修改将丢失。确认移除？',

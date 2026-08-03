@@ -1,5 +1,5 @@
 import type { ComputedRef } from 'vue';
-import type { GlobalThemeOverrides } from 'naive-ui';
+import type { GlobalThemeOverrides } from 'naive-ui/es/config-provider';
 import type { useSettingsStore } from '@/stores/settings.store';
 
 type SettingsStore = ReturnType<typeof useSettingsStore>;

@@ -1,4 +1,4 @@
-import type { CollapseProps } from 'naive-ui';
+import type { CollapseProps } from 'naive-ui/es/collapse';
 
 export function toOptions(values: string[]) {
   return values.map((value) => ({ label: value, value }));

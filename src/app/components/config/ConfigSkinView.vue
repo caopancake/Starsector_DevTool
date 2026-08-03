@@ -10,7 +10,7 @@
       :session-id="sessionId"
       :create-skin="createSkin"
       :delete-skin="deleteSkin"
-      @select="selectedSkinId = $event"
+      @select="selectSkin"
     />
     <ConfigSkinEditor
       v-if="selectedSkinId"
@@ -33,6 +33,7 @@
 <script setup lang="ts">
 import ConfigSkinEditor from '@/app/components/config/ConfigSkinEditor.vue';
 import ConfigSkinList from '@/app/components/config/ConfigSkinList.vue';
+import { useDraftTransitionConfirmation } from '@/app/composables/use-draft-transition-confirmation';
 import { useConfigSkinViewModel } from '@/app/composables/use-config-skin-view-model';
 
 const {
@@ -49,4 +50,17 @@ const {
   onSaved,
   saveSkin,
 } = useConfigSkinViewModel();
+const { confirmDraftTransition } = useDraftTransitionConfirmation();
+
+function selectSkin(skinHullId: string | null): void {
+  const nextSkinHullId = skinHullId ?? '';
+  if (nextSkinHullId === selectedSkinId.value) return;
+  confirmDraftTransition(modRoot.value, {
+    title: '切换舰船皮肤？',
+    content: '当前舰船皮肤有未保存修改，切换后这些修改将丢失。确认继续？',
+    action: () => {
+      selectedSkinId.value = nextSkinHullId;
+    },
+  });
+}
 </script>

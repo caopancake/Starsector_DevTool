@@ -12,7 +12,7 @@
       :delete-mission="deleteMission"
       :mission-exists="missionExists"
       :is-valid-mission-id="isValidMissionId"
-      @select="selectedMission = $event"
+      @select="selectMission"
     />
     <ConfigMissionEditor
       v-if="selectedMission"
@@ -36,6 +36,7 @@
 <script setup lang="ts">
 import ConfigMissionList from '@/app/components/config/ConfigMissionList.vue';
 import ConfigMissionEditor from '@/app/components/config/ConfigMissionEditor.vue';
+import { useDraftTransitionConfirmation } from '@/app/composables/use-draft-transition-confirmation';
 import { useConfigMissionViewModel } from '@/app/composables/use-config-mission-view-model';
 
 const {
@@ -56,4 +57,17 @@ const {
   isValidMissionId,
   saveMission,
 } = useConfigMissionViewModel();
+const { confirmDraftTransition } = useDraftTransitionConfirmation();
+
+function selectMission(missionId: string | null): void {
+  const nextMissionId = missionId ?? '';
+  if (nextMissionId === selectedMission.value) return;
+  confirmDraftTransition(modRoot.value, {
+    title: '切换战役？',
+    content: '当前战役有未保存修改，切换后这些修改将丢失。确认继续？',
+    action: () => {
+      selectedMission.value = nextMissionId;
+    },
+  });
+}
 </script>

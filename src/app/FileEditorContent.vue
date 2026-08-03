@@ -57,6 +57,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
+import { useDirtyWindowCloseGuard } from '@/app/composables/use-dirty-window-close-guard';
 import { useFileEditorViewModel } from '@/app/composables/use-file-editor-view-model';
 import { useSettingsStore } from '@/stores/settings.store';
 import { closeCurrentWebviewWindow } from '@/windows/current.window';
@@ -115,6 +116,11 @@ const {
   line: params.get('line'),
 });
 const showContextMessage = computed(() => Boolean(contextMessage.value && (isErrorContext.value || targetLine.value)));
+const closeGuard = useDirtyWindowCloseGuard({
+  content: '当前文件有未保存修改，关闭后这些修改将丢失。',
+  dirty,
+  title: '放弃未保存文件修改？',
+});
 const fileStatusText = computed(() => {
   if (loading.value) return '读取中';
   if (saving.value) return '保存中';
@@ -193,6 +199,7 @@ function handleEditorKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
+  void closeGuard.install();
   window.addEventListener('keydown', handleEditorKeydown);
   void initialize().then(async () => {
     await nextTick();
@@ -201,6 +208,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  closeGuard.dispose();
   window.removeEventListener('keydown', handleEditorKeydown);
   dispose();
 });

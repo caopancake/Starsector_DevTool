@@ -89,8 +89,7 @@ export function createCsvRowDraft(state: ModTableState, now: number): CsvDraftRe
   row[TABLE_ROW_KEY_FIELD] = `${tab}:new:${state.nextRowKey++}`;
 
   state.tables[tab].push(row);
-  state.totalRows[tab] += 1;
-  state.filteredRows[tab] += 1;
+  adjustCsvTableRowCounts(state, tab, 1);
   const rowIndex = state.tables[tab].length - 1;
   const rowKey = csvTableRowKey(tab, row, rowIndex);
   state.selectedRowKey = rowKey;
@@ -115,8 +114,7 @@ export function deleteSelectedCsvRowDraft(state: ModTableState): CsvDraftResult 
   if (!isLoadedCsvTableRow(row)) return { changed: false };
   const id = rowDisplayId(row) || `第 ${rowIndex + 1} 行`;
   state.tables[tab] = state.tables[tab].filter((candidate) => candidate !== row);
-  state.totalRows[tab] = Math.max(0, state.totalRows[tab] - 1);
-  state.filteredRows[tab] = Math.max(0, state.filteredRows[tab] - 1);
+  adjustCsvTableRowCounts(state, tab, -1);
   markCsvRowDeleted(state, tab, rowKey);
   state.selectedRowKey = null;
   return {
@@ -207,6 +205,7 @@ function insertCsvRowForReplay(state: ModTableState, tab: TableKey, rowIndex: nu
   const next = deepClone(row);
   next[TABLE_ROW_KEY_FIELD] = rowKey;
   state.tables[tab].splice(Math.max(0, Math.min(rowIndex, state.tables[tab].length)), 0, next);
+  adjustCsvTableRowCounts(state, tab, 1);
   markCsvRowDirty(state, tab, rowKey, next);
   return true;
 }
@@ -215,8 +214,16 @@ function removeCsvRowForReplay(state: ModTableState, tab: TableKey, rowKey: stri
   const index = findLoadedRowIndex(state, tab, rowKey);
   if (index < 0) return false;
   state.tables[tab].splice(index, 1);
+  adjustCsvTableRowCounts(state, tab, -1);
   markCsvRowDeleted(state, tab, rowKey);
+  if (state.selectedRowKey === rowKey) state.selectedRowKey = null;
+  if (state.editing?.tab === tab && state.editing.rowKey === rowKey) state.editing = null;
   return true;
+}
+
+function adjustCsvTableRowCounts(state: ModTableState, tab: TableKey, delta: number): void {
+  state.totalRows[tab] = Math.max(0, state.totalRows[tab] + delta);
+  state.filteredRows[tab] = Math.max(0, state.filteredRows[tab] + delta);
 }
 
 function refreshCsvCellDirty(state: ModTableState, tab: TableKey, rowKey: string, col: string, value: string): void {

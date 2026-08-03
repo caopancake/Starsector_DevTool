@@ -21,6 +21,7 @@ export function useConfigFactionEditorViewModel(params: {
   const feedback = useAppFeedback();
   const draftSession = useConfigEditorDraftSession<RowData, string, void, string>({
     emptyValue: {},
+    modRoot: params.modRoot,
     load: (factionId) => ({
       value: params.factions.value[factionId]
         ? configFactionEditorModel(deepClone(params.factions.value[factionId]))

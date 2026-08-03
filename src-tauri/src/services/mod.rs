@@ -6,6 +6,7 @@ pub mod directory_opening;
 pub mod editor_config;
 pub mod file_changes;
 pub mod file_editor;
+pub mod mod_creation;
 pub mod project;
 pub mod schema;
 pub mod system_open;

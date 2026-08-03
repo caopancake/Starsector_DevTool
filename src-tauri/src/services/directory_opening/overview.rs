@@ -1,4 +1,5 @@
 use crate::{
+    errors::{AppError, AppResult},
     io::{read_json_file, validate_walk_entry, FsRootBoundary},
     models::{GameModSummary, GameOverviewData, GameScanWarning},
 };
@@ -123,6 +124,21 @@ fn scan_game_overview_root(starsector_root: &Path) -> GameOverviewData {
 
 pub fn is_game_root(path: &Path) -> bool {
     path.join("starsector-core").is_dir() && path.join("mods").is_dir()
+}
+
+pub fn resolve_game_mods_directory(starsector_root: &Path) -> AppResult<(PathBuf, PathBuf)> {
+    let boundary = FsRootBoundary::new(starsector_root, "starsector root")?;
+    let canonical_root = boundary.root().to_path_buf();
+    if !is_game_root(&canonical_root) {
+        return Err(AppError::message(format!(
+            "不是有效的 Starsector 游戏目录: {}",
+            canonical_root.display()
+        )));
+    }
+    let mods_dir = FsRootBoundary::new(&canonical_root.join("mods"), "Starsector mods 目录")?
+        .root()
+        .to_path_buf();
+    Ok((canonical_root, mods_dir))
 }
 
 pub fn is_mod_root(path: &Path) -> bool {

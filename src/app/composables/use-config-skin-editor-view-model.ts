@@ -16,6 +16,7 @@ export function useConfigSkinEditorViewModel(params: {
   const selectedSkin = computed(() => params.skins.value.find((skin) => skin.skinHullId === params.skinHullId.value) ?? null);
   const draftSession = useConfigEditorDraftSession<RowData, string, SkinFile | null, SkinFile>({
     emptyValue: {},
+    modRoot: params.modRoot,
     load: (skinHullId) => {
       const skin = params.skins.value.find((candidate) => candidate.skinHullId === skinHullId) ?? null;
       return { meta: skin, value: skin ? skin.data : {} };

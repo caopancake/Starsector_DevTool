@@ -50,7 +50,7 @@
 
 <script setup lang="ts">
 import { h, onMounted, ref, watch } from 'vue';
-import { NCheckbox } from 'naive-ui';
+import { NCheckbox } from 'naive-ui/es/checkbox';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 
 const props = defineProps<{

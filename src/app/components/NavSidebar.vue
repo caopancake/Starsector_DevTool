@@ -1,13 +1,13 @@
 <template>
   <aside class="nav-pane">
     <div class="nav-section nav-workspace-links">
-      <button type="button" class="nav-button" :class="{ active: workspace.currentView === 'overview' }" @click="workspace.showOverview()">
+      <button type="button" class="nav-button" :class="{ active: workspace.currentView === 'overview' }" @click="navigation.showOverview()">
         <span class="nav-text">总览</span>
       </button>
-      <button type="button" class="nav-button" :class="{ active: workspace.currentView === 'settings' }" @click="workspace.showSettings()">
+      <button type="button" class="nav-button" :class="{ active: workspace.currentView === 'settings' }" @click="navigation.showSettings()">
         <span class="nav-text">设置</span>
       </button>
-      <button type="button" class="nav-button" :class="{ active: workspace.currentView === 'about' }" @click="workspace.showAbout()">
+      <button type="button" class="nav-button" :class="{ active: workspace.currentView === 'about' }" @click="navigation.showAbout()">
         <span class="nav-text">关于</span>
       </button>
     </div>

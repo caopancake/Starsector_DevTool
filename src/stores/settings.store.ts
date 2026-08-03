@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
-import { darkTheme, lightTheme } from 'naive-ui';
+import { darkTheme, lightTheme } from 'naive-ui/es/themes';
 import {
   ACCENT_PRESET_VALUES,
   APP_THEMES,

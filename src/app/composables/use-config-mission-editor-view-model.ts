@@ -24,6 +24,7 @@ export function useConfigMissionEditorViewModel(params: {
   let iconRequestId = 0;
   const draftSession = useConfigEditorDraftSession<RowData, string, ConfigMissionEditorData | null, string>({
     emptyValue: {},
+    modRoot: params.modRoot,
     load: async (missionId) => {
       const targetSessionId = params.sessionId.value;
       if (!params.modRoot.value || !targetSessionId || !missionId) return { meta: null, value: {} };

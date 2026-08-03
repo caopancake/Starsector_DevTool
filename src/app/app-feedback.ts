@@ -1,7 +1,9 @@
 import { h } from 'vue';
-import { NButton, NSpace, NText } from 'naive-ui';
+import { NButton } from 'naive-ui/es/button';
 import type { DialogApiInjection } from 'naive-ui/es/dialog/src/DialogProvider';
 import type { MessageApiInjection } from 'naive-ui/es/message/src/MessageProvider';
+import { NSpace } from 'naive-ui/es/space';
+import { NText } from 'naive-ui/es/typography';
 import { extractFileReferenceFromError, formatError } from '@/shared/lib/errors';
 import type { AppFeedback, ChooseOptions, ConfirmOptions } from '@/shared/types/feedback.types';
 import { openFileEditorWindow } from '@/windows/file-editor.window';

@@ -1,10 +1,15 @@
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getCurrentWindow, type CloseRequestedEvent } from '@tauri-apps/api/window';
+import type { UnlistenFn } from '@tauri-apps/api/event';
 
 const appWindow = getCurrentWindow();
 
 export async function closeCurrentWindow(): Promise<void> {
   await appWindow.close();
+}
+
+export function listenCurrentWindowCloseRequest(handler: (event: CloseRequestedEvent) => void | Promise<void>): Promise<UnlistenFn> {
+  return appWindow.onCloseRequested(handler);
 }
 
 export async function minimizeCurrentWindow(): Promise<void> {

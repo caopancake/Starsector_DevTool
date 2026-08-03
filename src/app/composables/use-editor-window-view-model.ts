@@ -184,7 +184,7 @@ export function useEditorWindowViewModel(params: {
     if (!target || draftSession.saving.value) return;
     if (data) draftSession.setDraft(data);
     const saved = await draftSession.saveDraft();
-    if (saved) commitSavedSpecToBundle(kind, target.id, saved.value);
+    if (saved) syncCurrentDraftToBundle(kind, target.id);
   }
 
   function updateEditorDraft(kind: EditorSpecKind, data: RowData): void {
@@ -336,6 +336,10 @@ export function useEditorWindowViewModel(params: {
     const spec = deepClone(data);
     const applied = applySavedSpecToBundle(editorData.value, kind, id, spec);
     editorData.value = applied.isNew ? ({ ...applied, isNew: false } as EditorEntityBundle) : applied;
+  }
+
+  function syncCurrentDraftToBundle(kind: EditorSpecKind, id: string): void {
+    commitSavedSpecToBundle(kind, id, draftSession.draftValue.value);
   }
 
   function receiveExternalPrimarySpec(kind: EditorSpecKind, id: string, data: RowData): void {

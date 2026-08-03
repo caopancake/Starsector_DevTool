@@ -2,3 +2,4 @@
 
 pub mod config;
 pub mod editor_config_definitions;
+pub mod mod_creation;
