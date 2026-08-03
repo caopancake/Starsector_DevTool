@@ -1,6 +1,6 @@
 import { computed, reactive, ref } from 'vue';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
-import { createAndOpenModProject } from '@/orchestrators/mod-creation.orchestrator';
+import { createModProject, openCreatedModProject } from '@/orchestrators/mod-creation.orchestrator';
 import { pickDirectoryDialog } from '@/shared/runtime/dialog.runtime';
 import { createDefaultNewModTemplate, validateNewModTemplate } from '@/domain/mod-creation/new-mod-template';
 import type { NewModDestination, NewModTemplate } from '@/shared/types';
@@ -46,19 +46,29 @@ export function useCreateModViewModel() {
     }
     saving.value = true;
     try {
-      const created = await createAndOpenModProject({
+      const created = await createModProject({
         destination: target,
         template: { ...template },
       });
-      feedback.success(`Mod 已创建并打开：${created.modName}`);
-      for (const warning of created.warnings) feedback.warning(warning);
       visible.value = false;
+      feedback.info('Mod 已创建，正在打开');
+      void settleCreatedModOpening(created);
       return true;
     } catch (error) {
       feedback.error(error, '创建 Mod 失败');
       return false;
     } finally {
       saving.value = false;
+    }
+  }
+
+  async function settleCreatedModOpening(created: Awaited<ReturnType<typeof createModProject>>) {
+    try {
+      const opened = await openCreatedModProject(created);
+      feedback.success(`Mod 已创建并打开：${opened.modName}`);
+      for (const warning of opened.warnings) feedback.warning(warning);
+    } catch (error) {
+      feedback.error(error, 'Mod 已创建，但打开失败');
     }
   }
 

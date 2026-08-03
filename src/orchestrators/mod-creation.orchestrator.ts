@@ -1,15 +1,25 @@
-import { openDirectoryTarget, type DirectoryOpeningOutcome } from '@/orchestrators/directory-opening.orchestrator';
-import { createModProject } from '@/services/mod-creation.service';
-import type { CreateModRequest } from '@/shared/types';
+import { openCreatedModTarget, type DirectoryOpeningOutcome } from '@/orchestrators/directory-opening.orchestrator';
+import { createNewModProject } from '@/services/mod-creation.service';
+import { measurePerformanceAsync } from '@/services/performance.service';
+import type { CreatedMod, CreateModRequest } from '@/shared/types';
 
 export interface CreatedModProject {
   modName: string;
   warnings: string[];
 }
 
-export async function createAndOpenModProject(request: CreateModRequest): Promise<CreatedModProject> {
-  const created = await createModProject(request);
-  const outcome = await openDirectoryTarget(created.modRoot, created.starsectorRoot);
+export function createModProject(request: CreateModRequest): Promise<CreatedMod> {
+  return measurePerformanceAsync('frontend.createModProject', { destination: request.destination.kind, modId: request.template.id }, () =>
+    createNewModProject(request),
+  );
+}
+
+export async function openCreatedModProject(created: CreatedMod): Promise<CreatedModProject> {
+  const outcome = await measurePerformanceAsync(
+    'frontend.openCreatedModProject',
+    { modRoot: created.modRoot, hasStarsectorRoot: Boolean(created.starsectorRoot) },
+    () => openCreatedModTarget(created),
+  );
   return openedCreatedMod(outcome);
 }
 
@@ -23,5 +33,5 @@ function openedCreatedMod(outcome: DirectoryOpeningOutcome): CreatedModProject {
   if (outcome.type === 'unknown') {
     throw new Error(`Mod 已创建，但无法打开：${outcome.message}`);
   }
-  throw new Error('Mod 已创建，但目录识别返回了游戏目录概览');
+  throw new Error('Mod 已创建，但创建结果打开返回了无效状态');
 }

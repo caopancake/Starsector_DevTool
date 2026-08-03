@@ -7,7 +7,7 @@
 ## Owner 与链路
 
 - 总览页的创建 ViewModel 在存在游戏概览时选择 `starsectorRoot/mods`，否则请求用户选择 Mod 父目录；创建 orchestrator 调用 service/API/command，再由 Rust service、domain 与 IO 创建目录和模板。
-- Rust 成功返回 canonical `modRoot` 后，orchestrator 复用目录识别与 ProjectSession 打开链路，将新 Mod 加入既有工作区；创建本身不写 workspace、session 或 history。
+- Rust 成功返回 canonical `modRoot` 与已解析的可选游戏根后，创建 ViewModel 先完成磁盘创建事务并关闭对话框，再由 creation orchestrator 以该受信结果直接刷新游戏概览、建立 ProjectSession；创建本身不写 workspace、session 或 history，打开过程的 loading/失败归工作区生命周期。
 - 模板只写 UTF-8 无 BOM、CRLF 的 `mod_info.json`（ID、名称、版本、游戏版本），并创建 `data/hulls`、`data/weapons`、`data/variants`、`data/world/factions`、`data/missions` 与各图像资源空目录。
 
 ## 不变量

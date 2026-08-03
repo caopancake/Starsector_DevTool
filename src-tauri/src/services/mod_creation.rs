@@ -3,7 +3,7 @@ use crate::{
     errors::AppResult,
     io::{mod_creation::create_new_mod, FsRootBoundary},
     models::{CreatedMod, NewModDestination, NewModTemplate},
-    services::directory_opening::resolve_game_mods_directory,
+    services::directory_opening::{infer_starsector_root, resolve_game_mods_directory},
 };
 use std::path::Path;
 
@@ -13,7 +13,7 @@ pub fn create_mod(
 ) -> AppResult<CreatedMod> {
     let template = validate_new_mod_template(template)?;
     let mod_info_text = render_initial_mod_info(&template)?;
-    let (parent_directory, starsector_root) = match destination {
+    let (parent_directory, target_starsector_root) = match destination {
         NewModDestination::GameMods { starsector_root } => {
             let (root, mods_directory) = resolve_game_mods_directory(Path::new(&starsector_root))?;
             (mods_directory, Some(root))
@@ -26,6 +26,7 @@ pub fn create_mod(
         }
     };
     let mod_root = create_new_mod(&parent_directory, &template.id, &mod_info_text)?;
+    let starsector_root = target_starsector_root.or_else(|| infer_starsector_root(&mod_root));
     Ok(CreatedMod {
         mod_root: mod_root.to_string_lossy().to_string(),
         starsector_root: starsector_root.map(|root| root.to_string_lossy().to_string()),
@@ -64,6 +65,32 @@ mod tests {
             .to_string();
         let _ = fs::remove_dir_all(&game_root);
         assert_eq!(Path::new(&created.mod_root), expected_root);
+        assert_eq!(
+            created.starsector_root.as_deref(),
+            Some(expected_game_root.as_str())
+        );
+    }
+
+    #[test]
+    fn directory_destination_reports_its_containing_game_root() {
+        let game_root = temp_dir("mod_creation_directory_game_destination");
+        fs::create_dir_all(game_root.join("starsector-core")).unwrap();
+        fs::create_dir_all(game_root.join("mods")).unwrap();
+
+        let created = create_mod(
+            NewModDestination::Directory {
+                parent_directory: game_root.join("mods").to_string_lossy().to_string(),
+            },
+            template(),
+        )
+        .unwrap();
+
+        let expected_game_root = game_root
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        let _ = fs::remove_dir_all(&game_root);
         assert_eq!(
             created.starsector_root.as_deref(),
             Some(expected_game_root.as_str())

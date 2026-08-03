@@ -1,4 +1,4 @@
-import type { ModEntry, ProjectManifest } from '@/shared/types';
+import type { CreatedMod, ModEntry, ProjectManifest } from '@/shared/types';
 import { cell, formatModVersion } from '@/shared/lib/starsector';
 import { pathBasename } from '@/shared/lib/paths';
 import { useEditorsStore } from '@/stores/editors.store';
@@ -7,7 +7,7 @@ import { useProjectStore } from '@/stores/project.store';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { useTablesStore } from '@/stores/tables.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
-import { detectDirectoryTarget, openProject } from '@/services/session.service';
+import { detectDirectoryTarget, openProject, scanDirectoryGameOverview } from '@/services/session.service';
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
 import { measurePerformance } from '@/services/performance.service';
 import { navigateToModOverview } from '@/orchestrators/workspace-navigation.orchestrator';
@@ -54,6 +54,21 @@ export async function openModFromOverview(modRoot: string): Promise<DirectoryOpe
   const workspace = useWorkspaceStore();
   const starsectorRoot = workspace.gameOverview?.starsectorRoot ?? null;
   const loaded = await openModProject(modRoot, starsectorRoot, 'overview');
+  return loaded.alreadyLoaded
+    ? { type: 'already-loaded', modName: loaded.displayName }
+    : { type: 'mod-loaded', modName: loaded.displayName, warnings: loaded.warnings };
+}
+
+export async function openCreatedModTarget(created: CreatedMod): Promise<DirectoryOpeningOutcome> {
+  const workspace = useWorkspaceStore();
+  const afterOpenView: AfterOpenView = created.starsectorRoot ? 'overview' : 'mod';
+
+  if (created.starsectorRoot) {
+    const overview = await scanDirectoryGameOverview(created.starsectorRoot);
+    workspace.setGameOverview(overview);
+  }
+
+  const loaded = await openModProject(created.modRoot, created.starsectorRoot, afterOpenView);
   return loaded.alreadyLoaded
     ? { type: 'already-loaded', modName: loaded.displayName }
     : { type: 'mod-loaded', modName: loaded.displayName, warnings: loaded.warnings };
