@@ -45,9 +45,6 @@ export interface PersistedMod {
 /** Persisted workspace state (stored to disk via Rust backend) */
 export interface PersistedWorkspace {
   mods: PersistedMod[];
-  activeModRoot: string | null;
-  currentView: WorkspaceView | null;
-  expandedMods: string[];
   starsectorRoot: string | null;
   gameMods: GameModSummary[];
   gameWarnings: GameScanWarning[];

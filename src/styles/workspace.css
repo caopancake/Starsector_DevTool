@@ -1,49 +1,160 @@
-/* Workspace: layout, nav, and Mod tree */
+/* Workspace: top Mod tabs and current Mod navigation */
 
-/* --- Nav sidebar extensions --- */
-.nav-workspace-links {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: var(--space-2);
-  padding-bottom: var(--space-2);
+.mod-tabs-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  background: var(--color-panel-muted);
   border-bottom: 1px solid var(--color-border);
 }
 
-.nav-workspace-links .nav-button {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+.mod-tabs-list {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.mod-tab {
+  display: flex;
+  flex: 0 0 auto;
+  min-width: 116px;
+  max-width: 220px;
+  height: 37px;
   align-items: center;
-  width: 100%;
-  height: 32px;
-  padding: 0 var(--space-2);
+  gap: 6px;
   color: var(--color-text-soft);
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid transparent;
+}
+
+.mod-tab:hover,
+.mod-tab:focus-within {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.mod-tab.active {
+  color: var(--color-text);
+  background: var(--color-panel);
+  border-bottom-color: var(--color-primary);
+}
+
+.mod-tab-activate {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  height: 100%;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 0 var(--space-2);
+  color: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.mod-tab-name {
+  min-width: 0;
+  overflow: hidden;
   text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.mod-tab-status,
+.mod-tab-dirty {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.mod-tab-status.ready {
+  background: var(--color-success);
+}
+
+.mod-tab-status.loading {
+  background: var(--color-muted);
+}
+
+.mod-tab-status.error {
+  background: var(--color-danger);
+}
+
+.mod-tab-dirty {
+  background: var(--color-warning);
+}
+
+.mod-tab-error-label {
+  overflow: hidden;
+  color: var(--color-danger);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mod-tab-close {
+  display: grid;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0;
+  margin: 0 var(--space-2) 0 0;
+  color: var(--color-muted);
   cursor: pointer;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
 }
 
-.nav-workspace-links .nav-button:hover {
+.mod-tab-close:hover {
   color: var(--color-text);
   background: var(--color-surface-hover);
 }
 
-.nav-workspace-links .nav-button:focus {
+.mod-tab-close:focus-visible,
+.mod-tab-activate:focus-visible,
+.mod-tabs-overview:focus-visible,
+.mod-navigation-button:focus-visible {
   outline: none;
-}
-
-.nav-workspace-links .nav-button:focus-visible {
   border-color: var(--color-primary-border);
   box-shadow: inset 0 0 0 1px var(--color-primary-border);
 }
 
-.nav-workspace-links .nav-button.active {
+.mod-tab-close svg,
+.mod-tabs-overview svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.mod-tabs-overview {
+  display: grid;
+  width: 38px;
+  height: 37px;
+  place-items: center;
+  padding: 0;
+  color: var(--color-text-soft);
+  cursor: pointer;
+  background: var(--color-panel);
+  border: 0;
+  border-left: 1px solid var(--color-border);
+}
+
+.mod-tabs-overview:hover,
+.mod-tabs-overview.active {
   color: var(--color-primary);
   background: var(--color-primary-soft);
-  border-color: var(--color-primary-border);
-  box-shadow: none;
 }
 
 .nav-empty-hint {
@@ -53,151 +164,22 @@
   text-align: center;
 }
 
-/* --- Mod Tree --- */
-.mod-tree {
+/* --- Current Mod navigation --- */
+.mod-navigation {
   display: flex;
   flex-direction: column;
-  gap: 1px;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
 }
 
-.mod-tree-item {
-  border-radius: var(--radius-sm);
-}
-
-.mod-tree-item.expanded {
-  background: color-mix(in srgb, var(--color-panel-muted) 58%, transparent);
-  box-shadow: inset 0 0 0 1px var(--color-border);
-}
-
-.mod-tree-item.active > .mod-tree-header {
-  background: var(--color-surface-active);
-}
-
-.mod-tree-header {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 8px;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: background 0.1s;
-}
-
-.mod-tree-header:hover {
-  background: var(--color-surface-hover);
-}
-
-.mod-tree-chevron {
-  display: flex;
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  color: var(--color-muted);
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  transition: transform 0.15s;
-}
-
-.mod-tree-chevron.expanded {
-  transform: rotate(90deg);
-}
-
-.mod-tree-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text);
-}
-
-.mod-tree-dirty-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-warning);
-  flex-shrink: 0;
-}
-
-.mod-tree-menu {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  color: var(--color-muted);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-sm);
-  opacity: 0;
-  transition: opacity 0.1s;
-}
-
-.mod-tree-header:hover .mod-tree-menu {
-  opacity: 1;
-}
-
-.mod-tree-menu:hover {
-  background: var(--color-surface-hover);
-}
-
-.mod-tree-dropdown {
-  position: absolute;
-  z-index: 100;
-  right: 8px;
-  margin-top: 2px;
-  padding: var(--space-1);
-  background: var(--color-panel);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-floating);
-}
-
-.mod-tree-dropdown button {
-  display: block;
-  width: 100%;
-  padding: 6px var(--space-3);
-  color: var(--color-text);
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-sm);
-}
-
-.mod-tree-dropdown button:hover {
-  background: var(--color-surface-hover);
-}
-
-.mod-tree-modules {
-  display: flex;
-  flex-direction: column;
-  padding: 3px 4px 5px;
-}
-
-.mod-tree-separator {
+.mod-navigation-separator {
   height: 1px;
   margin: 4px 0;
   background: var(--color-border);
-  opacity: 0.75;
 }
 
-.mod-tree-module-btn {
+.mod-navigation-button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -205,7 +187,7 @@
   min-height: 28px;
   padding: 0 var(--space-2);
   background: transparent;
-  border: 0;
+  border: 1px solid transparent;
   color: var(--color-text-soft);
   font-size: 12px;
   cursor: pointer;
@@ -213,7 +195,7 @@
   transition: background 0.1s;
 }
 
-.mod-tree-module-btn > span:first-child {
+.mod-navigation-button > span:first-child {
   min-width: 0;
   overflow: hidden;
   text-align: left;
@@ -221,28 +203,22 @@
   white-space: nowrap;
 }
 
-.mod-tree-module-btn:hover {
+.mod-navigation-button:hover {
   background: var(--color-surface-hover);
 }
 
-.mod-tree-module-btn.module-active {
+.mod-navigation-button.active {
   background: var(--color-primary-soft);
   color: var(--color-primary);
   font-weight: 500;
 }
 
-.mod-tree-module-count {
+.mod-navigation-count {
   color: var(--color-muted);
   font-size: 11px;
   text-align: right;
 }
 
-.mod-tree-status {
-  padding: 4px 10px 4px 28px;
-  font-size: 12px;
-  color: var(--color-muted);
-}
-
-.mod-tree-error {
+.nav-error-hint {
   color: var(--color-danger);
 }

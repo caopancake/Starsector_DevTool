@@ -4,7 +4,7 @@
       v-for="mod in workspace.loadedModList"
       :key="mod.modRoot"
       class="overview-mod-card"
-      :class="{ 'card-active': workspace.activeModRoot === mod.modRoot }"
+      :class="{ 'card-active': workspace.isModView && workspace.activeModRoot === mod.modRoot }"
       @click="navigateToModOverview(mod.modRoot)"
     >
       <div class="mod-card-header">

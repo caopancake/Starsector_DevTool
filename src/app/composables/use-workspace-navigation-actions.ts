@@ -8,45 +8,37 @@ export function useWorkspaceNavigationActions() {
   const { confirmDraftTransition } = useDraftTransitionConfirmation();
 
   function navigateToModOverview(modRoot: string): void {
-    confirmNavigation({ modRoot, view: 'overview' }, () => workspaceNavigation.navigateToModOverview(modRoot));
+    confirmNavigation(() => workspaceNavigation.navigateToModOverview(modRoot));
   }
 
   function navigateToModTable(modRoot: string, table: TableKey): void {
-    confirmNavigation({ modRoot, view: 'table' }, () => workspaceNavigation.navigateToModTable(modRoot, table));
+    confirmNavigation(() => workspaceNavigation.navigateToModTable(modRoot, table));
   }
 
   function navigateToModConfig(modRoot: string, configView: ConfigView): void {
     if (workspace.activeModRoot === modRoot && workspace.currentView === 'config' && workspace.configView === configView) return;
-    confirmNavigation({ modRoot, view: 'config', configView }, () => workspaceNavigation.navigateToModConfig(modRoot, configView));
+    confirmNavigation(() => workspaceNavigation.navigateToModConfig(modRoot, configView));
+  }
+
+  function activateModTab(modRoot: string): void {
+    if (workspace.activeModRoot === modRoot && workspace.isModView) return;
+    confirmNavigation(() => workspaceNavigation.activateModTab(modRoot));
   }
 
   function showOverview(): void {
-    confirmNavigation({ modRoot: null, view: 'overview' }, () => workspace.showOverview());
+    confirmNavigation(() => workspace.showOverview());
   }
 
   function showSettings(): void {
-    confirmNavigation({ modRoot: null, view: 'settings' }, () => workspace.showSettings());
+    confirmNavigation(() => workspace.showSettings());
   }
 
   function showAbout(): void {
-    confirmNavigation({ modRoot: null, view: 'about' }, () => workspace.showAbout());
+    confirmNavigation(() => workspace.showAbout());
   }
 
-  function confirmNavigation(
-    target: { configView?: ConfigView; modRoot: string | null; view: 'overview' | 'table' | 'config' | 'settings' | 'about' },
-    action: () => void,
-  ) {
-    const activeModRoot = workspace.activeModRoot;
-    const keepsActiveConfig =
-      workspace.currentView === 'config' &&
-      target.view === 'config' &&
-      target.modRoot === activeModRoot &&
-      target.configView === workspace.configView;
-    if (keepsActiveConfig) {
-      action();
-      return;
-    }
-    confirmDraftTransition(activeModRoot, {
+  function confirmNavigation(action: () => void) {
+    confirmDraftTransition(workspace.activeModRoot, {
       title: '放弃未保存配置修改？',
       content: '当前配置有未保存修改，切换后这些修改将丢失。确认继续？',
       action,
@@ -54,6 +46,7 @@ export function useWorkspaceNavigationActions() {
   }
 
   return {
+    activateModTab,
     navigateToModConfig,
     navigateToModOverview,
     navigateToModTable,

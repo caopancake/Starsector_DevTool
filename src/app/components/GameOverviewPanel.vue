@@ -34,7 +34,7 @@
         v-for="mod in overview.mods"
         :key="mod.modRoot"
         class="overview-mod-card"
-        :class="{ 'card-active': workspace.activeModRoot === mod.modRoot }"
+        :class="{ 'card-active': workspace.isModView && workspace.activeModRoot === mod.modRoot }"
       >
         <div class="mod-card-header">
           <strong>{{ mod.name }}</strong>

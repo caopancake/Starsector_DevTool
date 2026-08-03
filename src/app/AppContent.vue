@@ -1,8 +1,9 @@
 <template>
   <div class="app-frame" :data-theme="settings.theme">
     <TitleBar />
+    <ModTabsBar @remove-mod="actions.confirmRemoveMod" />
     <div class="app-shell">
-      <NavSidebar @remove-mod="actions.confirmRemoveMod" />
+      <ModNavigation />
 
       <OverviewPage
         v-if="workspace.currentView === 'overview'"
@@ -37,7 +38,8 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, onUnmounted, watchEffect } from 'vue';
 import TitleBar from '@/app/TitleBar.vue';
-import NavSidebar from '@/app/components/NavSidebar.vue';
+import ModNavigation from '@/app/components/ModNavigation.vue';
+import ModTabsBar from '@/app/components/ModTabsBar.vue';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useProjectStore } from '@/stores/project.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';

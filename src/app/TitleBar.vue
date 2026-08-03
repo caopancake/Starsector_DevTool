@@ -9,6 +9,23 @@
     </div>
 
     <div class="titlebar-controls" @pointerdown.stop @dblclick.stop>
+      <n-popover v-model:show="workspaceMenuVisible" placement="bottom-end" trigger="click">
+        <template #trigger>
+          <button class="titlebar-button" type="button" title="工作区菜单" aria-label="工作区菜单">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M10.3 3.48 9.7 5.6a6.77 6.77 0 0 0-1.64.95l-2.1-.63-1.5 2.6 1.53 1.56a6.8 6.8 0 0 0 0 1.9L4.46 13.54l1.5 2.6 2.1-.63c.5.39 1.05.7 1.64.95l.6 2.12h3l.6-2.12c.59-.25 1.14-.56 1.64-.95l2.1.63 1.5-2.6-1.53-1.56a6.8 6.8 0 0 0 0-1.9l1.53-1.56-1.5-2.6-2.1.63a6.77 6.77 0 0 0-1.64-.95l-.6-2.12h-3Z"
+              />
+              <path d="M12 14.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+            </svg>
+          </button>
+        </template>
+        <div class="titlebar-workspace-menu">
+          <button type="button" :class="{ active: workspace.currentView === 'overview' }" @click="showOverview">工作区总览</button>
+          <button type="button" :class="{ active: workspace.currentView === 'settings' }" @click="showSettings">设置</button>
+          <button type="button" :class="{ active: workspace.currentView === 'about' }" @click="showAbout">关于</button>
+        </div>
+      </n-popover>
       <button class="titlebar-button" type="button" :title="settings.isDark ? '切换到浅色' : '切换到暗色'" @click="settings.toggleTheme">
         <svg v-if="settings.isDark" viewBox="0 0 24 24" aria-hidden="true">
           <path
@@ -35,6 +52,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import { useWorkspaceNavigationActions } from '@/app/composables/use-workspace-navigation-actions';
 import { useProjectStore } from '@/stores/project.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { useSettingsStore } from '@/stores/settings.store';
@@ -50,6 +68,8 @@ const project = useProjectStore();
 const workspace = useWorkspaceStore();
 const settings = useSettingsStore();
 const isMaximized = ref(false);
+const workspaceMenuVisible = ref(false);
+const navigation = useWorkspaceNavigationActions();
 
 async function refreshMaximized() {
   isMaximized.value = await isCurrentWindowMaximized();
@@ -71,6 +91,21 @@ async function toggleMaximize() {
 
 async function closeWindow() {
   await closeCurrentWindow();
+}
+
+function showOverview() {
+  workspaceMenuVisible.value = false;
+  navigation.showOverview();
+}
+
+function showSettings() {
+  workspaceMenuVisible.value = false;
+  navigation.showSettings();
+}
+
+function showAbout() {
+  workspaceMenuVisible.value = false;
+  navigation.showAbout();
 }
 
 onMounted(refreshMaximized);

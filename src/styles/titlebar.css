@@ -85,3 +85,33 @@
   stroke-linejoin: round;
   stroke-width: 1.8;
 }
+
+.titlebar-workspace-menu {
+  display: grid;
+  min-width: 144px;
+  gap: 2px;
+  padding: var(--space-1);
+}
+
+.titlebar-workspace-menu button {
+  width: 100%;
+  padding: 6px var(--space-2);
+  color: var(--color-text-soft);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.titlebar-workspace-menu button:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.titlebar-workspace-menu button.active {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
+}

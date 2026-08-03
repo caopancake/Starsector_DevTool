@@ -51,10 +51,7 @@ pub fn save_workspace(app_data_dir: &Path, state: &PersistedWorkspace) -> AppRes
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        io::write_utf8_no_bom,
-        models::{PersistedMod, WorkspaceView},
-    };
+    use crate::{io::write_utf8_no_bom, models::PersistedMod};
     use std::collections::BTreeMap;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -64,7 +61,6 @@ mod tests {
         let result = load_workspace(&dir).unwrap();
         let _ = fs::remove_dir_all(&dir);
         assert!(result.mods.is_empty());
-        assert!(result.active_mod_root.is_none());
     }
 
     #[test]
@@ -76,9 +72,6 @@ mod tests {
                 display_name: "Test Mod".to_string(),
                 version: "1.0".to_string(),
             }],
-            active_mod_root: Some("D:/mods/test".to_string()),
-            current_view: Some(WorkspaceView::Table),
-            expanded_mods: vec!["D:/mods/test".to_string()],
             starsector_root: Some("D:/Starsector".to_string()),
             game_mods: vec![],
             game_warnings: vec![],
@@ -95,8 +88,32 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         assert_eq!(loaded.mods.len(), 1);
         assert_eq!(loaded.mods[0].display_name, "Test Mod");
-        assert_eq!(loaded.active_mod_root, Some("D:/mods/test".to_string()));
         assert_eq!(loaded.column_widths["D:/mods/test"]["ships"]["id"], 120.0);
+    }
+
+    #[test]
+    fn load_ignores_removed_navigation_fields() {
+        let dir = temp_dir("ws_legacy_navigation");
+        let workspace_path = dir.join(WORKSPACE_FILE);
+        write_utf8_no_bom(
+            &workspace_path,
+            r#"{
+  "mods": [],
+  "activeModRoot": "D:/mods/test",
+  "currentView": "table",
+  "expandedMods": ["D:/mods/test"],
+  "starsectorRoot": null,
+  "gameMods": [],
+  "gameWarnings": [],
+  "columnWidths": {}
+}"#,
+        )
+        .unwrap();
+
+        let loaded = load_workspace(&dir).unwrap();
+        let _ = fs::remove_dir_all(&dir);
+        assert!(loaded.mods.is_empty());
+        assert!(loaded.starsector_root.is_none());
     }
 
     #[test]
