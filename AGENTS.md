@@ -15,18 +15,18 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.cursor/` 里�
 ## 读取顺序
 
 1. `AGENTS.md`
-2. `.cursor/overview.md`
-3. `.cursor/workflow.md`
+2. `.cursor/项目概览.md`
+3. `.cursor/工作流程.md`
 4. 相关专题文档：
-   - `.cursor/frontend-guidelines.md`
-   - `.cursor/backend-guidelines.md`
-   - `.cursor/css-guidelines.md` (较大)
-   - `.cursor/module-map.md`
-   - `.cursor/terminology.md` (非常巨大，除非任务明确需要，否则不要全文读取)
+   - `.cursor/前端规范.md`
+   - `.cursor/后端规范.md`
+   - `.cursor/样式规范.md`
+   - `.cursor/模块索引.md`
+   - `.cursor/术语表.md`
 5. 任务文档：
-   - `.cursor/todo.md`
+   - `.cursor/待办事项.md`
    - `.cursor/specs/`
-   - `.cursor/reference.md` (未实现目标、候选设计和参考资料，需要时读取)
+   - `.cursor/参考设计.md` (未实现目标、候选设计和参考资料，需要时读取)
 
 ## 绝对规则
 
@@ -69,17 +69,17 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.cursor/` 里�
 ## 当前状态
 
 - 当前实现为 Tauri 2 + Vue 3 + TypeScript + Rust。
-- 当前已实现模块和调用链以 `.cursor/module-map.md` 为准；未实现目标和参考设计以 `.cursor/reference.md` / `.cursor/todo.md` 为准。
+- 当前已实现模块和调用链以 `.cursor/模块索引.md` 为准；未实现目标和参考设计以 `.cursor/参考设计.md` / `.cursor/待办事项.md` 为准。
 
 ## 按任务选择专题
 
-- 前端改动看 `.cursor/frontend-guidelines.md`
-- 后端改动看 `.cursor/backend-guidelines.md`
-- CSS / 视觉改动看 `.cursor/css-guidelines.md`
-- 模块边界和编辑链路看 `.cursor/module-map.md` 及其引用的 `.cursor/modules/`
-- 术语和命名看 `.cursor/terminology.md` (非常巨大，除非任务明确需要，否则不要全文读取)
-- 后续阶段看 `.cursor/todo.md`
-- 未实现目标和候选设计看 `.cursor/reference.md`
+- 前端改动看 `.cursor/前端规范.md`
+- 后端改动看 `.cursor/后端规范.md`
+- CSS / 视觉改动看 `.cursor/样式规范.md`
+- 模块边界和编辑链路看 `.cursor/模块索引.md` 及其引用的 `.cursor/modules/`
+- 术语和命名看 `.cursor/术语表.md`
+- 后续阶段看 `.cursor/待办事项.md`
+- 未实现目标和候选设计看 `.cursor/参考设计.md`
 
 ## 关键提醒
 
@@ -87,4 +87,4 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.cursor/` 里�
 - 多 Mod 状态必须按 `modRoot` 隔离；任一按 Mod 归属的运行时状态、缓存、编辑上下文和历史记录，都禁止跨 Mod 读取、复用、写入或回放。
 - 所有磁盘路径、删除和写入语义以后端校验为准，前端不绕过 Rust。
 - 字段编辑入口必须遵守全局编辑模式。
-- 视觉、CSS、主题和控件风格以 `.cursor/css-guidelines.md` 为准。
+- 视觉、CSS、主题和控件风格以 `.cursor/样式规范.md` 为准。

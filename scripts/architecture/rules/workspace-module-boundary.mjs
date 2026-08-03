@@ -1,7 +1,7 @@
 import { frontendFile } from '../shared/files.mjs';
 
 const storePath = 'src/stores/workspace.store.ts';
-const workspaceDocPath = '.cursor/modules/workspace.md';
+const workspaceDocPath = '.cursor/modules/工作区.md';
 const oldWorkspaceNames = ['modList', 'modCount', 'hasAnyMod', 'setGameWorkspace', 'restoreFrom'];
 const directWorkspaceWrites = [
   { name: 'activeModRoot', pattern: /\bworkspace\.activeModRoot\s*=(?!=)/ },

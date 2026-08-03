@@ -55,6 +55,7 @@ function assertValidSettings(settings: AppSettings): void {
   readCustomAccent(settings.customAccent);
   readHistoryLimit(settings.historyLimit);
   readEditMode(settings.editMode);
+  readOptionalLogDirectory(settings.logDirectory);
 }
 
 function readTheme(value: AppTheme): AppTheme {
@@ -83,6 +84,12 @@ function readEditMode(value: EditMode): EditMode {
   return value;
 }
 
+function readOptionalLogDirectory(value: string | null): string | null {
+  if (value === null) return null;
+  if (!value.trim()) throw new Error('Invalid log directory: blank');
+  return value;
+}
+
 export const useSettingsStore = defineStore('settings', () => {
   if (!initialSettings) throw new Error('Settings store used before initialization');
   const theme = ref<AppTheme>(readTheme(initialSettings.theme));
@@ -91,6 +98,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const historyLimit = ref(readHistoryLimit(initialSettings.historyLimit));
   const editMode = ref<EditMode>(readEditMode(initialSettings.editMode));
   const starsectorRoot = ref(initialSettings.starsectorRoot);
+  const logDirectory = ref(readOptionalLogDirectory(initialSettings.logDirectory));
   const naiveTheme = computed(() => (theme.value === 'dark' ? darkTheme : lightTheme));
   const isDark = computed(() => theme.value === 'dark');
   const isPlainEditMode = computed(() => editMode.value === 'plain');
@@ -133,6 +141,10 @@ export const useSettingsStore = defineStore('settings', () => {
     starsectorRoot.value = path;
   }
 
+  function setLogDirectory(path: string | null) {
+    logDirectory.value = readOptionalLogDirectory(path);
+  }
+
   function settingsSnapshot() {
     return {
       theme: theme.value,
@@ -141,6 +153,7 @@ export const useSettingsStore = defineStore('settings', () => {
       historyLimit: historyLimit.value,
       editMode: editMode.value,
       starsectorRoot: starsectorRoot.value,
+      logDirectory: logDirectory.value,
     };
   }
 
@@ -151,6 +164,7 @@ export const useSettingsStore = defineStore('settings', () => {
     historyLimit.value = readHistoryLimit(settings.historyLimit);
     editMode.value = readEditMode(settings.editMode);
     starsectorRoot.value = settings.starsectorRoot;
+    logDirectory.value = readOptionalLogDirectory(settings.logDirectory);
   }
 
   watch(
@@ -316,6 +330,7 @@ export const useSettingsStore = defineStore('settings', () => {
     customAccent,
     editMode,
     historyLimit,
+    logDirectory,
     isDark,
     isPlainEditMode,
     naiveTheme,
@@ -325,6 +340,7 @@ export const useSettingsStore = defineStore('settings', () => {
     setCustomAccent,
     setEditMode,
     setHistoryLimit,
+    setLogDirectory,
     setStarsectorRoot,
     setTheme,
     toggleTheme,

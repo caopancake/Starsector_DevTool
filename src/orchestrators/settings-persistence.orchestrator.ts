@@ -12,6 +12,7 @@ import { recordWindowEventHandlerError } from '@/orchestrators/window-event-erro
 
 let started = false;
 let mirrorStarted = false;
+let skipPersistedSnapshot = false;
 
 export function startSettingsPersistence(): void {
   if (started) return;
@@ -21,11 +22,26 @@ export function startSettingsPersistence(): void {
   watch(
     () => settings.settingsSnapshot(),
     (snapshot) => {
+      if (skipPersistedSnapshot) {
+        skipPersistedSnapshot = false;
+        return;
+      }
       syncHistoryLimit(snapshot.historyLimit);
       void persistSettingsSnapshot(snapshot);
     },
     { deep: true },
   );
+}
+
+export async function saveLogDirectory(directory: string | null): Promise<void> {
+  const settings = useSettingsStore();
+  const snapshot: AppSettings = { ...settings.settingsSnapshot(), logDirectory: directory };
+  const savedSettings = await saveSettings(snapshot);
+  if (settings.logDirectory !== savedSettings.logDirectory) {
+    skipPersistedSnapshot = true;
+    settings.replaceSettings(savedSettings);
+  }
+  await broadcastSettingsSnapshot(savedSettings);
 }
 
 export function startSettingsMirror(): void {
@@ -50,14 +66,19 @@ function syncHistoryLimit(limit: number): void {
 }
 
 async function persistSettingsSnapshot(snapshot: AppSettings): Promise<void> {
-  const [saveResult, broadcastResult] = await Promise.allSettled([
-    saveSettings(snapshot),
-    emitWindowEvent<AppSettingsChangedEvent>(WINDOW_EVENTS.appSettingsChanged, snapshot),
-  ]);
-  if (saveResult.status === 'rejected') {
-    recordLogBestEffort({ level: 'error', message: `保存设置失败：${formatError(saveResult.reason)}`, path: null, line: null });
+  try {
+    await saveSettings(snapshot);
+  } catch (error) {
+    recordLogBestEffort({ level: 'error', message: `保存设置失败：${formatError(error)}`, path: null, line: null });
+    return;
   }
-  if (broadcastResult.status === 'rejected') {
-    recordLogBestEffort({ level: 'error', message: `广播设置失败：${formatError(broadcastResult.reason)}`, path: null, line: null });
+  await broadcastSettingsSnapshot(snapshot);
+}
+
+async function broadcastSettingsSnapshot(snapshot: AppSettings): Promise<void> {
+  try {
+    await emitWindowEvent<AppSettingsChangedEvent>(WINDOW_EVENTS.appSettingsChanged, snapshot);
+  } catch (error) {
+    recordLogBestEffort({ level: 'error', message: `广播设置失败：${formatError(error)}`, path: null, line: null });
   }
 }

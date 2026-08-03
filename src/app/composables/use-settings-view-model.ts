@@ -4,6 +4,7 @@ import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { clearConfig, clearLog, loadLogStatus, openConfigFolder, openLogFile } from '@/services/app-feedback-log.service';
 import { reloadCurrentWebviewWindow } from '@/windows/current.window';
 import { useSettingsStore } from '@/stores/settings.store';
+import { saveLogDirectory } from '@/orchestrators/settings-persistence.orchestrator';
 
 export function useSettingsViewModel() {
   const settings = useSettingsStore();
@@ -17,6 +18,28 @@ export function useSettingsViewModel() {
     const selected = await pickDirectoryDialog('选择 Starsector 安装目录');
     if (selected && typeof selected === 'string') {
       settings.setStarsectorRoot(selected);
+    }
+  }
+
+  async function pickLogDirectory() {
+    const selected = await pickDirectoryDialog('选择日志输出目录');
+    if (!selected || typeof selected !== 'string') return;
+    try {
+      await saveLogDirectory(selected);
+      await refreshLogStatus();
+      feedback.success('日志输出目录已更新');
+    } catch (error) {
+      feedback.error(error, '保存日志输出目录失败');
+    }
+  }
+
+  async function restoreDefaultLogDirectory() {
+    try {
+      await saveLogDirectory(null);
+      await refreshLogStatus();
+      feedback.success('日志输出目录已恢复默认位置');
+    } catch (error) {
+      feedback.error(error, '恢复默认日志输出目录失败');
     }
   }
 
@@ -86,10 +109,12 @@ export function useSettingsViewModel() {
   return {
     formattedLogSize,
     logPathHint,
+    pickLogDirectory,
     pickStarsectorRoot,
     refreshLogStatus,
     openConfigFolderAction,
     openLogFileAction,
+    restoreDefaultLogDirectory,
     confirmClearConfig,
     confirmClearLog,
   };

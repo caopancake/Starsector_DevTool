@@ -83,6 +83,14 @@
     <section class="settings-section">
       <h3>配置文件</h3>
       <div class="settings-row">
+        <span>日志输出目录</span>
+        <div class="settings-control-row">
+          <n-input :value="settings.logDirectory ?? '默认 app data'" size="small" readonly />
+          <n-button size="small" @click="pickLogDirectory">选择目录</n-button>
+          <n-button v-if="settings.logDirectory" size="small" quaternary @click="restoreDefaultLogDirectory">恢复默认</n-button>
+        </div>
+      </div>
+      <div class="settings-row">
         <span>Log 文件大小</span>
         <strong>{{ formattedLogSize }}</strong>
       </div>
@@ -109,10 +117,12 @@ const customAccentValid = ref(true);
 const {
   formattedLogSize,
   logPathHint,
+  pickLogDirectory,
   pickStarsectorRoot,
   refreshLogStatus,
   openConfigFolderAction,
   openLogFileAction,
+  restoreDefaultLogDirectory,
   confirmClearConfig,
   confirmClearLog,
 } = useSettingsViewModel();

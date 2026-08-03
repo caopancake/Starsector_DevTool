@@ -2,7 +2,7 @@ use crate::{
     errors::{AppError, AppResult},
     io::write_utf8_no_bom,
     models::{AppLogEntry, AppLogStatus},
-    services::{app_paths, system_open},
+    services::{app_paths, app_settings, system_open},
 };
 use std::{
     fs::{self, OpenOptions},
@@ -15,33 +15,45 @@ pub const LOG_FILE: &str = "starsector-devtool.log";
 
 pub fn append_app_log(app_handle: tauri::AppHandle, entry: AppLogEntry) -> AppResult<()> {
     let app_data = app_paths::app_data_dir(app_handle)?;
-    append_log(&app_data, &entry)
+    let log_directory = configured_log_directory(&app_data)?;
+    append_log(&log_directory, &entry)
 }
 
 pub fn app_log_status(app_handle: tauri::AppHandle) -> AppResult<AppLogStatus> {
     let app_data = app_paths::app_data_dir(app_handle)?;
-    log_status(&app_data)
+    let log_directory = configured_log_directory(&app_data)?;
+    log_status(&log_directory)
 }
 
 pub fn open_app_log_file(app_handle: tauri::AppHandle) -> AppResult<()> {
     let app_data = app_paths::app_data_dir(app_handle)?;
-    ensure_log_file(&app_data)?;
-    system_open::open_path(&log_path(&app_data))
+    let log_directory = configured_log_directory(&app_data)?;
+    ensure_log_file(&log_directory)?;
+    system_open::open_path(&log_path(&log_directory))
 }
 
 pub fn clear_app_log_file(app_handle: tauri::AppHandle) -> AppResult<AppLogStatus> {
     let app_data = app_paths::app_data_dir(app_handle)?;
-    clear_log_file(&app_data)?;
-    log_status(&app_data)
+    let log_directory = configured_log_directory(&app_data)?;
+    clear_log_file(&log_directory)?;
+    log_status(&log_directory)
+}
+
+fn configured_log_directory(app_data_dir: &Path) -> AppResult<PathBuf> {
+    let settings = app_settings::load_settings(app_data_dir)?;
+    if settings.log_directory.is_none() {
+        fs::create_dir_all(app_data_dir).map_err(|error| {
+            AppError::context(
+                format!("创建日志目录失败 ({})", app_data_dir.display()),
+                error.into(),
+            )
+        })?;
+    }
+    app_settings::log_output_directory(app_data_dir, &settings)
 }
 
 pub fn append_log(app_data_dir: &Path, entry: &AppLogEntry) -> AppResult<()> {
-    fs::create_dir_all(app_data_dir).map_err(|error| {
-        AppError::context(
-            format!("创建日志目录失败 ({})", app_data_dir.display()),
-            error.into(),
-        )
-    })?;
+    ensure_log_directory_writable(app_data_dir)?;
     let path = log_path(app_data_dir);
     let mut file = OpenOptions::new()
         .create(true)
@@ -82,12 +94,7 @@ pub fn log_status(app_data_dir: &Path) -> AppResult<AppLogStatus> {
 }
 
 pub fn clear_log_file(app_data_dir: &Path) -> AppResult<()> {
-    fs::create_dir_all(app_data_dir).map_err(|error| {
-        AppError::context(
-            format!("创建日志目录失败 ({})", app_data_dir.display()),
-            error.into(),
-        )
-    })?;
+    ensure_log_directory_writable(app_data_dir)?;
     let path = log_path(app_data_dir);
     write_utf8_no_bom(&path, "").map_err(|error| {
         AppError::context(format!("清除日志文件失败 ({})", path.display()), error)
@@ -100,19 +107,27 @@ pub fn log_path(app_data_dir: &Path) -> PathBuf {
 }
 
 fn ensure_log_file(app_data_dir: &Path) -> AppResult<()> {
-    fs::create_dir_all(app_data_dir).map_err(|error| {
-        AppError::context(
-            format!("创建日志目录失败 ({})", app_data_dir.display()),
-            error.into(),
-        )
-    })?;
-    let path = log_path(app_data_dir);
-    if path.exists() {
-        return Ok(());
+    ensure_log_directory_writable(app_data_dir)
+}
+
+pub fn ensure_log_directory_writable(app_data_dir: &Path) -> AppResult<()> {
+    if !app_data_dir.is_dir() {
+        return Err(AppError::message(format!(
+            "日志目录不可用 ({})",
+            app_data_dir.display()
+        )));
     }
-    write_utf8_no_bom(&path, "").map_err(|error| {
-        AppError::context(format!("创建日志文件失败 ({})", path.display()), error)
-    })?;
+    let path = log_path(app_data_dir);
+    OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|error| {
+            AppError::context(
+                format!("打开日志文件失败 ({})", path.display()),
+                error.into(),
+            )
+        })?;
     Ok(())
 }
 

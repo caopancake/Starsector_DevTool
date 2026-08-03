@@ -12,7 +12,7 @@ pub fn load_app_settings(app_handle: tauri::AppHandle) -> Result<AppSettings, St
 pub fn save_app_settings(
     app_handle: tauri::AppHandle,
     payload: SaveAppSettingsPayload,
-) -> Result<(), String> {
+) -> Result<AppSettings, String> {
     services::app_settings::save_app_settings(app_handle, payload.settings)
         .map_err(|e| e.to_string())
 }

@@ -3,11 +3,8 @@ use crate::{
     io::FileChangeSetBuilder,
     models::{SpriteSubfolder, WriteResult},
 };
-use regex::Regex;
 use serde_json::{json, Value};
-use std::{path::Path, sync::OnceLock};
-
-static SPRITE_FILENAME_RE: OnceLock<Regex> = OnceLock::new();
+use std::path::Path;
 
 pub fn upload_sprite(
     mod_root: &str,
@@ -50,17 +47,42 @@ pub fn upload_sprite(
 }
 
 fn validate_sprite_filename(filename: &str) -> AppResult<&str> {
-    let trimmed = filename.trim();
-    let filename_re = SPRITE_FILENAME_RE.get_or_init(|| {
-        Regex::new(r"^[A-Za-z0-9][A-Za-z0-9_.-]*\.png$").expect("valid sprite filename regex")
+    let has_png_extension = filename
+        .rsplit_once('.')
+        .is_some_and(|(stem, extension)| !stem.is_empty() && extension.eq_ignore_ascii_case("png"));
+    let has_invalid_windows_character = filename.chars().any(|character| {
+        character.is_control()
+            || matches!(
+                character,
+                '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*'
+            )
     });
-    if filename_re.is_match(trimmed) {
-        Ok(trimmed)
-    } else {
-        Err(AppError::message(format!(
+    let has_invalid_windows_suffix = filename.ends_with([' ', '.']);
+    let is_reserved_windows_name = filename
+        .split_once('.')
+        .map(|(stem, _)| stem)
+        .is_some_and(is_reserved_windows_filename);
+
+    if filename.is_empty()
+        || !has_png_extension
+        || has_invalid_windows_character
+        || has_invalid_windows_suffix
+        || is_reserved_windows_name
+    {
+        return Err(AppError::message(format!(
             "invalid sprite filename: {filename}"
-        )))
+        )));
     }
+
+    Ok(filename)
+}
+
+fn is_reserved_windows_filename(stem: &str) -> bool {
+    let upper = stem.to_ascii_uppercase();
+    matches!(upper.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (upper.len() == 4
+            && (upper.starts_with("COM") || upper.starts_with("LPT"))
+            && matches!(upper.as_bytes()[3], b'1'..=b'9'))
 }
 
 #[cfg(test)]
@@ -174,6 +196,39 @@ mod tests {
     }
 
     #[test]
+    fn upload_sprite_preserves_unicode_filename_through_history_replay() {
+        let root = temp_dir("upload_sprite_unicode_filename");
+        let filename = "舰船贴图.png";
+        let result = upload_sprite(
+            &root.to_string_lossy(),
+            filename,
+            general_purpose::STANDARD.encode([1, 2, 3]),
+            SpriteSubfolder::Ships,
+            false,
+        )
+        .unwrap();
+        let path = root.join("graphics/ships").join(filename);
+
+        assert!(path.exists());
+        apply_file_change_set(
+            &root.to_string_lossy(),
+            FileChangeReplayDirection::Undo,
+            result.changes.clone(),
+        )
+        .unwrap();
+        assert!(!path.exists());
+        apply_file_change_set(
+            &root.to_string_lossy(),
+            FileChangeReplayDirection::Redo,
+            result.changes,
+        )
+        .unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(bytes, vec![1, 2, 3]);
+    }
+
+    #[test]
     fn upload_sprite_invalid_data_does_not_create_target_directory() {
         let root = temp_dir("upload_sprite_invalid_data");
         let result = upload_sprite(
@@ -207,6 +262,34 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("invalid sprite filename"));
+        assert!(!target_dir_exists);
+    }
+
+    #[test]
+    fn upload_sprite_rejects_unsafe_or_windows_invalid_filenames() {
+        let root = temp_dir("upload_sprite_invalid_windows_filename");
+        for filename in [
+            "../escape.png",
+            "nested/escape.png",
+            "nested\\escape.png",
+            "CON.png",
+            "LPT1.png",
+            "bad?.png",
+            "trailing .png ",
+            "not-png.jpg",
+        ] {
+            let result = upload_sprite(
+                &root.to_string_lossy(),
+                filename,
+                general_purpose::STANDARD.encode([1, 2, 3]),
+                SpriteSubfolder::Ships,
+                false,
+            );
+            assert!(result.is_err(), "{filename} should be rejected");
+        }
+
+        let target_dir_exists = root.join("graphics/ships").exists();
+        let _ = fs::remove_dir_all(root);
         assert!(!target_dir_exists);
     }
 

@@ -29,9 +29,10 @@ export function navigateToModTable(modRoot: string, tab: TableKey) {
   const workspace = useWorkspaceStore();
   const tables = useTablesStore();
   if (!workspace.mods.has(modRoot)) return;
-  workspace.activateModTable(modRoot);
+  if (isActiveTableTarget(modRoot, tab)) return;
   syncActiveModRuntime(modRoot);
   tables.switchTab(tab);
+  workspace.activateModTable(modRoot);
 }
 
 export function navigateToModConfig(modRoot: string, view: ConfigView) {
@@ -39,4 +40,17 @@ export function navigateToModConfig(modRoot: string, view: ConfigView) {
   if (!workspace.mods.has(modRoot)) return;
   workspace.activateModConfig(modRoot, view);
   syncActiveModRuntime(modRoot);
+}
+
+function isActiveTableTarget(modRoot: string, tab: TableKey): boolean {
+  const workspace = useWorkspaceStore();
+  const project = useProjectStore();
+  const tables = useTablesStore();
+  return (
+    workspace.activeModRoot === modRoot &&
+    workspace.currentView === 'table' &&
+    project.activeModRoot === modRoot &&
+    tables.activeModRoot === modRoot &&
+    tables.currentTab === tab
+  );
 }

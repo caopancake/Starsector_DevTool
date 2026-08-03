@@ -5,6 +5,6 @@ export function loadSettings(): Promise<AppSettings> {
   return loadAppSettings();
 }
 
-export function saveSettings(settings: AppSettings): Promise<void> {
+export function saveSettings(settings: AppSettings): Promise<AppSettings> {
   return saveAppSettings(settings);
 }

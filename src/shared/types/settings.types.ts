@@ -14,4 +14,5 @@ export interface AppSettings {
   historyLimit: number;
   editMode: EditMode;
   starsectorRoot: string | null;
+  logDirectory: string | null;
 }

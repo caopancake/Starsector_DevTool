@@ -43,6 +43,8 @@ pub struct AppSettings {
     pub edit_mode: EditMode,
     #[serde(default, deserialize_with = "optional_non_empty_string")]
     pub starsector_root: Option<String>,
+    #[serde(default, deserialize_with = "optional_non_empty_string")]
+    pub log_directory: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -54,6 +56,7 @@ impl Default for AppSettings {
             history_limit: default_history_limit(),
             edit_mode: default_edit_mode(),
             starsector_root: None,
+            log_directory: None,
         }
     }
 }
@@ -91,7 +94,8 @@ mod tests {
             "customAccent": "#2563eb",
             "historyLimit": 20,
             "editMode": "smart",
-            "starsectorRoot": null
+            "starsectorRoot": null,
+            "logDirectory": null
         }))
         .unwrap();
 
@@ -106,7 +110,8 @@ mod tests {
             "customAccent": "#2563eb",
             "historyLimit": 20,
             "editMode": "smart",
-            "starsectorRoot": ""
+            "starsectorRoot": "",
+            "logDirectory": null
         }))
         .unwrap();
 
