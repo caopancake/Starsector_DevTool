@@ -82,7 +82,7 @@ pub fn query_resource_data_urls(
 pub fn invalidate_project_session(
     payload: InvalidateProjectSessionPayload,
 ) -> Result<ProjectSessionInvalidationResult, String> {
-    services::project::invalidate_project_session(&payload.session_id, payload.changed_paths)
+    services::project::invalidate_project_session(&payload.session_id, payload.changes)
         .map_err(|e| e.to_string())
 }
 

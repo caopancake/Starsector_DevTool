@@ -14,3 +14,7 @@ pub fn read_csv_data(path: &Path) -> AppResult<CsvTable> {
     let bytes = read_text_bytes_no_bom(path)?;
     crate::parsers::parse_csv_bytes(&path.to_string_lossy(), &bytes)
 }
+
+pub fn parse_csv_text(path_label: &str, text: &str) -> AppResult<CsvTable> {
+    crate::parsers::parse_csv_bytes(path_label, text.as_bytes())
+}

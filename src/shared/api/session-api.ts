@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type {
   GameOverviewData,
   OpenDirectoryResult,
+  FileChangeRecord,
   ProjectManifest,
   ProjectSessionId,
   ProjectSessionInvalidationResult,
@@ -15,8 +16,11 @@ export function closeProjectSession(sessionId: ProjectSessionId): Promise<void> 
   return invoke('close_project_session', { payload: { sessionId } });
 }
 
-export function invalidateProjectSession(sessionId: ProjectSessionId, changedPaths: string[]): Promise<ProjectSessionInvalidationResult> {
-  return invoke('invalidate_project_session', { payload: { sessionId, changedPaths } });
+export function invalidateProjectSession(
+  sessionId: ProjectSessionId,
+  changes: FileChangeRecord[],
+): Promise<ProjectSessionInvalidationResult> {
+  return invoke('invalidate_project_session', { payload: { sessionId, changes } });
 }
 
 export function invalidateCoreCache(starsectorRoot: string): Promise<void> {

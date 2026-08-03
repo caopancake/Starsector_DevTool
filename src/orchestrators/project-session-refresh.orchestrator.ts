@@ -29,13 +29,13 @@ export async function refreshProjectSessionAfterWrite(modRoot: string, result: W
   if (expectedSessionId && manifest.sessionId !== expectedSessionId) {
     throw new AppError('无法刷新 ProjectSession：ProjectSession 已变化', { action: 'refresh-project-session-after-write' });
   }
-  const scopedPaths = result.invalidation.paths.filter((path) => pathIsProjectScopedChangedPath(path, manifest.modRoot));
-  if (scopedPaths.length === 0) {
-    throw new AppError('无法刷新 ProjectSession：写入结果没有命中当前 Mod 的失效路径', {
+  const scopedChanges = result.changes.filter((change) => pathIsProjectScopedChangedPath(change.path, manifest.modRoot));
+  if (scopedChanges.length === 0) {
+    throw new AppError('无法刷新 ProjectSession：写入结果没有命中当前 Mod 的文件变更', {
       action: 'refresh-project-session-after-write',
     });
   }
-  return refreshProjectSessionByChangedPaths(project, manifest, scopedPaths);
+  return refreshProjectSessionByChanges(project, manifest, scopedChanges);
 }
 
 export async function refreshLoadedSessionsAfterWrite(result: WriteResult, relativePathModRoot: string | null) {
@@ -43,23 +43,23 @@ export async function refreshLoadedSessionsAfterWrite(result: WriteResult, relat
   const events: ProjectSessionInvalidatedEvent[] = [];
   await Promise.all(
     [...project.manifests.values()].map(async (manifest) => {
-      const scopedPaths = result.invalidation.paths.filter((path) =>
-        isAbsoluteFsPath(path) ? pathBelongsToRoot(path, manifest.modRoot) : manifest.modRoot === relativePathModRoot,
+      const scopedChanges = result.changes.filter((change) =>
+        isAbsoluteFsPath(change.path) ? pathBelongsToRoot(change.path, manifest.modRoot) : manifest.modRoot === relativePathModRoot,
       );
-      if (scopedPaths.length === 0) return;
-      const event = await refreshProjectSessionByChangedPaths(project, manifest, scopedPaths);
+      if (scopedChanges.length === 0) return;
+      const event = await refreshProjectSessionByChanges(project, manifest, scopedChanges);
       events.push(event);
     }),
   );
   return events;
 }
 
-async function refreshProjectSessionByChangedPaths(
+async function refreshProjectSessionByChanges(
   project: ReturnType<typeof useProjectStore>,
   manifest: ProjectManifest,
-  changedPaths: string[],
+  changes: WriteResult['changes'],
 ): Promise<ProjectSessionInvalidatedEvent> {
-  const result = await requestProjectSessionRefresh(manifest.sessionId, changedPaths);
+  const result = await requestProjectSessionRefresh(manifest.sessionId, changes);
   project.replaceProjectManifest(result.manifest);
   const event = { manifest: result.manifest, invalidation: result.invalidation };
   applyProjectSessionCacheInvalid(event);

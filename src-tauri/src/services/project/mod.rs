@@ -12,6 +12,7 @@ mod spec_files;
 mod table_definitions;
 mod write;
 
+pub(crate) use cache::persistent::configure_persistent_index_cache;
 pub(crate) use performance::PerformanceTrace;
 pub use query::{
     query_csv_row_preview, query_csv_source_options, query_csv_table_window, query_entity,

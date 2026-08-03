@@ -31,6 +31,7 @@ export function useConfigVariantViewModel() {
   let variantsRequestId = 0;
   let variantSpritesRequestId = 0;
   let hullOptionsRequestId = 0;
+  const hullOptionsLoaded = ref(false);
 
   async function loadVariants() {
     const requestId = ++variantsRequestId;
@@ -85,12 +86,14 @@ export function useConfigVariantViewModel() {
     const sessionId = project.activeSessionId;
     if (!sessionId || settings.isPlainEditMode) {
       hullOptions.value = [];
+      hullOptionsLoaded.value = false;
       return;
     }
     try {
       const options = await queryHullReferenceOptions(sessionId, []);
       if (requestId !== hullOptionsRequestId || sessionId !== project.activeSessionId) return;
       hullOptions.value = options;
+      hullOptionsLoaded.value = true;
     } catch (error) {
       feedback.error(error, '读取舰船引用失败');
     }
@@ -173,7 +176,15 @@ export function useConfigVariantViewModel() {
   }
 
   watch(() => project.activeSessionId, loadVariants, { immediate: true });
-  watch([() => project.activeSessionId, () => settings.isPlainEditMode], () => void loadHullOptions(), { immediate: true });
+  watch(
+    () => settings.isPlainEditMode,
+    () => {
+      if (settings.isPlainEditMode) {
+        hullOptions.value = [];
+        hullOptionsLoaded.value = false;
+      }
+    },
+  );
   const stopQueryInvalidation = subscribeQueryInvalidations((event) => {
     if (event.sessionId !== project.activeSessionId) return;
     const variantsChanged = hasEntityInvalidation(event, 'entity-list', 'variant');
@@ -181,16 +192,13 @@ export function useConfigVariantViewModel() {
     if (variantsChanged) void loadVariants();
     if (hullReferenceQueryChanged) {
       void loadVariantSprites();
-    }
-    if (hullReferenceQueryChanged) {
-      void loadHullOptions();
+      if (hullOptionsLoaded.value) void loadHullOptions();
     }
   });
   const stopResourceInvalidation = subscribeResourceInvalidations((event) => {
     if (event.sessionId !== project.activeSessionId) return;
     if (!hasResourceInvalidation(event, variantSpriteResourceRefs.value)) return;
     void loadVariantSprites();
-    void loadHullOptions();
   });
   onUnmounted(() => {
     stopQueryInvalidation();
@@ -204,6 +212,7 @@ export function useConfigVariantViewModel() {
     variants,
     variantSprites,
     hullOptions,
+    loadHullOptions,
     variantDataRevision,
     createVariant,
     deleteVariant,

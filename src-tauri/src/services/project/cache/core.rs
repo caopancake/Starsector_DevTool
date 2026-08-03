@@ -14,22 +14,32 @@ use super::super::{
     spec_files::{load_skin_files, load_variant_files},
     table_definitions::csv_table_definition,
 };
-use super::core_caches;
+use super::{core_caches, persistent};
 
 pub(crate) fn core_cache_snapshot(starsector_root: &str) -> AppResult<CoreCache> {
     let cache_key = core_cache_key(starsector_root)?;
+    if let Some(cache) = core_caches()
+        .lock()
+        .map_err(|_| AppError::message("core cache lock poisoned"))?
+        .get(&cache_key)
+        .cloned()
+    {
+        return Ok(cache);
+    }
+    let cache = persistent::load_core_cache(starsector_root)?.unwrap_or_else(|| CoreCache {
+        csv_tables: BTreeMap::new(),
+        ship_files: None,
+        variant_files: None,
+        skin_files: None,
+        weapon_specs: None,
+        projectile_specs: None,
+    });
     let mut guard = core_caches()
         .lock()
         .map_err(|_| AppError::message("core cache lock poisoned"))?;
     Ok(guard
         .entry(cache_key)
-        .or_insert_with(|| CoreCache {
-            csv_tables: BTreeMap::new(),
-            ship_files: None,
-            variant_files: None,
-            skin_files: None,
-            weapon_specs: None,
-        })
+        .or_insert_with(|| cache.clone())
         .clone())
 }
 
@@ -39,6 +49,8 @@ pub(crate) fn replace_core_cache(starsector_root: &str, cache: CoreCache) -> App
         .lock()
         .map_err(|_| AppError::message("core cache lock poisoned"))?
         .insert(cache_key, cache);
+    let snapshot = core_cache_snapshot(starsector_root)?;
+    let _ = persistent::save_core_cache(starsector_root, &snapshot);
     Ok(())
 }
 
@@ -125,6 +137,33 @@ pub(crate) fn load_core_weapon_specs(starsector_root: &str) -> AppResult<BTreeMa
     Ok(files)
 }
 
+pub(crate) fn load_core_projectile_specs(
+    starsector_root: &str,
+) -> AppResult<BTreeMap<String, Value>> {
+    let mut cache = core_cache_snapshot(starsector_root)?;
+    if let Some(files) = cache.projectile_specs.clone() {
+        return Ok(files);
+    }
+    let core_dir = core_dir(starsector_root)?;
+    let files = if core_dir.exists() {
+        let mut files = load_json_dir_by_id(&core_dir.join("data/weapons/proj"), "proj", "id")?;
+        for value in files.values_mut() {
+            if let Value::Object(object) = value {
+                object.insert(
+                    "_source".to_string(),
+                    Value::String(crate::models::ResourceSource::Core.as_str().to_string()),
+                );
+            }
+        }
+        files
+    } else {
+        BTreeMap::new()
+    };
+    cache.projectile_specs = Some(files.clone());
+    replace_core_cache(starsector_root, cache)?;
+    Ok(files)
+}
+
 pub(crate) fn load_core_variant_files(starsector_root: &str) -> AppResult<Vec<VariantFile>> {
     let mut cache = core_cache_snapshot(starsector_root)?;
     if let Some(files) = cache.variant_files.clone() {
@@ -198,10 +237,42 @@ mod tests {
 
     #[test]
     fn core_cache_key_normalizes_root_identity() {
-        let left = core_cache_key("D:/Starsector/").unwrap();
-        let right = core_cache_key("d:\\starsector").unwrap();
+        let root = temp_dir("core_cache_key");
+        let left = core_cache_key(&root.to_string_lossy()).unwrap();
+        let right = core_cache_key(&root.join(".").to_string_lossy()).unwrap();
 
+        let _ = fs::remove_dir_all(root);
         assert_eq!(left, right);
+    }
+
+    #[test]
+    fn persistent_core_cache_rejects_changed_source_content() {
+        let root = temp_dir("persistent_core_cache");
+        let cache_root = temp_dir("persistent_core_cache_root");
+        let hull_dir = root.join("starsector-core/data/hulls");
+        fs::create_dir_all(&hull_dir).unwrap();
+        crate::io::write_utf8_no_bom(
+            &hull_dir.join("demo.ship"),
+            r#"{"hullId":"demo","spriteName":"before"}"#,
+        )
+        .unwrap();
+        persistent::configure_persistent_index_cache(&cache_root).unwrap();
+
+        let loaded = load_core_ship_files(&root.to_string_lossy()).unwrap();
+        let persisted = persistent::load_core_cache(&root.to_string_lossy()).unwrap();
+        crate::io::write_utf8_no_bom(
+            &hull_dir.join("demo.ship"),
+            r#"{"hullId":"demo","spriteName":"after"}"#,
+        )
+        .unwrap();
+        super::super::invalidate_core_cache(&root.to_string_lossy()).unwrap();
+        let changed = load_core_ship_files(&root.to_string_lossy()).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(cache_root);
+        assert_eq!(loaded["demo"]["spriteName"], "before");
+        assert!(persisted.and_then(|cache| cache.ship_files).is_some());
+        assert_eq!(changed["demo"]["spriteName"], "after");
     }
 
     fn temp_dir(name: &str) -> PathBuf {

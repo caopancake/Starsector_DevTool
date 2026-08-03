@@ -5,6 +5,7 @@
       :variants="variants"
       :variant-sprites="variantSprites"
       :hull-options="hullOptions"
+      :load-hull-options="loadHullOptions"
       :mod-root="modRoot"
       :session-id="sessionId"
       :create-variant="createVariant"
@@ -41,6 +42,7 @@ const {
   variants,
   variantSprites,
   hullOptions,
+  loadHullOptions,
   variantDataRevision,
   createVariant,
   deleteVariant,

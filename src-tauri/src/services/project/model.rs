@@ -1,4 +1,5 @@
 use crate::models::{GameScanWarning, ProjectManifest, SkinFile, VariantFile};
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, HashMap};
 
@@ -15,6 +16,7 @@ pub(super) const WEAPON_SPRITE_FIELDS: [&str; 8] = [
     "hardpointGlowSprite",
 ];
 
+#[derive(Clone, Serialize, Deserialize)]
 pub(super) struct SpecBundle {
     pub ship_files: BTreeMap<String, Value>,
     pub variant_files: Vec<VariantFile>,
@@ -26,14 +28,14 @@ pub(super) struct SpecBundle {
     pub warnings: Vec<GameScanWarning>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(super) struct SessionCsvTable {
     pub header: Vec<String>,
     pub path: String,
     pub rows: Option<Vec<SessionCsvRow>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(super) struct SessionCsvRow {
     pub row_key: String,
     pub row: Map<String, Value>,
@@ -53,13 +55,14 @@ pub(super) struct ProjectSession {
     pub skill_files: BTreeMap<String, Value>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(super) struct CoreCache {
     pub csv_tables: BTreeMap<String, SessionCsvTable>,
     pub ship_files: Option<BTreeMap<String, Value>>,
     pub variant_files: Option<Vec<VariantFile>>,
     pub skin_files: Option<Vec<SkinFile>>,
     pub weapon_specs: Option<BTreeMap<String, Value>>,
+    pub projectile_specs: Option<BTreeMap<String, Value>>,
 }
 
 #[derive(Clone, Default)]

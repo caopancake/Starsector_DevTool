@@ -2,7 +2,7 @@ use super::model::{
     ProjectSession, SessionCsvTable, SpecBundle, MISSION_LIST_REL_PATH, MISSION_LIST_TABLE_KEY,
 };
 use super::{
-    cache::{self, invalidate_session_path, session_for_mut, sessions},
+    cache::{self, session_for_mut, sessions},
     factions,
     performance::PerformanceTrace,
     projectiles, root,
@@ -12,7 +12,7 @@ use crate::{
     errors::{AppError, AppResult},
     io::{load_json_dir_by_id, read_csv_data, FsRootBoundary},
     models::{CsvTableKey, EntitySummaries, ProjectManifest, TableSummary},
-    models::{ProjectInvalidation, ProjectSessionInvalidationResult},
+    models::{FileChangeRecord, ProjectInvalidation, ProjectSessionInvalidationResult},
 };
 use std::{
     collections::BTreeMap,
@@ -45,16 +45,14 @@ pub fn ensure_project_session_mod_root(session_id: &str, mod_root: &str) -> AppR
 
 pub fn invalidate_project_session(
     session_id: &str,
-    changed_paths: Vec<String>,
+    changes: Vec<FileChangeRecord>,
 ) -> AppResult<ProjectSessionInvalidationResult> {
     let mut guard = sessions()
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?;
     let session = session_for_mut(&mut guard, session_id)?;
     let mut invalidation = ProjectInvalidation::default();
-    for changed_path in changed_paths {
-        invalidation.merge(invalidate_session_path(session, &changed_path)?);
-    }
+    invalidation.merge(cache::invalidate_session_changes(session, &changes)?);
     Ok(ProjectSessionInvalidationResult {
         manifest: session.manifest.clone(),
         invalidation,
@@ -99,32 +97,19 @@ pub(super) fn build_project_session(
         .as_ref()
         .is_some_and(|root| root.join("starsector-core").exists());
     let timer = trace.timer();
-    let mod_info = root::read_mod_info(mod_root)?;
+    let cached_index = cache::persistent::load_project_index(mod_root, starsector_root.as_deref())?;
     trace.record_stage(
-        "mod_info",
+        "persistent_index",
         timer,
         [(
-            "path",
-            mod_root.join("mod_info.json").to_string_lossy().to_string(),
+            "result",
+            if cached_index.is_some() {
+                "hit"
+            } else {
+                "miss"
+            }
+            .to_string(),
         )],
-    );
-    let timer = trace.timer();
-    let (_, tag_map) = factions::discover_factions(mod_root)?;
-    let faction_files = factions::load_faction_files(mod_root)?;
-    trace.record_stage(
-        "factions",
-        timer,
-        [
-            ("factionFiles", faction_files.len().to_string()),
-            ("tags", tag_map.len().to_string()),
-        ],
-    );
-    let timer = trace.timer();
-    let mission_count = root::count_mission_list_entries(mod_root)?;
-    trace.record_stage(
-        "mission_count",
-        timer,
-        [("missions", mission_count.to_string())],
     );
     let timer = trace.timer();
     let csv_tables = build_registered_session_csv_tables();
@@ -133,15 +118,18 @@ pub(super) fn build_project_session(
         timer,
         [("tables", csv_tables.len().to_string())],
     );
-    let spec_bundle = load_spec_bundle(
-        mod_root,
-        starsector_root
-            .as_ref()
-            .map(|root| root.join("starsector-core"))
-            .as_deref(),
-        trace,
-    )?;
-
+    let cached_index = match cached_index {
+        Some(index) => index,
+        None => build_project_index(mod_root, starsector_root.as_deref(), trace)?,
+    };
+    let super::cache::persistent::ProjectIndex {
+        mod_info,
+        faction_files,
+        tag_map,
+        mission_count,
+        spec_bundle,
+        table_entity_summaries,
+    } = cached_index;
     let table_summaries = super::table_definitions::csv_table_definitions()
         .iter()
         .map(|definition| {
@@ -173,7 +161,6 @@ pub(super) fn build_project_session(
         systems: spec_bundle.system_files.len(),
         skills: spec_bundle.skill_files.len(),
     };
-    let table_entity_summaries = build_table_entity_summaries(mod_root, &entity_summaries)?;
     let manifest = ProjectManifest {
         session_id,
         mod_root: mod_root.to_string_lossy().to_string(),
@@ -199,6 +186,64 @@ pub(super) fn build_project_session(
         system_files: spec_bundle.system_files,
         skill_files: spec_bundle.skill_files,
     })
+}
+
+fn build_project_index(
+    mod_root: &Path,
+    starsector_root: Option<&Path>,
+    trace: &mut PerformanceTrace,
+) -> AppResult<super::cache::persistent::ProjectIndex> {
+    let timer = trace.timer();
+    let mod_info = root::read_mod_info(mod_root)?;
+    trace.record_stage(
+        "mod_info",
+        timer,
+        [(
+            "path",
+            mod_root.join("mod_info.json").to_string_lossy().to_string(),
+        )],
+    );
+    let timer = trace.timer();
+    let (_, tag_map) = factions::discover_factions(mod_root)?;
+    let faction_files = factions::load_faction_files(mod_root)?;
+    trace.record_stage(
+        "factions",
+        timer,
+        [
+            ("factionFiles", faction_files.len().to_string()),
+            ("tags", tag_map.len().to_string()),
+        ],
+    );
+    let timer = trace.timer();
+    let mission_count = root::count_mission_list_entries(mod_root)?;
+    trace.record_stage(
+        "mission_count",
+        timer,
+        [("missions", mission_count.to_string())],
+    );
+    let spec_bundle = load_spec_bundle(mod_root, starsector_root, trace)?;
+    let entity_summaries = EntitySummaries {
+        factions: faction_files.len(),
+        missions: mission_count,
+        ships: spec_bundle.ship_files.len(),
+        weapons: spec_bundle.weapon_specs.len(),
+        projectiles: spec_bundle.projectile_specs.len(),
+        variants: spec_bundle.variant_files.len(),
+        skins: spec_bundle.skin_files.len(),
+        systems: spec_bundle.system_files.len(),
+        skills: spec_bundle.skill_files.len(),
+    };
+    let table_entity_summaries = build_table_entity_summaries(mod_root, &entity_summaries)?;
+    let index = super::cache::persistent::ProjectIndex {
+        mod_info,
+        faction_files,
+        tag_map,
+        mission_count,
+        spec_bundle,
+        table_entity_summaries,
+    };
+    let _ = cache::persistent::save_project_index(mod_root, starsector_root, index.clone());
+    Ok(index)
 }
 
 pub(super) fn build_registered_session_csv_tables() -> BTreeMap<String, SessionCsvTable> {
@@ -271,7 +316,7 @@ pub(super) fn new_session_id() -> String {
 
 pub(super) fn load_spec_bundle(
     mod_root: &Path,
-    core_dir: Option<&Path>,
+    starsector_root: Option<&Path>,
     trace: &mut PerformanceTrace,
 ) -> AppResult<SpecBundle> {
     let total_timer = trace.timer();
@@ -311,7 +356,10 @@ pub(super) fn load_spec_bundle(
     );
     let warnings = variant_warnings.into_iter().chain(skin_warnings).collect();
     let timer = trace.timer();
-    let projectile_specs = projectiles::load_projectile_specs(mod_root, core_dir)?;
+    let core_projectiles = starsector_root
+        .map(|root| cache::load_core_projectile_specs(&root.to_string_lossy()))
+        .transpose()?;
+    let projectile_specs = projectiles::load_projectile_specs(mod_root, core_projectiles)?;
     trace.record_stage(
         "spec.projectile_specs",
         timer,
@@ -580,6 +628,53 @@ mod tests {
             .iter()
             .any(|warning| warning.message.contains("重复 skinHullId dup")
                 && warning.path.contains("two.skin")));
+    }
+
+    #[test]
+    fn persistent_project_index_reuses_matching_sources_and_rebuilds_changed_sources() {
+        let root = temp_dir("persistent_project_index");
+        let cache_root = temp_dir("persistent_project_index_cache");
+        std::fs::create_dir_all(root.join("data/variants")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/variants/demo.variant"),
+            r#"{"variantId":"before","hullId":"hull"}"#,
+        )
+        .unwrap();
+        super::cache::persistent::configure_persistent_index_cache(&cache_root).unwrap();
+
+        let mut initial_trace = PerformanceTrace::new("project.openSession");
+        let _ = build_project_session(&root, None, &mut initial_trace).unwrap();
+        let mut cached_trace = PerformanceTrace::new("project.openSession");
+        let cached = build_project_session(&root, None, &mut cached_trace).unwrap();
+
+        write_utf8_no_bom(
+            &root.join("data/variants/demo.variant"),
+            r#"{"variantId":"after","hullId":"hull"}"#,
+        )
+        .unwrap();
+        let mut changed_trace = PerformanceTrace::new("project.openSession");
+        let changed = build_project_session(&root, None, &mut changed_trace).unwrap();
+
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(cache_root);
+        assert!(cached
+            .variant_files
+            .iter()
+            .any(|file| file.variant_id == "before"));
+        assert!(changed
+            .variant_files
+            .iter()
+            .any(|file| file.variant_id == "after"));
+        assert!(cached_trace
+            .log_messages(&[])
+            .iter()
+            .any(|message| message.contains("name=persistent_index")
+                && message.contains("result=hit")));
+        assert!(changed_trace
+            .log_messages(&[])
+            .iter()
+            .any(|message| message.contains("name=persistent_index")
+                && message.contains("result=miss")));
     }
 
     fn temp_dir(name: &str) -> std::path::PathBuf {

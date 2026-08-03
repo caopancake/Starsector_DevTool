@@ -37,7 +37,7 @@
       </li>
     </ul>
     <footer class="variant-list-footer config-entity-list-footer">
-      <n-button size="small" block @click="openCreateDialog">新建装配</n-button>
+      <n-button size="small" block :loading="openingCreateDialog" @click="openCreateDialog">新建装配</n-button>
     </footer>
 
     <n-modal
@@ -50,15 +50,7 @@
     >
       <div class="variant-dialog-fields">
         <n-input v-if="settings.isPlainEditMode" v-model:value="newHullId" placeholder="hullId" />
-        <n-select
-          v-else
-          v-model:value="newHullId"
-          :options="props.hullOptions"
-          :render-label="renderHullOptionLabel"
-          filterable
-          tag
-          placeholder="hullId"
-        />
+        <n-select v-else v-model:value="newHullId" :options="props.hullOptions" filterable tag placeholder="hullId" />
         <n-input v-model:value="newVariantId" placeholder="variantId" />
       </div>
     </n-modal>
@@ -66,10 +58,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useSettingsStore } from '@/stores/settings.store';
 import type { VariantFile } from '@/shared/types';
-import { isSelectOptionGroup, selectOptionText, type SelectOption } from '@/domain/schema/schema-options';
+import type { SelectOption } from '@/domain/schema/schema-options';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 
 const props = defineProps<{
@@ -77,6 +69,7 @@ const props = defineProps<{
   variants: VariantFile[];
   variantSprites: Record<string, string>;
   hullOptions: SelectOption[];
+  loadHullOptions: () => Promise<void>;
   modRoot: string | null;
   sessionId: string | null;
   createVariant: (sessionId: string, modRoot: string, hullId: string, variantId: string) => Promise<boolean>;
@@ -88,6 +81,7 @@ const settings = useSettingsStore();
 const feedback = useAppFeedback();
 
 const showCreateDialog = ref(false);
+const openingCreateDialog = ref(false);
 const newHullId = ref('');
 const newVariantId = ref('');
 const createModRoot = ref<string | null>(null);
@@ -95,11 +89,18 @@ const createSessionId = ref<string | null>(null);
 
 const variants = computed(() => [...props.variants].sort(compareVariants));
 
-function openCreateDialog() {
+async function openCreateDialog() {
   createModRoot.value = props.modRoot;
   createSessionId.value = props.sessionId;
   if (!createModRoot.value || !createSessionId.value) return;
-  showCreateDialog.value = true;
+  openingCreateDialog.value = true;
+  try {
+    await props.loadHullOptions();
+    if (props.modRoot !== createModRoot.value || props.sessionId !== createSessionId.value) return;
+    showCreateDialog.value = true;
+  } finally {
+    openingCreateDialog.value = false;
+  }
 }
 
 async function submitCreateVariant() {
@@ -135,18 +136,6 @@ function confirmDeleteVariant(variant: VariantFile) {
 
 function compareVariants(a: VariantFile, b: VariantFile): number {
   return a.hullId.localeCompare(b.hullId) || a.variantId.localeCompare(b.variantId);
-}
-
-function renderHullOptionLabel(option: SelectOption) {
-  if (isSelectOptionGroup(option)) return selectOptionText(option);
-  if (!option.sprite) return selectOptionText(option);
-  return h('span', { class: 'schema-select-option' }, [
-    h('img', {
-      src: option.sprite,
-      class: 'schema-select-option-thumb',
-    }),
-    h('span', { class: 'schema-select-option-label' }, selectOptionText(option)),
-  ]);
 }
 
 watch(

@@ -11,14 +11,16 @@
 </template>
 
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue';
 import { useWorkspaceStore } from '@/stores/workspace.store';
-import ConfigModOverview from '@/app/components/config/ConfigModOverview.vue';
-import ConfigFileHistoryView from '@/app/components/config/ConfigFileHistoryView.vue';
-import ConfigModInfoEditor from '@/app/components/config/ConfigModInfoEditor.vue';
-import ConfigFactionView from '@/app/components/config/ConfigFactionView.vue';
-import ConfigMissionView from '@/app/components/config/ConfigMissionView.vue';
-import ConfigSkinView from '@/app/components/config/ConfigSkinView.vue';
-import ConfigVariantView from '@/app/components/config/ConfigVariantView.vue';
+
+const ConfigModOverview = defineAsyncComponent(() => import('@/app/components/config/ConfigModOverview.vue'));
+const ConfigFileHistoryView = defineAsyncComponent(() => import('@/app/components/config/ConfigFileHistoryView.vue'));
+const ConfigModInfoEditor = defineAsyncComponent(() => import('@/app/components/config/ConfigModInfoEditor.vue'));
+const ConfigFactionView = defineAsyncComponent(() => import('@/app/components/config/ConfigFactionView.vue'));
+const ConfigMissionView = defineAsyncComponent(() => import('@/app/components/config/ConfigMissionView.vue'));
+const ConfigSkinView = defineAsyncComponent(() => import('@/app/components/config/ConfigSkinView.vue'));
+const ConfigVariantView = defineAsyncComponent(() => import('@/app/components/config/ConfigVariantView.vue'));
 
 const workspace = useWorkspaceStore();
 </script>

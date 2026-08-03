@@ -28,8 +28,14 @@ fn build_hull_references(
     session: &ProjectSession,
     requested_reference_ids: &[String],
 ) -> AppResult<HullReferencesResult> {
+    if !requested_reference_ids.is_empty() {
+        return Ok(HullReferencesResult {
+            groups: Vec::new(),
+            sprites: resolve_requested_hull_sprites(session, requested_reference_ids)?,
+        });
+    }
+
     let mut groups = Vec::new();
-    let mut sprites = BTreeMap::new();
     let mut seen = BTreeSet::new();
     let ship_options: Vec<HullReferenceOption> = session
         .ship_files
@@ -46,9 +52,6 @@ fn build_hull_references(
                     "thumbnail",
                 )
             });
-            if let Some(resource_ref) = resource_ref.clone() {
-                sprites.insert(hull_id.clone(), resource_ref);
-            }
             HullReferenceOption {
                 label,
                 value: hull_id.clone(),
@@ -71,9 +74,6 @@ fn build_hull_references(
         .map(|skin| {
             seen.insert(skin.skin_hull_id.clone());
             let resource_ref = skin_resource_ref(ResourceSource::Mod, &session.ship_files, skin);
-            if let Some(resource_ref) = resource_ref.clone() {
-                sprites.insert(skin.skin_hull_id.clone(), resource_ref);
-            }
             HullReferenceOption {
                 label: if skin.skin_hull_id == skin.base_hull_id {
                     skin.skin_hull_id.clone()
@@ -94,11 +94,9 @@ fn build_hull_references(
         });
     }
 
-    let mut core_ship_files = BTreeMap::new();
-    let mut core_skin_files = Vec::new();
     if let Some(root) = session.manifest.starsector_root.as_ref() {
-        core_ship_files = load_core_ship_files(root)?;
-        core_skin_files = load_core_skin_files(root)?;
+        let core_ship_files = load_core_ship_files(root)?;
+        let core_skin_files = load_core_skin_files(root)?;
 
         let mut core_ship_options = Vec::new();
         for (hull_id, ship) in &core_ship_files {
@@ -158,58 +156,94 @@ fn build_hull_references(
         }
     }
 
+    Ok(HullReferencesResult {
+        groups,
+        sprites: BTreeMap::new(),
+    })
+}
+
+fn resolve_requested_hull_sprites(
+    session: &ProjectSession,
+    requested_reference_ids: &[String],
+) -> AppResult<BTreeMap<String, crate::models::ResourceRef>> {
+    let mut sprites = BTreeMap::new();
     for reference_id in requested_reference_ids {
-        if sprites.contains_key(reference_id) {
-            continue;
-        }
-        let resource_ref = session
-            .skin_files
-            .iter()
-            .find(|skin| skin.skin_hull_id == *reference_id)
-            .and_then(|skin| skin_resource_ref(ResourceSource::Mod, &session.ship_files, skin))
-            .or_else(|| {
-                session
-                    .ship_files
-                    .get(reference_id)
-                    .and_then(|ship| string_field(ship, "spriteName"))
-                    .map(|sprite| {
-                        resource_ref(
-                            ResourceSource::Mod,
-                            &sprite,
-                            ResourceOwnerKind::Ship,
-                            reference_id,
-                            "thumbnail",
-                        )
-                    })
-            })
-            .or_else(|| {
-                core_skin_files
-                    .iter()
-                    .find(|skin| skin.skin_hull_id == *reference_id)
-                    .and_then(|skin| {
-                        skin_resource_ref(ResourceSource::Core, &core_ship_files, skin)
-                    })
-            })
-            .or_else(|| {
-                core_ship_files
-                    .get(reference_id)
-                    .and_then(|ship| string_field(ship, "spriteName"))
-                    .map(|sprite| {
-                        resource_ref(
-                            ResourceSource::Core,
-                            &sprite,
-                            ResourceOwnerKind::Ship,
-                            reference_id,
-                            "thumbnail",
-                        )
-                    })
-            });
-        if let Some(resource_ref) = resource_ref {
-            sprites.insert(reference_id.clone(), resource_ref);
+        if let Some(resource) = resolve_mod_hull_sprite(session, reference_id) {
+            sprites.insert(reference_id.clone(), resource);
         }
     }
+    let unresolved: BTreeSet<String> = requested_reference_ids
+        .iter()
+        .filter(|reference_id| !sprites.contains_key(reference_id.as_str()))
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    if unresolved.is_empty() {
+        return Ok(sprites);
+    }
+    let Some(root) = session.manifest.starsector_root.as_ref() else {
+        return Ok(sprites);
+    };
+    let core_ship_files = load_core_ship_files(root)?;
+    let core_skin_files = load_core_skin_files(root)?;
+    for reference_id in unresolved {
+        if let Some(resource) =
+            resolve_core_hull_sprite(&core_ship_files, &core_skin_files, &reference_id)
+        {
+            sprites.insert(reference_id, resource);
+        }
+    }
+    Ok(sprites)
+}
 
-    Ok(HullReferencesResult { groups, sprites })
+fn resolve_mod_hull_sprite(
+    session: &ProjectSession,
+    reference_id: &str,
+) -> Option<crate::models::ResourceRef> {
+    session
+        .skin_files
+        .iter()
+        .find(|skin| skin.skin_hull_id == reference_id)
+        .and_then(|skin| skin_resource_ref(ResourceSource::Mod, &session.ship_files, skin))
+        .or_else(|| {
+            session
+                .ship_files
+                .get(reference_id)
+                .and_then(|ship| string_field(ship, "spriteName"))
+                .map(|sprite| {
+                    resource_ref(
+                        ResourceSource::Mod,
+                        &sprite,
+                        ResourceOwnerKind::Ship,
+                        reference_id,
+                        "thumbnail",
+                    )
+                })
+        })
+}
+
+fn resolve_core_hull_sprite(
+    core_ship_files: &BTreeMap<String, serde_json::Value>,
+    core_skin_files: &[crate::models::SkinFile],
+    reference_id: &str,
+) -> Option<crate::models::ResourceRef> {
+    core_skin_files
+        .iter()
+        .find(|skin| skin.skin_hull_id == reference_id)
+        .and_then(|skin| skin_resource_ref(ResourceSource::Core, core_ship_files, skin))
+        .or_else(|| {
+            core_ship_files
+                .get(reference_id)
+                .and_then(|ship| string_field(ship, "spriteName"))
+                .map(|sprite| {
+                    resource_ref(
+                        ResourceSource::Core,
+                        &sprite,
+                        ResourceOwnerKind::Ship,
+                        reference_id,
+                        "thumbnail",
+                    )
+                })
+        })
 }
 
 fn hull_reference_label(hull_id: &str, ship: &serde_json::Value) -> String {
@@ -260,7 +294,8 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
-        let result = query_hull_references(
+        let catalog = query_hull_references(&manifest.session_id, &[]).unwrap();
+        let previews = query_hull_references(
             &manifest.session_id,
             &[
                 "mod_ship".to_string(),
@@ -271,9 +306,7 @@ mod tests {
         )
         .unwrap();
 
-        let _ = close_project_session(manifest.session_id);
-        let _ = std::fs::remove_dir_all(root);
-        let values: Vec<String> = result
+        let values: Vec<String> = catalog
             .groups
             .iter()
             .flat_map(|group| group.options.iter().map(|option| option.value.clone()))
@@ -282,20 +315,25 @@ mod tests {
         assert!(values.contains(&"mod_skin".to_string()));
         assert!(values.contains(&"core_ship".to_string()));
         assert!(values.contains(&"core_skin".to_string()));
+        assert!(catalog.sprites.is_empty());
+        assert!(previews.groups.is_empty());
+        assert_eq!(previews.sprites.len(), 4);
         assert_eq!(
-            result
+            previews
                 .sprites
                 .get("core_skin")
                 .map(|resource| resource.source.as_str()),
             Some("core")
         );
         assert_eq!(
-            result
+            previews
                 .sprites
                 .get("mod_skin")
                 .map(|resource| resource.rel_path.as_str()),
             Some("graphics/ships/mod_ship.png")
         );
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
     }
 
     fn temp_dir(name: &str) -> std::path::PathBuf {

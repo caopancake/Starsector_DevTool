@@ -1,5 +1,6 @@
 import { querySessionHullReferences } from '@/services/query.service';
 import { queryResourceDataUrls } from '@/services/resource-cache.service';
+import { measurePerformanceAsync } from '@/services/performance.service';
 import { isResourceRef } from '@/shared/lib/resource-ref';
 import type { EntityData, ProjectSessionId, ResourceRef } from '@/shared/types';
 import type { SelectOption } from '@/domain/schema/schema-options';
@@ -71,32 +72,33 @@ export async function hydrateMissionIcon(sessionId: ProjectSessionId, entity: En
 }
 
 export async function queryHullReferenceOptions(sessionId: ProjectSessionId, referenceIds: string[]): Promise<SelectOption[]> {
-  const result = await querySessionHullReferences(sessionId, referenceIds);
-  const resources = result.groups.flatMap((group) => group.options.map((option) => option.resourceRef).filter(isResourceRef));
-  const dataUrls = await queryResourceDataUrls(sessionId, resources);
-  let resourceIndex = 0;
-  return result.groups.flatMap((group) =>
-    group.options.map((option) => {
-      const resource = isResourceRef(option.resourceRef) ? option.resourceRef : null;
-      const sprite = resource ? (dataUrls[resourceIndex++] ?? '') : '';
-      return {
-        label: option.label,
-        value: option.value,
-        sprite,
-        resourceRef: resource,
-      };
-    }),
-  );
+  return measurePerformanceAsync('frontend.config.hullReferenceCatalog', { references: referenceIds.length }, async () => {
+    const result = await querySessionHullReferences(sessionId, referenceIds);
+    return result.groups.flatMap((group) =>
+      group.options.map((option) => {
+        const resource = isResourceRef(option.resourceRef) ? option.resourceRef : null;
+        return {
+          label: option.label,
+          value: option.value,
+          resourceRef: resource,
+        };
+      }),
+    );
+  });
 }
 
 export async function queryHullPreviewResources(sessionId: ProjectSessionId, hullIds: string[]): Promise<HydratedResourceMap> {
-  const result = await querySessionHullReferences(sessionId, hullIds);
-  return hydrateResourceMap(sessionId, result.sprites);
+  return measurePerformanceAsync('frontend.config.hullPreviewResources', { hulls: hullIds.length }, async () => {
+    const result = await querySessionHullReferences(sessionId, hullIds);
+    return hydrateResourceMap(sessionId, result.sprites);
+  });
 }
 
 export async function querySkinPreviewResources(sessionId: ProjectSessionId, skinIds: string[]): Promise<HydratedResourceMap> {
-  const result = await querySessionHullReferences(sessionId, skinIds);
-  return hydrateResourceMap(sessionId, result.sprites);
+  return measurePerformanceAsync('frontend.config.skinPreviewResources', { skins: skinIds.length }, async () => {
+    const result = await querySessionHullReferences(sessionId, skinIds);
+    return hydrateResourceMap(sessionId, result.sprites);
+  });
 }
 
 async function hydrateResourceMap(sessionId: ProjectSessionId, refs: Record<string, ResourceRef>): Promise<HydratedResourceMap> {

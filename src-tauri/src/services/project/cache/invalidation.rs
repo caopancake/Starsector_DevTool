@@ -1,45 +1,83 @@
 use crate::{
     errors::AppResult,
-    io::FsRootBoundary,
+    io::{parse_csv_text, FsRootBoundary},
     models::{
-        CsvTableKey, EntityKind, InvalidatedEntityRef, InvalidatedQueryKind, InvalidatedQueryScope,
-        InvalidatedResourceScope, ProjectInvalidation, ResourceSource,
+        CsvTableKey, EntityKind, FileChangeKind, FileChangeRecord, InvalidatedEntityRef,
+        InvalidatedQueryKind, InvalidatedQueryScope, InvalidatedResourceScope, ProjectInvalidation,
+        ResourceSource,
     },
+    parsers::parse_starsector_json,
 };
-use std::path::Path;
+use serde_json::{Map, Value};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+};
 
 use super::super::{entity_definitions, model::ProjectSession, root, table_definitions};
 
-pub(crate) fn invalidate_session_path(
+pub(crate) fn invalidate_session_changes(
     session: &mut ProjectSession,
-    changed_path: &str,
+    changes: &[FileChangeRecord],
 ) -> AppResult<ProjectInvalidation> {
     let boundary = FsRootBoundary::new(Path::new(&session.manifest.mod_root), "mod root")?;
-    let Some(project_path) =
-        boundary.resolve_changed_path_to_relative(changed_path, "changed path")?
-    else {
-        return Ok(ProjectInvalidation::default());
-    };
-    let target = ChangedProjectPath::classify(&project_path);
-    let invalidation = target.project_invalidation(&project_path);
-    for table_key in &target.csv_tables {
-        if let Some(table) = session.csv_tables.get_mut(table_key.as_str()) {
-            table.rows = None;
+    let files = changed_project_files(changes, &boundary)?;
+    let impacts = files
+        .iter()
+        .map(ChangedProjectImpact::new)
+        .collect::<Vec<_>>();
+    let mut tables = BTreeSet::new();
+    let mut entities = Vec::new();
+    let mut affected_kinds = BTreeSet::new();
+    let mut refresh_mod_info = false;
+    for impact in &impacts {
+        tables.extend(impact.target.csv_tables.iter().copied());
+        refresh_mod_info |= impact.target.refresh_mod_info;
+        affected_kinds.extend(impact.target.affected_entities.iter().copied());
+        push_unique_all(
+            &mut entities,
+            invalidated_entities_for_file(&impact.target, &impact.file),
+        );
+    }
+    if affected_kinds.contains(&EntityKind::Faction) {
+        tables.extend(faction_annotated_tables());
+    }
+    for table in &tables {
+        if let Some(state) = session.csv_tables.get_mut(table.as_str()) {
+            state.rows = None;
         }
-        refresh_table_entity_summary(session, table_key.as_str())?;
+        refresh_table_entity_summary(session, table.as_str())?;
     }
     let mod_root = Path::new(&session.manifest.mod_root).to_path_buf();
-    if target.refresh_mod_info {
+    if refresh_mod_info {
         session.manifest.mod_info = root::read_mod_info(&mod_root)?;
     }
-    for kind in &target.affected_entities {
-        let definition = entity_definitions::entity_definition(*kind);
+    for kind in affected_kinds {
+        let definition = entity_definitions::entity_definition(kind);
         (definition.refresh)(session)?;
         if let Some(table) = definition.csv_table {
             refresh_table_entity_summary(session, table.as_str())?;
         }
     }
-    Ok(invalidation)
+    let resources = impacts
+        .iter()
+        .map(|impact| InvalidatedResourceScope {
+            source: ResourceSource::Mod,
+            rel_path: impact.file.path.clone(),
+        })
+        .collect::<Vec<_>>();
+    let tables = tables.into_iter().collect::<Vec<_>>();
+    Ok(ProjectInvalidation {
+        paths: impacts
+            .iter()
+            .map(|impact| impact.file.path.clone())
+            .collect(),
+        query_scopes: query_scopes_for_invalidation(&tables, &entities, &resources),
+        tables,
+        entities,
+        resources,
+        session: false,
+    })
 }
 
 #[derive(Default)]
@@ -47,6 +85,30 @@ struct ChangedProjectPath {
     csv_tables: Vec<CsvTableKey>,
     refresh_mod_info: bool,
     affected_entities: Vec<EntityKind>,
+}
+
+struct ChangedProjectFile {
+    after_text: Option<String>,
+    before_text: Option<String>,
+    path: String,
+}
+
+struct ChangedProjectImpact {
+    file: ChangedProjectFile,
+    target: ChangedProjectPath,
+}
+
+impl ChangedProjectImpact {
+    fn new(file: &ChangedProjectFile) -> Self {
+        Self {
+            target: ChangedProjectPath::classify(&file.path),
+            file: ChangedProjectFile {
+                after_text: file.after_text.clone(),
+                before_text: file.before_text.clone(),
+                path: file.path.clone(),
+            },
+        }
+    }
 }
 
 impl ChangedProjectPath {
@@ -62,31 +124,238 @@ impl ChangedProjectPath {
             affected_entities,
         }
     }
+}
 
-    fn project_invalidation(&self, changed_path: &str) -> ProjectInvalidation {
-        let tables = self.csv_tables.clone();
-        let mut entities = Vec::new();
-        for definition in &self.affected_entities {
-            entities.push(InvalidatedEntityRef {
-                kind: *definition,
-                id: None,
-            });
+fn changed_project_files(
+    changes: &[FileChangeRecord],
+    boundary: &FsRootBoundary,
+) -> AppResult<Vec<ChangedProjectFile>> {
+    let mut files = Vec::new();
+    for change in changes {
+        match change.kind {
+            FileChangeKind::File => {
+                push_changed_project_file(
+                    &mut files,
+                    boundary,
+                    Path::new(&change.path),
+                    change.before_text.clone(),
+                    change.after_text.clone(),
+                )?;
+            }
+            FileChangeKind::Directory => {
+                changed_directory_files(&mut files, boundary, change)?;
+            }
         }
-        let resources: Vec<InvalidatedResourceScope> = (!changed_path.is_empty())
-            .then(|| InvalidatedResourceScope {
-                source: ResourceSource::Mod,
-                rel_path: changed_path.to_string(),
-            })
-            .into_iter()
-            .collect();
-        let query_scopes = query_scopes_for_invalidation(&tables, &entities, &resources);
-        ProjectInvalidation {
-            paths: vec![changed_path.to_string()],
-            tables,
-            entities,
-            resources,
-            query_scopes,
-            session: changed_path.is_empty(),
+    }
+    Ok(files)
+}
+
+fn changed_directory_files(
+    files: &mut Vec<ChangedProjectFile>,
+    boundary: &FsRootBoundary,
+    change: &FileChangeRecord,
+) -> AppResult<()> {
+    let mut before = BTreeMap::new();
+    let mut after = BTreeMap::new();
+    for snapshot in &change.before_files {
+        before.insert(snapshot.rel_path.clone(), snapshot);
+    }
+    for snapshot in &change.after_files {
+        after.insert(snapshot.rel_path.clone(), snapshot);
+    }
+    let paths = before
+        .keys()
+        .chain(after.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    if paths.is_empty() {
+        push_changed_project_file(files, boundary, Path::new(&change.path), None, None)?;
+        return Ok(());
+    }
+    for rel_path in paths {
+        push_changed_project_file(
+            files,
+            boundary,
+            &Path::new(&change.path).join(&rel_path),
+            before
+                .get(&rel_path)
+                .and_then(|snapshot| snapshot.text.clone()),
+            after
+                .get(&rel_path)
+                .and_then(|snapshot| snapshot.text.clone()),
+        )?;
+    }
+    Ok(())
+}
+
+fn push_changed_project_file(
+    files: &mut Vec<ChangedProjectFile>,
+    boundary: &FsRootBoundary,
+    path: &Path,
+    before_text: Option<String>,
+    after_text: Option<String>,
+) -> AppResult<()> {
+    let Some(path) =
+        boundary.resolve_changed_path_to_relative(&path.to_string_lossy(), "changed path")?
+    else {
+        return Ok(());
+    };
+    if let Some(existing) = files.iter_mut().find(|file| file.path == path) {
+        if before_text.is_some() {
+            existing.before_text = before_text;
+        }
+        if after_text.is_some() {
+            existing.after_text = after_text;
+        }
+        return Ok(());
+    }
+    files.push(ChangedProjectFile {
+        after_text,
+        before_text,
+        path,
+    });
+    Ok(())
+}
+
+fn invalidated_entities_for_file(
+    target: &ChangedProjectPath,
+    file: &ChangedProjectFile,
+) -> Vec<InvalidatedEntityRef> {
+    let mut entities = target
+        .affected_entities
+        .iter()
+        .flat_map(|kind| entity_ids_from_file(*kind, file))
+        .collect::<Vec<_>>();
+    for table in &target.csv_tables {
+        for definition in entity_definitions::entity_definitions()
+            .iter()
+            .filter(|definition| definition.csv_table == Some(*table))
+        {
+            push_unique_all(&mut entities, csv_entity_ids(definition.kind, *table, file));
+        }
+    }
+    entities
+}
+
+fn entity_ids_from_file(kind: EntityKind, file: &ChangedProjectFile) -> Vec<InvalidatedEntityRef> {
+    if kind == EntityKind::Mission {
+        return mission_entity_ids(file);
+    }
+    let definition = entity_definitions::entity_definition(kind);
+    let Some(spec) = definition.spec else {
+        return vec![invalidated_entity(kind, None)];
+    };
+    if !is_exact_spec_path(file.path.as_str(), spec.dir, spec.extension) {
+        return vec![invalidated_entity(kind, None)];
+    }
+    let Some(ids) = snapshot_json_ids(file, spec.id_field) else {
+        return vec![invalidated_entity(kind, None)];
+    };
+    ids.into_iter()
+        .map(|id| invalidated_entity(kind, Some(id)))
+        .collect()
+}
+
+fn mission_entity_ids(file: &ChangedProjectFile) -> Vec<InvalidatedEntityRef> {
+    let Some(rest) = file.path.strip_prefix("data/missions/") else {
+        return vec![invalidated_entity(EntityKind::Mission, None)];
+    };
+    if rest == "mission_list.csv" {
+        return vec![invalidated_entity(EntityKind::Mission, None)];
+    }
+    let id = rest.split('/').next().filter(|id| !id.is_empty());
+    vec![invalidated_entity(
+        EntityKind::Mission,
+        id.map(ToOwned::to_owned),
+    )]
+}
+
+fn csv_entity_ids(
+    kind: EntityKind,
+    table: CsvTableKey,
+    file: &ChangedProjectFile,
+) -> Vec<InvalidatedEntityRef> {
+    let id_field = table_definitions::csv_table_entity_id_field(table);
+    let Some(before) = snapshot_csv_rows(file.before_text.as_deref(), &file.path, id_field) else {
+        return vec![invalidated_entity(kind, None)];
+    };
+    let Some(after) = snapshot_csv_rows(file.after_text.as_deref(), &file.path, id_field) else {
+        return vec![invalidated_entity(kind, None)];
+    };
+    before
+        .keys()
+        .chain(after.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .filter(|id| before.get(id) != after.get(id))
+        .map(|id| invalidated_entity(kind, Some(id)))
+        .collect()
+}
+
+fn snapshot_json_ids(file: &ChangedProjectFile, id_field: &str) -> Option<Vec<String>> {
+    let texts = [file.before_text.as_deref(), file.after_text.as_deref()];
+    if texts.iter().all(Option::is_none) {
+        return None;
+    }
+    texts
+        .into_iter()
+        .flatten()
+        .map(|text| {
+            parse_starsector_json(text)
+                .ok()?
+                .get(id_field)
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|id| !id.is_empty())
+                .map(ToOwned::to_owned)
+        })
+        .collect::<Option<BTreeSet<_>>>()
+        .map(|ids| ids.into_iter().collect())
+}
+
+fn snapshot_csv_rows(
+    text: Option<&str>,
+    path: &str,
+    id_field: &str,
+) -> Option<BTreeMap<String, Vec<Map<String, Value>>>> {
+    let Some(text) = text else {
+        return Some(BTreeMap::new());
+    };
+    let csv = parse_csv_text(path, text).ok()?;
+    if !csv.header.iter().any(|header| header == id_field) {
+        return None;
+    }
+    let mut rows = BTreeMap::new();
+    for row in csv.rows {
+        if super::super::model::is_comment_row(&row) {
+            continue;
+        }
+        let id = super::super::model::string_from_row(&row, id_field)?;
+        rows.entry(id).or_insert_with(Vec::new).push(row);
+    }
+    Some(rows)
+}
+
+fn invalidated_entity(kind: EntityKind, id: Option<String>) -> InvalidatedEntityRef {
+    InvalidatedEntityRef { kind, id }
+}
+
+fn is_exact_spec_path(path: &str, dir: &str, extension: &str) -> bool {
+    path.starts_with(&format!("{dir}/")) && path.ends_with(extension)
+}
+
+fn faction_annotated_tables() -> impl Iterator<Item = CsvTableKey> {
+    table_definitions::csv_table_definitions()
+        .iter()
+        .filter(|definition| table_definitions::csv_table_supports_faction_filter(definition.key))
+        .map(|definition| definition.key)
+}
+
+fn push_unique_all<T: PartialEq>(target: &mut Vec<T>, values: Vec<T>) {
+    for value in values {
+        if !target.contains(&value) {
+            target.push(value);
         }
     }
 }
@@ -253,7 +522,8 @@ fn refresh_table_entity_summary(session: &mut ProjectSession, table_key: &str) -
 mod tests {
     use super::*;
     use crate::{
-        io::write_utf8_no_bom, models::CsvTableKey,
+        io::write_utf8_no_bom,
+        models::{CsvTableKey, FileChangeKind, FileChangeRecord, FileSnapshot},
         services::project::performance::PerformanceTrace,
     };
     use std::{
@@ -280,7 +550,15 @@ mod tests {
         )
         .unwrap();
 
-        invalidate_session_path(&mut session, "data/variants/demo.variant").unwrap();
+        let invalidation = invalidate_session_changes(
+            &mut session,
+            &[file_change(
+                root.join("data/variants/demo.variant"),
+                Some(r#"{"variantId":"old","hullId":"hull"}"#),
+                Some(r#"{"variantId":"new","hullId":"hull"}"#),
+            )],
+        )
+        .unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert!(session
@@ -292,6 +570,13 @@ mod tests {
             .iter()
             .any(|variant| variant.variant_id == "old"));
         assert_eq!(session.manifest.entity_summaries.variants, 1);
+        assert_eq!(
+            invalidation.entities,
+            vec![
+                invalidated_entity(EntityKind::Variant, Some("new".to_string())),
+                invalidated_entity(EntityKind::Variant, Some("old".to_string())),
+            ]
+        );
     }
 
     #[test]
@@ -324,7 +609,15 @@ mod tests {
         )
         .unwrap();
 
-        invalidate_session_path(&mut session, "data/world/factions/demo.faction").unwrap();
+        let invalidation = invalidate_session_changes(
+            &mut session,
+            &[file_change(
+                root.join("data/world/factions/demo.faction"),
+                Some(r#"{"id":"demo","displayName":"Demo","knownShips":{"tags":["demo_old_bp"]}}"#),
+                Some(r#"{"id":"demo","displayName":"Demo","knownShips":{"tags":["demo_new_bp"]}}"#),
+            )],
+        )
+        .unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert!(session.tag_map.contains_key("demo_new_bp"));
@@ -334,6 +627,195 @@ mod tests {
             .get(CsvTableKey::Ships.as_str())
             .and_then(|table| table.rows.as_ref())
             .is_none());
+        assert!(invalidation.entities.contains(&invalidated_entity(
+            EntityKind::Faction,
+            Some("demo".to_string())
+        )));
+        assert!(invalidation.tables.contains(&CsvTableKey::Ships));
+        assert!(invalidation.tables.contains(&CsvTableKey::Weapons));
+    }
+
+    #[test]
+    fn invalidating_csv_snapshot_scopes_ship_queries_to_changed_rows() {
+        let root = temp_dir("invalidate_ship_csv_snapshot");
+        fs::create_dir_all(root.join("data/hulls")).unwrap();
+        let before = "id,name\r\nalpha,Old\r\nbeta,Unchanged\r\n";
+        let after = "id,name\r\nalpha,New\r\nbeta,Unchanged\r\n";
+        write_utf8_no_bom(&root.join("data/hulls/ship_data.csv"), after).unwrap();
+        let mut trace = PerformanceTrace::new("project.openSession");
+        let mut session =
+            super::super::super::session::build_project_session(&root, None, &mut trace).unwrap();
+
+        let invalidation = invalidate_session_changes(
+            &mut session,
+            &[file_change(
+                root.join("data/hulls/ship_data.csv"),
+                Some(before),
+                Some(after),
+            )],
+        )
+        .unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(invalidation.tables, vec![CsvTableKey::Ships]);
+        assert_eq!(
+            invalidation.entities,
+            vec![invalidated_entity(
+                EntityKind::Ship,
+                Some("alpha".to_string())
+            )]
+        );
+        assert!(invalidation.query_scopes.iter().any(|scope| {
+            scope.kind == InvalidatedQueryKind::EntityDetail
+                && scope.entity
+                    == Some(invalidated_entity(
+                        EntityKind::Ship,
+                        Some("alpha".to_string()),
+                    ))
+        }));
+        assert!(!invalidation.query_scopes.iter().any(|scope| {
+            scope.kind == InvalidatedQueryKind::EntityDetail
+                && scope.entity == Some(invalidated_entity(EntityKind::Ship, None))
+        }));
+    }
+
+    #[test]
+    fn invalidating_directory_snapshot_refreshes_exact_variant_ids() {
+        let root = temp_dir("invalidate_variant_directory_snapshot");
+        fs::create_dir_all(root.join("data/variants")).unwrap();
+        let old = r#"{"variantId":"old","hullId":"hull"}"#;
+        write_utf8_no_bom(&root.join("data/variants/old.variant"), old).unwrap();
+        let mut trace = PerformanceTrace::new("project.openSession");
+        let mut session =
+            super::super::super::session::build_project_session(&root, None, &mut trace).unwrap();
+        fs::remove_dir_all(root.join("data/variants")).unwrap();
+
+        let invalidation = invalidate_session_changes(
+            &mut session,
+            &[directory_change(
+                root.join("data/variants"),
+                vec![FileSnapshot {
+                    rel_path: "old.variant".to_string(),
+                    text: Some(old.to_string()),
+                    data_base64: None,
+                }],
+                Vec::new(),
+            )],
+        )
+        .unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(session.variant_files.is_empty());
+        assert_eq!(
+            invalidation.entities,
+            vec![invalidated_entity(
+                EntityKind::Variant,
+                Some("old".to_string())
+            )]
+        );
+    }
+
+    #[test]
+    fn spec_snapshots_cover_all_registered_kinds_and_change_directions() {
+        for definition in entity_definitions::entity_definitions() {
+            let Some(spec) = definition.spec else {
+                continue;
+            };
+            let path = format!("{}/demo{}", spec.dir, spec.extension);
+            let old = format!(r#"{{"{}":"old"}}"#, spec.id_field);
+            let new = format!(r#"{{"{}":"new"}}"#, spec.id_field);
+            let target = ChangedProjectPath::classify(&path);
+
+            assert_eq!(
+                invalidated_entities_for_file(
+                    &target,
+                    &ChangedProjectFile {
+                        after_text: Some(new.clone()),
+                        before_text: None,
+                        path: path.clone(),
+                    },
+                ),
+                vec![invalidated_entity(definition.kind, Some("new".to_string()))]
+            );
+            assert_eq!(
+                invalidated_entities_for_file(
+                    &target,
+                    &ChangedProjectFile {
+                        after_text: None,
+                        before_text: Some(old.clone()),
+                        path: path.clone(),
+                    },
+                ),
+                vec![invalidated_entity(definition.kind, Some("old".to_string()))]
+            );
+            assert_eq!(
+                invalidated_entities_for_file(
+                    &target,
+                    &ChangedProjectFile {
+                        after_text: Some(new),
+                        before_text: Some(old),
+                        path,
+                    },
+                ),
+                vec![
+                    invalidated_entity(definition.kind, Some("new".to_string())),
+                    invalidated_entity(definition.kind, Some("old".to_string())),
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn csv_snapshots_cover_create_delete_and_rename_for_registered_entities() {
+        for definition in entity_definitions::entity_definitions() {
+            let Some(table) = definition.csv_table else {
+                continue;
+            };
+            let id_field = table_definitions::csv_table_entity_id_field(table);
+            let path = table_definitions::csv_table_definition(table).rel_path;
+            let target = ChangedProjectPath::classify(path);
+            let create = format!("{id_field},name\r\nnew,New\r\n");
+            let delete = format!("{id_field},name\r\nold,Old\r\n");
+            let rename_before = format!("{id_field},name\r\nold,Same\r\n");
+            let rename_after = format!("{id_field},name\r\nnew,Same\r\n");
+
+            assert_eq!(
+                invalidated_entities_for_file(
+                    &target,
+                    &ChangedProjectFile {
+                        after_text: Some(create),
+                        before_text: None,
+                        path: path.to_string(),
+                    },
+                ),
+                vec![invalidated_entity(definition.kind, Some("new".to_string()))]
+            );
+            assert_eq!(
+                invalidated_entities_for_file(
+                    &target,
+                    &ChangedProjectFile {
+                        after_text: None,
+                        before_text: Some(delete),
+                        path: path.to_string(),
+                    },
+                ),
+                vec![invalidated_entity(definition.kind, Some("old".to_string()))]
+            );
+            assert_eq!(
+                invalidated_entities_for_file(
+                    &target,
+                    &ChangedProjectFile {
+                        after_text: Some(rename_after),
+                        before_text: Some(rename_before),
+                        path: path.to_string(),
+                    },
+                ),
+                vec![
+                    invalidated_entity(definition.kind, Some("new".to_string())),
+                    invalidated_entity(definition.kind, Some("old".to_string())),
+                ]
+            );
+        }
     }
 
     #[test]
@@ -387,9 +869,13 @@ mod tests {
         let mut session =
             super::super::super::session::build_project_session(&root, None, &mut trace).unwrap();
 
-        invalidate_session_path(
+        invalidate_session_changes(
             &mut session,
-            &external.join("data/hulls/external.ship").to_string_lossy(),
+            &[file_change(
+                external.join("data/hulls/external.ship"),
+                None,
+                Some(r#"{"hullId":"external"}"#),
+            )],
         )
         .unwrap();
 
@@ -408,6 +894,44 @@ mod tests {
         let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
         fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    fn file_change(
+        path: PathBuf,
+        before_text: Option<&str>,
+        after_text: Option<&str>,
+    ) -> FileChangeRecord {
+        FileChangeRecord {
+            kind: FileChangeKind::File,
+            path: path.to_string_lossy().to_string(),
+            before_exists: before_text.is_some(),
+            before_text: before_text.map(ToOwned::to_owned),
+            before_data_base64: None,
+            before_files: Vec::new(),
+            after_exists: after_text.is_some(),
+            after_text: after_text.map(ToOwned::to_owned),
+            after_data_base64: None,
+            after_files: Vec::new(),
+        }
+    }
+
+    fn directory_change(
+        path: PathBuf,
+        before_files: Vec<FileSnapshot>,
+        after_files: Vec<FileSnapshot>,
+    ) -> FileChangeRecord {
+        FileChangeRecord {
+            kind: FileChangeKind::Directory,
+            path: path.to_string_lossy().to_string(),
+            before_exists: !before_files.is_empty(),
+            before_text: None,
+            before_data_base64: None,
+            before_files,
+            after_exists: !after_files.is_empty(),
+            after_text: None,
+            after_data_base64: None,
+            after_files,
+        }
     }
 
     fn entity_spec_path_matches(kind: EntityKind, path: &str) -> bool {

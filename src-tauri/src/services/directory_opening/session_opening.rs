@@ -3,8 +3,10 @@ use crate::{
     io::FsRootBoundary,
     models::{AppLogEntry, AppLogLevel, ProjectManifest},
     services::{
-        app_log,
-        project::{open_project_session_traced, PerformanceTrace},
+        app_log, app_paths,
+        project::{
+            configure_persistent_index_cache, open_project_session_traced, PerformanceTrace,
+        },
     },
 };
 use std::path::Path;
@@ -14,6 +16,9 @@ pub fn open_project_session_with_root(
     mod_root: String,
     starsector_root: Option<String>,
 ) -> AppResult<ProjectManifest> {
+    if let Ok(app_data_dir) = app_paths::app_data_dir(app_handle.clone()) {
+        let _ = configure_persistent_index_cache(&app_data_dir);
+    }
     let mut trace = PerformanceTrace::new("project.openSession");
     let mod_root_boundary = FsRootBoundary::new(Path::new(&mod_root), "mod root")?;
     let mod_root_path = mod_root_boundary.root();

@@ -139,7 +139,7 @@ pub struct HullReferencesPayload {
 #[serde(rename_all = "camelCase")]
 pub struct InvalidateProjectSessionPayload {
     pub session_id: ProjectSessionId,
-    pub changed_paths: Vec<String>,
+    pub changes: Vec<FileChangeRecord>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -306,6 +306,15 @@ mod tests {
         .unwrap();
 
         assert_eq!(payload.starsector_root, None);
+    }
+
+    #[test]
+    fn invalidate_project_session_payload_requires_changeset_records() {
+        let result = serde_json::from_value::<InvalidateProjectSessionPayload>(json!({
+            "sessionId": "session-1"
+        }));
+
+        assert!(result.is_err());
     }
 
     #[test]

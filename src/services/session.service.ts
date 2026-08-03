@@ -7,7 +7,13 @@ import {
   openProjectSession,
   scanGameOverview,
 } from '@/shared/api/session-api';
-import type { GameOverviewData, OpenDirectoryResult, ProjectManifest, ProjectSessionInvalidationResult } from '@/shared/types';
+import type {
+  FileChangeRecord,
+  GameOverviewData,
+  OpenDirectoryResult,
+  ProjectManifest,
+  ProjectSessionInvalidationResult,
+} from '@/shared/types';
 import { recordPerformance } from '@/services/performance.service';
 
 export async function pickDirectory(): Promise<string | null> {
@@ -36,8 +42,8 @@ export function closeProject(sessionId: string): Promise<void> {
   return closeProjectSession(sessionId);
 }
 
-export function requestProjectSessionRefresh(sessionId: string, changedPaths: string[]): Promise<ProjectSessionInvalidationResult> {
-  return invalidateProjectSession(sessionId, changedPaths);
+export function requestProjectSessionRefresh(sessionId: string, changes: FileChangeRecord[]): Promise<ProjectSessionInvalidationResult> {
+  return invalidateProjectSession(sessionId, changes);
 }
 
 export function invalidateCoreCacheForRoot(starsectorRoot: string): Promise<void> {

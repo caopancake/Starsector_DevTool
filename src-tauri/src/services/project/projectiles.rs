@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, path::Path};
 
 pub(super) fn load_projectile_specs(
     mod_root: &Path,
-    core_dir: Option<&Path>,
+    core_projectiles: Option<BTreeMap<String, Value>>,
 ) -> AppResult<BTreeMap<String, Value>> {
     let mut result = BTreeMap::new();
     insert_projectiles(
@@ -13,13 +13,10 @@ pub(super) fn load_projectile_specs(
         ResourceSource::Mod,
         true,
     )?;
-    if let Some(core) = core_dir {
-        insert_projectiles(
-            &mut result,
-            &core.join("data/weapons/proj"),
-            ResourceSource::Core,
-            false,
-        )?;
+    if let Some(core_projectiles) = core_projectiles {
+        for (id, value) in core_projectiles {
+            result.entry(id).or_insert(value);
+        }
     }
     Ok(result)
 }
@@ -65,14 +62,20 @@ mod tests {
     fn mod_projectile_overrides_core_fallback() {
         let root = temp_dir("projectile_fallback");
         let mod_proj = root.join("mod/data/weapons/proj");
-        let core_proj = root.join("core/data/weapons/proj");
+        let core_proj = root.join("core/starsector-core/data/weapons/proj");
         fs::create_dir_all(&mod_proj).unwrap();
         fs::create_dir_all(&core_proj).unwrap();
         write_utf8_no_bom(&mod_proj.join("same.proj"), r#"{"id":"same","damage":2}"#).unwrap();
         write_utf8_no_bom(&core_proj.join("same.proj"), r#"{"id":"same","damage":1}"#).unwrap();
         write_utf8_no_bom(&core_proj.join("core_only.proj"), r#"{"id":"core_only"}"#).unwrap();
 
-        let loaded = load_projectile_specs(&root.join("mod"), Some(&root.join("core"))).unwrap();
+        let mut core_projectiles = BTreeMap::new();
+        for mut value in load_json_dir(&core_proj, "proj").unwrap() {
+            let id = value["id"].as_str().unwrap().to_string();
+            value["_source"] = Value::String(ResourceSource::Core.as_str().to_string());
+            core_projectiles.insert(id, value);
+        }
+        let loaded = load_projectile_specs(&root.join("mod"), Some(core_projectiles)).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(loaded["same"]["damage"], 2);

@@ -35,14 +35,9 @@
 </template>
 
 <script setup lang="ts">
-import { onUnmounted, watchEffect } from 'vue';
+import { defineAsyncComponent, onUnmounted, watchEffect } from 'vue';
 import TitleBar from '@/app/TitleBar.vue';
 import NavSidebar from '@/app/components/NavSidebar.vue';
-import OverviewPage from '@/app/components/OverviewPage.vue';
-import SettingsPage from '@/app/components/SettingsPage.vue';
-import AboutPage from '@/app/components/AboutPage.vue';
-import TableWorkspace from '@/app/components/TableWorkspace.vue';
-import ConfigWorkspace from '@/app/components/config/ConfigWorkspace.vue';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useProjectStore } from '@/stores/project.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
@@ -50,6 +45,12 @@ import { useWorkspaceShellActions } from '@/app/composables/use-workspace-shell-
 import { useMainWindowShortcuts } from '@/app/composables/use-main-window-shortcuts';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { registerActiveSaveHandler, unregisterActiveSaveHandler } from '@/shared/lib/save-command-registry';
+
+const OverviewPage = defineAsyncComponent(() => import('@/app/components/OverviewPage.vue'));
+const SettingsPage = defineAsyncComponent(() => import('@/app/components/SettingsPage.vue'));
+const AboutPage = defineAsyncComponent(() => import('@/app/components/AboutPage.vue'));
+const TableWorkspace = defineAsyncComponent(() => import('@/app/components/TableWorkspace.vue'));
+const ConfigWorkspace = defineAsyncComponent(() => import('@/app/components/config/ConfigWorkspace.vue'));
 
 const project = useProjectStore();
 const settings = useSettingsStore();

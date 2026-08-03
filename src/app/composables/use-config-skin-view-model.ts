@@ -31,6 +31,7 @@ export function useConfigSkinViewModel() {
   let skinsRequestId = 0;
   let skinSpritesRequestId = 0;
   let hullOptionsRequestId = 0;
+  const hullOptionsLoaded = ref(false);
 
   async function loadSkins() {
     const requestId = ++skinsRequestId;
@@ -83,12 +84,14 @@ export function useConfigSkinViewModel() {
     const sessionId = project.activeSessionId;
     if (!sessionId || settings.isPlainEditMode) {
       hullOptions.value = [];
+      hullOptionsLoaded.value = false;
       return;
     }
     try {
       const options = await queryHullReferenceOptions(sessionId, []);
       if (requestId !== hullOptionsRequestId || sessionId !== project.activeSessionId) return;
       hullOptions.value = options;
+      hullOptionsLoaded.value = true;
     } catch (error) {
       feedback.error(error, '读取舰船引用失败');
     }
@@ -171,7 +174,15 @@ export function useConfigSkinViewModel() {
   }
 
   watch(() => project.activeSessionId, loadSkins, { immediate: true });
-  watch([() => project.activeSessionId, () => settings.isPlainEditMode], () => void loadHullOptions(), { immediate: true });
+  watch(
+    () => settings.isPlainEditMode,
+    () => {
+      if (settings.isPlainEditMode) {
+        hullOptions.value = [];
+        hullOptionsLoaded.value = false;
+      }
+    },
+  );
   const stopQueryInvalidation = subscribeQueryInvalidations((event) => {
     if (event.sessionId !== project.activeSessionId) return;
     const skinsChanged = hasEntityInvalidation(event, 'entity-list', 'skin');
@@ -179,16 +190,13 @@ export function useConfigSkinViewModel() {
     if (skinsChanged) void loadSkins();
     if (hullReferenceQueryChanged) {
       void loadSkinSprites();
-    }
-    if (hullReferenceQueryChanged) {
-      void loadHullOptions();
+      if (hullOptionsLoaded.value) void loadHullOptions();
     }
   });
   const stopResourceInvalidation = subscribeResourceInvalidations((event) => {
     if (event.sessionId !== project.activeSessionId) return;
     if (!hasResourceInvalidation(event, skinSpriteResourceRefs.value)) return;
     void loadSkinSprites();
-    void loadHullOptions();
   });
   onUnmounted(() => {
     stopQueryInvalidation();
@@ -202,6 +210,7 @@ export function useConfigSkinViewModel() {
     skins,
     skinSprites,
     hullOptions,
+    loadHullOptions,
     skinDataRevision,
     createSkin,
     deleteSkin,

@@ -759,8 +759,15 @@ fn refresh_faction(session: &mut ProjectSession) -> AppResult<()> {
     let mod_root = Path::new(&session.manifest.mod_root);
     session.faction_files = factions::load_faction_files(mod_root)?;
     session.tag_map = factions::discover_factions(mod_root)?.1;
-    for table in session.csv_tables.values_mut() {
-        table.rows = None;
+    for definition in super::table_definitions::csv_table_definitions()
+        .iter()
+        .filter(|definition| {
+            super::table_definitions::csv_table_supports_faction_filter(definition.key)
+        })
+    {
+        if let Some(table) = session.csv_tables.get_mut(definition.key.as_str()) {
+            table.rows = None;
+        }
     }
     session.manifest.entity_summaries.factions = session.faction_files.len();
     Ok(())
