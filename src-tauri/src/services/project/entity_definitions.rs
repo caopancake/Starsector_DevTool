@@ -503,58 +503,37 @@ pub(super) fn registered_mission_rows(
         .csv_tables
         .get(MISSION_LIST_TABLE_KEY)
         .ok_or_else(|| AppError::message(format!("unknown table: {MISSION_LIST_TABLE_KEY}")))?;
-    registered_entity_rows(
+    Ok(registered_entity_rows(
         loaded_csv_rows(table, MISSION_LIST_TABLE_KEY)?,
-        "missions",
         "mission",
-    )
+    ))
 }
 
 fn registered_weapon_rows(session: &ProjectSession) -> AppResult<Vec<RegisteredCsvEntityRow>> {
-    registered_entity_rows(
+    Ok(registered_entity_rows(
         loaded_registered_csv_rows(session, CsvTableKey::Weapons)?,
-        CsvTableKey::Weapons.as_str(),
         "id",
-    )
+    ))
 }
 
 fn registered_skill_rows(session: &ProjectSession) -> AppResult<Vec<RegisteredCsvEntityRow>> {
-    registered_entity_rows(
+    Ok(registered_entity_rows(
         loaded_registered_csv_rows(session, CsvTableKey::Skills)?,
-        CsvTableKey::Skills.as_str(),
         "id",
-    )
+    ))
 }
 
-fn registered_entity_rows(
-    rows: &[SessionCsvRow],
-    table_label: &str,
-    id_column: &str,
-) -> AppResult<Vec<RegisteredCsvEntityRow>> {
-    let mut registered = Vec::new();
-    for (index, row) in rows.iter().enumerate() {
-        if is_csv_entity_padding_row(&row.row) {
-            continue;
-        }
-        let id = string_from_row(&row.row, id_column).ok_or_else(|| {
-            AppError::message(format!(
-                "{table_label} registered row {} is missing {id_column}",
-                index + 2
-            ))
-        })?;
-        registered.push(RegisteredCsvEntityRow {
-            id,
-            row: row.row.clone(),
-        });
-    }
-    Ok(registered)
-}
-
-fn is_csv_entity_padding_row(row: &Map<String, Value>) -> bool {
-    is_comment_row(row)
-        || row
-            .values()
-            .all(|value| value.as_str().is_none_or(|text| text.trim().is_empty()))
+fn registered_entity_rows(rows: &[SessionCsvRow], id_column: &str) -> Vec<RegisteredCsvEntityRow> {
+    rows.iter()
+        .filter(|row| !is_comment_row(&row.row))
+        .filter_map(|row| {
+            let id = string_from_row(&row.row, id_column)?;
+            Some(RegisteredCsvEntityRow {
+                id,
+                row: row.row.clone(),
+            })
+        })
+        .collect()
 }
 
 fn build_weapon_list_entity(

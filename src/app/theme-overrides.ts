@@ -1,30 +1,31 @@
 import type { GlobalThemeOverrides } from 'naive-ui/es/config-provider';
+import type { ThemeColorTokens } from '@/stores/settings.store';
 
-function colorToken(name: `--${string}`): string {
-  return `var(${name})`;
-}
-
-export function buildThemeOverrides(): GlobalThemeOverrides {
-  const background = colorToken('--color-bg');
-  const panel = colorToken('--color-panel');
-  const panelMuted = colorToken('--color-panel-muted');
-  const surface = colorToken('--color-surface');
-  const surfaceHover = colorToken('--color-surface-hover');
-  const surfaceActive = colorToken('--color-surface-active');
-  const border = colorToken('--color-border');
-  const text = colorToken('--color-text');
-  const textSoft = colorToken('--color-text-soft');
-  const muted = colorToken('--color-muted');
-  const faint = colorToken('--color-faint');
-  const primary = colorToken('--color-primary');
-  const primaryHover = colorToken('--color-primary-hover');
-  const primaryPressed = colorToken('--color-primary-pressed');
-  const success = colorToken('--color-success');
-  const warning = colorToken('--color-warning');
-  const danger = colorToken('--color-danger');
-  const scrollbar = colorToken('--scrollbar-thumb');
-  const scrollbarHover = colorToken('--scrollbar-thumb-hover');
-  const shadow = colorToken('--shadow-floating');
+export function buildThemeOverrides(colors: ThemeColorTokens): GlobalThemeOverrides {
+  const {
+    background,
+    border,
+    borderStrong,
+    danger,
+    faint,
+    muted,
+    panel,
+    panelMuted,
+    primary,
+    primaryBorder,
+    primaryHover,
+    primaryPressed,
+    scrollbar,
+    scrollbarHover,
+    shadowFloating: shadow,
+    success,
+    surface,
+    surfaceActive,
+    surfaceHover,
+    text,
+    textSoft,
+    warning,
+  } = colors;
 
   return {
     common: {
@@ -88,6 +89,39 @@ export function buildThemeOverrides(): GlobalThemeOverrides {
     },
     Button: {
       borderRadiusSmall: '5px',
+    },
+    Input: {
+      heightTiny: '24px',
+      heightSmall: '30px',
+      heightMedium: '30px',
+      heightLarge: '36px',
+      fontSizeTiny: '11px',
+      fontSizeSmall: '12px',
+      fontSizeMedium: '12px',
+      fontSizeLarge: '14px',
+      borderRadius: '5px',
+      textColor: text,
+      textColorDisabled: textSoft,
+      textDecorationColor: text,
+      caretColor: primary,
+      placeholderColor: muted,
+      placeholderColorDisabled: faint,
+      color: panel,
+      colorDisabled: surface,
+      colorFocus: panel,
+      border: `1px solid ${border}`,
+      borderDisabled: `1px solid ${border}`,
+      borderHover: `1px solid ${borderStrong}`,
+      borderFocus: `1px solid ${primaryBorder}`,
+      boxShadowFocus: `inset 0 0 0 1px ${primaryBorder}`,
+      iconColor: muted,
+      iconColorDisabled: faint,
+      iconColorHover: textSoft,
+      iconColorPressed: text,
+      clearColor: muted,
+      clearColorHover: textSoft,
+      clearColorPressed: text,
+      suffixTextColor: textSoft,
     },
     Message: {
       color: panel,

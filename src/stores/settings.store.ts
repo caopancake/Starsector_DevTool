@@ -17,6 +17,44 @@ export interface AccentTone {
   hex: string;
 }
 
+export interface ThemeColorTokens {
+  background: string;
+  border: string;
+  borderStrong: string;
+  canvasBackground: string;
+  danger: string;
+  dangerBackground: string;
+  dangerBorderSoft: string;
+  dangerHighlight: string;
+  dangerHighlightBorder: string;
+  dangerHighlightSoft: string;
+  dangerText: string;
+  faint: string;
+  muted: string;
+  onPrimary: string;
+  panel: string;
+  panelMuted: string;
+  primary: string;
+  primaryBorder: string;
+  primaryHover: string;
+  primaryPressed: string;
+  primarySoft: string;
+  scrollbar: string;
+  scrollbarHover: string;
+  shadowFloating: string;
+  shadowSubtle: string;
+  success: string;
+  successBackground: string;
+  surface: string;
+  surfaceActive: string;
+  surfaceHover: string;
+  text: string;
+  textSoft: string;
+  warning: string;
+  warningBackground: string;
+  warningBorder: string;
+}
+
 export const MAX_HISTORY_LIMIT = 100;
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 let initialSettings: AppSettings | null = null;
@@ -108,6 +146,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!preset) throw new Error(`Invalid app accent: ${accent.value}`);
     return preset.hex;
   });
+  const themeColors = computed(() => createThemeColors(activeAccentHex.value, theme.value));
 
   function setTheme(nextTheme: AppTheme) {
     theme.value = nextTheme;
@@ -168,33 +207,104 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   watch(
-    [theme, activeAccentHex],
-    ([themeValue, accentHex]) => {
-      if (typeof document !== 'undefined') {
-        document.documentElement.dataset.theme = themeValue;
-        applyAccentTokens(accentHex, themeValue);
-      }
+    themeColors,
+    (colors) => {
+      if (typeof document === 'undefined') return;
+      document.documentElement.dataset.theme = theme.value;
+      applyThemeColors(colors);
     },
     { immediate: true },
   );
 
-  function applyAccentTokens(hex: string, themeValue: AppTheme) {
-    if (typeof document === 'undefined') return;
+  function createThemeColors(hex: string, themeValue: AppTheme): ThemeColorTokens {
     const isDarkTheme = themeValue === 'dark';
-    const hover = mixHex(hex, isDarkTheme ? '#ffffff' : '#000000', isDarkTheme ? 0.18 : 0.12);
-    const pressed = mixHex(hex, '#000000', isDarkTheme ? 0.18 : 0.22);
-    const soft = mixHex(hex, isDarkTheme ? '#0f1115' : '#ffffff', isDarkTheme ? 0.78 : 0.88);
-    const border = mixHex(hex, isDarkTheme ? '#0f1115' : '#ffffff', isDarkTheme ? 0.52 : 0.62);
-    const themeColors = isDarkTheme ? darkThemeColors(hex) : lightThemeColors(hex);
+    const neutralColors = isDarkTheme ? darkThemeColors(hex) : lightThemeColors(hex);
+    const primaryHover = mixHex(hex, isDarkTheme ? '#ffffff' : '#000000', isDarkTheme ? 0.18 : 0.12);
+    const primaryPressed = mixHex(hex, '#000000', isDarkTheme ? 0.18 : 0.22);
+    const primarySoft = mixHex(hex, isDarkTheme ? '#0f1115' : '#ffffff', isDarkTheme ? 0.78 : 0.88);
+    const primaryBorder = mixHex(hex, isDarkTheme ? '#0f1115' : '#ffffff', isDarkTheme ? 0.52 : 0.62);
+
+    return {
+      background: neutralColors['--color-bg'],
+      border: neutralColors['--color-border'],
+      borderStrong: neutralColors['--color-border-strong'],
+      canvasBackground: neutralColors['--color-canvas-bg'],
+      danger: isDarkTheme ? '#f87171' : '#dc2626',
+      dangerBackground: isDarkTheme ? '#450a0a' : '#fee2e2',
+      dangerBorderSoft: isDarkTheme ? 'rgba(248, 113, 113, 0.28)' : 'rgba(220, 38, 38, 0.28)',
+      dangerHighlight: isDarkTheme ? 'rgba(248, 113, 113, 0.16)' : 'rgba(220, 38, 38, 0.16)',
+      dangerHighlightBorder: isDarkTheme ? 'rgba(248, 113, 113, 0.35)' : 'rgba(220, 38, 38, 0.35)',
+      dangerHighlightSoft: isDarkTheme ? 'rgba(248, 113, 113, 0.12)' : 'rgba(220, 38, 38, 0.12)',
+      dangerText: isDarkTheme ? '#fca5a5' : '#991b1b',
+      faint: neutralColors['--color-faint'],
+      muted: neutralColors['--color-muted'],
+      onPrimary: '#ffffff',
+      panel: neutralColors['--color-panel'],
+      panelMuted: neutralColors['--color-panel-muted'],
+      primary: hex,
+      primaryBorder,
+      primaryHover,
+      primaryPressed,
+      primarySoft,
+      scrollbar: neutralColors['--scrollbar-thumb'],
+      scrollbarHover: neutralColors['--scrollbar-thumb-hover'],
+      shadowFloating: neutralColors['--shadow-floating'],
+      shadowSubtle: neutralColors['--shadow-subtle'],
+      success: isDarkTheme ? '#86efac' : '#166534',
+      successBackground: isDarkTheme ? '#14532d' : '#dcfce7',
+      surface: neutralColors['--color-surface'],
+      surfaceActive: neutralColors['--color-surface-active'],
+      surfaceHover: neutralColors['--color-surface-hover'],
+      text: isDarkTheme ? '#e6e7eb' : '#1f2328',
+      textSoft: neutralColors['--color-text-soft'],
+      warning: isDarkTheme ? '#fbbf24' : '#b7791f',
+      warningBackground: isDarkTheme ? '#3b2d13' : '#fff7df',
+      warningBorder: isDarkTheme ? '#6b4d16' : '#f4d58d',
+    };
+  }
+
+  function applyThemeColors(colors: ThemeColorTokens) {
     const root = document.documentElement;
-    for (const [key, value] of Object.entries(themeColors)) {
+    const cssTokens: Record<string, string> = {
+      '--color-bg': colors.background,
+      '--color-panel': colors.panel,
+      '--color-panel-muted': colors.panelMuted,
+      '--color-surface': colors.surface,
+      '--color-surface-hover': colors.surfaceHover,
+      '--color-surface-active': colors.surfaceActive,
+      '--color-border': colors.border,
+      '--color-border-strong': colors.borderStrong,
+      '--color-text': colors.text,
+      '--color-text-soft': colors.textSoft,
+      '--color-muted': colors.muted,
+      '--color-faint': colors.faint,
+      '--color-primary': colors.primary,
+      '--color-primary-hover': colors.primaryHover,
+      '--color-primary-pressed': colors.primaryPressed,
+      '--color-primary-soft': colors.primarySoft,
+      '--color-primary-border': colors.primaryBorder,
+      '--color-on-primary': colors.onPrimary,
+      '--color-warning': colors.warning,
+      '--color-warning-bg': colors.warningBackground,
+      '--color-warning-border': colors.warningBorder,
+      '--color-danger': colors.danger,
+      '--color-success': colors.success,
+      '--color-success-bg': colors.successBackground,
+      '--color-danger-bg': colors.dangerBackground,
+      '--color-danger-text': colors.dangerText,
+      '--color-danger-border-soft': colors.dangerBorderSoft,
+      '--color-danger-highlight-soft': colors.dangerHighlightSoft,
+      '--color-danger-highlight': colors.dangerHighlight,
+      '--color-danger-highlight-border': colors.dangerHighlightBorder,
+      '--color-canvas-bg': colors.canvasBackground,
+      '--scrollbar-thumb': colors.scrollbar,
+      '--scrollbar-thumb-hover': colors.scrollbarHover,
+      '--shadow-floating': colors.shadowFloating,
+      '--shadow-subtle': colors.shadowSubtle,
+    };
+    for (const [key, value] of Object.entries(cssTokens)) {
       root.style.setProperty(key, value);
     }
-    root.style.setProperty('--color-primary', hex);
-    root.style.setProperty('--color-primary-hover', hover);
-    root.style.setProperty('--color-primary-pressed', pressed);
-    root.style.setProperty('--color-primary-soft', soft);
-    root.style.setProperty('--color-primary-border', border);
   }
 
   function lightThemeColors(hex: string): Record<string, string> {
@@ -336,6 +446,7 @@ export const useSettingsStore = defineStore('settings', () => {
     naiveTheme,
     starsectorRoot,
     theme,
+    themeColors,
     setAccent,
     setCustomAccent,
     setEditMode,

@@ -331,7 +331,9 @@ fn snapshot_csv_rows(
         if super::super::model::is_comment_row(&row) {
             continue;
         }
-        let id = super::super::model::string_from_row(&row, id_field)?;
+        let Some(id) = super::super::model::string_from_row(&row, id_field) else {
+            continue;
+        };
         rows.entry(id).or_insert_with(Vec::new).push(row);
     }
     Some(rows)
@@ -816,6 +818,29 @@ mod tests {
                 ]
             );
         }
+    }
+
+    #[test]
+    fn csv_snapshot_ignores_rows_without_an_entity_id() {
+        let path = table_definitions::csv_table_definition(CsvTableKey::Weapons).rel_path;
+        let target = ChangedProjectPath::classify(path);
+        let before = "id,type,number\r\n,ENERGY,69\r\ndemo_weapon,ENERGY,70\r\n";
+        let after = "id,type,number\r\n,ENERGY,69\r\ndemo_weapon,BALLISTIC,70\r\n";
+
+        assert_eq!(
+            invalidated_entities_for_file(
+                &target,
+                &ChangedProjectFile {
+                    after_text: Some(after.to_string()),
+                    before_text: Some(before.to_string()),
+                    path: path.to_string(),
+                },
+            ),
+            vec![invalidated_entity(
+                EntityKind::Weapon,
+                Some("demo_weapon".to_string()),
+            )]
+        );
     }
 
     #[test]

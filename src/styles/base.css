@@ -130,11 +130,6 @@ textarea {
   font: inherit;
 }
 
-.n-input-number .n-button,
-.n-input-number .n-button-group {
-  display: none;
-}
-
 .n-base-selection {
   min-height: 30px;
   font-size: 12px;

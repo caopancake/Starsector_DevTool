@@ -177,25 +177,24 @@ mod tests {
     }
 
     #[test]
-    fn mission_entity_list_reports_non_comment_registered_row_without_id() {
-        let root = temp_dir("mission_entity_missing_registered_id");
+    fn mission_entity_list_registers_only_rows_with_a_mission_id() {
+        let root = temp_dir("mission_entity_rows_with_mission_id");
         std::fs::create_dir_all(root.join("data/missions")).unwrap();
         write_utf8_no_bom(
             &root.join("data/missions/mission_list.csv"),
-            "mission,name\r\n,Missing ID\r\n#comment,\r\n",
+            "mission,name\r\n,Auxiliary row\r\ndemo,Demo Mission\r\n#comment,\r\n",
         )
         .unwrap();
 
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
-        let error = query_entity_list(&manifest.session_id, EntityKind::Mission)
-            .unwrap_err()
-            .to_string();
+        let entities = query_entity_list(&manifest.session_id, EntityKind::Mission).unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
-        assert!(error.contains("missions registered row 2 is missing mission"));
+        assert_eq!(entities.len(), 1);
+        assert_eq!(entities[0].id, "demo");
     }
 
     #[test]
@@ -285,25 +284,24 @@ mod tests {
     }
 
     #[test]
-    fn weapon_entity_list_reports_non_comment_registered_row_without_id() {
-        let root = temp_dir("weapon_entity_missing_registered_id");
+    fn weapon_entity_list_registers_only_rows_with_an_id() {
+        let root = temp_dir("weapon_entity_rows_with_id");
         std::fs::create_dir_all(root.join("data/weapons")).unwrap();
         write_utf8_no_bom(
             &root.join("data/weapons/weapon_data.csv"),
-            "id,type,range\r\n,ENERGY,700\r\n#comment,,\r\n",
+            "id,type,number\r\n,ENERGY,69\r\ndemo_weapon,ENERGY,70\r\n#comment,,\r\n",
         )
         .unwrap();
 
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
-        let error = query_entity_list(&manifest.session_id, EntityKind::Weapon)
-            .unwrap_err()
-            .to_string();
+        let entities = query_entity_list(&manifest.session_id, EntityKind::Weapon).unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
-        assert!(error.contains("weapons registered row 2 is missing id"));
+        assert_eq!(entities.len(), 1);
+        assert_eq!(entities[0].id, "demo_weapon");
     }
 
     #[test]
@@ -421,25 +419,24 @@ mod tests {
     }
 
     #[test]
-    fn skill_entity_list_reports_non_comment_registered_row_without_id() {
-        let root = temp_dir("skill_entity_missing_registered_id");
+    fn skill_entity_list_registers_only_rows_with_an_id() {
+        let root = temp_dir("skill_entity_rows_with_id");
         std::fs::create_dir_all(root.join("data/characters/skills")).unwrap();
         write_utf8_no_bom(
             &root.join("data/characters/skills/skill_data.csv"),
-            "id,name\r\n,Missing ID\r\n#comment,\r\n",
+            "id,name\r\n,Auxiliary row\r\nskill_one,Skill One\r\n#comment,\r\n",
         )
         .unwrap();
 
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
-        let error = query_entity_list(&manifest.session_id, EntityKind::Skill)
-            .unwrap_err()
-            .to_string();
+        let entities = query_entity_list(&manifest.session_id, EntityKind::Skill).unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
-        assert!(error.contains("skills registered row 2 is missing id"));
+        assert_eq!(entities.len(), 1);
+        assert_eq!(entities[0].id, "skill_one");
     }
 
     fn temp_dir(name: &str) -> std::path::PathBuf {
