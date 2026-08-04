@@ -19,6 +19,7 @@ import { hasResourceInvalidation, subscribeResourceInvalidations } from '@/servi
 export function useConfigVariantViewModel() {
   const selectedVariantId = ref<string | null>(null);
   const variants = ref<VariantFile[]>([]);
+  const variantHullNames = ref<Record<string, string>>({});
   const variantSprites = ref<Record<string, string>>({});
   const variantSpriteResourceRefs = ref<ResourceRef[]>([]);
   const hullOptions = ref<SelectOption[]>([]);
@@ -29,7 +30,7 @@ export function useConfigVariantViewModel() {
   const modRoot = computed(() => project.activeManifest?.modRoot ?? null);
   const sessionId = computed(() => project.activeManifest?.sessionId ?? null);
   let variantsRequestId = 0;
-  let variantSpritesRequestId = 0;
+  let variantHullReferencesRequestId = 0;
   let hullOptionsRequestId = 0;
   const hullOptionsLoaded = ref(false);
 
@@ -38,6 +39,7 @@ export function useConfigVariantViewModel() {
     const sessionId = project.activeSessionId;
     if (!sessionId) {
       variants.value = [];
+      variantHullNames.value = {};
       variantSprites.value = {};
       variantSpriteResourceRefs.value = [];
       selectedVariantId.value = null;
@@ -49,7 +51,7 @@ export function useConfigVariantViewModel() {
     const loadedVariants = await listVariantEntities(sessionId);
     if (requestId !== variantsRequestId || sessionId !== project.activeSessionId) return;
     variants.value = loadedVariants;
-    await loadVariantSprites();
+    await loadVariantHullReferences();
     const nextSelected = selectedId ? variants.value.find((variant) => variant.variantId === selectedId) : null;
     if (selectedEntityDataChanged(previousSelected, nextSelected)) variantDataRevision.value += 1;
     if (selectedVariantId.value && !variants.value.some((variant) => variant.variantId === selectedVariantId.value)) {
@@ -57,11 +59,12 @@ export function useConfigVariantViewModel() {
     }
   }
 
-  async function loadVariantSprites() {
-    const requestId = ++variantSpritesRequestId;
+  async function loadVariantHullReferences() {
+    const requestId = ++variantHullReferencesRequestId;
     const sessionId = project.activeSessionId;
     const sourceVariants = variants.value;
     if (!sessionId || variants.value.length === 0) {
+      variantHullNames.value = {};
       variantSprites.value = {};
       variantSpriteResourceRefs.value = [];
       return;
@@ -71,8 +74,10 @@ export function useConfigVariantViewModel() {
         sessionId,
         sourceVariants.map((variant) => variant.hullId),
       );
-      if (requestId !== variantSpritesRequestId || sessionId !== project.activeSessionId || sourceVariants !== variants.value) return;
+      if (requestId !== variantHullReferencesRequestId || sessionId !== project.activeSessionId || sourceVariants !== variants.value)
+        return;
       variantSpriteResourceRefs.value = resources.resourceRefs;
+      variantHullNames.value = resources.hullNames;
       variantSprites.value = Object.fromEntries(
         sourceVariants.map((variant) => [variant.variantId, resources.sprites[variant.hullId] ?? '']),
       );
@@ -191,14 +196,14 @@ export function useConfigVariantViewModel() {
     const hullReferenceQueryChanged = hasQueryInvalidation(event, 'hull-references');
     if (variantsChanged) void loadVariants();
     if (hullReferenceQueryChanged) {
-      void loadVariantSprites();
+      void loadVariantHullReferences();
       if (hullOptionsLoaded.value) void loadHullOptions();
     }
   });
   const stopResourceInvalidation = subscribeResourceInvalidations((event) => {
     if (event.sessionId !== project.activeSessionId) return;
     if (!hasResourceInvalidation(event, variantSpriteResourceRefs.value)) return;
-    void loadVariantSprites();
+    void loadVariantHullReferences();
   });
   onUnmounted(() => {
     stopQueryInvalidation();
@@ -210,6 +215,7 @@ export function useConfigVariantViewModel() {
     modRoot,
     sessionId,
     variants,
+    variantHullNames,
     variantSprites,
     hullOptions,
     loadHullOptions,

@@ -418,6 +418,7 @@ pub struct HullReferenceGroup {
 #[serde(rename_all = "camelCase")]
 pub struct HullReferencesResult {
     pub groups: Vec<HullReferenceGroup>,
+    pub hull_names: BTreeMap<String, String>,
     pub sprites: BTreeMap<String, ResourceRef>,
 }
 

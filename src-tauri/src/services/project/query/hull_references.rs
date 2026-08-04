@@ -1,14 +1,17 @@
-use super::super::cache::{session_for, sessions};
+use super::super::cache::{
+    ensure_registered_table_rows, load_core_csv_table, loaded_csv_rows, loaded_registered_csv_rows,
+    session_for_mut, sessions,
+};
 use super::super::resources::{resource_ref, skin_resource_ref};
 use super::super::{
     cache::{load_core_ship_files, load_core_skin_files},
-    model::{string_field, ProjectSession},
+    model::{is_comment_row, string_field, string_from_row, ProjectSession, SessionCsvRow},
 };
 use crate::{
     errors::{AppError, AppResult},
     models::{
-        HullReferenceGroup, HullReferenceKind, HullReferenceOption, HullReferencesResult,
-        ResourceOwnerKind, ResourceSource,
+        CsvTableKey, HullReferenceGroup, HullReferenceKind, HullReferenceOption,
+        HullReferencesResult, ResourceOwnerKind, ResourceSource,
     },
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -17,20 +20,21 @@ pub fn query_hull_references(
     session_id: &str,
     reference_ids: &[String],
 ) -> AppResult<HullReferencesResult> {
-    let guard = sessions()
+    let mut guard = sessions()
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = session_for(&guard, session_id)?;
+    let session = session_for_mut(&mut guard, session_id)?;
     build_hull_references(session, reference_ids)
 }
 
 fn build_hull_references(
-    session: &ProjectSession,
+    session: &mut ProjectSession,
     requested_reference_ids: &[String],
 ) -> AppResult<HullReferencesResult> {
     if !requested_reference_ids.is_empty() {
         return Ok(HullReferencesResult {
             groups: Vec::new(),
+            hull_names: resolve_requested_hull_names(session, requested_reference_ids)?,
             sprites: resolve_requested_hull_sprites(session, requested_reference_ids)?,
         });
     }
@@ -158,8 +162,60 @@ fn build_hull_references(
 
     Ok(HullReferencesResult {
         groups,
+        hull_names: BTreeMap::new(),
         sprites: BTreeMap::new(),
     })
+}
+
+fn resolve_requested_hull_names(
+    session: &mut ProjectSession,
+    requested_reference_ids: &[String],
+) -> AppResult<BTreeMap<String, String>> {
+    let requested_ids = requested_reference_ids
+        .iter()
+        .filter(|id| !id.trim().is_empty())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    if requested_ids.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+
+    ensure_registered_table_rows(session, CsvTableKey::Ships)?;
+    let mut hull_names = {
+        let rows = loaded_registered_csv_rows(session, CsvTableKey::Ships)?;
+        ship_names_from_rows(rows, &requested_ids)
+    };
+    let unresolved_ids = requested_ids
+        .iter()
+        .filter(|id| !hull_names.contains_key(id.as_str()))
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let Some(starsector_root) = session.manifest.starsector_root.as_ref() else {
+        return Ok(hull_names);
+    };
+    if unresolved_ids.is_empty() {
+        return Ok(hull_names);
+    }
+    let Some(core_table) = load_core_csv_table(starsector_root, CsvTableKey::Ships)? else {
+        return Ok(hull_names);
+    };
+    let core_rows = loaded_csv_rows(&core_table, CsvTableKey::Ships.as_str())?;
+    hull_names.extend(ship_names_from_rows(core_rows, &unresolved_ids));
+    Ok(hull_names)
+}
+
+fn ship_names_from_rows(
+    rows: &[SessionCsvRow],
+    requested_ids: &BTreeSet<String>,
+) -> BTreeMap<String, String> {
+    rows.iter()
+        .filter(|row| !is_comment_row(&row.row))
+        .filter_map(|row| {
+            let id = string_from_row(&row.row, "id")?;
+            let name = string_from_row(&row.row, "name")?;
+            requested_ids.contains(&id).then_some((id, name))
+        })
+        .collect()
 }
 
 fn resolve_requested_hull_sprites(
@@ -286,6 +342,16 @@ mod tests {
         )
         .unwrap();
         write_utf8_no_bom(
+            &mod_root.join("data/hulls/ship_data.csv"),
+            "id,name\r\nmod_ship,Mod CSV Ship\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("starsector-core/data/hulls/ship_data.csv"),
+            "id,name\r\ncore_ship,Core CSV Ship\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
             &root.join("starsector-core/data/hulls/skins/core_skin.skin"),
             r#"{"skinHullId":"core_skin","baseHullId":"core_ship"}"#,
         )
@@ -316,8 +382,17 @@ mod tests {
         assert!(values.contains(&"core_ship".to_string()));
         assert!(values.contains(&"core_skin".to_string()));
         assert!(catalog.sprites.is_empty());
+        assert!(catalog.hull_names.is_empty());
         assert!(previews.groups.is_empty());
         assert_eq!(previews.sprites.len(), 4);
+        assert_eq!(
+            previews.hull_names.get("mod_ship"),
+            Some(&"Mod CSV Ship".to_string())
+        );
+        assert_eq!(
+            previews.hull_names.get("core_ship"),
+            Some(&"Core CSV Ship".to_string())
+        );
         assert_eq!(
             previews
                 .sprites

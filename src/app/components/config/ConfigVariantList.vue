@@ -20,8 +20,8 @@
           </svg>
         </span>
         <span class="variant-list-text">
-          <span class="config-entity-name">{{ variant.variantId }}</span>
-          <small>{{ variant.hullId }}</small>
+          <span class="config-entity-name">{{ configVariantListTitle(variant, props.hullNames) }}</span>
+          <small>{{ variant.variantId }}</small>
         </span>
         <n-button
           size="tiny"
@@ -60,12 +60,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useSettingsStore } from '@/stores/settings.store';
+import { configVariantListTitle } from '@/domain/config/config-entities';
 import type { VariantFile } from '@/shared/types';
 import type { SelectOption } from '@/domain/schema/schema-options';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 
 const props = defineProps<{
   selectedId: string | null;
+  hullNames: Record<string, string>;
   variants: VariantFile[];
   variantSprites: Record<string, string>;
   hullOptions: SelectOption[];

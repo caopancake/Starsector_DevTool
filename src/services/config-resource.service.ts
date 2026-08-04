@@ -6,6 +6,7 @@ import type { EntityData, ProjectSessionId, ResourceRef } from '@/shared/types';
 import type { SelectOption } from '@/domain/schema/schema-options';
 
 export interface HydratedResourceMap {
+  hullNames: Record<string, string>;
   resourceRefs: ResourceRef[];
   sprites: Record<string, string>;
 }
@@ -90,24 +91,29 @@ export async function queryHullReferenceOptions(sessionId: ProjectSessionId, ref
 export async function queryHullPreviewResources(sessionId: ProjectSessionId, hullIds: string[]): Promise<HydratedResourceMap> {
   return measurePerformanceAsync('frontend.config.hullPreviewResources', { hulls: hullIds.length }, async () => {
     const result = await querySessionHullReferences(sessionId, hullIds);
-    return hydrateResourceMap(sessionId, result.sprites);
+    return hydrateResourceMap(sessionId, result.hullNames, result.sprites);
   });
 }
 
 export async function querySkinPreviewResources(sessionId: ProjectSessionId, skinIds: string[]): Promise<HydratedResourceMap> {
   return measurePerformanceAsync('frontend.config.skinPreviewResources', { skins: skinIds.length }, async () => {
     const result = await querySessionHullReferences(sessionId, skinIds);
-    return hydrateResourceMap(sessionId, result.sprites);
+    return hydrateResourceMap(sessionId, result.hullNames, result.sprites);
   });
 }
 
-async function hydrateResourceMap(sessionId: ProjectSessionId, refs: Record<string, ResourceRef>): Promise<HydratedResourceMap> {
+async function hydrateResourceMap(
+  sessionId: ProjectSessionId,
+  hullNames: Record<string, string>,
+  refs: Record<string, ResourceRef>,
+): Promise<HydratedResourceMap> {
   const entries = Object.entries(refs);
   const dataUrls = await queryResourceDataUrls(
     sessionId,
     entries.map(([, ref]) => ref),
   );
   return {
+    hullNames,
     resourceRefs: entries.map(([, ref]) => ref),
     sprites: Object.fromEntries(entries.map(([id], index) => [id, dataUrls[index] ?? ''])),
   };

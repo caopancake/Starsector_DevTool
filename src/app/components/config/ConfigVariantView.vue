@@ -3,6 +3,7 @@
     <ConfigVariantList
       :selected-id="selectedVariantId"
       :variants="variants"
+      :hull-names="variantHullNames"
       :variant-sprites="variantSprites"
       :hull-options="hullOptions"
       :load-hull-options="loadHullOptions"
@@ -41,6 +42,7 @@ const {
   modRoot,
   sessionId,
   variants,
+  variantHullNames,
   variantSprites,
   hullOptions,
   loadHullOptions,

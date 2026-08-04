@@ -184,6 +184,7 @@ export interface HullReferenceGroup {
 
 export interface HullReferencesResult {
   groups: HullReferenceGroup[];
+  hullNames: Record<string, string>;
   sprites: Record<string, ResourceRef>;
 }
 
