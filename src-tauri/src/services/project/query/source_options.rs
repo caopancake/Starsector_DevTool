@@ -14,10 +14,16 @@ use serde_json::{Map, Value};
 use std::collections::{BTreeSet, HashMap};
 
 struct SourceOptionRowsContext<'a> {
-    core_data: Option<CoreSourceData>,
+    core_data: Option<&'a CoreSourceData>,
     limit: usize,
+    resource_context: SourceOptionResourceContext<'a>,
     search: &'a str,
     seen: &'a mut BTreeSet<String>,
+}
+
+#[derive(Clone, Copy)]
+struct SourceOptionResourceContext<'a> {
+    metadata_catalog: Option<&'a SourceTokenMetadataCatalog>,
     session: &'a ProjectSession,
     table: CsvTableKey,
 }
@@ -46,9 +52,40 @@ pub fn query_csv_source_options(
     let metadata_catalog = source_token_metadata_catalog(column, session)?;
     let search = search.unwrap_or_default().to_lowercase();
     let limit = limit.unwrap_or(200);
+    let csv = session
+        .csv_tables
+        .get(table_key)
+        .ok_or_else(|| AppError::message(format!("unknown table: {table_key}")))?;
+    let rows = loaded_csv_rows(csv, table_key)?;
+    let starsector_root = session.manifest.starsector_root.clone();
+    let core_csv = if let Some(root) = starsector_root.as_ref() {
+        load_core_csv_table(root, table)?
+    } else {
+        None
+    };
+    let core_rows = core_csv
+        .as_ref()
+        .map(|csv| {
+            ensure_source_column(&csv.header, table_key, column)?;
+            loaded_csv_rows(csv, table_key)
+        })
+        .transpose()?;
+    let core_data = if core_rows.is_some() {
+        let root = starsector_root
+            .as_ref()
+            .ok_or_else(|| AppError::message("core CSV requires a Starsector root"))?;
+        Some(load_core_source_data(root, table)?)
+    } else {
+        None
+    };
+    let resource_context = SourceOptionResourceContext {
+        metadata_catalog: metadata_catalog.as_ref(),
+        session,
+        table,
+    };
     let mut seen = BTreeSet::new();
     let mut groups = Vec::new();
-    let current_options = source_options_from_values(
+    let mut current_options = source_options_from_values(
         SourceOptionOrigin::Current,
         column,
         current_values,
@@ -57,17 +94,20 @@ pub fn query_csv_source_options(
         &mut seen,
         metadata_catalog.as_ref(),
     );
+    hydrate_current_id_source_options(
+        &mut current_options,
+        column,
+        rows,
+        core_rows,
+        core_data.as_ref(),
+        resource_context,
+    )?;
     if !current_options.is_empty() {
         groups.push(SourceOptionGroup {
             label: "当前值".to_string(),
             options: current_options,
         });
     }
-    let csv = session
-        .csv_tables
-        .get(table_key)
-        .ok_or_else(|| AppError::message(format!("unknown table: {table_key}")))?;
-    let rows = loaded_csv_rows(csv, table_key)?;
     let options = source_options_from_rows(
         ResourceSource::Mod,
         rows,
@@ -75,12 +115,10 @@ pub fn query_csv_source_options(
         SourceOptionRowsContext {
             core_data: None,
             limit,
+            resource_context,
             search: &search,
             seen: &mut seen,
-            session,
-            table,
         },
-        metadata_catalog.as_ref(),
     )?;
     if !options.is_empty() {
         groups.push(SourceOptionGroup {
@@ -88,32 +126,24 @@ pub fn query_csv_source_options(
             options,
         });
     }
-    if let Some(root) = session.manifest.starsector_root.as_ref() {
-        let core_csv = load_core_csv_table(root, table)?;
-        if let Some(core_csv) = core_csv {
-            ensure_source_column(&core_csv.header, table_key, column)?;
-            let core_rows = loaded_csv_rows(&core_csv, table_key)?;
-            let core_data = load_core_source_data(root, table)?;
-            let options = source_options_from_rows(
-                ResourceSource::Core,
-                core_rows,
-                column,
-                SourceOptionRowsContext {
-                    core_data: Some(core_data),
-                    limit,
-                    search: &search,
-                    seen: &mut seen,
-                    session,
-                    table,
-                },
-                metadata_catalog.as_ref(),
-            )?;
-            if !options.is_empty() {
-                groups.push(SourceOptionGroup {
-                    label: "原版".to_string(),
-                    options,
-                });
-            }
+    if let (Some(core_rows), Some(core_data)) = (core_rows, core_data.as_ref()) {
+        let options = source_options_from_rows(
+            ResourceSource::Core,
+            core_rows,
+            column,
+            SourceOptionRowsContext {
+                core_data: Some(core_data),
+                limit,
+                resource_context,
+                search: &search,
+                seen: &mut seen,
+            },
+        )?;
+        if !options.is_empty() {
+            groups.push(SourceOptionGroup {
+                label: "原版".to_string(),
+                options,
+            });
         }
     }
     Ok(groups)
@@ -168,7 +198,6 @@ fn source_options_from_rows(
     rows: &[SessionCsvRow],
     column: &str,
     context: SourceOptionRowsContext<'_>,
-    metadata_catalog: Option<&SourceTokenMetadataCatalog>,
 ) -> AppResult<Vec<crate::models::SourceOption>> {
     let is_id_column = column == "id";
     let mut options = Vec::new();
@@ -198,33 +227,116 @@ fn source_options_from_rows(
             if options.len() >= context.limit {
                 break;
             }
-            let label = source_option_label_for_row(row, column, value, metadata_catalog);
-            let description = source_option_description(value, metadata_catalog);
-            let resource_ref = if is_id_column {
-                csv_table_source_resource_ref(
-                    resource_source,
-                    context.table,
-                    value,
-                    &row.row,
-                    context.core_data.as_ref(),
-                    context.session,
-                )?
-            } else {
-                None
-            };
-            options.push(crate::models::SourceOption {
-                label,
-                value: value.to_string(),
-                description,
-                resource_ref,
-                origin: resource_source.into(),
-            });
+            options.push(source_option_from_row(
+                resource_source,
+                row,
+                column,
+                value,
+                context.core_data,
+                context.resource_context,
+            )?);
         }
         if options.len() >= context.limit {
             break;
         }
     }
     Ok(options)
+}
+
+fn hydrate_current_id_source_options(
+    current_options: &mut [crate::models::SourceOption],
+    column: &str,
+    mod_rows: &[SessionCsvRow],
+    core_rows: Option<&[SessionCsvRow]>,
+    core_data: Option<&CoreSourceData>,
+    resource_context: SourceOptionResourceContext<'_>,
+) -> AppResult<()> {
+    if column != "id" || current_options.is_empty() {
+        return Ok(());
+    }
+    let requested_ids = current_options
+        .iter()
+        .map(|option| option.value.clone())
+        .collect::<BTreeSet<_>>();
+    let mod_rows_by_id = source_rows_by_id(mod_rows, &requested_ids);
+    let core_rows_by_id = core_rows
+        .map(|rows| source_rows_by_id(rows, &requested_ids))
+        .unwrap_or_default();
+
+    for option in current_options {
+        let resolved = if let Some(row) = mod_rows_by_id.get(&option.value) {
+            Some(source_option_from_row(
+                ResourceSource::Mod,
+                row,
+                column,
+                &option.value,
+                None,
+                resource_context,
+            )?)
+        } else if let (Some(row), Some(core_data)) = (core_rows_by_id.get(&option.value), core_data)
+        {
+            Some(source_option_from_row(
+                ResourceSource::Core,
+                row,
+                column,
+                &option.value,
+                Some(core_data),
+                resource_context,
+            )?)
+        } else {
+            None
+        };
+        if let Some(resolved) = resolved {
+            *option = resolved;
+        }
+    }
+    Ok(())
+}
+
+fn source_rows_by_id<'a>(
+    rows: &'a [SessionCsvRow],
+    requested_ids: &BTreeSet<String>,
+) -> HashMap<String, &'a SessionCsvRow> {
+    let mut matched_rows = HashMap::new();
+    for row in rows.iter().filter(|row| !is_comment_row(&row.row)) {
+        let Some(id) = row.row.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        if id.trim().is_empty() || !requested_ids.contains(id) {
+            continue;
+        }
+        matched_rows.entry(id.to_string()).or_insert(row);
+    }
+    matched_rows
+}
+
+fn source_option_from_row(
+    resource_source: ResourceSource,
+    row: &SessionCsvRow,
+    column: &str,
+    value: &str,
+    core_data: Option<&CoreSourceData>,
+    context: SourceOptionResourceContext<'_>,
+) -> AppResult<crate::models::SourceOption> {
+    let resource_ref = if column == "id" {
+        csv_table_source_resource_ref(
+            resource_source,
+            context.table,
+            value,
+            &row.row,
+            core_data,
+            context.session,
+        )?
+    } else {
+        None
+    };
+    Ok(crate::models::SourceOption {
+        label: source_option_label_for_row(row, column, value, context.metadata_catalog),
+        value: value.to_string(),
+        description: source_option_description(value, context.metadata_catalog),
+        resource_ref,
+        origin: resource_source.into(),
+    })
 }
 
 fn source_option_label_for_row(
@@ -1087,6 +1199,99 @@ mod tests {
                 .as_ref()
                 .map(|resource| resource.rel_path.as_str()),
             Some("graphics/ships/ship_a.png")
+        );
+    }
+
+    #[test]
+    fn current_id_source_options_reuse_mod_csv_metadata_and_resource() {
+        let root = temp_dir("current_source_resource_refs");
+        std::fs::create_dir_all(root.join("data/hulls")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/hulls/ship_data.csv"),
+            "id,name\r\nship_a,Ship A\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("data/hulls/ship_a.ship"),
+            r#"{"hullId":"ship_a","spriteName":"graphics/ships/ship_a.png"}"#,
+        )
+        .unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
+        let groups = query_csv_source_options(
+            &manifest.session_id,
+            "csv:ships.id",
+            &["ship_a".to_string()],
+            None,
+            None,
+        )
+        .unwrap();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        let option = groups
+            .iter()
+            .find(|group| group.label == "当前值")
+            .and_then(|group| group.options.first())
+            .unwrap();
+        assert_eq!(option.label, "Ship A (ship_a)");
+        assert_eq!(option.origin, SourceOptionOrigin::Mod);
+        assert_eq!(
+            option
+                .resource_ref
+                .as_ref()
+                .map(|resource| resource.rel_path.as_str()),
+            Some("graphics/ships/ship_a.png")
+        );
+    }
+
+    #[test]
+    fn current_id_source_options_reuse_core_csv_metadata_and_resource() {
+        let root = temp_dir("current_core_source_resource_refs");
+        let mod_root = root.join("mods/demo");
+        std::fs::create_dir_all(mod_root.join("data/hulls")).unwrap();
+        std::fs::create_dir_all(root.join("starsector-core/data/hulls")).unwrap();
+        write_utf8_no_bom(&mod_root.join("data/hulls/ship_data.csv"), "id,name\r\n").unwrap();
+        write_utf8_no_bom(
+            &root.join("starsector-core/data/hulls/ship_data.csv"),
+            "id,name\r\ncore_ship,Core Ship\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("starsector-core/data/hulls/core_ship.ship"),
+            r#"{"hullId":"core_ship","spriteName":"graphics/ships/core_ship.png"}"#,
+        )
+        .unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
+        let groups = query_csv_source_options(
+            &manifest.session_id,
+            "csv:ships.id",
+            &["core_ship".to_string()],
+            None,
+            None,
+        )
+        .unwrap();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        let option = groups
+            .iter()
+            .find(|group| group.label == "当前值")
+            .and_then(|group| group.options.first())
+            .unwrap();
+        assert_eq!(option.label, "Core Ship (core_ship)");
+        assert_eq!(option.origin, SourceOptionOrigin::Core);
+        assert_eq!(
+            option
+                .resource_ref
+                .as_ref()
+                .map(|resource| resource.rel_path.as_str()),
+            Some("graphics/ships/core_ship.png")
         );
     }
 
