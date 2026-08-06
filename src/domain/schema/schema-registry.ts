@@ -1,4 +1,5 @@
 import type { FileSchema } from '@/domain/schema/schema.types';
+import { validateSchemaCsvSources } from '@/domain/schema/schema-sources';
 
 import modInfoSchemaRaw from '../../../schemas/mod-info.schema.json';
 import factionSchemaRaw from '../../../schemas/faction.schema.json';
@@ -18,7 +19,9 @@ function schemaAsset(schema: unknown): FileSchema {
   if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
     throw new Error('Invalid schema asset');
   }
-  return schema as FileSchema;
+  const validatedAsset = schema as FileSchema;
+  validateSchemaCsvSources(validatedAsset);
+  return validatedAsset;
 }
 
 export function getSchema(id: string): FileSchema | null {

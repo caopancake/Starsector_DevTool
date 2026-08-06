@@ -1,5 +1,11 @@
 import type { JsonValue, RowData } from '@/shared/types';
-import type { FileSchema } from '@/domain/schema/schema.types';
+import { parseCsvSource } from '@/domain/tables/csv-source-options';
+import type { FieldSchema, FileSchema } from '@/domain/schema/schema.types';
+
+export function validateSchemaCsvSources(schema: FileSchema): void {
+  const fields = [...(schema.fields ?? []), ...(schema.sections ?? []).flatMap((section) => section.fields)];
+  validateSchemaFieldCsvSources(fields, 'file');
+}
 
 export function aggregateSchemaSources(sources: Record<string, unknown>): RowData {
   const result: RowData = {};
@@ -31,4 +37,16 @@ function scalarToJsonValue(value: unknown): JsonValue {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
   return String(value);
+}
+
+function validateSchemaFieldCsvSources(fields: FieldSchema[], parentPath: string): void {
+  for (const field of fields) {
+    const path = `${parentPath}.${field.key}`;
+    if (field.source?.startsWith('csv:') && !parseCsvSource(field.source)) {
+      throw new Error(`Invalid CSV source "${field.source}" at schema field "${path}"`);
+    }
+    if (field.nested) validateSchemaFieldCsvSources(field.nested, path);
+    if (field.item) validateSchemaFieldCsvSources([field.item], `${path}[]`);
+    if (field.valueSchema) validateSchemaFieldCsvSources([field.valueSchema], `${path}{}`);
+  }
 }

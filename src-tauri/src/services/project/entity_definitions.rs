@@ -139,7 +139,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
         kind: EntityKind::Faction,
         spec: Some(&FACTION_SPEC_DEFINITION),
         csv_table: None,
-        source_options: &["ships.tags", "weapons.tags"],
+        source_options: &["ships.tags", "weapons.tags", "wings.tags"],
         path_matches: faction_path_matches,
         query_impacts: &[],
         prepare: prepare_none,
@@ -793,4 +793,18 @@ pub(super) fn source_option_origin_scopes(
         .source_options
         .iter()
         .flat_map(|source| [(*source).to_string(), format!("csv:{source}")])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn faction_source_option_scopes_include_fighter_tags() {
+        let definition = entity_definition(EntityKind::Faction);
+        let scopes = source_option_origin_scopes(definition).collect::<Vec<_>>();
+
+        assert!(scopes.contains(&"wings.tags".to_string()));
+        assert!(scopes.contains(&"csv:wings.tags".to_string()));
+    }
 }

@@ -1296,6 +1296,38 @@ mod tests {
     }
 
     #[test]
+    fn wing_source_options_support_fighter_ids_and_tags() {
+        let root = temp_dir("wing_source_options");
+        std::fs::create_dir_all(root.join("data/hulls")).unwrap();
+        write_utf8_no_bom(
+            &root.join("data/hulls/wing_data.csv"),
+            "id,variant,tags\r\ntalon_wing,talon_Interceptor,hegemony\r\n",
+        )
+        .unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
+        let id_groups =
+            query_csv_source_options(&manifest.session_id, "csv:wings.id", &[], None, None)
+                .unwrap();
+        let tag_groups =
+            query_csv_source_options(&manifest.session_id, "csv:wings.tags", &[], None, None)
+                .unwrap();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        assert_eq!(
+            source_option_label_from_groups(&id_groups, "talon_wing").as_deref(),
+            Some("talon_wing")
+        );
+        assert_eq!(
+            source_option_label_from_groups(&tag_groups, "hegemony").as_deref(),
+            Some("hegemony")
+        );
+    }
+
+    #[test]
     fn core_wing_source_options_fail_when_skin_index_fails() {
         let root = temp_dir("core_wing_source_ref_skin_error");
         let mod_root = root.join("mods/demo");
