@@ -4,7 +4,7 @@ use super::super::{
         loaded_registered_csv_rows, session_for_mut, sessions,
     },
     model::{is_comment_row, string_from_row, CoreSourceData, ProjectSession, SessionCsvRow},
-    table_definitions::csv_table_source_resource_ref,
+    table_definitions::{csv_table_source_display_name, csv_table_source_resource_ref},
 };
 use crate::{
     errors::{AppError, AppResult},
@@ -331,7 +331,14 @@ fn source_option_from_row(
         None
     };
     Ok(crate::models::SourceOption {
-        label: source_option_label_for_row(row, column, value, context.metadata_catalog),
+        label: source_option_label_for_row(
+            resource_source,
+            row,
+            column,
+            value,
+            core_data,
+            context,
+        )?,
         value: value.to_string(),
         description: source_option_description(value, context.metadata_catalog),
         resource_ref,
@@ -340,12 +347,26 @@ fn source_option_from_row(
 }
 
 fn source_option_label_for_row(
+    resource_source: ResourceSource,
     row: &SessionCsvRow,
     column: &str,
     value: &str,
-    metadata_catalog: Option<&SourceTokenMetadataCatalog>,
-) -> String {
+    core_data: Option<&CoreSourceData>,
+    context: SourceOptionResourceContext<'_>,
+) -> AppResult<String> {
     if column == "id" {
+        if let Some(display_name) = csv_table_source_display_name(
+            resource_source,
+            context.table,
+            value,
+            &row.row,
+            core_data,
+            context.session,
+        )? {
+            if display_name != value {
+                return Ok(format!("{display_name} ({value})"));
+            }
+        }
         let name = row
             .row
             .get("name")
@@ -354,12 +375,16 @@ fn source_option_label_for_row(
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
         if name.trim().is_empty() || name == value {
-            value.to_string()
+            Ok(value.to_string())
         } else {
-            format!("{name} ({value})")
+            Ok(format!("{name} ({value})"))
         }
     } else {
-        source_option_label_for_value(column, value, metadata_catalog)
+        Ok(source_option_label_for_value(
+            column,
+            value,
+            context.metadata_catalog,
+        ))
     }
 }
 
@@ -1299,9 +1324,15 @@ mod tests {
     fn wing_source_options_support_fighter_ids_and_tags() {
         let root = temp_dir("wing_source_options");
         std::fs::create_dir_all(root.join("data/hulls")).unwrap();
+        std::fs::create_dir_all(root.join("data/variants/fighters")).unwrap();
         write_utf8_no_bom(
             &root.join("data/hulls/wing_data.csv"),
             "id,variant,tags\r\ntalon_wing,talon_Interceptor,hegemony\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("data/variants/fighters/talon_Interceptor.variant"),
+            r#"{"variantId":"talon_Interceptor","hullId":"talon","displayName":"截击机"}"#,
         )
         .unwrap();
 
@@ -1311,6 +1342,14 @@ mod tests {
         let id_groups =
             query_csv_source_options(&manifest.session_id, "csv:wings.id", &[], None, None)
                 .unwrap();
+        let current_id_groups = query_csv_source_options(
+            &manifest.session_id,
+            "csv:wings.id",
+            &["talon_wing".to_string()],
+            None,
+            None,
+        )
+        .unwrap();
         let tag_groups =
             query_csv_source_options(&manifest.session_id, "csv:wings.tags", &[], None, None)
                 .unwrap();
@@ -1319,7 +1358,11 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
         assert_eq!(
             source_option_label_from_groups(&id_groups, "talon_wing").as_deref(),
-            Some("talon_wing")
+            Some("截击机 (talon_wing)")
+        );
+        assert_eq!(
+            source_option_label_from_groups(&current_id_groups, "talon_wing").as_deref(),
+            Some("截击机 (talon_wing)")
         );
         assert_eq!(
             source_option_label_from_groups(&tag_groups, "hegemony").as_deref(),

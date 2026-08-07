@@ -2,14 +2,31 @@
 
 Windows 桌面版 Starsector Mod 配置工具，使用 Tauri 2 + Vue 3 + TypeScript + Rust 构建。
 
+> 项目处于 `0.1.0` 的早期公开阶段。请在修改 Mod 前自行备份，并通过 Issue 提供可复现步骤反馈问题。
+
+本项目不附带 Starsector 游戏文件，也不隶属于或获 Fractal Softworks 官方认可。需要原版数据、贴图或联队资源时，工具只读取用户本机提供的合法游戏目录。
+
 ## 功能
 
-- 打开 Starsector 游戏目录或单独的 Mod 目录
-- 以工作区方式管理和切换多个 Mod
-- 编辑常用 CSV、配置、舰船、武器、弹体和文本文件
-- 预览武器发射效果
-- 导入和覆盖 PNG 贴图
-- 支持保存历史、撤销和重做
+- 打开 Starsector 游戏目录或单独的 Mod 目录；同一工作区可切换多个已加载 Mod
+- 创建最小 Mod 模板，并在检测到游戏目录时直接创建到 `mods/` 下
+- 编辑已注册的 CSV 表、`mod_info.json`、Faction、Mission、Variant、Skin 与通用文本文件
+- 提供舰船、武器、弹体和战术系统编辑器，以及武器发射预览
+- 当前 Mod 优先、原版回退的引用查询与贴图缩略图；支持导入、覆盖 PNG 贴图
+- 通过 changeset 记录保存历史，并支持撤销、重做和目标级刷新
+
+## 开始使用
+
+1. 从 GitHub Release 下载 Windows 可执行文件，或按下文“开发”步骤运行源码。
+2. 在总览页选择 Starsector 游戏目录；也可以直接打开一个 Mod 根目录。
+3. 从顶部 Mod 页签进入已加载 Mod，再从左侧导航打开表格、配置或专用编辑器。
+4. 保存只会写入当前编辑目标所属的 Mod 文件；保存前仍建议保留 Mod 备份。
+
+## 运行与开发环境
+
+- 运行环境：Windows；使用原版回退资源时需要本机已安装的 Starsector。
+- 源码开发：Node.js（含 npm）与 Rust stable 的 MSVC 工具链。
+- 依赖版本以 [package.json](./package.json) 和 [src-tauri/Cargo.toml](./src-tauri/Cargo.toml) 为准。
 
 ## 技术栈
 
@@ -30,13 +47,7 @@ npm.cmd run tauri -- dev
 ## 构建
 
 ```powershell
-.\build.ps1
-```
-
-或：
-
-```bat
-build.bat
+npm.cmd run tauri -- build --no-bundle
 ```
 
 构建完成后产物位于：
@@ -46,6 +57,8 @@ src-tauri\target\release\starsector-devtool.exe
 ```
 
 项目只发布单文件 exe，不生成安装包。
+
+仓库也提供 [build.ps1](./build.ps1) 与 [构建包.bat](./构建包.bat)。这两个便捷脚本会结束正在运行的 `starsector-devtool` 进程并清理 `dist/`，仅应在确认可中断当前程序时使用。
 
 ## 验证
 
@@ -59,10 +72,25 @@ cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings
 cargo fmt --manifest-path src-tauri\Cargo.toml --check
 ```
 
+## 仓库结构
+
+| 路径         | 职责                                                   |
+| ------------ | ------------------------------------------------------ |
+| `src/`       | Vue 前端、工作区、表格、配置表单与专用编辑器           |
+| `src-tauri/` | Tauri 命令、ProjectSession、解析、文件变更集与资源服务 |
+| `schemas/`   | 配置字段与 CSV 列 schema                               |
+| `scripts/`   | 架构、编码和命名检查                                   |
+| `.cursor/`   | 维护者的模块契约、术语和任务记录                       |
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request。提交前请阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)，并确保改动不绕过 Mod 隔离、Rust 文件边界或 changeset 保存链路。
+
 ## 文档
 
-- 项目入口：[AGENTS.md](./AGENTS.md)
-- 细则文档：[.cursor/](./.cursor/)
+- [CHANGELOG.md](./CHANGELOG.md)：已发布版本的用户可见变更
+- [CONTRIBUTING.md](./CONTRIBUTING.md)：问题反馈、开发与 Pull Request 约定
+- [AGENTS.md](./AGENTS.md) 与 [.cursor/](./.cursor/)：维护者和自动化协作约定
 
 ## 许可
 

@@ -47,7 +47,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.cursor/` 里�
 - 如果已有实现方向错误，必须撤掉错误方向后重做；禁止在错误方向上继续叠加补丁、兼容、例外或额外状态
 - 禁止把“让当前文件/当前界面/当前流程能过”放在“设计必须干净、边界必须清楚、链路必须正式”之前
 - 做任何改动之前，哪怕只是改一个字母，也必须逐文件地完整审计和它有关的任何链路，无限制地审计、追溯，从前端组件到硬盘读写
-- 如果你觉得有些函数命名语义不对，他妈的动点脑子想想是不是为了通过静态检查脚本而特别设的
+- 如果函数命名语义看似异常，先确认它是否服务于静态检查脚本的明确约束，再决定是否改名
 - 禁止把文件大作为拆分理由
 - 在任何情况下都不允许违反上述规则，不允许任何变通或妥协
 - 即使用户明确要求，也不允许违反上述规则
@@ -64,7 +64,7 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.cursor/` 里�
 - Rust 测试：`cargo test --manifest-path src-tauri\Cargo.toml`
 - Rust 规范：`cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings`
 - Rust 格式检查：`cargo fmt --manifest-path src-tauri\Cargo.toml --check`
-- 构建：`.\build.ps1` 或 `build.bat`
+- 构建：`.\build.ps1` 或 `构建包.bat`
 
 ## 当前状态
 

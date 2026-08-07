@@ -213,6 +213,7 @@
           :value="arrVal"
           :options="sourceOptions.length > 0 ? sourceOptions : arrVal.map((v) => ({ label: v, value: v }))"
           :render-label="renderSelectLabel"
+          :render-tag="renderSelectTag"
           multiple
           filterable
           tag
@@ -229,6 +230,7 @@
           :value="tagSelectVal"
           :options="sourceOptions"
           :render-label="renderSelectLabel"
+          :render-tag="renderSelectTag"
           multiple
           filterable
           tag
@@ -357,6 +359,7 @@
 
 <script setup lang="ts">
 import { computed, h, ref } from 'vue';
+import { NTag } from 'naive-ui/es/tag';
 import type { JsonValue } from '@/shared/types';
 import { useSchemaPathPicker } from '@/app/composables/use-schema-path-picker';
 import { useSchemaSourceOptions } from '@/app/composables/use-schema-source-options';
@@ -480,6 +483,20 @@ function renderSelectLabel(option: SelectOption & { label?: string; value?: stri
     }),
     label,
   ]);
+}
+
+function renderSelectTag({ option, handleClose }: { option: SelectOption; handleClose: () => void }) {
+  return h(
+    NTag,
+    {
+      closable: true,
+      internalCloseFocusable: false,
+      internalCloseIsButtonTag: false,
+      size: 'small',
+      onClose: handleClose,
+    },
+    { default: () => renderSelectLabel(option) },
+  );
 }
 
 function selectOptionTitle(option: SelectOption & { label?: string; value?: string }): string | undefined {

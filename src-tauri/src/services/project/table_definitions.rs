@@ -23,6 +23,14 @@ type CsvSourceResourceExtractor = fn(
     Option<&CoreSourceData>,
     &ProjectSession,
 ) -> AppResult<Option<ResourceRef>>;
+type CsvSourceDisplayNameExtractor = fn(
+    ResourceSource,
+    CsvTableKey,
+    &str,
+    &Map<String, Value>,
+    Option<&CoreSourceData>,
+    &ProjectSession,
+) -> AppResult<Option<String>>;
 
 pub(super) struct ProjectCsvTableDefinition {
     pub key: CsvTableKey,
@@ -35,6 +43,7 @@ pub(super) struct ProjectCsvTableDefinition {
     pub icon_field: Option<&'static str>,
     pub row_resource: CsvRowResourceExtractor,
     pub source_resource: CsvSourceResourceExtractor,
+    pub source_display_name: CsvSourceDisplayNameExtractor,
 }
 
 #[derive(Clone, Copy)]
@@ -101,6 +110,17 @@ pub(super) fn csv_table_source_resource_ref(
     (csv_table_definition(table).source_resource)(source, table, value, row, core_data, session)
 }
 
+pub(super) fn csv_table_source_display_name(
+    source: ResourceSource,
+    table: CsvTableKey,
+    value: &str,
+    row: &Map<String, Value>,
+    core_data: Option<&CoreSourceData>,
+    session: &ProjectSession,
+) -> AppResult<Option<String>> {
+    (csv_table_definition(table).source_display_name)(source, table, value, row, core_data, session)
+}
+
 pub(super) fn csv_table_icon_resource_ref(
     source: ResourceSource,
     table: CsvTableKey,
@@ -129,6 +149,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: None,
         row_resource: ship_row_resource,
         source_resource: ship_source_resource,
+        source_display_name: no_source_display_name,
     },
     ProjectCsvTableDefinition {
         key: CsvTableKey::Weapons,
@@ -145,6 +166,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: None,
         row_resource: weapon_row_resource,
         source_resource: weapon_source_resource,
+        source_display_name: no_source_display_name,
     },
     ProjectCsvTableDefinition {
         key: CsvTableKey::Wings,
@@ -161,6 +183,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: None,
         row_resource: wing_row_resource,
         source_resource: wing_source_resource,
+        source_display_name: wing_source_display_name,
     },
     ProjectCsvTableDefinition {
         key: CsvTableKey::Hullmods,
@@ -177,6 +200,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: Some("sprite"),
         row_resource: icon_row_resource,
         source_resource: icon_source_resource,
+        source_display_name: no_source_display_name,
     },
     ProjectCsvTableDefinition {
         key: CsvTableKey::ShipSystems,
@@ -193,6 +217,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: Some("icon"),
         row_resource: icon_row_resource,
         source_resource: icon_source_resource,
+        source_display_name: no_source_display_name,
     },
     ProjectCsvTableDefinition {
         key: CsvTableKey::Industries,
@@ -209,6 +234,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: Some("image"),
         row_resource: icon_row_resource,
         source_resource: icon_source_resource,
+        source_display_name: no_source_display_name,
     },
     ProjectCsvTableDefinition {
         key: CsvTableKey::Skills,
@@ -225,6 +251,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: Some("icon"),
         row_resource: icon_row_resource,
         source_resource: icon_source_resource,
+        source_display_name: no_source_display_name,
     },
     ProjectCsvTableDefinition {
         key: CsvTableKey::Abilities,
@@ -241,6 +268,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: Some("icon"),
         row_resource: icon_row_resource,
         source_resource: icon_source_resource,
+        source_display_name: no_source_display_name,
     },
     ProjectCsvTableDefinition {
         key: CsvTableKey::Commodities,
@@ -257,6 +285,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: Some("icon"),
         row_resource: icon_row_resource,
         source_resource: icon_source_resource,
+        source_display_name: no_source_display_name,
     },
     ProjectCsvTableDefinition {
         key: CsvTableKey::SpecialItems,
@@ -273,6 +302,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: Some("icon"),
         row_resource: icon_row_resource,
         source_resource: icon_source_resource,
+        source_display_name: no_source_display_name,
     },
     ProjectCsvTableDefinition {
         key: CsvTableKey::Submarkets,
@@ -289,6 +319,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: Some("icon"),
         row_resource: icon_row_resource,
         source_resource: icon_source_resource,
+        source_display_name: no_source_display_name,
     },
     ProjectCsvTableDefinition {
         key: CsvTableKey::MarketConditions,
@@ -305,6 +336,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: Some("icon"),
         row_resource: icon_row_resource,
         source_resource: icon_source_resource,
+        source_display_name: no_source_display_name,
     },
     ProjectCsvTableDefinition {
         key: CsvTableKey::SimOpponents,
@@ -321,6 +353,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: None,
         row_resource: no_row_resource,
         source_resource: no_source_resource,
+        source_display_name: no_source_display_name,
     },
     ProjectCsvTableDefinition {
         key: CsvTableKey::Descriptions,
@@ -337,6 +370,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: None,
         row_resource: no_row_resource,
         source_resource: no_source_resource,
+        source_display_name: no_source_display_name,
     },
 ];
 
@@ -478,6 +512,31 @@ fn wing_source_resource(
     }
 }
 
+fn wing_source_display_name(
+    source: ResourceSource,
+    _table: CsvTableKey,
+    _value: &str,
+    row: &Map<String, Value>,
+    core_data: Option<&CoreSourceData>,
+    session: &ProjectSession,
+) -> AppResult<Option<String>> {
+    let Some(variant_id) = string_from_row(row, "variant") else {
+        return Ok(None);
+    };
+    let variant = match source {
+        ResourceSource::Core => core_data.and_then(|data| {
+            data.variant_files
+                .iter()
+                .find(|variant| variant.variant_id == variant_id)
+        }),
+        ResourceSource::Mod => session
+            .variant_files
+            .iter()
+            .find(|variant| variant.variant_id == variant_id),
+    };
+    Ok(variant.and_then(|variant| string_field(&variant.data, "displayName")))
+}
+
 fn icon_source_resource(
     source: ResourceSource,
     table: CsvTableKey,
@@ -497,6 +556,17 @@ fn no_source_resource(
     _core_data: Option<&CoreSourceData>,
     _session: &ProjectSession,
 ) -> AppResult<Option<ResourceRef>> {
+    Ok(None)
+}
+
+fn no_source_display_name(
+    _source: ResourceSource,
+    _table: CsvTableKey,
+    _value: &str,
+    _row: &Map<String, Value>,
+    _core_data: Option<&CoreSourceData>,
+    _session: &ProjectSession,
+) -> AppResult<Option<String>> {
     Ok(None)
 }
 
