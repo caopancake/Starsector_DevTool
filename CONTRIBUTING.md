@@ -35,7 +35,7 @@ npm.cmd run tauri -- build --no-bundle
 - 先确认目标模块和保存 owner；组件不能直接读写磁盘，前端不能绕过 `shared/api` 与 Rust command/service 边界。
 - 任何按 Mod 归属的状态、缓存、草稿与历史都必须以 `modRoot` 隔离；原版数据只作为正式的只读回退来源。
 - 保存、删除、导入和撤销重做必须通过所属 changeset 链路；不要用临时写盘或兼容分支绕开它。
-- 行为、边界或架构变化需要同步更新对应 Markdown 契约。维护细则见 [AGENTS.md](./AGENTS.md) 与 [.cursor/](./.cursor/)。
+- 行为、边界或架构变化需要同步更新对应 Markdown 契约。维护细则见 [AGENTS.md](./AGENTS.md) 与 [.zcode/](./.zcode/)。
 - 保留与当前 Pull Request 无关的用户修改；不要提交 `dist/`、`src-tauri/target/`、日志或本机游戏数据。
 
 ## 提交前验证

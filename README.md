@@ -94,7 +94,7 @@ cargo fmt --manifest-path src-tauri\Cargo.toml --check
 | `src-tauri/` | Tauri 命令、ProjectSession、解析、文件变更集与资源服务 |
 | `schemas/`   | 配置字段与 CSV 列 schema                               |
 | `scripts/`   | 架构、编码和命名检查                                   |
-| `.cursor/`   | 维护者的模块契约、术语和任务记录                       |
+| `.zcode/`   | 维护者的模块契约、术语和任务记录                       |
 
 ## 贡献
 
@@ -104,7 +104,7 @@ cargo fmt --manifest-path src-tauri\Cargo.toml --check
 
 - [CHANGELOG.md](./CHANGELOG.md)：已发布版本的用户可见变更
 - [CONTRIBUTING.md](./CONTRIBUTING.md)：问题反馈、开发与 Pull Request 约定
-- [AGENTS.md](./AGENTS.md) 与 [.cursor/](./.cursor/)：维护者和自动化协作约定
+- [AGENTS.md](./AGENTS.md) 与 [.zcode/](./.zcode/)：维护者和自动化协作约定
 
 ## 许可
 
