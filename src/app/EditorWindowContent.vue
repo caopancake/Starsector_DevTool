@@ -105,7 +105,7 @@ import { openProjectileEditorWindow, openWeaponPreviewWindow } from '@/windows/e
 import { useSettingsStore } from '@/stores/settings.store';
 import { closeCurrentWindow } from '@/windows/current.window';
 import { useEditorWindowViewModel } from '@/app/composables/use-editor-window-view-model';
-import type { EditorSpecKind, EditorWindowKind } from '@/shared/types';
+import type { EditorSpecKind, EditorWindowKind, RowData } from '@/shared/types';
 import { isEditorWindowKind } from '@/domain/editors/editor-definitions';
 
 const params = new window.URLSearchParams(window.location.search);
@@ -114,6 +114,7 @@ const sessionId = params.get('sessionId');
 const modRoot = params.get('modRoot');
 const id = params.get('id');
 const starsectorRoot = params.get('starsectorRoot');
+const draftSnapshot = ref<RowData | null>(parseDraftSnapshot(params.get('draftSnapshot')));
 const settings = useSettingsStore();
 const target = computed(() => (sessionId && modRoot && id ? { sessionId, modRoot, id } : null));
 
@@ -126,6 +127,7 @@ const {
   loading,
   errorText,
   weaponForEditor,
+  draftValue,
   shipSpriteForEditor,
   draftDirty,
   draftRevision,
@@ -138,7 +140,7 @@ const {
   saveEditorData,
   updateEditorDraft,
   loadPendingExternalSpec,
-} = useEditorWindowViewModel({ sessionId, modRoot, id, kind: kind.value });
+} = useEditorWindowViewModel({ sessionId, modRoot, id, kind: kind.value, draftSnapshot: draftSnapshot.value });
 const closeGuard = useDirtyWindowCloseGuard({
   content: '当前 spec 有未保存修改，关闭后这些修改将丢失。',
   dirty: draftDirty,
@@ -147,6 +149,16 @@ const closeGuard = useDirtyWindowCloseGuard({
 
 function parseKind(value: string | null): EditorWindowKind {
   return isEditorWindowKind(value) ? value : 'ship';
+}
+
+function parseDraftSnapshot(value: string | null): RowData | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as RowData) : null;
+  } catch {
+    return null;
+  }
 }
 
 function closeWindow() {
@@ -172,6 +184,7 @@ function openPreview(weaponId: string) {
     sessionId: target.value.sessionId,
     settings: settings.settingsSnapshot(),
     starsectorRoot,
+    draftSnapshot: kind.value === 'weapon' ? draftValue.value : undefined,
   });
 }
 

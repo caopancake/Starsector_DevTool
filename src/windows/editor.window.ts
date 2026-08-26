@@ -1,5 +1,5 @@
 import { openManagedWindow } from '@/windows/managed.window';
-import type { AppSettings, EditorWindowKind, ProjectSessionId } from '@/shared/types';
+import type { AppSettings, EditorWindowKind, ProjectSessionId, RowData } from '@/shared/types';
 import { editorWindowDefinition, editorWindowTitle } from '@/domain/editors/editor-definitions';
 export type { EditorSpecSavedEvent } from '@/windows/window.events';
 
@@ -11,6 +11,7 @@ export interface EditorWindowRequest {
   settings: AppSettings;
   starsectorRoot?: string | null;
   title?: string;
+  draftSnapshot?: RowData;
 }
 
 export async function openEditorWindow(request: EditorWindowRequest): Promise<void> {
@@ -27,6 +28,7 @@ export async function openEditorWindow(request: EditorWindowRequest): Promise<vo
       id: request.id,
       settings: JSON.stringify(request.settings),
       starsectorRoot: request.starsectorRoot,
+      draftSnapshot: request.draftSnapshot ? JSON.stringify(request.draftSnapshot) : undefined,
     },
     size: definition.size,
   });
