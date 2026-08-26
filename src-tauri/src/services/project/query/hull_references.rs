@@ -39,6 +39,9 @@ fn build_hull_references(
         });
     }
 
+    ensure_registered_table_rows(session, CsvTableKey::Ships)?;
+    let mod_hull_names =
+        all_ship_names_from_rows(loaded_registered_csv_rows(session, CsvTableKey::Ships)?);
     let mut groups = Vec::new();
     let mut seen = BTreeSet::new();
     let ship_options: Vec<HullReferenceOption> = session
@@ -46,7 +49,7 @@ fn build_hull_references(
         .iter()
         .map(|(hull_id, ship)| {
             seen.insert(hull_id.clone());
-            let label = hull_reference_label(hull_id, ship);
+            let label = hull_reference_label(hull_id, mod_hull_names.get(hull_id), Some(ship));
             let resource_ref = string_field(ship, "spriteName").map(|sprite| {
                 resource_ref(
                     ResourceSource::Mod,
@@ -79,11 +82,11 @@ fn build_hull_references(
             seen.insert(skin.skin_hull_id.clone());
             let resource_ref = skin_resource_ref(ResourceSource::Mod, &session.ship_files, skin);
             HullReferenceOption {
-                label: if skin.skin_hull_id == skin.base_hull_id {
-                    skin.skin_hull_id.clone()
-                } else {
-                    format!("{} ({})", skin.skin_hull_id, skin.base_hull_id)
-                },
+                label: hull_reference_label(
+                    &skin.skin_hull_id,
+                    mod_hull_names.get(&skin.skin_hull_id),
+                    session.ship_files.get(&skin.skin_hull_id),
+                ),
                 value: skin.skin_hull_id.clone(),
                 origin: ResourceSource::Mod,
                 kind: HullReferenceKind::Skin,
@@ -101,6 +104,12 @@ fn build_hull_references(
     if let Some(root) = session.manifest.starsector_root.as_ref() {
         let core_ship_files = load_core_ship_files(root)?;
         let core_skin_files = load_core_skin_files(root)?;
+        let core_hull_names = load_core_csv_table(root, CsvTableKey::Ships)?
+            .as_ref()
+            .map(|table| loaded_csv_rows(table, CsvTableKey::Ships.as_str()))
+            .transpose()?
+            .map(all_ship_names_from_rows)
+            .unwrap_or_default();
 
         let mut core_ship_options = Vec::new();
         for (hull_id, ship) in &core_ship_files {
@@ -108,7 +117,7 @@ fn build_hull_references(
                 continue;
             }
             seen.insert(hull_id.clone());
-            let label = hull_reference_label(hull_id, ship);
+            let label = hull_reference_label(hull_id, core_hull_names.get(hull_id), Some(ship));
             let resource_ref = string_field(ship, "spriteName").map(|sprite| {
                 resource_ref(
                     ResourceSource::Core,
@@ -141,11 +150,11 @@ fn build_hull_references(
             seen.insert(skin.skin_hull_id.clone());
             let resource_ref = skin_resource_ref(ResourceSource::Core, &core_ship_files, skin);
             core_skin_options.push(HullReferenceOption {
-                label: if skin.skin_hull_id == skin.base_hull_id {
-                    skin.skin_hull_id.clone()
-                } else {
-                    format!("{} ({})", skin.skin_hull_id, skin.base_hull_id)
-                },
+                label: hull_reference_label(
+                    &skin.skin_hull_id,
+                    core_hull_names.get(&skin.skin_hull_id),
+                    core_ship_files.get(&skin.skin_hull_id),
+                ),
                 value: skin.skin_hull_id.clone(),
                 origin: ResourceSource::Core,
                 kind: HullReferenceKind::Skin,
@@ -185,35 +194,72 @@ fn resolve_requested_hull_names(
         let rows = loaded_registered_csv_rows(session, CsvTableKey::Ships)?;
         ship_names_from_rows(rows, &requested_ids)
     };
-    let unresolved_ids = requested_ids
-        .iter()
-        .filter(|id| !hull_names.contains_key(id.as_str()))
-        .cloned()
-        .collect::<BTreeSet<_>>();
+    extend_ship_hull_name_fallbacks(&mut hull_names, &session.ship_files, &requested_ids);
+    let unresolved_ids = unresolved_hull_ids(&requested_ids, &hull_names);
     let Some(starsector_root) = session.manifest.starsector_root.as_ref() else {
         return Ok(hull_names);
     };
     if unresolved_ids.is_empty() {
         return Ok(hull_names);
     }
-    let Some(core_table) = load_core_csv_table(starsector_root, CsvTableKey::Ships)? else {
-        return Ok(hull_names);
-    };
-    let core_rows = loaded_csv_rows(&core_table, CsvTableKey::Ships.as_str())?;
-    hull_names.extend(ship_names_from_rows(core_rows, &unresolved_ids));
+    if let Some(core_table) = load_core_csv_table(starsector_root, CsvTableKey::Ships)? {
+        let core_rows = loaded_csv_rows(&core_table, CsvTableKey::Ships.as_str())?;
+        hull_names.extend(ship_names_from_rows(core_rows, &unresolved_ids));
+    }
+    let unresolved_ids = unresolved_hull_ids(&requested_ids, &hull_names);
+    if !unresolved_ids.is_empty() {
+        let core_ship_files = load_core_ship_files(starsector_root)?;
+        extend_ship_hull_name_fallbacks(&mut hull_names, &core_ship_files, &unresolved_ids);
+    }
     Ok(hull_names)
+}
+
+fn unresolved_hull_ids(
+    requested_ids: &BTreeSet<String>,
+    hull_names: &BTreeMap<String, String>,
+) -> BTreeSet<String> {
+    requested_ids
+        .iter()
+        .filter(|id| !hull_names.contains_key(id.as_str()))
+        .cloned()
+        .collect()
+}
+
+fn extend_ship_hull_name_fallbacks(
+    hull_names: &mut BTreeMap<String, String>,
+    ship_files: &BTreeMap<String, serde_json::Value>,
+    requested_ids: &BTreeSet<String>,
+) {
+    for hull_id in requested_ids {
+        if hull_names.contains_key(hull_id) {
+            continue;
+        }
+        if let Some(name) = ship_files
+            .get(hull_id)
+            .and_then(|ship| string_field(ship, "hullName"))
+        {
+            hull_names.insert(hull_id.clone(), name);
+        }
+    }
 }
 
 fn ship_names_from_rows(
     rows: &[SessionCsvRow],
     requested_ids: &BTreeSet<String>,
 ) -> BTreeMap<String, String> {
+    all_ship_names_from_rows(rows)
+        .into_iter()
+        .filter(|(id, _)| requested_ids.contains(id))
+        .collect()
+}
+
+fn all_ship_names_from_rows(rows: &[SessionCsvRow]) -> BTreeMap<String, String> {
     rows.iter()
         .filter(|row| !is_comment_row(&row.row))
         .filter_map(|row| {
             let id = string_from_row(&row.row, "id")?;
             let name = string_from_row(&row.row, "name")?;
-            requested_ids.contains(&id).then_some((id, name))
+            Some((id, name))
         })
         .collect()
 }
@@ -302,9 +348,15 @@ fn resolve_core_hull_sprite(
         })
 }
 
-fn hull_reference_label(hull_id: &str, ship: &serde_json::Value) -> String {
-    let name = string_field(ship, "hullName")
-        .or_else(|| string_field(ship, "name"))
+fn hull_reference_label(
+    hull_id: &str,
+    csv_name: Option<&String>,
+    ship: Option<&serde_json::Value>,
+) -> String {
+    let hull_name = ship.and_then(|ship| string_field(ship, "hullName"));
+    let name = csv_name
+        .map(String::as_str)
+        .or(hull_name.as_deref())
         .unwrap_or_default();
     if name.trim().is_empty() || name == hull_id {
         hull_id.to_string()
@@ -332,6 +384,11 @@ mod tests {
         )
         .unwrap();
         write_utf8_no_bom(
+            &mod_root.join("data/hulls/mod_fallback.ship"),
+            r#"{"hullId":"mod_fallback","hullName":"Mod Fallback","spriteName":"graphics/ships/mod_fallback.png"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
             &mod_root.join("data/hulls/skins/mod_skin.skin"),
             r#"{"skinHullId":"mod_skin","baseHullId":"mod_ship"}"#,
         )
@@ -342,13 +399,18 @@ mod tests {
         )
         .unwrap();
         write_utf8_no_bom(
+            &root.join("starsector-core/data/hulls/core_fallback.ship"),
+            r#"{"hullId":"core_fallback","hullName":"Core Fallback","spriteName":"graphics/ships/core_fallback.png"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
             &mod_root.join("data/hulls/ship_data.csv"),
-            "id,name\r\nmod_ship,Mod CSV Ship\r\n",
+            "id,name\r\nmod_ship,Mod CSV Ship\r\nmod_fallback,\r\nmod_skin,Mod CSV Skin\r\n",
         )
         .unwrap();
         write_utf8_no_bom(
             &root.join("starsector-core/data/hulls/ship_data.csv"),
-            "id,name\r\ncore_ship,Core CSV Ship\r\n",
+            "id,name\r\ncore_ship,Core CSV Ship\r\ncore_fallback,\r\ncore_skin,Core CSV Skin\r\n",
         )
         .unwrap();
         write_utf8_no_bom(
@@ -365,8 +427,10 @@ mod tests {
             &manifest.session_id,
             &[
                 "mod_ship".to_string(),
+                "mod_fallback".to_string(),
                 "mod_skin".to_string(),
                 "core_ship".to_string(),
+                "core_fallback".to_string(),
                 "core_skin".to_string(),
             ],
         )
@@ -378,13 +442,69 @@ mod tests {
             .flat_map(|group| group.options.iter().map(|option| option.value.clone()))
             .collect();
         assert!(values.contains(&"mod_ship".to_string()));
+        assert!(values.contains(&"mod_fallback".to_string()));
         assert!(values.contains(&"mod_skin".to_string()));
         assert!(values.contains(&"core_ship".to_string()));
+        assert!(values.contains(&"core_fallback".to_string()));
         assert!(values.contains(&"core_skin".to_string()));
+        assert_eq!(
+            catalog
+                .groups
+                .iter()
+                .flat_map(|group| group.options.iter())
+                .find(|option| option.value == "mod_ship")
+                .map(|option| option.label.as_str()),
+            Some("Mod CSV Ship (mod_ship)")
+        );
+        assert_eq!(
+            catalog
+                .groups
+                .iter()
+                .flat_map(|group| group.options.iter())
+                .find(|option| option.value == "core_ship")
+                .map(|option| option.label.as_str()),
+            Some("Core CSV Ship (core_ship)")
+        );
+        assert_eq!(
+            catalog
+                .groups
+                .iter()
+                .flat_map(|group| group.options.iter())
+                .find(|option| option.value == "mod_skin")
+                .map(|option| option.label.as_str()),
+            Some("Mod CSV Skin (mod_skin)")
+        );
+        assert_eq!(
+            catalog
+                .groups
+                .iter()
+                .flat_map(|group| group.options.iter())
+                .find(|option| option.value == "core_skin")
+                .map(|option| option.label.as_str()),
+            Some("Core CSV Skin (core_skin)")
+        );
+        assert_eq!(
+            catalog
+                .groups
+                .iter()
+                .flat_map(|group| group.options.iter())
+                .find(|option| option.value == "mod_fallback")
+                .map(|option| option.label.as_str()),
+            Some("Mod Fallback (mod_fallback)")
+        );
+        assert_eq!(
+            catalog
+                .groups
+                .iter()
+                .flat_map(|group| group.options.iter())
+                .find(|option| option.value == "core_fallback")
+                .map(|option| option.label.as_str()),
+            Some("Core Fallback (core_fallback)")
+        );
         assert!(catalog.sprites.is_empty());
         assert!(catalog.hull_names.is_empty());
         assert!(previews.groups.is_empty());
-        assert_eq!(previews.sprites.len(), 4);
+        assert_eq!(previews.sprites.len(), 6);
         assert_eq!(
             previews.hull_names.get("mod_ship"),
             Some(&"Mod CSV Ship".to_string())
@@ -392,6 +512,14 @@ mod tests {
         assert_eq!(
             previews.hull_names.get("core_ship"),
             Some(&"Core CSV Ship".to_string())
+        );
+        assert_eq!(
+            previews.hull_names.get("mod_fallback"),
+            Some(&"Mod Fallback".to_string())
+        );
+        assert_eq!(
+            previews.hull_names.get("core_fallback"),
+            Some(&"Core Fallback".to_string())
         );
         assert_eq!(
             previews

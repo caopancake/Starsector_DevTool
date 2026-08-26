@@ -44,7 +44,7 @@
 ## 验证方式
 
 - 文档和配置改动必须运行 `format:check`、`encoding:check` 与 `git diff --check`。
-- 前端或架构规则改动必须运行 `format:check`、`encoding:check`、`lint`、`typecheck` 与 `build`。
+- 前端或架构规则改动必须运行 `format:check`、`encoding:check`、`lint`、`typecheck`、`test` 与 `build`。
 - Rust 改动必须运行 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings` 与 `cargo test`。
 - 跨层、保存、路径、parser、workspace 或发布链路改动必须运行全部检查。
 - 视觉改动必须人工检查亮暗主题、窄窗口、滚动、hover、focus、disabled 和文字布局。
@@ -56,6 +56,7 @@ npm.cmd run format:check
 npm.cmd run encoding:check
 npm.cmd run lint
 npm.cmd run typecheck
+npm.cmd run test
 npm.cmd run build
 cargo fmt --manifest-path src-tauri\Cargo.toml --check
 cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings

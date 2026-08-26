@@ -370,7 +370,6 @@ fn source_option_label_for_row(
         let name = row
             .row
             .get("name")
-            .or_else(|| row.row.get("hullName"))
             .or_else(|| row.row.get("displayName"))
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
@@ -1200,7 +1199,7 @@ mod tests {
         .unwrap();
         write_utf8_no_bom(
             &root.join("data/hulls/ship_a.ship"),
-            r#"{"hullId":"ship_a","spriteName":"graphics/ships/ship_a.png"}"#,
+            r#"{"hullId":"ship_a","hullName":"Spec Ship A","spriteName":"graphics/ships/ship_a.png"}"#,
         )
         .unwrap();
 
@@ -1238,7 +1237,7 @@ mod tests {
         .unwrap();
         write_utf8_no_bom(
             &root.join("data/hulls/ship_a.ship"),
-            r#"{"hullId":"ship_a","spriteName":"graphics/ships/ship_a.png"}"#,
+            r#"{"hullId":"ship_a","hullName":"Spec Ship A","spriteName":"graphics/ships/ship_a.png"}"#,
         )
         .unwrap();
 
@@ -1286,7 +1285,7 @@ mod tests {
         .unwrap();
         write_utf8_no_bom(
             &root.join("starsector-core/data/hulls/core_ship.ship"),
-            r#"{"hullId":"core_ship","spriteName":"graphics/ships/core_ship.png"}"#,
+            r#"{"hullId":"core_ship","hullName":"Spec Core Ship","spriteName":"graphics/ships/core_ship.png"}"#,
         )
         .unwrap();
 
@@ -1317,6 +1316,57 @@ mod tests {
                 .as_ref()
                 .map(|resource| resource.rel_path.as_str()),
             Some("graphics/ships/core_ship.png")
+        );
+    }
+
+    #[test]
+    fn ship_source_options_use_hull_name_only_when_csv_name_is_missing() {
+        let root = temp_dir("ship_source_name_fallback");
+        let mod_root = root.join("mods/demo");
+        std::fs::create_dir_all(mod_root.join("data/hulls")).unwrap();
+        std::fs::create_dir_all(root.join("starsector-core/data/hulls")).unwrap();
+        write_utf8_no_bom(
+            &mod_root.join("data/hulls/ship_data.csv"),
+            "id,name\r\nmod_ship,\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &mod_root.join("data/hulls/mod_ship.ship"),
+            r#"{"hullId":"mod_ship","hullName":"Mod Fallback"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("starsector-core/data/hulls/ship_data.csv"),
+            "id,name\r\ncore_ship,\r\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("starsector-core/data/hulls/core_ship.ship"),
+            r#"{"hullId":"core_ship","hullName":"Core Fallback"}"#,
+        )
+        .unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
+        let groups = query_csv_source_options(
+            &manifest.session_id,
+            "csv:ships.id",
+            &["mod_ship".to_string(), "core_ship".to_string()],
+            None,
+            None,
+        )
+        .unwrap();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        assert_eq!(
+            source_option_label_from_groups(&groups, "mod_ship").as_deref(),
+            Some("Mod Fallback (mod_ship)")
+        );
+        assert_eq!(
+            source_option_label_from_groups(&groups, "core_ship").as_deref(),
+            Some("Core Fallback (core_ship)")
         );
     }
 

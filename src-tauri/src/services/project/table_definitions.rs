@@ -149,7 +149,7 @@ const CSV_TABLE_DEFINITIONS: [ProjectCsvTableDefinition; 14] = [
         icon_field: None,
         row_resource: ship_row_resource,
         source_resource: ship_source_resource,
-        source_display_name: no_source_display_name,
+        source_display_name: ship_source_display_name,
     },
     ProjectCsvTableDefinition {
         key: CsvTableKey::Weapons,
@@ -458,6 +458,24 @@ fn ship_source_resource(
                 .and_then(|ship| string_field(ship, "spriteName"))
         })
         .map(|path| resource_ref(source, &path, ResourceOwnerKind::Ship, value, "sprite")))
+}
+
+fn ship_source_display_name(
+    source: ResourceSource,
+    _table: CsvTableKey,
+    value: &str,
+    row: &Map<String, Value>,
+    core_data: Option<&CoreSourceData>,
+    session: &ProjectSession,
+) -> AppResult<Option<String>> {
+    if let Some(name) = string_from_row(row, "name") {
+        return Ok(Some(name));
+    }
+    let ship = match source {
+        ResourceSource::Core => core_data.and_then(|data| data.ship_files.get(value)),
+        ResourceSource::Mod => session.ship_files.get(value),
+    };
+    Ok(ship.and_then(|ship| string_field(ship, "hullName")))
 }
 
 fn weapon_source_resource(

@@ -100,7 +100,7 @@ const showReferenceDecorations = computed(() => settings.editMode === 'smart');
 
 const displayName = computed(() => {
   if (!tables.selectedRow) return '';
-  return cell(tables.selectedRow.name) || cell(tables.selectedRow.hullName) || cell(tables.selectedRow.designation) || '未命名记录';
+  return cell(tables.selectedRow.name) || cell(tables.selectedRow.designation) || '未命名记录';
 });
 
 const selectedDisplayId = computed(() => (tables.selectedRow ? rowDisplayId(tables.selectedRow) : ''));

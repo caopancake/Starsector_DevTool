@@ -4,13 +4,13 @@
 
 ## 核心对象与保存边界
 
-| 对象            | 主标识与文件                            | 保存 owner / 关键关系                                                                       |
-| --------------- | --------------------------------------- | ------------------------------------------------------------------------------------------- |
-| 舰船 Ship       | CSV `id`；`.ship` 的 `hullId`           | Ship Editor 只写 `.ship`；`hullId` 应与 CSV `id` 一致。`hullName` 是显示/惯例字段，非主键。 |
-| 武器 Weapon     | `id`；`.wpn`                            | Weapon Editor 只写 `.wpn`；`projectileSpecId` 指向 `.proj`。                                |
-| 弹体 Projectile | `.proj`；`specClass=projectile/missile` | Projectile Editor 保存 `.proj`；产品层“弹体”覆盖 projectile/missile，但代码分支须区分。     |
-| 装配 Variant    | `.variant`                              | 配置编辑链路，不把文件、字段和引用关系混作同一对象。                                        |
-| 发射预览        | `kind=weapon-preview, modRoot, id`      | 只读 ProjectSession 数据；不读取未保存 editor draft，不写文件。                             |
+| 对象            | 主标识与文件                            | 保存 owner / 关键关系                                                                                         |
+| --------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 舰船 Ship       | CSV `id`；`.ship` 的 `hullId`           | Ship Editor 编辑 `.ship`，包括 `hullName`；编辑器外的显示名称顺序为 CSV `name`、`.ship` `hullName`、hull ID。 |
+| 武器 Weapon     | `id`；`.wpn`                            | Weapon Editor 只写 `.wpn`；`projectileSpecId` 指向 `.proj`。                                                  |
+| 弹体 Projectile | `.proj`；`specClass=projectile/missile` | Projectile Editor 保存 `.proj`；产品层“弹体”覆盖 projectile/missile，但代码分支须区分。                       |
+| 装配 Variant    | `.variant`                              | 配置编辑链路，不把文件、字段和引用关系混作同一对象。                                                          |
+| 发射预览        | `kind=weapon-preview, modRoot, id`      | 只读 ProjectSession 数据；不读取未保存 editor draft，不写文件。                                               |
 
 ## 舰船与槽位
 

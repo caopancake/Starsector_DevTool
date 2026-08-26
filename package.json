@@ -10,6 +10,7 @@
     "encoding:check": "node scripts/check-encoding.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "test": "vitest run --environment jsdom",
     "rust:test": "cargo test --manifest-path src-tauri/Cargo.toml",
     "rust:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
     "release": "powershell -ExecutionPolicy Bypass -File ./build.ps1",
@@ -29,12 +30,15 @@
     "@eslint/js": "^10.0.1",
     "@tauri-apps/cli": "^2.0.0",
     "@vitejs/plugin-vue": "^5.2.0",
+    "@vue/test-utils": "^2.4.11",
     "eslint": "^10.3.0",
     "eslint-plugin-vue": "^10.9.1",
     "prettier": "^3.8.3",
+    "jsdom": "^30.0.1",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.59.3",
     "vite": "^6.0.0",
+    "vitest": "^4.1.11",
     "vue-eslint-parser": "^10.4.0",
     "vue-tsc": "^2.2.0"
   }

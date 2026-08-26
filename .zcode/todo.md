@@ -1,10 +1,5 @@
 # Todo
 
-## Phase 1: Ralph 循环
-
-- [ ] 执行 Ralph 循环。
-- [ ] 目标和循环记录维护在 `.zcode/ralph-progress.md`。
-
 ## Phase 2: ProjectSession invalidation 精度修复
 
 - [x] 将 ProjectSession invalidation 从实体整类 `id: null` 粗粒度影响，收敛为能定位具体实体时必须携带实体 ID。
