@@ -56,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useDirtyWindowCloseGuard } from '@/app/composables/use-dirty-window-close-guard';
 import { useFileEditorViewModel } from '@/app/composables/use-file-editor-view-model';
 import { useSettingsStore } from '@/stores/settings.store';
@@ -89,6 +89,7 @@ const {
   contextLabel,
   contextMessage,
   targetLine,
+  targetColumn,
   text,
   loading,
   saving,
@@ -107,6 +108,7 @@ const {
   redoEdit,
 } = useFileEditorViewModel({
   filePath,
+  mode: params.get('mode') === 'recovery' ? 'recovery' : 'session',
   modRoot,
   sessionId,
   title: params.get('title') ?? '文件编辑器',
@@ -114,6 +116,7 @@ const {
   contextSeverity: params.get('contextSeverity') ?? 'info',
   contextMessage: params.get('message') ?? '',
   line: params.get('line'),
+  column: params.get('column'),
 });
 const showContextMessage = computed(() => Boolean(contextMessage.value && (isErrorContext.value || targetLine.value)));
 const closeGuard = useDirtyWindowCloseGuard({
@@ -136,6 +139,9 @@ function syncScroll() {
 function scrollToTargetLine() {
   if (!targetLine.value || !textareaRef.value) return;
   textareaRef.value.scrollTop = Math.max(0, (targetLine.value - 4) * lineHeight);
+  const offset = textOffsetAt(text.value, targetLine.value, targetColumn.value ?? 1);
+  textareaRef.value.focus({ preventScroll: true });
+  textareaRef.value.setSelectionRange(offset, offset);
   syncScroll();
 }
 
@@ -207,9 +213,26 @@ onMounted(() => {
   });
 });
 
+watch([targetLine, targetColumn], () => void nextTick(scrollToTargetLine));
+
 onUnmounted(() => {
   closeGuard.dispose();
   window.removeEventListener('keydown', handleEditorKeydown);
   dispose();
 });
+
+function textOffsetAt(value: string, line: number, column: number): number {
+  const lines = value.split(/\r\n|\r|\n/);
+  const targetLineIndex = Math.min(Math.max(line - 1, 0), Math.max(lines.length - 1, 0));
+  let offset = 0;
+  let currentLine = 0;
+  const lineBreakPattern = /\r\n|\r|\n/g;
+  while (currentLine < targetLineIndex) {
+    const match = lineBreakPattern.exec(value);
+    if (!match) return value.length;
+    offset = match.index + match[0].length;
+    currentLine += 1;
+  }
+  return offset + Math.min(Math.max(column - 1, 0), lines[targetLineIndex]?.length ?? 0);
+}
 </script>

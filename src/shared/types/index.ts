@@ -54,6 +54,7 @@ export type {
   GameModSummary,
   GameOverviewData,
   GameScanWarning,
+  GameWarningEditTarget,
   HullReferenceGroup,
   HullReferenceKind,
   HullReferenceOption,
@@ -86,6 +87,8 @@ export { EDITOR_KINDS, EDITOR_WINDOW_KINDS } from '@/shared/types/editor.types';
 export type {
   ConfigView,
   ModEntry,
+  ModOpeningFailure,
+  ModOpeningFailureFile,
   ModTableState,
   PersistedMod,
   PersistedWorkspace,

@@ -34,7 +34,8 @@
 
 ## 窗口与资源
 
-- 窗口身份必须包含完整 session、`modRoot` 和业务目标；子窗口严禁自行打开 ProjectSession 或读取 settings 文件。
+- 常规窗口身份必须包含完整 session、`modRoot` 和业务目标；错误恢复文件窗口必须包含调用链提供的 `modRoot` 和错误文件路径，并使用 recovery 模式与常规 session 模式区分；子窗口严禁自行打开 ProjectSession 或读取 settings 文件。
+- 错误恢复文件入口只允许在错误文件属于调用链提供的 `modRoot` 时启用；恢复窗口保存只允许经过无 session 文件写入能力，严禁发送依赖 ProjectSession 的保存同步事件。
 - 主窗口拥有 settings 持久化权威；子窗口只允许接收完整 snapshot，并通过正式事件同步。
 - 资源只允许由后端 query 返回 `ResourceRef`，再由 resource-cache service 批量 hydrate data URL；严禁逐项 IPC 或前端构造 fallback。
 - 字段渲染必须遵守全局 edit mode；字符串真实换行必须使用 textarea 并完整保留。

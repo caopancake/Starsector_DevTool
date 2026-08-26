@@ -1,7 +1,7 @@
 use crate::{
     errors::{AppError, AppResult},
     io::{read_json_file, validate_walk_entry, FsRootBoundary},
-    models::{GameModSummary, GameOverviewData, GameScanWarning},
+    models::{GameModSummary, GameOverviewData, GameScanWarning, GameWarningEditTarget},
 };
 use serde_json::Value;
 use std::{
@@ -23,6 +23,7 @@ pub fn scan_game_overview(starsector_root: &Path) -> GameOverviewData {
                 warnings: vec![GameScanWarning {
                     path: root,
                     message: format!("无效 Starsector 根目录: {error}"),
+                    edit_target: None,
                 }],
             };
         }
@@ -42,6 +43,7 @@ fn scan_game_overview_root(starsector_root: &Path) -> GameOverviewData {
                 .to_string_lossy()
                 .to_string(),
             message: "缺少 starsector-core，原版资源回退不可用".to_string(),
+            edit_target: None,
         });
     } else {
         let core_dir = starsector_root.join("starsector-core");
@@ -64,6 +66,7 @@ fn scan_game_overview_root(starsector_root: &Path) -> GameOverviewData {
                         warnings.push(GameScanWarning {
                             path: mods_dir.to_string_lossy().to_string(),
                             message: format!("读取 mods 目录项失败: {error}"),
+                            edit_target: None,
                         });
                         continue;
                     }
@@ -73,6 +76,7 @@ fn scan_game_overview_root(starsector_root: &Path) -> GameOverviewData {
                     warnings.push(GameScanWarning {
                         path: mod_root.to_string_lossy().to_string(),
                         message: format!("Mod 路径使用链接或不可读取，已跳过: {error}"),
+                        edit_target: None,
                     });
                     continue;
                 }
@@ -84,6 +88,7 @@ fn scan_game_overview_root(starsector_root: &Path) -> GameOverviewData {
                     warnings.push(GameScanWarning {
                         path: mod_root.to_string_lossy().to_string(),
                         message: "缺少 mod_info.json，已跳过".to_string(),
+                        edit_target: None,
                     });
                     continue;
                 }
@@ -92,6 +97,10 @@ fn scan_game_overview_root(starsector_root: &Path) -> GameOverviewData {
                     Err(error) => warnings.push(GameScanWarning {
                         path: mod_info_path.to_string_lossy().to_string(),
                         message: format!("读取 mod_info.json 失败: {error}"),
+                        edit_target: Some(GameWarningEditTarget {
+                            mod_root: mod_root.to_string_lossy().to_string(),
+                            path: mod_info_path.to_string_lossy().to_string(),
+                        }),
                     }),
                 }
             }
@@ -100,12 +109,14 @@ fn scan_game_overview_root(starsector_root: &Path) -> GameOverviewData {
             warnings.push(GameScanWarning {
                 path: mods_dir.to_string_lossy().to_string(),
                 message: "缺少 mods 目录".to_string(),
+                edit_target: None,
             });
         }
         Err(error) => {
             warnings.push(GameScanWarning {
                 path: mods_dir.to_string_lossy().to_string(),
                 message: format!("无法读取 mods 目录: {error}"),
+                edit_target: None,
             });
         }
     }
@@ -204,6 +215,7 @@ fn append_duplicate_id_warnings(mods: &[GameModSummary], warnings: &mut Vec<Game
             warnings.push(GameScanWarning {
                 path: summary.mod_root.clone(),
                 message: format!("重复 Mod id: {}", summary.id),
+                edit_target: None,
             });
         }
     }
@@ -299,6 +311,36 @@ mod tests {
             .warnings
             .iter()
             .any(|w| w.message.contains("重复 Mod id")));
+    }
+
+    #[test]
+    fn scan_game_overview_authorizes_invalid_mod_info_for_recovery_editing() {
+        let root = temp_dir("game_invalid_mod_info_edit_target");
+        let mod_root = root.join("mods/broken");
+        let mod_info_path = mod_root.join("mod_info.json");
+        fs::create_dir_all(root.join("starsector-core")).unwrap();
+        fs::create_dir_all(&mod_root).unwrap();
+        write_utf8_no_bom(
+            &mod_info_path,
+            "{\n  \"id\": \"broken\"\n  \"name\": \"Broken\"\n}",
+        )
+        .unwrap();
+
+        let overview = scan_game_overview(&root);
+
+        let warning = overview
+            .warnings
+            .iter()
+            .find(|warning| warning.edit_target.is_some())
+            .unwrap();
+        let target = warning.edit_target.as_ref().unwrap();
+        let expected_mod_root = path_string(&mod_root);
+        let expected_path = path_string(&mod_info_path);
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(target.mod_root, expected_mod_root);
+        assert_eq!(target.path, expected_path);
+        assert_eq!(warning.path, expected_path);
+        assert!(warning.message.contains("line 3 column"));
     }
 
     #[test]

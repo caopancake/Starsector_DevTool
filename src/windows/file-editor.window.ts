@@ -1,8 +1,10 @@
 import { openManagedWindow } from '@/windows/managed.window';
 import { WINDOW_EVENTS, type FileEditorFocusLineEvent } from '@/windows/window.events';
-import type { AppSettings } from '@/shared/types';
+import type { AppSettings, GameScanWarning, ModOpeningFailure } from '@/shared/types';
+import { extractFileReferenceFromError } from '@/shared/lib/errors';
 
 export interface FileEditorRequest {
+  mode?: 'session' | 'recovery';
   modRoot: string | null;
   path: string;
   sessionId: string | null;
@@ -11,11 +13,49 @@ export interface FileEditorRequest {
   contextSeverity?: FileEditorFocusLineEvent['contextSeverity'];
   message?: string;
   line?: number;
+  column?: number;
 }
 
 export type OpenFileEditorWindowRequest = FileEditorRequest & {
   settings: AppSettings;
 };
+
+export function openGameWarningFileEditor(warning: GameScanWarning, settings: AppSettings): Promise<void> | null {
+  const target = warning.editTarget;
+  if (!target) return null;
+  const reference = extractFileReferenceFromError(warning.message);
+  return openFileEditorWindow({
+    mode: 'recovery',
+    modRoot: target.modRoot,
+    path: target.path,
+    sessionId: null,
+    line: reference?.line,
+    column: reference?.column,
+    settings,
+    title: '文件编辑器',
+    contextLabel: '错误',
+    contextSeverity: 'error',
+    message: warning.message,
+  });
+}
+
+export function openModOpeningFailureFileEditor(failure: ModOpeningFailure, settings: AppSettings): Promise<void> | null {
+  const target = failure.file;
+  if (!target) return null;
+  return openFileEditorWindow({
+    mode: 'recovery',
+    modRoot: failure.modRoot,
+    path: target.path,
+    sessionId: null,
+    line: target.line,
+    column: target.column,
+    settings,
+    title: '文件编辑器',
+    contextLabel: '错误',
+    contextSeverity: 'error',
+    message: failure.message,
+  });
+}
 
 export function openFileEditorWindow(request: OpenFileEditorWindowRequest): Promise<void> {
   return openManagedWindow({
@@ -32,6 +72,8 @@ export function openFileEditorWindow(request: OpenFileEditorWindowRequest): Prom
       contextSeverity: request.contextSeverity,
       message: request.message,
       line: request.line,
+      column: request.column,
+      mode: request.mode ?? 'session',
       settings: JSON.stringify(request.settings),
     },
     size: {
@@ -43,6 +85,7 @@ export function openFileEditorWindow(request: OpenFileEditorWindowRequest): Prom
     focusEvent: {
       name: WINDOW_EVENTS.fileEditorFocusLine,
       data: {
+        column: request.column ?? null,
         line: request.line ?? null,
         message: request.message ?? null,
         contextLabel: request.contextLabel ?? null,

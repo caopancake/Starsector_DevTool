@@ -35,6 +35,41 @@ mod tests {
     };
 
     #[test]
+    fn recovery_editor_loads_file_inside_mod_root() {
+        let root = temp_dir("recovery_editor_loads_inside_root");
+        let target = root.join("mod_info.json");
+        write_utf8_no_bom(&target, "{\"id\":\"demo\"}").unwrap();
+
+        let loaded = load_editable_file(
+            &root.to_string_lossy(),
+            target.to_string_lossy().to_string(),
+        )
+        .unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(loaded.text, "{\"id\":\"demo\"}");
+    }
+
+    #[test]
+    fn recovery_editor_saves_file_inside_mod_root() {
+        let root = temp_dir("recovery_editor_saves_inside_root");
+        let target = root.join("mod_info.json");
+        write_utf8_no_bom(&target, "{").unwrap();
+
+        let result = save_text_file(
+            &root.to_string_lossy(),
+            &target.to_string_lossy(),
+            "{}".to_string(),
+        )
+        .unwrap();
+        let saved = std::fs::read_to_string(&target).unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(saved, "{}");
+        assert_eq!(result.changes.len(), 1);
+    }
+
+    #[test]
     fn save_text_file_rejects_path_outside_mod_root() {
         let root = temp_dir("save_text_file_rejects_external_root");
         let outside = temp_dir("save_text_file_rejects_external_outside");

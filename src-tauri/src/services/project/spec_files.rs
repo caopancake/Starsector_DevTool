@@ -41,6 +41,7 @@ pub(super) fn load_variant_files(
                     "重复 variantId {}，已保留第一个文件并跳过后续文件：{previous}",
                     file.variant_id
                 ),
+                edit_target: None,
             });
             continue;
         }
@@ -88,6 +89,7 @@ pub(super) fn load_skin_files(mod_root: &Path) -> AppResult<(Vec<SkinFile>, Vec<
                     "重复 skinHullId {}，已保留第一个文件并跳过后续文件：{previous}",
                     file.skin_hull_id
                 ),
+                edit_target: None,
             });
             continue;
         }

@@ -191,6 +191,12 @@ export interface HullReferencesResult {
 export interface GameScanWarning {
   path: string;
   message: string;
+  editTarget: GameWarningEditTarget | null;
+}
+
+export interface GameWarningEditTarget {
+  modRoot: string;
+  path: string;
 }
 
 export interface GameModSummary {

@@ -11,5 +11,5 @@
 
 ## 不变量
 
-- 保留可见空行、全逗号行、`#` 行和 quoted CRLF；短 hash 行补齐，非 hash 宽度错误拒绝，EOF 未闭合引号报 path/行上下文。
+- 必须保留可见空行、全逗号行、`#` 行和 quoted CRLF；短 hash 行必须补齐，非 hash 宽度错误必须拒绝并报告 path、记录序号和物理起始行，EOF 未闭合引号必须报告 path 和物理起始行。
 - parser 不识别业务表、不写盘、不生成 rowKey/ResourceRef/运行时字段；render 仅 header 列，绝不写 `_rowKey/_faction`。

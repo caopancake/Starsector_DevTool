@@ -218,7 +218,8 @@ pub struct DeleteSkinEntityPayload {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveTextFilePayload {
-    pub session_id: ProjectSessionId,
+    #[serde(deserialize_with = "required_nullable")]
+    pub session_id: Option<ProjectSessionId>,
     pub mod_root: String,
     pub path: String,
     pub text: String,
@@ -227,7 +228,8 @@ pub struct SaveTextFilePayload {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoadEditableFilePayload {
-    pub session_id: ProjectSessionId,
+    #[serde(deserialize_with = "required_nullable")]
+    pub session_id: Option<ProjectSessionId>,
     pub mod_root: String,
     pub path: String,
 }
@@ -481,6 +483,19 @@ mod tests {
     }
 
     #[test]
+    fn save_text_file_payload_accepts_explicit_null_session_id() {
+        let payload = serde_json::from_value::<SaveTextFilePayload>(json!({
+            "sessionId": null,
+            "modRoot": "D:/mods/demo",
+            "path": "D:/mods/demo/mod_info.json",
+            "text": "{}"
+        }))
+        .unwrap();
+
+        assert_eq!(payload.session_id, None);
+    }
+
+    #[test]
     fn load_editable_file_payload_requires_mod_root() {
         let result = serde_json::from_value::<LoadEditableFilePayload>(json!({
             "sessionId": "session-1",
@@ -488,6 +503,28 @@ mod tests {
         }));
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn load_editable_file_payload_requires_session_id_field() {
+        let result = serde_json::from_value::<LoadEditableFilePayload>(json!({
+            "modRoot": "D:/mods/demo",
+            "path": "D:/mods/demo/mod_info.json"
+        }));
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn load_editable_file_payload_accepts_explicit_null_session_id() {
+        let payload = serde_json::from_value::<LoadEditableFilePayload>(json!({
+            "sessionId": null,
+            "modRoot": "D:/mods/demo",
+            "path": "D:/mods/demo/mod_info.json"
+        }))
+        .unwrap();
+
+        assert_eq!(payload.session_id, None);
     }
 
     #[test]

@@ -4,6 +4,7 @@ import type {
   ConfigView,
   GameOverviewData,
   ModEntry,
+  ModOpeningFailure,
   PersistedWorkspace,
   TableKey,
   WorkspaceColumnWidths,
@@ -27,6 +28,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const configView = ref<ConfigView>('mod-overview');
   const modNavigationContexts = ref<Map<string, ModNavigationContext>>(new Map());
   const gameOverview = ref<GameOverviewData | null>(null);
+  const modOpeningFailures = ref<Map<string, ModOpeningFailure>>(new Map());
   const columnWidths = ref<WorkspaceColumnWidths>({});
 
   const activeMod = computed(() => (activeModRoot.value ? (mods.value.get(activeModRoot.value) ?? null) : null));
@@ -35,6 +37,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const loadedModCount = computed(() => mods.value.size);
   const hasLoadedMods = computed(() => mods.value.size > 0);
   const hasGameWorkspace = computed(() => gameOverview.value !== null);
+  const modOpeningFailureList = computed(() => [...modOpeningFailures.value.values()]);
+  const hasModOpeningFailures = computed(() => modOpeningFailures.value.size > 0);
   const hasWorkspaceContext = computed(() => hasGameWorkspace.value || hasLoadedMods.value);
   const gameWorkspace = computed(() =>
     gameOverview.value
@@ -52,6 +56,18 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function registerMod(entry: ModEntry) {
     mods.value.set(entry.modRoot, entry);
     modNavigationContexts.value.set(entry.modRoot, createDefaultModNavigationContext());
+  }
+
+  function setModOpeningFailure(failure: ModOpeningFailure) {
+    modOpeningFailures.value.set(failure.modRoot, failure);
+  }
+
+  function clearModOpeningFailure(modRoot: string) {
+    modOpeningFailures.value.delete(modRoot);
+  }
+
+  function clearModOpeningFailures() {
+    modOpeningFailures.value.clear();
   }
 
   function updateModStatus(modRoot: string, status: ModEntry['status'], error?: string) {
@@ -128,6 +144,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   function applyPersistedWorkspaceSnapshot(persisted: PersistedWorkspace) {
+    clearModOpeningFailures();
     modNavigationContexts.value = new Map();
     for (const mod of persisted.mods) {
       registerMod({ modRoot: mod.modRoot, displayName: mod.displayName, version: mod.version, status: 'loading' });
@@ -195,14 +212,19 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     gameWorkspace,
     hasGameWorkspace,
     hasLoadedMods,
+    hasModOpeningFailures,
     hasWorkspaceContext,
     loadedModCount,
     loadedModList,
+    modOpeningFailureList,
+    modOpeningFailures,
     mods,
     activateModConfig,
     activateModOverview,
     activateModTable,
     applyPersistedWorkspaceSnapshot,
+    clearModOpeningFailure,
+    clearModOpeningFailures,
     getColumnWidths,
     isModImported,
     isModView,
@@ -210,6 +232,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     removeLoadedModEntry,
     setColumnWidths,
     setGameOverview,
+    setModOpeningFailure,
     showAbout,
     showOverview,
     showSettings,

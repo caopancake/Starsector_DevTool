@@ -62,5 +62,6 @@ export async function closeWorkspaceRuntime(target: WorkspaceCloseTarget) {
   if (workspace.gameOverview?.starsectorRoot === target.gameOverviewRoot) {
     workspace.setGameOverview(null);
   }
+  workspace.clearModOpeningFailures();
   if (!workspace.activeModRoot) workspace.showOverview();
 }

@@ -35,6 +35,7 @@ pub fn detect_directory(path: &Path, known_starsector_root: Option<&str>) -> Ope
         warnings: vec![GameScanWarning {
             path: selected,
             message: "未识别为 Starsector 游戏目录或 Mod 目录".to_string(),
+            edit_target: None,
         }],
     }
 }
@@ -75,6 +76,7 @@ fn resolve_known_root(
             vec![GameScanWarning {
                 path: root.to_string(),
                 message: format!("已忽略无效 Starsector 根目录: {error}"),
+                edit_target: None,
             }],
         ),
     }

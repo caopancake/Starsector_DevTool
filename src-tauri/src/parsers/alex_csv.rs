@@ -4,6 +4,11 @@ use crate::{
 };
 use serde_json::{Map, Value};
 
+struct LooseRecord {
+    fields: Vec<String>,
+    start_line: usize,
+}
+
 pub fn parse_csv_bytes(path_label: &str, bytes: &[u8]) -> AppResult<CsvTable> {
     let records = parse_loose_records(path_label, bytes)?;
     if records.is_empty() {
@@ -15,7 +20,7 @@ pub fn parse_csv_bytes(path_label: &str, bytes: &[u8]) -> AppResult<CsvTable> {
     }
     let Some(header_index) = records
         .iter()
-        .position(|record| !is_blank_visible_empty_record(record))
+        .position(|record| !is_blank_visible_empty_record(&record.fields))
     else {
         return Ok(CsvTable {
             header: vec![],
@@ -23,15 +28,16 @@ pub fn parse_csv_bytes(path_label: &str, bytes: &[u8]) -> AppResult<CsvTable> {
             path: path_label.to_string(),
         });
     };
-    let header = records[header_index].clone();
+    let header = records[header_index].fields.clone();
     let header_width = header.len();
     let mut normalized_records = Vec::new();
     for (index, record) in records.iter().skip(header_index + 1).enumerate() {
         normalized_records.push(normalize_record_width(
             path_label,
-            record,
+            &record.fields,
             header_width,
             index + header_index + 2,
+            record.start_line,
         )?);
     }
     let mut rows = Vec::new();
@@ -83,7 +89,8 @@ fn normalize_record_width(
     path_label: &str,
     record: &[String],
     header_width: usize,
-    line_number: usize,
+    record_number: usize,
+    start_line: usize,
 ) -> AppResult<Vec<String>> {
     if is_blank_visible_empty_record(record) {
         return Ok(vec![String::new(); header_width]);
@@ -99,21 +106,23 @@ fn normalize_record_width(
     Err(AppError::context(
         format!("解析 CSV 失败 ({path_label})"),
         AppError::message(format!(
-            "record {} has {} fields, but header has {} fields",
-            line_number,
+            "record {} has {} fields, but header has {} fields; record starts at line {}",
+            record_number,
             record.len(),
-            header_width
+            header_width,
+            start_line
         )),
     ))
 }
 
-fn parse_loose_records(path_label: &str, bytes: &[u8]) -> AppResult<Vec<Vec<String>>> {
+fn parse_loose_records(path_label: &str, bytes: &[u8]) -> AppResult<Vec<LooseRecord>> {
     let mut records = Vec::new();
     let mut record = Vec::new();
     let mut field = String::new();
     let mut index = 0;
     let mut in_quotes = false;
     let mut line_number = 1usize;
+    let mut record_start_line = 1usize;
     let mut quoted_field_start_line = None;
     let mut at_field_start = true;
     let mut record_has_content = false;
@@ -172,24 +181,28 @@ fn parse_loose_records(path_label: &str, bytes: &[u8]) -> AppResult<Vec<Vec<Stri
             if bytes.get(index) == Some(&b'\n') {
                 index += 1;
             }
-            line_number += 1;
             finish_record(
                 &mut records,
                 &mut record,
                 &mut field,
                 &mut at_field_start,
                 &mut record_has_content,
+                record_start_line,
             );
+            line_number += 1;
+            record_start_line = line_number;
         } else if byte == b'\n' {
             index += 1;
-            line_number += 1;
             finish_record(
                 &mut records,
                 &mut record,
                 &mut field,
                 &mut at_field_start,
                 &mut record_has_content,
+                record_start_line,
             );
+            line_number += 1;
+            record_start_line = line_number;
         } else {
             let ch = read_csv_text_char(path_label, bytes, &mut index)?;
             field.push(ch);
@@ -208,7 +221,10 @@ fn parse_loose_records(path_label: &str, bytes: &[u8]) -> AppResult<Vec<Vec<Stri
     }
     if record_has_content || !field.is_empty() || !record.is_empty() {
         record.push(field);
-        records.push(record);
+        records.push(LooseRecord {
+            fields: record,
+            start_line: record_start_line,
+        });
     }
     Ok(records)
 }
@@ -250,14 +266,18 @@ fn read_csv_text_char(path_label: &str, bytes: &[u8], index: &mut usize) -> AppR
 }
 
 fn finish_record(
-    records: &mut Vec<Vec<String>>,
+    records: &mut Vec<LooseRecord>,
     record: &mut Vec<String>,
     field: &mut String,
     at_field_start: &mut bool,
     record_has_content: &mut bool,
+    start_line: usize,
 ) {
     record.push(std::mem::take(field));
-    records.push(std::mem::take(record));
+    records.push(LooseRecord {
+        fields: std::mem::take(record),
+        start_line,
+    });
     *at_field_start = true;
     *record_has_content = false;
 }
@@ -298,6 +318,22 @@ mod tests {
         assert!(error.contains("csv_bad_width.csv"));
         assert!(error.contains("record 3 has 1 fields"));
         assert!(error.contains("header has 2 fields"));
+        assert!(error.contains("record starts at line 3"));
+    }
+
+    #[test]
+    fn read_reports_physical_start_line_after_multiline_record() {
+        for newline in ["\r\n", "\n"] {
+            let text = format!(
+                "id,name,desc{newline}a,A,\"first{newline}second{newline}third\"{newline}broken{newline}"
+            );
+            let error = parse_csv_text("csv_multiline_before_bad_width.csv", &text)
+                .unwrap_err()
+                .to_string();
+
+            assert!(error.contains("record 3 has 1 fields"));
+            assert!(error.contains("record starts at line 5"));
+        }
     }
 
     #[test]

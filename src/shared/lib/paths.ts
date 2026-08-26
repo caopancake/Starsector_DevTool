@@ -1,5 +1,9 @@
 export function normalizeFsPath(path: string): string {
-  return path.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  return path
+    .replace(/\\/g, '/')
+    .replace(/^\/\/\?\//, '')
+    .replace(/\/+$/, '')
+    .toLowerCase();
 }
 
 export function normalizeRelPath(path: string): string {
@@ -57,7 +61,7 @@ export function closestRootForPath(roots: Iterable<string>, path: string): strin
 }
 
 export function relativePathFromRoot(root: string, path: string): string {
-  const normalizedPath = normalizeRelPath(path);
+  const normalizedPath = normalizeRelPath(path).replace(/^\/\/\?\//, '');
   const comparablePath = normalizeFsPath(path);
   const comparableRoot = normalizeFsPath(root);
   if (comparablePath === comparableRoot) return '';

@@ -44,7 +44,7 @@ export async function writeCsvPatch(
   return saveCsvPatch(sessionId, modRoot, table, patches, associatedSpecs);
 }
 
-export async function writeTextFile(sessionId: string, modRoot: string, path: string, text: string): Promise<WriteResult> {
+export async function writeTextFile(sessionId: string | null, modRoot: string, path: string, text: string): Promise<WriteResult> {
   return saveTextFile(sessionId, modRoot, path, text);
 }
 

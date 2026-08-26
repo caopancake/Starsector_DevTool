@@ -12,6 +12,7 @@ import { useEditTargetDraftSession } from '@/app/composables/use-edit-target-dra
 import { useTextHistory } from '@/app/composables/use-text-history';
 
 export interface FileEditorViewModelParams {
+  mode: 'session' | 'recovery';
   filePath: string | null;
   modRoot: string | null;
   sessionId: string | null;
@@ -20,12 +21,14 @@ export interface FileEditorViewModelParams {
   contextSeverity: string;
   contextMessage: string;
   line: string | null;
+  column: string | null;
 }
 
 interface FileEditorTarget {
   filePath: string;
+  mode: 'session' | 'recovery';
   modRoot: string;
-  sessionId: string;
+  sessionId: string | null;
 }
 
 export function useFileEditorViewModel(params: FileEditorViewModelParams) {
@@ -35,6 +38,7 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
   const contextSeverity = ref(params.contextSeverity);
   const contextMessage = ref(params.contextMessage);
   const targetLine = ref(normalizeLine(params.line));
+  const targetColumn = ref(normalizeLine(params.column));
   const draftSession = useEditTargetDraftSession<string, FileEditorTarget>({
     emptyValue: '',
     load: async (target) => {
@@ -43,12 +47,14 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
     },
     save: async (target, draft) => {
       const result = await writeEditableFileText(target.sessionId, target.modRoot, target.filePath, draft);
-      await emitFileEditorSaved({
-        modRoot: target.modRoot,
-        path: target.filePath,
-        sessionId: target.sessionId,
-        writeResult: result,
-      });
+      if (target.sessionId) {
+        await emitFileEditorSaved({
+          modRoot: target.modRoot,
+          path: target.filePath,
+          sessionId: target.sessionId,
+          writeResult: result,
+        });
+      }
       return { value: draft };
     },
     targetKey: (target) => fileEditorTargetKey(target),
@@ -77,6 +83,7 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
       contextLabel.value = event.contextLabel ?? '信息';
       contextSeverity.value = event.contextSeverity ?? 'info';
       targetLine.value = normalizeEventLine(event.line);
+      targetColumn.value = normalizeEventLine(event.column);
     });
     if (disposed) {
       unlistenFocusLine?.();
@@ -169,6 +176,7 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
     contextSeverity,
     contextMessage,
     targetLine,
+    targetColumn,
     text,
     loading: draftSession.loading,
     saving: draftSession.saving,
@@ -198,16 +206,16 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
       feedback.error('缺少文件读取根目录');
       return null;
     }
-    if (!params.sessionId) {
+    if (params.mode === 'session' && !params.sessionId) {
       feedback.error('缺少文件编辑器 session');
       return null;
     }
-    return { filePath: params.filePath, modRoot: params.modRoot, sessionId: params.sessionId };
+    return { filePath: params.filePath, mode: params.mode, modRoot: params.modRoot, sessionId: params.sessionId };
   }
 }
 
 function fileEditorTargetKey(target: FileEditorTarget): string {
-  return `${target.sessionId}\n${normalizeFsPath(target.modRoot)}\n${normalizeFsPath(target.filePath)}`;
+  return `${target.mode}\n${target.sessionId ?? ''}\n${normalizeFsPath(target.modRoot)}\n${normalizeFsPath(target.filePath)}`;
 }
 
 function normalizeLine(value: string | null): number | undefined {

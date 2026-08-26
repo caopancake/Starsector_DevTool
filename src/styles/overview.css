@@ -25,6 +25,13 @@
   gap: var(--space-2);
 }
 
+.overview-page-content {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: 0;
+}
+
 .overview-header {
   display: flex;
   gap: var(--space-3);
@@ -131,21 +138,71 @@
   gap: var(--space-2);
 }
 
-.game-warning-item {
+.mod-opening-failure-list {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.mod-opening-failure-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  min-width: 0;
+  padding: var(--space-3);
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border-soft);
+  border-radius: var(--radius-md);
+}
+
+.mod-opening-failure-content {
   display: grid;
   gap: 2px;
+  min-width: 0;
+}
+
+.mod-opening-failure-content strong {
+  overflow-wrap: anywhere;
+  color: var(--color-danger-text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.mod-opening-failure-content span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-warning-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
   padding: var(--space-3);
   background: var(--color-warning-bg);
   border: 1px solid var(--color-warning-border);
   border-radius: var(--radius-md);
 }
 
-.game-warning-item strong {
-  color: var(--color-warning);
-  font-size: 12px;
+.game-warning-content {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
-.game-warning-item span {
+.game-warning-content strong {
+  overflow-wrap: anywhere;
+  color: var(--color-warning);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.game-warning-content span {
   min-width: 0;
   overflow: hidden;
   color: var(--color-muted);
@@ -180,7 +237,9 @@
 
 .overview-mod-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
+  min-width: 0;
   padding: var(--space-4);
   cursor: pointer;
   background: var(--color-panel);

@@ -1,6 +1,6 @@
 import { h, onMounted, onUnmounted, ref, type Ref } from 'vue';
 import { NCheckbox } from 'naive-ui/es/checkbox';
-import type { AppFeedback } from '@/shared/types';
+import type { AppFeedback, GameScanWarning, ModOpeningFailure } from '@/shared/types';
 import { useSettingsStore } from '@/stores/settings.store';
 import { openEditorWindow } from '@/windows/editor.window';
 import { useProjectStore } from '@/stores/project.store';
@@ -11,7 +11,12 @@ import { useDraftSessionsStore } from '@/stores/draft-sessions.store';
 import type { AssociatedSpecCandidate } from '@/domain/tables/associated-spec-candidates';
 import type { TableDetailAction } from '@/domain/tables/table-detail-actions';
 import { listenWindowSaveEvents } from '@/orchestrators/window-save.orchestrator';
-import { openFileEditorWindow, type FileEditorRequest } from '@/windows/file-editor.window';
+import {
+  openFileEditorWindow,
+  openGameWarningFileEditor,
+  openModOpeningFailureFileEditor,
+  type FileEditorRequest,
+} from '@/windows/file-editor.window';
 import { openDirectoryTarget, openModFromOverview, type DirectoryOpeningOutcome } from '@/orchestrators/directory-opening.orchestrator';
 import {
   captureWorkspaceCloseTarget,
@@ -27,6 +32,7 @@ import {
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { useCoreSchema } from '@/app/composables/use-core-schema';
 import { recordLogBestEffort } from '@/services/app-feedback-log.service';
+import { buildModOpeningFailure } from '@/shared/lib/errors';
 
 export function useWorkspaceShellActions(feedback: AppFeedback) {
   const project = useProjectStore();
@@ -55,6 +61,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
         loadCoreFields,
         onModRestoreError: async (modRoot, displayName, error) => {
           await removeLoadedModRuntime(modRoot);
+          workspace.setModOpeningFailure(buildModOpeningFailure(modRoot, error));
           feedback.error(error, `恢复 ${displayName} 失败`);
         },
         onModRestoreWarnings: (displayName, warnings) => {
@@ -109,6 +116,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     if (!root) return;
     try {
       const overview = await scanDirectoryGameOverview(root);
+      workspace.clearModOpeningFailures();
       workspace.setGameOverview(overview);
       settings.setStarsectorRoot(overview.starsectorRoot);
       recordLogBestEffort({ level: 'info', message: `刷新工作区：${overview.starsectorRoot}`, path: null, line: null });
@@ -219,6 +227,14 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     void openFileEditorWindow({ ...request, settings: settings.settingsSnapshot() });
   }
 
+  function openGameWarningFile(warning: GameScanWarning) {
+    void openGameWarningFileEditor(warning, settings.settingsSnapshot());
+  }
+
+  function openModOpeningFailureFile(failure: ModOpeningFailure) {
+    void openModOpeningFailureFileEditor(failure, settings.settingsSnapshot());
+  }
+
   function handleDirectoryOpeningOutcome(outcome: DirectoryOpeningOutcome) {
     if (outcome.type === 'game-overview') {
       if (workspace.gameOverview?.starsectorRoot) settings.setStarsectorRoot(workspace.gameOverview.starsectorRoot);
@@ -297,6 +313,8 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     deleteSelectedRow,
     handleDetailAction,
     loadOverviewMod,
+    openGameWarningFile,
+    openModOpeningFailureFile,
     openDirectory,
     redoCurrentTableEdit,
     refreshWorkspace,

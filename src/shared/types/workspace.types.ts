@@ -12,6 +12,18 @@ export interface ModEntry {
   error?: string;
 }
 
+export interface ModOpeningFailureFile {
+  path: string;
+  line?: number;
+  column?: number;
+}
+
+export interface ModOpeningFailure {
+  modRoot: string;
+  message: string;
+  file: ModOpeningFailureFile | null;
+}
+
 /** Per-Mod table state — fully isolated from other Mods */
 export interface ModTableState {
   tables: Record<TableKey, CsvTableRows>;

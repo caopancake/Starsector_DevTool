@@ -12,10 +12,17 @@
       </div>
     </div>
 
+    <ModOpeningFailureList :failures="openingFailures" @edit-failure-file="$emit('edit-failure-file', $event)" />
+
     <div v-if="overview.warnings.length > 0" class="game-warning-list">
       <div v-for="warning in overview.warnings" :key="warningKey(warning)" class="game-warning-item">
-        <strong>{{ warning.message }}</strong>
-        <span>{{ warning.path }}</span>
+        <div class="game-warning-content">
+          <strong>{{ warningMessage(warning) }}</strong>
+          <span>{{ warning.path }}</span>
+        </div>
+        <n-button v-if="warning.editTarget" size="small" secondary type="warning" @click="$emit('edit-warning-file', warning)">
+          打开文件
+        </n-button>
       </div>
     </div>
 
@@ -53,12 +60,21 @@
 </template>
 
 <script setup lang="ts">
-import type { GameOverviewData, GameScanWarning } from '@/shared/types';
+import ModOpeningFailureList from '@/app/components/ModOpeningFailureList.vue';
+import type { GameOverviewData, GameScanWarning, ModOpeningFailure } from '@/shared/types';
+import { appendFileReferenceLocation, extractFileReferenceFromError } from '@/shared/lib/errors';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { useWorkspaceNavigationActions } from '@/app/composables/use-workspace-navigation-actions';
 
-defineProps<{ overview: GameOverviewData }>();
-defineEmits<{ 'create-mod': []; 'refresh-workspace': []; 'close-workspace': []; 'load-mod': [modRoot: string] }>();
+defineProps<{ openingFailures: ModOpeningFailure[]; overview: GameOverviewData }>();
+defineEmits<{
+  'create-mod': [];
+  'refresh-workspace': [];
+  'close-workspace': [];
+  'edit-warning-file': [warning: GameScanWarning];
+  'edit-failure-file': [failure: ModOpeningFailure];
+  'load-mod': [modRoot: string];
+}>();
 
 const workspace = useWorkspaceStore();
 const { navigateToModOverview } = useWorkspaceNavigationActions();
@@ -81,5 +97,9 @@ function modStatusLabel(modRoot: string): string {
 
 function warningKey(warning: GameScanWarning): string {
   return JSON.stringify([warning.path, warning.message]);
+}
+
+function warningMessage(warning: GameScanWarning): string {
+  return appendFileReferenceLocation(warning.message, extractFileReferenceFromError(warning.message));
 }
 </script>

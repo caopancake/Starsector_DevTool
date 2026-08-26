@@ -11,6 +11,7 @@ import { detectDirectoryTarget, openProject, scanDirectoryGameOverview } from '@
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
 import { measurePerformance } from '@/services/performance.service';
 import { navigateToModOverview } from '@/orchestrators/workspace-navigation.orchestrator';
+import { buildModOpeningFailure } from '@/shared/lib/errors';
 
 export type DirectoryOpeningOutcome =
   | { type: 'game-overview'; availableModCount: number }
@@ -26,6 +27,7 @@ export async function openDirectoryTarget(path: string, knownStarsectorRoot: str
   const workspace = useWorkspaceStore();
 
   if (detected.kind === 'game-root' && detected.overview) {
+    workspace.clearModOpeningFailures();
     workspace.setGameOverview(detected.overview);
     return { type: 'game-overview', availableModCount: detected.overview.mods.length };
   }
@@ -53,7 +55,7 @@ export async function openDirectoryTarget(path: string, knownStarsectorRoot: str
 export async function openModFromOverview(modRoot: string): Promise<DirectoryOpeningOutcome> {
   const workspace = useWorkspaceStore();
   const starsectorRoot = workspace.gameOverview?.starsectorRoot ?? null;
-  const loaded = await openModProject(modRoot, starsectorRoot, 'overview');
+  const loaded = await openModProject(modRoot, starsectorRoot, 'mod');
   return loaded.alreadyLoaded
     ? { type: 'already-loaded', modName: loaded.displayName }
     : { type: 'mod-loaded', modName: loaded.displayName, warnings: loaded.warnings };
@@ -100,6 +102,7 @@ async function openModProject(modRoot: string, starsectorRoot: string | null, af
     return { alreadyLoaded: false, displayName, warnings: formatLoadWarnings(loaded) };
   } catch (error) {
     rollbackFailedModOpening(modRoot);
+    workspace.setModOpeningFailure(buildModOpeningFailure(modRoot, error));
     throw error;
   }
 }
@@ -137,6 +140,7 @@ function updateLoadedEntry(modRoot: string, loaded: ProjectManifest): string {
   const version = formatModVersion(loaded.modInfo?.version) || '';
   workspace.updateModInfo(modRoot, displayName, version);
   workspace.updateModStatus(modRoot, 'ready');
+  workspace.clearModOpeningFailure(modRoot);
   return displayName;
 }
 

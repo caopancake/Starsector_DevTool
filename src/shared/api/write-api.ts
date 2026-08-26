@@ -29,7 +29,7 @@ export function saveCsvPatch(
   return invoke('save_csv_patch', { payload: { sessionId, modRoot, table, patches, associatedSpecs } });
 }
 
-export function saveTextFile(sessionId: ProjectSessionId, modRoot: string, path: string, text: string): Promise<WriteResult> {
+export function saveTextFile(sessionId: ProjectSessionId | null, modRoot: string, path: string, text: string): Promise<WriteResult> {
   return invoke('save_text_file', { payload: { sessionId, modRoot, path, text } });
 }
 

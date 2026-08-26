@@ -46,4 +46,13 @@ pub struct GameModSummary {
 pub struct GameScanWarning {
     pub path: String,
     pub message: String,
+    #[serde(default)]
+    pub edit_target: Option<GameWarningEditTarget>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GameWarningEditTarget {
+    pub mod_root: String,
+    pub path: String,
 }

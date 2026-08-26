@@ -122,6 +122,7 @@
                       'UNIVERSAL',
                       'SYNERGY',
                       'COMPOSITE',
+                      'BUILT_IN',
                       'DECORATIVE',
                       'SYSTEM',
                       'STATION_MODULE',

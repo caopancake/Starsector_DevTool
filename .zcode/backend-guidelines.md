@@ -22,6 +22,7 @@
 
 - Rust 是所有磁盘路径、遍历、读取、写入、删除、目录事件和 changeset 回放的权威。
 - 所有外部路径必须重新 canonicalize，并验证目标属于声明 root；已有父链中的 symlink、junction 与 reparse point 必须被拒绝。
+- 文件编辑命令带有 session 时必须校验 `sessionId + modRoot` 所有权；显式无 session 的错误恢复编辑只允许访问调用方提供的 `modRoot` 内目标，并且必须执行相同的绝对路径、父目录与链接逃逸校验。
 - 读取、扫描、写入、删除和回放必须复用同一套路径与 walk-entry 校验。
 - Mod 资源必须优先于 Core 资源；Core 只允许作为 canonical 游戏根下的只读 fallback。
 - workspace、settings、日志与持久化索引只允许写入工具私有目录，严禁写入 Mod 目标。
