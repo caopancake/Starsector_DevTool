@@ -24,6 +24,6 @@ Windows 桌面 Starsector Mod 配置工具：Tauri 2、Rust、Vue 3/TypeScript/P
 
 - 保存只能写所属模块声明的持久化目标；字段入口服从全局编辑模式。
 - 不得绕过 ViewModel、正式 service/API、parser 或 Rust 路径边界；禁止性规则描述完整边界，示例不是许可清单。
-- 视觉规则以 `样式规范.md` 为准，不能为便利牺牲一致性。
+- 视觉规则以 `css-guidelines.md` 为准，不能为便利牺牲一致性。
 
-模块真相见 `模块索引.md`；操作与验收见 `工作流程.md`。
+模块真相见 `module-map.md`；操作与验收见 `workflow.md`。

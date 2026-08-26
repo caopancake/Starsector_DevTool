@@ -28,7 +28,7 @@ npm.cmd run tauri -- dev
 npm.cmd run tauri -- build --no-bundle
 ```
 
-产物默认位于 `src-tauri\target\release\starsector-devtool.exe`。不要在仍需保留的运行实例上直接使用 `build.ps1` 或 `构建包.bat`：这两个便捷脚本会强制关闭应用并删除前端构建目录。
+产物默认位于 `src-tauri\target\release\starsector-devtool.exe`。不要在仍需保留的运行实例上直接使用 `build.ps1` 或 `build.bat`：这两个便捷脚本会强制关闭应用并删除前端构建目录。
 
 ## 改动要求
 

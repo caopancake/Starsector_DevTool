@@ -3,22 +3,13 @@
 Windows 桌面版 Starsector Mod 配置工具，使用 Tauri 2 + Vue 3 + TypeScript + Rust 构建。
 
 > 项目处于 `0.1.0` 的早期公开阶段。请在修改 Mod 前自行备份，并通过 Issue 提供可复现步骤反馈问题。
-<img width="2133" height="1160" alt="image" src="https://github.com/user-attachments/assets/a2e8da40-76b6-416e-852d-5b6ba7037d84" />
-<img width="2133" height="1160" alt="image" src="https://github.com/user-attachments/assets/b8c95e7a-5966-477b-b578-b88440466cbd" />
-<img width="1450" height="950" alt="image" src="https://github.com/user-attachments/assets/5dadc1d7-fd2a-49c0-917e-fb76d9dc29b0" />
-<img width="2133" height="1160" alt="image" src="https://github.com/user-attachments/assets/45d798fa-b9ce-41a8-b293-ce776b9a320a" />
-<img width="2133" height="1160" alt="image" src="https://github.com/user-attachments/assets/09f709cf-002f-4027-94a8-dbf941c405d3" />
-<img width="2133" height="1160" alt="image" src="https://github.com/user-attachments/assets/e7b3a0d9-0779-489f-a1d7-4e6c94f49181" />
-<img width="2133" height="1160" alt="image" src="https://github.com/user-attachments/assets/521a8b90-08ab-4316-9a98-fd5e4492d528" />
-
-
-
-
-
-
-
-
-
+> <img width="2133" height="1160" alt="image" src="https://github.com/user-attachments/assets/a2e8da40-76b6-416e-852d-5b6ba7037d84" />
+> <img width="2133" height="1160" alt="image" src="https://github.com/user-attachments/assets/b8c95e7a-5966-477b-b578-b88440466cbd" />
+> <img width="1450" height="950" alt="image" src="https://github.com/user-attachments/assets/5dadc1d7-fd2a-49c0-917e-fb76d9dc29b0" />
+> <img width="2133" height="1160" alt="image" src="https://github.com/user-attachments/assets/45d798fa-b9ce-41a8-b293-ce776b9a320a" />
+> <img width="2133" height="1160" alt="image" src="https://github.com/user-attachments/assets/09f709cf-002f-4027-94a8-dbf941c405d3" />
+> <img width="2133" height="1160" alt="image" src="https://github.com/user-attachments/assets/e7b3a0d9-0779-489f-a1d7-4e6c94f49181" />
+> <img width="2133" height="1160" alt="image" src="https://github.com/user-attachments/assets/521a8b90-08ab-4316-9a98-fd5e4492d528" />
 
 ## 功能
 
@@ -72,7 +63,7 @@ src-tauri\target\release\starsector-devtool.exe
 
 项目只发布单文件 exe，不生成安装包。
 
-仓库也提供 [build.ps1](./build.ps1) 与 [构建包.bat](./构建包.bat)。这两个便捷脚本会结束正在运行的 `starsector-devtool` 进程并清理 `dist/`，仅应在确认可中断当前程序时使用。
+仓库也提供 [build.ps1](./build.ps1) 与 [build.bat](./build.bat)。这两个便捷脚本会结束正在运行的 `starsector-devtool` 进程并清理 `dist/`，仅应在确认可中断当前程序时使用。
 
 ## 验证
 
@@ -94,7 +85,7 @@ cargo fmt --manifest-path src-tauri\Cargo.toml --check
 | `src-tauri/` | Tauri 命令、ProjectSession、解析、文件变更集与资源服务 |
 | `schemas/`   | 配置字段与 CSV 列 schema                               |
 | `scripts/`   | 架构、编码和命名检查                                   |
-| `.zcode/`   | 维护者的模块契约、术语和任务记录                       |
+| `.zcode/`    | 维护者的模块契约、术语和任务记录                       |
 
 ## 贡献
 

@@ -15,18 +15,18 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.zcode/` 里�
 ## 读取顺序
 
 1. `AGENTS.md`
-2. `.zcode/项目概览.md`
-3. `.zcode/工作流程.md`
+2. `.zcode/overview.md`
+3. `.zcode/workflow.md`
 4. 相关专题文档：
-   - `.zcode/前端规范.md`
-   - `.zcode/后端规范.md`
-   - `.zcode/样式规范.md`
-   - `.zcode/模块索引.md`
-   - `.zcode/术语表.md`
+   - `.zcode/frontend-guidelines.md`
+   - `.zcode/backend-guidelines.md`
+   - `.zcode/css-guidelines.md`
+   - `.zcode/module-map.md`
+   - `.zcode/terminology.md`
 5. 任务文档：
-   - `.zcode/待办事项.md`
+   - `.zcode/todo.md`
    - `.zcode/specs/`
-   - `.zcode/参考设计.md` (未实现目标、候选设计和参考资料，需要时读取)
+   - `.zcode/reference.md` (未实现目标、候选设计和参考资料，需要时读取)
 
 ## 绝对规则
 
@@ -35,7 +35,6 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.zcode/` 里�
 - Rust / Vue 改动都要保持构建可过
 - Rust `clippy` 目标是零 warning
 - Prettier 目标是零 error 零 warn
-- 以 CRLF 作为换行符
 - 禁止全文重写任何 `.md` 文档
 - 禁止任何破坏性命令
 - 禁止任何未接入正式链路、不可维护、不可验证或仅用于临时绕过当前问题的实现
@@ -64,22 +63,22 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.zcode/` 里�
 - Rust 测试：`cargo test --manifest-path src-tauri\Cargo.toml`
 - Rust 规范：`cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings`
 - Rust 格式检查：`cargo fmt --manifest-path src-tauri\Cargo.toml --check`
-- 构建：`.\build.ps1` 或 `构建包.bat`
+- 构建：`.\build.ps1` 或 `build.bat`
 
 ## 当前状态
 
 - 当前实现为 Tauri 2 + Vue 3 + TypeScript + Rust。
-- 当前已实现模块和调用链以 `.zcode/模块索引.md` 为准；未实现目标和参考设计以 `.zcode/参考设计.md` / `.zcode/待办事项.md` 为准。
+- 当前已实现模块和调用链以 `.zcode/module-map.md` 为准；未实现目标和参考设计以 `.zcode/reference.md` / `.zcode/todo.md` 为准。
 
 ## 按任务选择专题
 
-- 前端改动看 `.zcode/前端规范.md`
-- 后端改动看 `.zcode/后端规范.md`
-- CSS / 视觉改动看 `.zcode/样式规范.md`
-- 模块边界和编辑链路看 `.zcode/模块索引.md` 及其引用的 `.zcode/modules/`
-- 术语和命名看 `.zcode/术语表.md`
-- 后续阶段看 `.zcode/待办事项.md`
-- 未实现目标和候选设计看 `.zcode/参考设计.md`
+- 前端改动看 `.zcode/frontend-guidelines.md`
+- 后端改动看 `.zcode/backend-guidelines.md`
+- CSS / 视觉改动看 `.zcode/css-guidelines.md`
+- 模块边界和编辑链路看 `.zcode/module-map.md` 及其引用的 `.zcode/modules/`
+- 术语和命名看 `.zcode/terminology.md`
+- 后续阶段看 `.zcode/todo.md`
+- 未实现目标和候选设计看 `.zcode/reference.md`
 
 ## 关键提醒
 
@@ -87,4 +86,4 @@ Starsector DevTool 的项目入口索引。先读这里，再读 `.zcode/` 里�
 - 多 Mod 状态必须按 `modRoot` 隔离；任一按 Mod 归属的运行时状态、缓存、编辑上下文和历史记录，都禁止跨 Mod 读取、复用、写入或回放。
 - 所有磁盘路径、删除和写入语义以后端校验为准，前端不绕过 Rust。
 - 字段编辑入口必须遵守全局编辑模式。
-- 视觉、CSS、主题和控件风格以 `.zcode/样式规范.md` 为准。
+- 视觉、CSS、主题和控件风格以 `.zcode/css-guidelines.md` 为准。

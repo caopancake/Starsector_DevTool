@@ -2,8 +2,8 @@
 
 ## 读取与编码
 
-1. 读 `AGENTS.md`、`项目概览.md`、本文件；再按任务读前端/后端/样式/模块/术语/计划/参考。
-2. 读取必须 UTF-8 无 BOM；PowerShell 使用 `Get-Content -Encoding utf8`。写入 UTF-8 无 BOM、CRLF。
+1. 读 `AGENTS.md`、`overview.md`、本文件；再按任务读前端/后端/样式/模块/术语/计划/参考。
+2. 读取必须 UTF-8 无 BOM；PowerShell 使用 `Get-Content -Encoding utf8`。写入 UTF-8 无 BOM。
 3. 仅用 `apply_patch` 编辑；禁止脚本、重定向、`Set-Content`、Python 重写/生成 Markdown。可运行 `cargo fmt` 与 `npm.cmd run format`。
 
 ## 设计门槛
