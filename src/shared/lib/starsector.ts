@@ -271,7 +271,7 @@ export function defaultWeapon(id: string, csvRow?: RowData): RowData {
   const data: RowData = {
     id,
     specClass: hasBeam ? 'beam' : 'projectile',
-    type: str(csvRow?.type, 'BALLISTIC').toUpperCase(),
+    type: 'BALLISTIC',
     size: 'SMALL',
     turretSprite: '',
     turretGunSprite: '',
