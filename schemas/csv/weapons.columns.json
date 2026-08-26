@@ -18,7 +18,7 @@
     "key": "type",
     "label": "类型",
     "control": "enum",
-    "options": ["BALLISTIC", "ENERGY", "MISSILE", "HYBRID", "UNIVERSAL", "SYNERGY", "COMPOSITE", "BUILT_IN"]
+    "options": ["KINETIC", "ENERGY", "HIGH_EXPLOSIVE", "FRAGMENTATION"]
   },
   { "key": "energy/shot", "label": "每发幅能", "control": "number", "step": 1 },
   { "key": "energy/second", "label": "每秒幅能", "control": "number", "step": 0.1 },
