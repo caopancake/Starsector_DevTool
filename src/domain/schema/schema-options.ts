@@ -27,6 +27,7 @@ export interface SelectOptionGroup {
 }
 
 const CURRENT_VALUE_OPTION_GROUP = {
+  key: 'group:当前值',
   label: '当前值',
   value: '__current',
 } as const;
@@ -109,6 +110,7 @@ export function fieldSourceCurrentValues(field: FieldSchema, value: unknown): st
 export function mapSourceGroupsToSelectOptions(groups: HydratedSourceOptionGroup[]): SelectOption[] {
   return groups.map((group) => ({
     type: 'group',
+    key: `group:${group.label}`,
     label: group.label,
     value: group.label,
     children: group.options.map((option) => ({
