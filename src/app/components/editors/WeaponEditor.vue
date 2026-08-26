@@ -249,6 +249,7 @@ import { useObjectField } from '@/app/composables/use-object-field';
 import { useSpriteUpload } from '@/app/composables/use-sprite-upload';
 import { editorCollapseTheme, snapToStep, toOptions } from '@/domain/editors/lib/editor-constants';
 import { drawBarrelVisual, drawCrossMarker } from '@/domain/editors/lib/canvas-visuals';
+import { findMirrorBarrelIndex, mirrorAngleDeg, mirrorLateral, MIRROR_EPSILON } from '@/domain/editors/lib/mirror';
 import {
   HARDPOINT_WEAPON_SPRITE_FIELDS,
   TURRET_WEAPON_SPRITE_FIELDS,
@@ -312,6 +313,8 @@ const inspectorRevealInProgress = ref(false);
 const hoverPreview = ref<BarrelPreview>(null);
 const panning = ref(false);
 const pointerInside = ref(false);
+const mirrorMode = ref(false);
+const mirrorPair = ref<number | null>(null);
 const localSpriteData = ref<Record<string, string>>({ ...(props.spriteData || {}) });
 const spriteImages = new Map<string, InstanceType<typeof Image>>();
 const spriteInputRefs = new Map<WeaponSpriteField, HTMLInputElement>();
@@ -330,7 +333,12 @@ const modeFooterNotes: Record<WeaponViewMode, string> = {
   turret: '左键 拖动发射点 | Shift+左键 添加发射点 | Ctrl+左键 设置角度 | 退格 删除发射点 | T 打开炮塔发射点',
   hardpoint: '左键 拖动发射点 | Shift+左键 添加发射点 | Ctrl+左键 设置角度 | 退格 删除发射点 | T 打开固定发射点',
 };
-const footerNote = computed(() => `右键 拖动画布 | 滚轮缩放 | Ctrl+Z 撤销 | Ctrl+Shift+Z 重做\n${modeFooterNotes[viewMode.value]}`);
+const footerNote = computed(
+  () =>
+    `右键 拖动画布 | 滚轮缩放 | Ctrl+Z 撤销 | Ctrl+Shift+Z 重做${mirrorMode.value ? '（镜像模式）' : ''}\n${
+      modeFooterNotes[viewMode.value]
+    }${mirrorMode.value ? ' | 空格 关闭镜像' : ' | 空格 开启镜像'}`,
+);
 
 const offsets = computed<number[]>(() => offsetsFor(viewMode.value));
 const angles = computed<number[]>(() => anglesFor(viewMode.value));
@@ -379,7 +387,18 @@ function doRedo() {
   draw();
 }
 useEditorShortcuts({ onKeyDown: handleEditorShortcut, redo: doRedo, scope: editorWindowRef, undo: doUndo });
+function toggleMirrorMode() {
+  mirrorMode.value = !mirrorMode.value;
+  mirrorPair.value = null;
+  clearHoverPreview();
+  draw();
+}
 function handleEditorShortcut(event: KeyboardEvent) {
+  if (event.code === 'Space') {
+    event.preventDefault();
+    toggleMirrorMode();
+    return;
+  }
   const key = event.key.toLowerCase();
   if (key === 'u') {
     event.preventDefault();
@@ -407,6 +426,7 @@ function setView(v: WeaponViewMode) {
   hovered.value = null;
   activeBarrel.value = null;
   inspectorLock.value = null;
+  mirrorPair.value = null;
   draw();
 }
 function selectBarrel(mode: WeaponViewMode, index: number) {
@@ -579,6 +599,15 @@ function drawHoverPreview(ctx: CanvasRenderingContext2D) {
       point: toCanvas(preview.coord.x, preview.coord.y),
       selected: true,
     });
+    if (mirrorMode.value && Math.abs(preview.coord.x) > MIRROR_EPSILON) {
+      drawBarrelVisual(ctx, {
+        angle: 0,
+        hovered: true,
+        index: barrelCount.value + 1,
+        point: toCanvas(mirrorLateral(preview.coord.x), preview.coord.y),
+        selected: true,
+      });
+    }
   }
   if (preview.kind === 'angle' && selected.value !== null) {
     drawBarrelVisual(ctx, {
@@ -591,6 +620,23 @@ function drawHoverPreview(ctx: CanvasRenderingContext2D) {
   }
   ctx.restore();
 }
+function drawMirrorAxis(ctx: CanvasRenderingContext2D) {
+  const axisY = toCanvas(0, 0).y;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
+  ctx.fillStyle = 'rgba(56, 189, 248, 0.95)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(0, axisY);
+  ctx.lineTo(ctx.canvas.width, axisY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font = '11px sans-serif';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('镜像中轴', 8, axisY - 4);
+  ctx.restore();
+}
 function draw() {
   const c = canvasRef.value;
   if (!c) return;
@@ -598,6 +644,7 @@ function draw() {
   const cc = center();
   drawing.clear(ctx, c.width, c.height);
   drawing.drawGrid(ctx, { center: cc, height: c.height, scale: scale.value, width: c.width });
+  if (mirrorMode.value) drawMirrorAxis(ctx);
   ctx.globalAlpha = 0.72;
   for (const field of WEAPON_SPRITE_DRAW_ORDER[viewMode.value]) {
     const image = spriteImages.get(field);
@@ -695,8 +742,10 @@ function onDown(e: MouseEvent) {
     selectIdentityTarget(inspectorLock.value) ?? selectIdentityTarget(activeBarrel.value) ?? selectForPointer(last.x, last.y);
     if (selected.value === null) return;
     pushUndo();
+    captureMirrorPair();
     angleDragging.value = true;
     angles.value[selected.value] = previewAngle(last.x, last.y);
+    applyMirrorAngle();
     updateHoverPreview(last.x, last.y, e);
     draw();
     return;
@@ -704,6 +753,7 @@ function onDown(e: MouseEvent) {
   const target = selectIdentityTarget(activeBarrel.value) ?? selectForPointer(last.x, last.y);
   if (target) {
     pushUndo();
+    captureMirrorPair();
     dragging.value = true;
   }
   draw();
@@ -722,6 +772,7 @@ function onMove(e: MouseEvent) {
   }
   if (angleDragging.value && selected.value !== null) {
     angles.value[selected.value] = previewAngle(mx, my);
+    applyMirrorAngle();
     updateHoverPreview(mx, my, e);
     draw();
     return;
@@ -742,12 +793,27 @@ function onMove(e: MouseEvent) {
   const coord = toWeapon(mx, my);
   offsets.value[selected.value * 2] = coord.x;
   offsets.value[selected.value * 2 + 1] = coord.y;
+  if (mirrorMode.value && mirrorPair.value !== null) {
+    offsets.value[mirrorPair.value * 2] = mirrorLateral(coord.x);
+    offsets.value[mirrorPair.value * 2 + 1] = coord.y;
+  }
   draw();
+}
+function captureMirrorPair() {
+  mirrorPair.value = null;
+  if (!mirrorMode.value || selected.value === null) return;
+  const index = findMirrorBarrelIndex(offsets.value, selected.value);
+  if (index !== null) mirrorPair.value = index;
+}
+function applyMirrorAngle() {
+  if (!mirrorMode.value || mirrorPair.value === null || selected.value === null) return;
+  angles.value[mirrorPair.value] = mirrorAngleDeg(angles.value[selected.value] || 0);
 }
 function onUp() {
   dragging.value = false;
   angleDragging.value = false;
   panning.value = false;
+  mirrorPair.value = null;
   clearHoverPreview();
   draw();
 }
@@ -770,6 +836,7 @@ function onLeave() {
   pointerInside.value = false;
   hovered.value = null;
   activeBarrel.value = null;
+  mirrorPair.value = null;
   clearHoverPreview();
   draw();
 }
@@ -795,10 +862,18 @@ function addBarrelFor(mode: WeaponViewMode) {
 function addBarrelAt(mode: WeaponViewMode, coord: { x: number; y: number }) {
   const nextOffsets = offsetsFor(mode);
   const nextAngles = anglesFor(mode);
+  const sourceIndex = Math.floor(nextOffsets.length / 2);
   nextOffsets.push(coord.x, coord.y);
   nextAngles.push(0);
+  if (mirrorMode.value && Math.abs(coord.x) > MIRROR_EPSILON) {
+    nextOffsets.push(mirrorLateral(coord.x), coord.y);
+    nextAngles.push(0);
+    mirrorPair.value = sourceIndex + 1;
+  } else {
+    mirrorPair.value = null;
+  }
   viewMode.value = mode;
-  selected.value = barrelCountFor(mode) - 1;
+  selected.value = sourceIndex;
   hovered.value = selected.value;
   activeBarrel.value = selected.value;
   inspectorLock.value = null;
@@ -818,8 +893,13 @@ function deleteSelectedBarrel() {
 function deleteSelectedBarrelData(mode: WeaponViewMode) {
   if (selected.value === null) return;
   const selectedIndex = selected.value;
-  offsetsFor(mode).splice(selectedIndex * 2, 2);
-  anglesFor(mode).splice(selectedIndex, 1);
+  const pairIndex = mirrorMode.value ? findMirrorBarrelIndex(offsetsFor(mode), selectedIndex) : null;
+  const indexes = pairIndex === null ? [selectedIndex] : [selectedIndex, pairIndex].sort((a, b) => b - a);
+  for (const index of indexes) {
+    offsetsFor(mode).splice(index * 2, 2);
+    anglesFor(mode).splice(index, 1);
+  }
+  mirrorPair.value = null;
   selected.value = null;
   hovered.value = null;
   activeBarrel.value = null;

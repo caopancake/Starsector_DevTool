@@ -251,6 +251,17 @@ import { useEditorShortcuts } from '@/app/composables/use-editor-shortcuts';
 import { useSpriteUpload } from '@/app/composables/use-sprite-upload';
 import { editorCollapseTheme, snapToStep, toOptions } from '@/domain/editors/lib/editor-constants';
 import { drawBoundsVisual, drawEngineVisual, drawRadiusField, drawWeaponSlotVisual } from '@/domain/editors/lib/canvas-visuals';
+import {
+  findMirrorBoundIndex,
+  findMirrorEngineIndex,
+  findMirrorWeaponSlotIndex,
+  mirrorAngleDeg,
+  mirrorEngineForAdd,
+  mirrorLateral,
+  mirrorOffsetPoint,
+  mirrorWeaponSlotForAdd,
+  MIRROR_EPSILON,
+} from '@/domain/editors/lib/mirror';
 
 const props = defineProps<{
   modRoot: string;
@@ -286,6 +297,8 @@ const panning = ref(false);
 const dragStarted = ref(false);
 const pointerInside = ref(false);
 const inspectorRevealInProgress = ref(false);
+const mirrorMode = ref(false);
+const mirrorPair = ref<{ kind: ShipCanvasTarget['kind']; index: number } | null>(null);
 let last = { x: 0, y: 0 };
 const history = useHistory(() => localShip.value);
 const drawing = useCanvasDrawing();
@@ -340,7 +353,11 @@ const modeFooterNotes: Record<typeof mode.value, string> = {
   launchBay: '左键 移动甲板位置 | Shift+左键 新建甲板 | T 打开甲板',
   engine: '左键 旋转角度 | Shift+左键 复制引擎 | Ctrl+左键 移动位置 | Alt+左键 调整宽高 | T 打开引擎',
 };
-const footerNote = computed(() => `右键 拖动画布 | 滚轮 缩放 | Ctrl+Z 撤销 | Ctrl+Shift+Z 重做\n${modeFooterNotes[mode.value]}`);
+const footerNote = computed(() => {
+  const mirrorBadge = mirrorMode.value ? '（镜像模式）' : '';
+  const mirrorHint = mirrorMode.value ? ' | 空格 关闭镜像' : ' | 空格 开启镜像';
+  return `右键 拖动画布 | 滚轮 缩放 | Ctrl+Z 撤销 | Ctrl+Shift+Z 重做${mirrorBadge}\n${modeFooterNotes[mode.value]}${mirrorHint}`;
+});
 
 const weaponSlots = computed<RowData[]>(() =>
   Array.isArray(localShip.value.weaponSlots) ? (localShip.value.weaponSlots as RowData[]) : [],
@@ -654,7 +671,18 @@ async function revealCurrentInspectorTarget() {
   editorWindowRef.value?.querySelector<HTMLElement>(selector)?.scrollIntoView({ block: 'nearest' });
 }
 
+function toggleMirrorMode() {
+  mirrorMode.value = !mirrorMode.value;
+  mirrorPair.value = null;
+  clearHoverPreview();
+  draw();
+}
 function handleEditorShortcut(event: KeyboardEvent) {
+  if (event.code === 'Space') {
+    event.preventDefault();
+    toggleMirrorMode();
+    return;
+  }
   const key = event.key.toLowerCase();
   if (key === 'backspace') {
     if (deleteSelected()) event.preventDefault();
@@ -701,8 +729,14 @@ function drawPreviewBounds(ctx: CanvasRenderingContext2D) {
   if (!preview || (preview.kind !== 'boundAppend' && preview.kind !== 'boundInsert')) return;
   const points = [];
   for (let i = 0; i < bounds.value.length; i += 2) points.push([bounds.value[i], bounds.value[i + 1]]);
-  if (preview.kind === 'boundAppend') points.push(preview.coord);
-  else points.splice(preview.insertAfter + 1, 0, preview.coord);
+  if (preview.kind === 'boundAppend') {
+    points.push(preview.coord);
+    if (mirrorMode.value && Math.abs(preview.coord[1] || 0) > MIRROR_EPSILON) points.push(mirrorOffsetPoint(preview.coord));
+  } else {
+    points.splice(preview.insertAfter + 1, 0, preview.coord);
+    if (mirrorMode.value && Math.abs(preview.coord[1] || 0) > MIRROR_EPSILON)
+      points.splice(preview.insertAfter + 2, 0, mirrorOffsetPoint(preview.coord));
+  }
   if (points.length < 2) return;
   ctx.save();
   ctx.globalAlpha = 0.55;
@@ -731,6 +765,18 @@ function drawHoverPreview(ctx: CanvasRenderingContext2D) {
       size: str(preview.slot.size, 'MEDIUM'),
       type: str(preview.slot.type, 'SYSTEM'),
     });
+    if (mirrorMode.value && Math.abs(preview.coord[1] || 0) > MIRROR_EPSILON) {
+      drawWeaponSlotVisual(ctx, {
+        angle: mirrorAngleDeg(num(preview.slot.angle, 0)),
+        arc: num(preview.slot.arc, 0),
+        hovered: true,
+        mount: str(preview.slot.mount),
+        point: relativeToCanvas(mirrorOffsetPoint(preview.coord)),
+        selected: true,
+        size: str(preview.slot.size, 'MEDIUM'),
+        type: str(preview.slot.type, 'SYSTEM'),
+      });
+    }
   }
   if (preview.kind === 'weaponArc' && selectedSlot.value) {
     drawWeaponSlotVisual(ctx, {
@@ -754,6 +800,17 @@ function drawHoverPreview(ctx: CanvasRenderingContext2D) {
       selected: true,
       width: num(preview.engine.width, 10),
     });
+    if (mirrorMode.value && Math.abs(preview.coord[1] || 0) > MIRROR_EPSILON) {
+      drawEngineVisual(ctx, {
+        angle: mirrorAngleDeg(num(preview.engine.angle, 0)),
+        hovered: true,
+        length: num(preview.engine.length, 20),
+        point: relativeToCanvas(mirrorOffsetPoint(preview.coord)),
+        scale: scale.value,
+        selected: true,
+        width: num(preview.engine.width, 10),
+      });
+    }
   }
   if (preview.kind === 'engineMove') {
     drawEngineVisual(ctx, {
@@ -765,6 +822,17 @@ function drawHoverPreview(ctx: CanvasRenderingContext2D) {
       selected: true,
       width: num(preview.engine.width, 10),
     });
+    if (mirrorMode.value && Math.abs(preview.coord[1] || 0) > MIRROR_EPSILON) {
+      drawEngineVisual(ctx, {
+        angle: mirrorAngleDeg(num(preview.engine.angle, 0)),
+        hovered: true,
+        length: num(preview.engine.length, 20),
+        point: relativeToCanvas(mirrorOffsetPoint(preview.coord)),
+        scale: scale.value,
+        selected: true,
+        width: num(preview.engine.width, 10),
+      });
+    }
   }
   if (preview.kind === 'engineSize' && selectedEngine.value) {
     drawEngineVisual(ctx, {
@@ -819,6 +887,23 @@ function cursorLabel(coord: number[]) {
   return formatCoord(absoluteToRelative(coord));
 }
 
+function drawMirrorAxis(ctx: CanvasRenderingContext2D) {
+  const axisY = shipCenterPoint().y;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
+  ctx.fillStyle = 'rgba(56, 189, 248, 0.95)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(0, axisY);
+  ctx.lineTo(ctx.canvas.width, axisY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font = '11px sans-serif';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('镜像中轴', 8, axisY - 4);
+  ctx.restore();
+}
 function draw() {
   const c = canvasRef.value;
   if (!c) return;
@@ -826,6 +911,8 @@ function draw() {
   const cc = canvasCenter();
   drawing.clear(ctx, c.width, c.height);
   drawing.drawGrid(ctx, { center: cc, height: c.height, scale: scale.value, width: c.width });
+  if (mirrorMode.value && (mode.value === 'weapon' || mode.value === 'launchBay' || mode.value === 'engine' || mode.value === 'bounds'))
+    drawMirrorAxis(ctx);
   if (img.width) {
     const bottomLeft = shipToCanvas([0, 0]);
     const drawWidth = img.height * scale.value;
@@ -1053,6 +1140,7 @@ function distanceToSegment(point: number[], a: number[], b: number[]) {
 function copyWeaponSlotAt(coord: number[]) {
   const source = selectedSlot.value ? deepClone(selectedSlot.value) : {};
   const relativeCoord = absoluteToRelative(coord);
+  const sourceIndex = weaponSlots.value.length;
   weaponSlots.value.push({
     ...source,
     id: nextWeaponSlotId(),
@@ -1063,12 +1151,19 @@ function copyWeaponSlotAt(coord: number[]) {
     angle: num(source.angle, 0),
     locations: relativeCoord,
   });
-  selected.value = weaponSlots.value.length - 1;
+  if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
+    weaponSlots.value.push({ ...mirrorWeaponSlotForAdd(weaponSlots.value[sourceIndex]), id: nextWeaponSlotId() });
+    mirrorPair.value = { kind: 'weapon', index: sourceIndex + 1 };
+  } else {
+    mirrorPair.value = null;
+  }
+  selected.value = sourceIndex;
   hovered.value = { kind: 'weapon', i: selected.value };
   activeTarget.value = { kind: 'weapon', i: selected.value };
 }
 function addLaunchBayAt(coord: number[]) {
   const relativeCoord = absoluteToRelative(coord);
+  const sourceIndex = weaponSlots.value.length;
   weaponSlots.value.push({
     id: nextLaunchBayId(),
     size: 'LARGE',
@@ -1078,13 +1173,20 @@ function addLaunchBayAt(coord: number[]) {
     angle: 0,
     locations: relativeCoord,
   });
-  selected.value = weaponSlots.value.length - 1;
+  if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
+    weaponSlots.value.push({ ...mirrorWeaponSlotForAdd(weaponSlots.value[sourceIndex]), id: nextLaunchBayId() });
+    mirrorPair.value = { kind: 'weapon', index: sourceIndex + 1 };
+  } else {
+    mirrorPair.value = null;
+  }
+  selected.value = sourceIndex;
   hovered.value = { kind: 'weapon', i: selected.value };
   activeTarget.value = { kind: 'weapon', i: selected.value };
 }
 function copyEngineAt(coord: number[]) {
   const source = selectedEngine.value ? deepClone(selectedEngine.value) : {};
   const relativeCoord = absoluteToRelative(coord);
+  const sourceIndex = engineSlots.value.length;
   engineSlots.value.push({
     ...source,
     angle: num(source.angle, 180),
@@ -1094,7 +1196,13 @@ function copyEngineAt(coord: number[]) {
     location: relativeCoord,
     style: str(source.style, 'LOW_TECH'),
   });
-  selected.value = engineSlots.value.length - 1;
+  if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
+    engineSlots.value.push(mirrorEngineForAdd(engineSlots.value[sourceIndex]));
+    mirrorPair.value = { kind: 'engine', index: sourceIndex + 1 };
+  } else {
+    mirrorPair.value = null;
+  }
+  selected.value = sourceIndex;
   hovered.value = { kind: 'engine', i: selected.value };
   activeTarget.value = { kind: 'engine', i: selected.value };
 }
@@ -1127,10 +1235,76 @@ function updateInteraction(mx: number, my: number) {
     selectedEngine.value.angle = pointAngle(relativeToAbsolute(engineLoc.value), rawCoord);
   }
   if (dragging.value === 'engineSize') applyEngineSizeFromPointer(mx, my);
+  applyMirrorInteraction();
+}
+function captureMirrorPair() {
+  mirrorPair.value = null;
+  if (!mirrorMode.value || selected.value === null) return;
+  if (mode.value === 'weapon' || mode.value === 'launchBay') {
+    const index = findMirrorWeaponSlotIndex(weaponSlots.value, selected.value);
+    if (index !== null) mirrorPair.value = { kind: 'weapon', index };
+    return;
+  }
+  if (mode.value === 'engine') {
+    const index = findMirrorEngineIndex(engineSlots.value, selected.value);
+    if (index !== null) mirrorPair.value = { kind: 'engine', index };
+    return;
+  }
+  if (mode.value === 'bounds') {
+    const index = findMirrorBoundIndex(bounds.value, selected.value);
+    if (index !== null) mirrorPair.value = { kind: 'bound', index };
+  }
+}
+function applyMirrorInteraction() {
+  if (!mirrorMode.value || !mirrorPair.value || !dragging.value) return;
+  const pair = mirrorPair.value;
+  if (dragging.value === 'weapon' && pair.kind === 'weapon') {
+    const pairSlot = weaponSlots.value[pair.index];
+    if (pairSlot) pairSlot.locations = mirrorOffsetPoint(arr(selectedSlot.value?.locations, [0, 0]));
+    return;
+  }
+  if (dragging.value === 'weaponAngle' && pair.kind === 'weapon') {
+    const pairSlot = weaponSlots.value[pair.index];
+    if (pairSlot) pairSlot.angle = mirrorAngleDeg(num(selectedSlot.value?.angle, 0));
+    return;
+  }
+  if (dragging.value === 'weaponArc' && pair.kind === 'weapon') {
+    const pairSlot = weaponSlots.value[pair.index];
+    if (pairSlot) pairSlot.arc = num(selectedSlot.value?.arc, 0);
+    return;
+  }
+  if (dragging.value === 'engine' && pair.kind === 'engine') {
+    const pairEngine = engineSlots.value[pair.index];
+    if (pairEngine) pairEngine.location = mirrorOffsetPoint(arr(selectedEngine.value?.location, [0, 0]));
+    return;
+  }
+  if (dragging.value === 'engineAngle' && pair.kind === 'engine') {
+    const pairEngine = engineSlots.value[pair.index];
+    if (pairEngine) pairEngine.angle = mirrorAngleDeg(num(selectedEngine.value?.angle, 0));
+    return;
+  }
+  if (dragging.value === 'engineSize' && pair.kind === 'engine') {
+    const pairEngine = engineSlots.value[pair.index];
+    if (pairEngine) {
+      pairEngine.length = num(selectedEngine.value?.length, 0);
+      pairEngine.width = num(selectedEngine.value?.width, 0);
+    }
+    return;
+  }
+  if (dragging.value === 'bound' && pair.kind === 'bound' && selected.value !== null) {
+    bounds.value[pair.index * 2] = bounds.value[selected.value * 2] || 0;
+    bounds.value[pair.index * 2 + 1] = mirrorLateral(bounds.value[selected.value * 2 + 1] || 0);
+  }
 }
 function startBoundsInsert(coord: number[], insertAfter: number) {
   const at = Math.max(0, Math.min(bounds.value.length, (insertAfter + 1) * 2));
   bounds.value.splice(at, 0, coord[0], coord[1]);
+  if (mirrorMode.value && Math.abs(coord[1] || 0) > MIRROR_EPSILON) {
+    bounds.value.splice(at + 2, 0, coord[0], mirrorLateral(coord[1]));
+    mirrorPair.value = { kind: 'bound', index: at / 2 + 1 };
+  } else {
+    mirrorPair.value = null;
+  }
   selected.value = at / 2;
   hovered.value = { kind: 'bound', i: selected.value };
   activeTarget.value = { kind: 'bound', i: selected.value };
@@ -1168,7 +1342,14 @@ function onDown(e: MouseEvent) {
   if (mode.value === 'bounds' && e.shiftKey) {
     pushUndo();
     bounds.value.push(relativeCoord[0], relativeCoord[1]);
-    selected.value = bounds.value.length / 2 - 1;
+    const sourceIndex = bounds.value.length / 2 - 1;
+    if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
+      bounds.value.push(relativeCoord[0], mirrorLateral(relativeCoord[1]));
+      mirrorPair.value = { kind: 'bound', index: sourceIndex + 1 };
+    } else {
+      mirrorPair.value = null;
+    }
+    selected.value = sourceIndex;
     hovered.value = { kind: 'bound', i: selected.value };
     activeTarget.value = { kind: 'bound', i: selected.value };
     dragging.value = 'bound';
@@ -1222,6 +1403,7 @@ function onDown(e: MouseEvent) {
   else dragging.value = dragKindForTarget(h);
   pushUndo();
   clearHoverPreview();
+  captureMirrorPair();
   updateInteraction(last.x, last.y);
   draw();
 }
@@ -1255,6 +1437,7 @@ function onUp() {
   dragging.value = null;
   panning.value = false;
   dragStarted.value = false;
+  mirrorPair.value = null;
 }
 function onKeyUp(event: KeyboardEvent) {
   if (event.key !== 'Shift' && event.key !== 'Control' && event.key !== 'Alt') return;
@@ -1274,6 +1457,7 @@ function onLeave() {
   dragStarted.value = false;
   pointerInside.value = false;
   hovered.value = null;
+  mirrorPair.value = null;
   clearHoverPreview();
   draw();
 }
@@ -1372,9 +1556,17 @@ function addLaunchBay() {
 }
 function addEngine() {
   pushUndo();
+  const sourceIndex = engineSlots.value.length;
   engineSlots.value.push({ angle: 180, contrailSize: 12, length: 30, width: 10, location: [-50, 0], style: 'LOW_TECH' });
+  const engineLocation = arr(engineSlots.value[sourceIndex]?.location, [0, 0]);
+  if (mirrorMode.value && Math.abs(engineLocation[1] || 0) > MIRROR_EPSILON) {
+    engineSlots.value.push(mirrorEngineForAdd(engineSlots.value[sourceIndex]));
+    mirrorPair.value = { kind: 'engine', index: sourceIndex + 1 };
+  } else {
+    mirrorPair.value = null;
+  }
   mode.value = 'engine';
-  selected.value = engineSlots.value.length - 1;
+  selected.value = sourceIndex;
   draw();
 }
 function addBound() {
@@ -1392,16 +1584,22 @@ function deleteSelected() {
   if (mode.value === 'weapon' || mode.value === 'launchBay') {
     const isLaunchBay = str(weaponSlots.value[selectedIndex]?.type).toUpperCase() === 'LAUNCH_BAY';
     if ((mode.value === 'weapon' && !isLaunchBay) || (mode.value === 'launchBay' && isLaunchBay)) {
-      weaponSlots.value.splice(selectedIndex, 1);
+      const pairIndex = mirrorMode.value ? findMirrorWeaponSlotIndex(weaponSlots.value, selectedIndex) : null;
+      const indexes = pairIndex === null ? [selectedIndex] : [selectedIndex, pairIndex].sort((a, b) => b - a);
+      for (const index of indexes) weaponSlots.value.splice(index, 1);
       deleted = true;
     }
   }
   if (mode.value === 'engine') {
-    engineSlots.value.splice(selectedIndex, 1);
+    const pairIndex = mirrorMode.value ? findMirrorEngineIndex(engineSlots.value, selectedIndex) : null;
+    const indexes = pairIndex === null ? [selectedIndex] : [selectedIndex, pairIndex].sort((a, b) => b - a);
+    for (const index of indexes) engineSlots.value.splice(index, 1);
     deleted = true;
   }
   if (mode.value === 'bounds') {
-    bounds.value.splice(selectedIndex * 2, 2);
+    const pairIndex = mirrorMode.value ? findMirrorBoundIndex(bounds.value, selectedIndex) : null;
+    const indexes = pairIndex === null ? [selectedIndex] : [selectedIndex, pairIndex].sort((a, b) => b - a);
+    for (const index of indexes) bounds.value.splice(index * 2, 2);
     deleted = true;
   }
   if (!deleted) return false;
