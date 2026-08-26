@@ -5,6 +5,7 @@ import type { ConfigMissionEditorData, ResourceRef, RowData } from '@/shared/typ
 import { createIndexedEntityAction, deleteIndexedEntityAction, saveIndexedEntityAction } from '@/orchestrators/config-save.orchestrator';
 import {
   buildMissionIndexRow,
+  configEntityIdInvalidMessage,
   configMissionSaveDraft,
   isConfigEntityId,
   missionItemsFromRows,
@@ -49,14 +50,19 @@ export function useConfigMissionViewModel() {
       selectedMission.value = null;
       return;
     }
-    const records = await listConfigMissionRecords(activeSessionId);
-    if (requestId !== missionsRequestId || activeSessionId !== sessionId.value) return;
-    missionRows.value = records.map((record) => record.list);
-    missionIcons.value = Object.fromEntries(records.map((record) => [record.id, record.iconSrc]));
-    missionIconResourceRefs.value = records.flatMap((record) => (record.iconRef ? [record.iconRef] : []));
-    const missions = missionItems.value.map((mission) => mission.id);
-    if (!selectedMission.value && missions[0]) selectedMission.value = missions[0];
-    if (selectedMission.value && !missions.includes(selectedMission.value)) selectedMission.value = missions[0] ?? null;
+    try {
+      const records = await listConfigMissionRecords(activeSessionId);
+      if (requestId !== missionsRequestId || activeSessionId !== sessionId.value) return;
+      missionRows.value = records.map((record) => record.list);
+      missionIcons.value = Object.fromEntries(records.map((record) => [record.id, record.iconSrc]));
+      missionIconResourceRefs.value = records.flatMap((record) => (record.iconRef ? [record.iconRef] : []));
+      const missions = missionItems.value.map((mission) => mission.id);
+      if (!selectedMission.value && missions[0]) selectedMission.value = missions[0];
+      if (selectedMission.value && !missions.includes(selectedMission.value)) selectedMission.value = missions[0] ?? null;
+    } catch (error) {
+      if (requestId !== missionsRequestId || activeSessionId !== sessionId.value) return;
+      feedback.error(error, '加载战役失败');
+    }
   }
 
   async function queryMissionEditorData(targetSessionId: string, id: string): Promise<ConfigMissionEditorData | null> {
@@ -66,7 +72,7 @@ export function useConfigMissionViewModel() {
 
   async function createMission(createSessionId: string, createModRoot: string, id: string): Promise<boolean> {
     if (!isConfigEntityId(id)) {
-      feedback.error('战役 ID 不能包含路径分隔符或 ..');
+      feedback.error(configEntityIdInvalidMessage('战役 ID'));
       return false;
     }
     await createIndexedEntityAction({
@@ -101,7 +107,7 @@ export function useConfigMissionViewModel() {
       return previousId;
     }
     if (!isConfigEntityId(draft.nextId)) {
-      feedback.error('战役 ID 不能包含路径分隔符或 ..');
+      feedback.error(configEntityIdInvalidMessage('战役 ID'));
       return previousId;
     }
     await saveMissionDraft(saveSessionId, saveModRoot, previousId, draft);

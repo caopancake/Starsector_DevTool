@@ -38,11 +38,19 @@ export function useConfigSkinEditorViewModel(params: {
     ([skinHullId]) => {
       const skin = selectedSkin.value;
       const data = skin ? skin.data : {};
-      if (draftSession.currentTargetKey.value !== skinHullId) void draftSession.loadTarget(skinHullId);
+      if (draftSession.currentTargetKey.value !== skinHullId) void loadSkinEditorData(skinHullId);
       else draftSession.applyExternalForTarget(skinHullId, data);
     },
     { immediate: true },
   );
+
+  async function loadSkinEditorData(skinHullId: string) {
+    try {
+      await draftSession.loadTarget(skinHullId);
+    } catch (error) {
+      feedback.error(error, '加载舰船皮肤失败');
+    }
+  }
 
   async function save() {
     try {

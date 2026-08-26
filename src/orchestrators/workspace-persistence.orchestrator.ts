@@ -1,10 +1,12 @@
 import { watch } from 'vue';
+import { formatError } from '@/shared/lib/errors';
 import { cell, formatModVersion } from '@/shared/lib/starsector';
 import type { PersistedMod, ProjectManifest } from '@/shared/types';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
 import { hydrateOpenedModRuntime, openModProjectManifest } from '@/orchestrators/directory-opening.orchestrator';
 import { measurePerformance } from '@/services/performance.service';
+import { recordLogBestEffort } from '@/services/app-feedback-log.service';
 import { scanDirectoryGameOverview } from '@/services/session.service';
 import { loadPersistedWorkspace, savePersistedWorkspace } from '@/services/workspace-state.service';
 
@@ -25,7 +27,11 @@ export function watchWorkspacePersistence() {
     (state) => {
       if (restoring) return;
       if (saveTimer !== null) window.clearTimeout(saveTimer);
-      saveTimer = window.setTimeout(() => void savePersistedWorkspace(state), 500);
+      saveTimer = window.setTimeout(() => {
+        savePersistedWorkspace(state).catch((error) => {
+          recordLogBestEffort({ level: 'error', message: `保存工作区状态失败：${formatError(error)}`, path: null, line: null });
+        });
+      }, 500);
     },
     { deep: true },
   );

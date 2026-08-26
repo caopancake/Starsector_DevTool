@@ -1,7 +1,13 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { listConfigFactionRecords, queryFactionPreviewImages } from '@/services/config-entity.service';
 import { createIndexedEntityAction, deleteIndexedEntityAction, saveIndexedEntityAction } from '@/orchestrators/config-save.orchestrator';
-import { buildFactionIndexRow, configFactionSaveDraft, createDefaultFaction, isConfigEntityId } from '@/domain/config/config-entities';
+import {
+  buildFactionIndexRow,
+  configEntityIdInvalidMessage,
+  configFactionSaveDraft,
+  createDefaultFaction,
+  isConfigEntityId,
+} from '@/domain/config/config-entities';
 import type { FileSchema } from '@/domain/schema/schema.types';
 import type { RowData } from '@/shared/types';
 import type { ResourceRef } from '@/shared/types';
@@ -35,15 +41,20 @@ export function useConfigFactionViewModel() {
       selectedFaction.value = null;
       return;
     }
-    const records = await listConfigFactionRecords(sessionId);
-    if (requestId !== factionsRequestId || sessionId !== project.activeSessionId) return;
-    factions.value = Object.fromEntries(records.map((record) => [record.id, record.data]));
-    factionCrests.value = Object.fromEntries(records.map((record) => [record.id, record.crestSrc]));
-    factionCrestResourceRefs.value = records.flatMap((record) => (record.crestRef ? [record.crestRef] : []));
-    if (selectedFaction.value && !factions.value[selectedFaction.value]) selectedFaction.value = null;
-    if (!selectedFaction.value) selectedFaction.value = Object.keys(factions.value).sort()[0] ?? null;
-    factionPreviewRevision.value += 1;
-    if (options.reloadEditorData) factionDataRevision.value += 1;
+    try {
+      const records = await listConfigFactionRecords(sessionId);
+      if (requestId !== factionsRequestId || sessionId !== project.activeSessionId) return;
+      factions.value = Object.fromEntries(records.map((record) => [record.id, record.data]));
+      factionCrests.value = Object.fromEntries(records.map((record) => [record.id, record.crestSrc]));
+      factionCrestResourceRefs.value = records.flatMap((record) => (record.crestRef ? [record.crestRef] : []));
+      if (selectedFaction.value && !factions.value[selectedFaction.value]) selectedFaction.value = null;
+      if (!selectedFaction.value) selectedFaction.value = Object.keys(factions.value).sort()[0] ?? null;
+      factionPreviewRevision.value += 1;
+      if (options.reloadEditorData) factionDataRevision.value += 1;
+    } catch (error) {
+      if (requestId !== factionsRequestId || sessionId !== project.activeSessionId) return;
+      feedback.error(error, '加载势力失败');
+    }
   }
 
   async function onSaved(id: string | null) {
@@ -53,7 +64,7 @@ export function useConfigFactionViewModel() {
 
   async function createFaction(createSessionId: string, createModRoot: string, id: string): Promise<boolean> {
     if (!isConfigEntityId(id)) {
-      feedback.error('势力 ID 不能包含路径分隔符或 ..');
+      feedback.error(configEntityIdInvalidMessage('势力 ID'));
       return false;
     }
     await createIndexedEntityAction({
@@ -83,7 +94,7 @@ export function useConfigFactionViewModel() {
     const draft = configFactionSaveDraft(local, schema);
     const nextId = draft.nextId;
     if (!isConfigEntityId(nextId)) {
-      feedback.error('势力 ID 不能包含路径分隔符或 ..');
+      feedback.error(configEntityIdInvalidMessage('势力 ID'));
       return previousId;
     }
     const idChanged = nextId !== previousId;

@@ -53,7 +53,7 @@ export function useConfigFactionEditorViewModel(params: {
       const data = params.factions.value[id]
         ? configFactionEditorModel(deepClone(params.factions.value[id]))
         : configFactionEditorModel({ id });
-      if (draftSession.currentTargetKey.value !== id) void draftSession.loadTarget(id);
+      if (draftSession.currentTargetKey.value !== id) void loadFactionEditorData(id);
       else draftSession.applyExternalForTarget(id, data);
     },
     { immediate: true },
@@ -71,6 +71,14 @@ export function useConfigFactionEditorViewModel(params: {
     { immediate: true },
   );
 
+  async function loadFactionEditorData(id: string) {
+    try {
+      await draftSession.loadTarget(id);
+    } catch (error) {
+      feedback.error(error, '加载势力失败');
+    }
+  }
+
   async function refreshImagePreviews() {
     const requestId = ++previewRequestId;
     const factionId = params.factionId.value;
@@ -80,10 +88,15 @@ export function useConfigFactionEditorViewModel(params: {
       crestSrc.value = '';
       return;
     }
-    const images = await params.queryPreviewImages(sessionId, factionId);
-    if (requestId !== previewRequestId || sessionId !== params.sessionId.value || factionId !== params.factionId.value) return;
-    logoSrc.value = images.logoSrc;
-    crestSrc.value = images.crestSrc;
+    try {
+      const images = await params.queryPreviewImages(sessionId, factionId);
+      if (requestId !== previewRequestId || sessionId !== params.sessionId.value || factionId !== params.factionId.value) return;
+      logoSrc.value = images.logoSrc;
+      crestSrc.value = images.crestSrc;
+    } catch (error) {
+      if (requestId !== previewRequestId) return;
+      feedback.error(error, '刷新势力预览失败');
+    }
   }
 
   async function save() {

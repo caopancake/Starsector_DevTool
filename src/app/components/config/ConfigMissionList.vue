@@ -52,6 +52,7 @@
 import { h, onMounted, ref, watch } from 'vue';
 import { NCheckbox } from 'naive-ui/es/checkbox';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
+import { configEntityIdInvalidMessage } from '@/domain/config/config-entities';
 
 const props = defineProps<{
   selectedId: string | null;
@@ -108,7 +109,7 @@ async function doCreateMission() {
     return false;
   }
   if (!props.isValidMissionId(id)) {
-    feedback.error('战役 ID 不能包含路径分隔符或 ..');
+    feedback.error(configEntityIdInvalidMessage('战役 ID'));
     return false;
   }
   if (props.missionExists(id)) {

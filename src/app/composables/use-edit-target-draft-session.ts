@@ -32,10 +32,8 @@ export interface EditTargetDraftSession<TValue, TTarget, TLoadMeta = unknown, TS
   externalUpdateNotice: DraftSession<TValue>['externalUpdateNotice'];
   hasPendingExternalValue: DraftSession<TValue>['hasPendingExternalValue'];
   loading: Ref<boolean>;
-  loadError: Ref<unknown>;
   pendingExternalValue: DraftSession<TValue>['pendingExternalValue'];
   revision: DraftSession<TValue>['revision'];
-  saveError: Ref<unknown>;
   saving: Ref<boolean>;
   applyExternalForTarget: (target: TTarget, value: TValue) => void;
   clearTarget: () => void;
@@ -59,8 +57,6 @@ export function useEditTargetDraftSession<TValue, TTarget, TLoadMeta = unknown, 
   const currentTargetKey = ref<string | null>(null);
   const loading = ref(false);
   const saving = ref(false);
-  const loadError = ref<unknown>(null);
-  const saveError = ref<unknown>(null);
   let disposed = false;
   let loadRequestId = 0;
   let saveRequestId = 0;
@@ -79,7 +75,6 @@ export function useEditTargetDraftSession<TValue, TTarget, TLoadMeta = unknown, 
     currentTarget.value = target;
     currentTargetKey.value = key;
     loading.value = true;
-    loadError.value = null;
     try {
       const snapshot = await options.load(target);
       if (!isCurrentLoad(requestId, key)) return null;
@@ -87,9 +82,6 @@ export function useEditTargetDraftSession<TValue, TTarget, TLoadMeta = unknown, 
       else draftSession.applyExternal(snapshot.value);
       options.onLoaded?.(target, draftSession.draftValue.value, snapshot.meta);
       return snapshot;
-    } catch (error) {
-      if (isCurrentLoad(requestId, key)) loadError.value = error;
-      throw error;
     } finally {
       if (isCurrentLoad(requestId, key)) loading.value = false;
     }
@@ -102,7 +94,6 @@ export function useEditTargetDraftSession<TValue, TTarget, TLoadMeta = unknown, 
     const key = currentTargetKey.value;
     const submittedDraft = clone(draftSession.draftValue.value);
     saving.value = true;
-    saveError.value = null;
     try {
       const result = await options.save(target, submittedDraft);
       if (!isCurrentSave(requestId, key)) return null;
@@ -111,9 +102,6 @@ export function useEditTargetDraftSession<TValue, TTarget, TLoadMeta = unknown, 
       else draftSession.applyExternal(result.value);
       options.onSaved?.(target, clone(result.value), result.meta);
       return result;
-    } catch (error) {
-      if (isCurrentSave(requestId, key)) saveError.value = error;
-      throw error;
     } finally {
       if (isCurrentSave(requestId, key)) saving.value = false;
     }
@@ -139,8 +127,6 @@ export function useEditTargetDraftSession<TValue, TTarget, TLoadMeta = unknown, 
     currentTargetKey.value = null;
     loading.value = false;
     saving.value = false;
-    loadError.value = null;
-    saveError.value = null;
     draftSession.clear(options.emptyValue);
   }
 
@@ -170,10 +156,8 @@ export function useEditTargetDraftSession<TValue, TTarget, TLoadMeta = unknown, 
     externalUpdateNotice: draftSession.externalUpdateNotice,
     hasPendingExternalValue: draftSession.hasPendingExternalValue,
     loading,
-    loadError,
     pendingExternalValue: draftSession.pendingExternalValue,
     revision: draftSession.revision,
-    saveError,
     saving,
     applyExternalForTarget,
     clearTarget,

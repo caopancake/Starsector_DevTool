@@ -1,6 +1,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { createVariantAction, deleteVariantAction, saveVariantAction } from '@/orchestrators/config-save.orchestrator';
 import {
+  configEntityIdInvalidMessage,
   configEntityRenameContext,
   hasConfigEntityIdConflict,
   isConfigEntityId,
@@ -48,14 +49,19 @@ export function useConfigVariantViewModel() {
     }
     const selectedId = selectedVariantId.value;
     const previousSelected = selectedId ? variants.value.find((variant) => variant.variantId === selectedId) : null;
-    const loadedVariants = await listVariantEntities(sessionId);
-    if (requestId !== variantsRequestId || sessionId !== project.activeSessionId) return;
-    variants.value = loadedVariants;
-    await loadVariantHullReferences();
-    const nextSelected = selectedId ? variants.value.find((variant) => variant.variantId === selectedId) : null;
-    if (selectedEntityDataChanged(previousSelected, nextSelected)) variantDataRevision.value += 1;
-    if (selectedVariantId.value && !variants.value.some((variant) => variant.variantId === selectedVariantId.value)) {
-      selectedVariantId.value = null;
+    try {
+      const loadedVariants = await listVariantEntities(sessionId);
+      if (requestId !== variantsRequestId || sessionId !== project.activeSessionId) return;
+      variants.value = loadedVariants;
+      await loadVariantHullReferences();
+      const nextSelected = selectedId ? variants.value.find((variant) => variant.variantId === selectedId) : null;
+      if (selectedEntityDataChanged(previousSelected, nextSelected)) variantDataRevision.value += 1;
+      if (selectedVariantId.value && !variants.value.some((variant) => variant.variantId === selectedVariantId.value)) {
+        selectedVariantId.value = null;
+      }
+    } catch (error) {
+      if (requestId !== variantsRequestId || sessionId !== project.activeSessionId) return;
+      feedback.error(error, '加载装配失败');
     }
   }
 
@@ -110,7 +116,7 @@ export function useConfigVariantViewModel() {
       return false;
     }
     if (!isConfigEntityId(variantId)) {
-      feedback.error('variantId 不能包含路径分隔符或 ..');
+      feedback.error(configEntityIdInvalidMessage('variantId'));
       return false;
     }
     if (hasConfigEntityIdConflict(variants.value, variantId, null, (variant) => variant.variantId)) {
@@ -160,7 +166,7 @@ export function useConfigVariantViewModel() {
       return null;
     }
     if (!isConfigEntityId(nextVariantId)) {
-      feedback.error('variantId 不能包含路径分隔符或 ..');
+      feedback.error(configEntityIdInvalidMessage('variantId'));
       return null;
     }
     if (hasConfigEntityIdConflict(variants.value, nextVariantId, current.variantId, (variant) => variant.variantId)) {

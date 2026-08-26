@@ -38,11 +38,19 @@ export function useConfigVariantEditorViewModel(params: {
     ([variantId]) => {
       const variant = selectedVariant.value;
       const data = variant ? variant.data : {};
-      if (draftSession.currentTargetKey.value !== variantId) void draftSession.loadTarget(variantId);
+      if (draftSession.currentTargetKey.value !== variantId) void loadVariantEditorData(variantId);
       else draftSession.applyExternalForTarget(variantId, data);
     },
     { immediate: true },
   );
+
+  async function loadVariantEditorData(variantId: string) {
+    try {
+      await draftSession.loadTarget(variantId);
+    } catch (error) {
+      feedback.error(error, '加载装配失败');
+    }
+  }
 
   async function save() {
     try {

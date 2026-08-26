@@ -1,6 +1,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { createSkinAction, deleteSkinAction, saveSkinAction } from '@/orchestrators/config-save.orchestrator';
 import {
+  configEntityIdInvalidMessage,
   configEntityRenameContext,
   hasConfigEntityIdConflict,
   isConfigEntityId,
@@ -46,14 +47,19 @@ export function useConfigSkinViewModel() {
     }
     const selectedId = selectedSkinId.value;
     const previousSelected = selectedId ? skins.value.find((skin) => skin.skinHullId === selectedId) : null;
-    const loadedSkins = await listSkinEntities(sessionId);
-    if (requestId !== skinsRequestId || sessionId !== project.activeSessionId) return;
-    skins.value = loadedSkins;
-    await loadSkinSprites();
-    const nextSelected = selectedId ? skins.value.find((skin) => skin.skinHullId === selectedId) : null;
-    if (selectedEntityDataChanged(previousSelected, nextSelected)) skinDataRevision.value += 1;
-    if (selectedSkinId.value && !skins.value.some((skin) => skin.skinHullId === selectedSkinId.value)) {
-      selectedSkinId.value = null;
+    try {
+      const loadedSkins = await listSkinEntities(sessionId);
+      if (requestId !== skinsRequestId || sessionId !== project.activeSessionId) return;
+      skins.value = loadedSkins;
+      await loadSkinSprites();
+      const nextSelected = selectedId ? skins.value.find((skin) => skin.skinHullId === selectedId) : null;
+      if (selectedEntityDataChanged(previousSelected, nextSelected)) skinDataRevision.value += 1;
+      if (selectedSkinId.value && !skins.value.some((skin) => skin.skinHullId === selectedSkinId.value)) {
+        selectedSkinId.value = null;
+      }
+    } catch (error) {
+      if (requestId !== skinsRequestId || sessionId !== project.activeSessionId) return;
+      feedback.error(error, '加载舰船皮肤失败');
     }
   }
 
@@ -103,7 +109,7 @@ export function useConfigSkinViewModel() {
       return false;
     }
     if (!isConfigEntityId(skinHullId)) {
-      feedback.error('skinHullId 不能包含路径分隔符或 ..');
+      feedback.error(configEntityIdInvalidMessage('skinHullId'));
       return false;
     }
     if (hasConfigEntityIdConflict(skins.value, skinHullId, null, (skin) => skin.skinHullId)) {
@@ -153,7 +159,7 @@ export function useConfigSkinViewModel() {
       return null;
     }
     if (!isConfigEntityId(nextSkinHullId)) {
-      feedback.error('skinHullId 不能包含路径分隔符或 ..');
+      feedback.error(configEntityIdInvalidMessage('skinHullId'));
       return null;
     }
     if (hasConfigEntityIdConflict(skins.value, nextSkinHullId, current.skinHullId, (skin) => skin.skinHullId)) {

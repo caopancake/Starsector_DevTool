@@ -27,8 +27,12 @@ export function useSpriteUpload() {
       content: result.state.message ?? '',
       actionText: '覆盖',
       onConfirm: async () => {
-        result = await uploadEditorSpriteAction(options.sessionId, options.modRoot, file.name, data, options.subfolder, true);
-        options.onUploaded(result, dataUrl);
+        try {
+          result = await uploadEditorSpriteAction(options.sessionId, options.modRoot, file.name, data, options.subfolder, true);
+          options.onUploaded(result, dataUrl);
+        } catch (error) {
+          options.feedback.error(error, '覆盖贴图失败');
+        }
       },
     });
   }

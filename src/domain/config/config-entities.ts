@@ -214,8 +214,14 @@ export function configFactionSaveDraft(local: RowData, schema: FileSchema): Conf
 
 const CONFIG_ENTITY_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 
+const CONFIG_ENTITY_ID_HINT = '仅允许以 ASCII 字母或数字开头，只能包含 ASCII 字母、数字、下划线（_）、点（.）、连字符（-）';
+
 export function isConfigEntityId(value: string): boolean {
   return CONFIG_ENTITY_ID_RE.test(value.trim());
+}
+
+export function configEntityIdInvalidMessage(label: string): string {
+  return `${label} ${CONFIG_ENTITY_ID_HINT}`;
 }
 
 export function hasConfigEntityIdConflict<T>(

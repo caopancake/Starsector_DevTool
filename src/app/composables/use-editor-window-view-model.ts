@@ -183,8 +183,15 @@ export function useEditorWindowViewModel(params: {
     const target = editorWindowTarget();
     if (!target || draftSession.saving.value) return;
     if (data) draftSession.setDraft(data);
-    const saved = await draftSession.saveDraft();
-    if (saved) syncCurrentDraftToBundle(kind, target.id);
+    try {
+      const saved = await draftSession.saveDraft();
+      if (saved) {
+        syncCurrentDraftToBundle(kind, target.id);
+        feedback.success(`${target.id} 已保存`);
+      }
+    } catch (error) {
+      feedback.error(error);
+    }
   }
 
   function updateEditorDraft(kind: EditorSpecKind, data: RowData): void {
