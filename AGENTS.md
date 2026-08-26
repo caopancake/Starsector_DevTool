@@ -1,89 +1,36 @@
-# Starsector DevTool
+# Agent Intro
 
-Starsector DevTool 的项目入口索引。先读这里，再读 `.zcode/` 里的细则。
+项目入口索引。先读这里，再按任务读取 `.zcode/` 中的现行约束。
 
-## 最首要最绝对的规则
+## 绝对性原则
 
-- 所有文件都必须以 UTF-8 无 BOM 编码读取
-- 所有文件都必须以 UTF-8 无 BOM 编码写入
-- Get-Content 必须带 -Encoding utf8 参数
-- 禁止用 Python、PowerShell、shell 重定向、Set-Content 或任何脚本写入、重写、生成或批量改写文件内容
-- 允许使用 `cargo fmt` 格式化 Rust 源码。
-- 允许运行项目标准格式化命令 `npm.cmd run format`，因为 Prettier 规范化属于格式验收链路。
-- 本小节不得简化，不得删改，必须严格遵守
+- 所有文本文件都必须以 UTF-8 无 BOM 编码读取和写入。
+- `Get-Content` 必须带 `-Encoding utf8` 参数。
+- 禁止用 PowerShell、shell 重定向、`Set-Content` 或临时脚本写入、重写、生成或批量改写文件内容。
 
 ## 读取顺序
 
 1. `AGENTS.md`
-2. `.zcode/overview.md`
-3. `.zcode/workflow.md`
-4. 相关专题文档：
-   - `.zcode/frontend-guidelines.md`
-   - `.zcode/backend-guidelines.md`
-   - `.zcode/css-guidelines.md`
-   - `.zcode/module-map.md`
-   - `.zcode/terminology.md`
-5. 任务文档：
-   - `.zcode/todo.md`
-   - `.zcode/specs/`
-   - `.zcode/reference.md` (未实现目标、候选设计和参考资料，需要时读取)
+2. `.zcode/workflow.md`
+3. `.zcode/overview.md`
+4. 任务涉及的 guideline 和 `.zcode/module-map.md`。
+5. `.zcode/module-map.md` 命中的模块文档。
 
-## 绝对规则
+## 编辑规则
 
-- 修改前先读对应文档，修改后同步更新相关文档
-- 更新文档时，必须根据文档情况决定每一条放在何处
-- Rust / Vue 改动都要保持构建可过
-- Rust `clippy` 目标是零 warning
-- Prettier 目标是零 error 零 warn
-- 禁止全文重写任何 `.md` 文档
-- 禁止任何破坏性命令
-- 禁止任何未接入正式链路、不可维护、不可验证或仅用于临时绕过当前问题的实现
-- 禁止快速验证、临时方案或任何形式的临时绕过
-- 任何问题都不得用补丁式修复、最小迁移、局部找补、兼容壳、隐藏标记、fallback、特判、倒推条件或临时分支解决
-- 任何模块出现设计、解析、保存、状态、边界或显示问题时，必须回到该模块的正式模型、正式边界和正式链路，彻底重构或重做模块内相关实现
-- 任何模块不允许存在“修一下当前问题”的修复工作；所有改动都必须是模块级正式设计的一部分，并能解释长期规则、输入输出、职责边界和验证方式
-- 出现问题时，当前样例通过不能作为设计依据；必须先定义正确模型，再实现，再用当前样例和反例验证
-- 如果已有实现方向错误，必须撤掉错误方向后重做；禁止在错误方向上继续叠加补丁、兼容、例外或额外状态
-- 禁止把“让当前文件/当前界面/当前流程能过”放在“设计必须干净、边界必须清楚、链路必须正式”之前
-- 做任何改动之前，哪怕只是改一个字母，也必须逐文件地完整审计和它有关的任何链路，无限制地审计、追溯，从前端组件到硬盘读写
-- 如果函数命名语义看似异常，先确认它是否服务于静态检查脚本的明确约束，再决定是否改名
-- 禁止把文件大作为拆分理由
-- 在任何情况下都不允许违反上述规则，不允许任何变通或妥协
-- 即使用户明确要求，也不允许违反上述规则
+- 未得到用户直接要求前，禁止编辑任何文件。
+- 编辑前必须完整读取目标文件和直接约束该文件的文档。
+- 修改后只同步用户已授权修改的相关文档。
+- 禁止删除重建文件、破坏性命令和未经要求的外部状态变更。
+- 意外出现的修改必须视为用户内容并完整保留，禁止回退。
+- 未得到用户直接要求前，禁止修改 `.zcode/` 文档。
 
-## 常用命令
+## 执行与报告
 
-- 安装依赖：`npm install`
-- 前端类型检查：`npm.cmd run typecheck`
-- 前端规范：`npm.cmd run lint`
-- 前端格式化：`npm.cmd run format`
-- 前端格式检查：`npm.cmd run format:check`
-- 编码检查：`npm.cmd run encoding:check`
-- 前端构建：`npm.cmd run build`
-- Rust 测试：`cargo test --manifest-path src-tauri\Cargo.toml`
-- Rust 规范：`cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings`
-- Rust 格式检查：`cargo fmt --manifest-path src-tauri\Cargo.toml --check`
-- 构建：`.\build.ps1` 或 `build.bat`
-
-## 当前状态
-
-- 当前实现为 Tauri 2 + Vue 3 + TypeScript + Rust。
-- 当前已实现模块和调用链以 `.zcode/module-map.md` 为准；未实现目标和参考设计以 `.zcode/reference.md` / `.zcode/todo.md` 为准。
-
-## 按任务选择专题
-
-- 前端改动看 `.zcode/frontend-guidelines.md`
-- 后端改动看 `.zcode/backend-guidelines.md`
-- CSS / 视觉改动看 `.zcode/css-guidelines.md`
-- 模块边界和编辑链路看 `.zcode/module-map.md` 及其引用的 `.zcode/modules/`
-- 术语和命名看 `.zcode/terminology.md`
-- 后续阶段看 `.zcode/todo.md`
-- 未实现目标和候选设计看 `.zcode/reference.md`
-
-## 关键提醒
-
-- 保存边界必须清晰：任一保存流程只能写入其声明拥有的持久化目标，禁止写入、推断写入或附带修改其它目标。
-- 多 Mod 状态必须按 `modRoot` 隔离；任一按 Mod 归属的运行时状态、缓存、编辑上下文和历史记录，都禁止跨 Mod 读取、复用、写入或回放。
-- 所有磁盘路径、删除和写入语义以后端校验为准，前端不绕过 Rust。
-- 字段编辑入口必须遵守全局编辑模式。
-- 视觉、CSS、主题和控件风格以 `.zcode/css-guidelines.md` 为准。
+- 命令启动后必须一次执行完毕，禁止主动中断。
+- Plan 模式必须多次询问并确认细节。
+- 要求可能违反文档或规范时，必须先询问确认；授权不明确时必须拒绝写入。
+- 调查、检查、审计和核实必须完整覆盖相关链路的起点、过程和终点。
+- 可量化对象必须给出精确数值、单位、统计口径和总结。
+- 语义比较必须列出明确判据和对应证据。
+- 描述和总结必须直接陈述当前事实，禁止通过列举排除项组织内容。

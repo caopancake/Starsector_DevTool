@@ -1,20 +1,41 @@
-# 前端规范（AI 规则）
+# Frontend Guidelines
+
+本文件维护 `src/` 的分层、依赖、状态、IPC、窗口与资源边界。通用调查和验证流程见 `.zcode/workflow.md`。
 
 ## 分层与命名
 
-- 组件 PascalCase；职责文件使用 `*.service/store/orchestrator/window/events.ts`；共享类型为 `*.types.ts`；使用 `@/` 导入。
-- `app` 渲染/窗口根/provider；`domain` 纯规则；`services` 单一后端能力；`stores` 内存状态；`orchestrators` 跨模块动作；`windows` 生命周期；`shared` 跨模块纯工具/API/type。
+- `app` 只允许拥有窗口根、provider、页面、组件和 ViewModel/composable；组件必须使用 PascalCase。
+- `domain` 只允许拥有纯规则和转换；`services` 只允许包装单一后端能力；`orchestrators` 只允许编排跨模块用户动作。
+- `stores` 只允许保存内存运行态；`windows` 只允许管理窗口身份、生命周期和事件；`shared` 只允许保存跨模块 API、runtime、类型和纯工具。
+- service、store、orchestrator 与 window 文件必须分别使用 `.service.ts`、`.store.ts`、`.orchestrator.ts` 与 `.window.ts` 或 `.events.ts` 后缀；共享业务类型必须位于 `shared/types` 或 domain。
+- 项目内导入必须使用 `@/`；共享类型 owner 文件必须直接导入具体类型文件，严禁反向导入 shared types barrel。
 
-## 强制边界
+## 依赖方向
 
-- IPC：`业务前端 -> service -> shared/api -> Rust command`。仅 `shared/api` 调用 `invoke`；Tauri 仅限 API/runtime/windows 根边界。
-- 组件只拥有渲染、输入、局部 UI；复杂页面通过 ViewModel。Store 不做 IO/确认/跨模块编排，ViewModel 不直接调用 API，service 不做跨模块用户动作。
-- `ResourceRef` 仅来自后端 query；图片 data URL 仅经批量资源缓存。`shared` 不反向依赖业务层。
-- 运行态不是磁盘权威。所有 Mod 数据按 `modRoot` 隔离；游戏概览不等于 ProjectSession；`tables.store` 仅草稿/选择/dirty。
-- 保存、undo/redo 走所属 orchestrator 和后端 changeset。窗口由窗口边界单例化、同步；编辑器只写自身目标。
-- 设置仅 app-data：主窗口为权威，子窗口仅接收完整 snapshot；字段编辑遵守 editMode，字符串换行不得丢失。
+- `shared` 只允许依赖 `shared`；`domain` 只允许依赖 `domain` 与 `shared`。
+- `services` 只允许依赖 service、domain 与 shared；store 只允许依赖 store、domain 与 shared。
+- orchestrator 允许协调 service、store、domain、window 与 shared；window 允许依赖 window、orchestrator、service、domain 与 shared。
+- 组件必须通过 ViewModel/composable 消费状态和动作，严禁直接调用 service、orchestrator 或 wire API。
+- ViewModel/composable 严禁直接调用 `shared/api`；跨进程业务能力必须先由 service 包装。
 
-## UI 与验证
+## IPC 与运行时
 
-- 遵从 `css-guidelines.md`、token 与既有控件；稳定布局不用 inline style，动态值才可用。紧凑容器的文案与字号匹配。
-- 前端改动必须通过 `typecheck`、`lint`、`format:check`、`encoding:check`。
+- `shared/api` 是唯一 `invoke` wire adapter；业务调用链必须为 service -> `shared/api` -> Rust command。
+- Tauri API 只允许出现在 `shared/api`、`shared/runtime` 与 `windows`；dialog、窗口和事件必须由各自 runtime 边界包装。
+- `shared/api` 只允许进行 payload 适配和结果返回，严禁定义业务可见类型或业务规则。
+- 前端严禁使用 `localStorage`、`sessionStorage` 或 `indexedDB`；持久化必须通过正式 app config、workspace 或 Mod 后端能力。
+
+## 状态与保存
+
+- 所有按 Mod 归属的状态、缓存、草稿、选择与历史必须按 `modRoot` 隔离；游戏概览与 ProjectSession 必须保持独立身份。
+- Store 严禁拥有 IO、确认框或跨模块编排；Draft Session 必须拥有 base、draft、dirty、revision 与 pending external 状态。
+- 保存、删除、导入和 undo/redo 必须经过所属 orchestrator、write service、changeset 与 ProjectSession refresh。
+- 组件和 ViewModel 严禁构造磁盘路径、`ResourceRef` 或后端实体身份；已保存数据与 dirty draft 必须通过显式外部更新语义交接。
+
+## 窗口与资源
+
+- 窗口身份必须包含完整 session、`modRoot` 和业务目标；子窗口严禁自行打开 ProjectSession 或读取 settings 文件。
+- 主窗口拥有 settings 持久化权威；子窗口只允许接收完整 snapshot，并通过正式事件同步。
+- 资源只允许由后端 query 返回 `ResourceRef`，再由 resource-cache service 批量 hydrate data URL；严禁逐项 IPC 或前端构造 fallback。
+- 字段渲染必须遵守全局 edit mode；字符串真实换行必须使用 textarea 并完整保留。
+- UI 和布局必须遵守 `.zcode/css-guidelines.md`。

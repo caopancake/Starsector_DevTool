@@ -1,4 +1,4 @@
-# 贡献指南
+# Contributing
 
 感谢你帮助改进 Starsector DevTool。本项目是 Windows 桌面 Mod 编辑器；任何贡献都应保持 Mod 数据隔离、文件写入边界和可回放的保存历史。
 
