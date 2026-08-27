@@ -1,6 +1,6 @@
-import { handleEditorSpecSaved, handleFileEditorSaved, handleSpriteUploadSaved } from '@/orchestrators/file-save.orchestrator';
+import { handleEditorSpecSaved, handleFileEditorSaved } from '@/orchestrators/file-save.orchestrator';
 import type { EditorSpecSavedEvent } from '@/windows/editor.window';
-import { WINDOW_EVENTS, type FileEditorSavedEvent, type SpriteUploadSavedEvent } from '@/windows/window.events';
+import { WINDOW_EVENTS, type FileEditorSavedEvent } from '@/windows/window.events';
 import { listenWindowEvent, type UnlistenFn, type WindowEventHandler } from '@/windows/tauri.events';
 import { recordWindowEventHandlerError } from '@/orchestrators/window-event-errors.orchestrator';
 
@@ -26,15 +26,6 @@ export async function listenWindowSaveEvents(handlers: WindowSaveEventHandlers =
       WINDOW_EVENTS.fileEditorSaved,
       async (event) => {
         await handleFileEditorSaved(event);
-      },
-      recordWindowEventHandlerError,
-    ),
-  );
-  unlisteners.push(
-    await listenWindowEvent<SpriteUploadSavedEvent>(
-      WINDOW_EVENTS.spriteUploadSaved,
-      async (event) => {
-        await handleSpriteUploadSaved(event);
       },
       recordWindowEventHandlerError,
     ),

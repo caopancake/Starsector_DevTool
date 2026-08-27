@@ -13,7 +13,6 @@ import {
   saveSkinEntity,
   saveTextFile,
   saveVariantEntity,
-  uploadSprite,
 } from '@/shared/api/write-api';
 import type {
   AssociatedFileChange,
@@ -27,7 +26,6 @@ import type {
   IndexedConfigEntityWrite,
   RowData,
   SkinEntityWrite,
-  SpriteSubfolder,
   TableKey,
   VariantEntityWrite,
   WriteResult,
@@ -96,17 +94,6 @@ export async function writeCreateSkinEntity(write: SkinEntityWrite): Promise<Wri
 
 export async function writeDeleteSkinEntity(write: DeleteSkinEntityWrite): Promise<WriteResult> {
   return deleteSkinEntity(write);
-}
-
-export async function writeSpriteUpload(
-  sessionId: string,
-  modRoot: string,
-  filename: string,
-  data: string,
-  subfolder: SpriteSubfolder,
-  overwrite: boolean,
-): Promise<WriteResult> {
-  return uploadSprite(sessionId, modRoot, filename, data, subfolder, overwrite);
 }
 
 export async function replayFileChangeSet(

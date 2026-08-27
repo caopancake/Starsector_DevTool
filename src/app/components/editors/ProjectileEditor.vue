@@ -29,7 +29,7 @@
               </div>
               <ColorPicker label="fringeColor" v-model="fringeColor" />
               <ColorPicker label="coreColor" v-model="coreColor" />
-              <input type="file" accept="image/png" @change="uploadSpriteFile('bulletSprite', $event)" />
+              <n-button size="small" tertiary @click="pickProjectileSprite('bulletSprite')">浏览贴图（引用 Mod 内文件）</n-button>
             </n-collapse-item>
             <n-collapse-item title="碰撞与消散" name="collision">
               <div class="form-grid">
@@ -69,7 +69,7 @@
                 ><n-input-number v-model:value="localProjectile.collisionRadius" />
               </div>
               <ColorPicker label="explosionColor" v-model="explosionColor" />
-              <input type="file" accept="image/png" @change="uploadSpriteFile('sprite', $event)" />
+              <n-button size="small" tertiary @click="pickProjectileSprite('sprite')">浏览贴图（引用 Mod 内文件）</n-button>
             </n-collapse-item>
             <n-collapse-item title="引擎参数" name="engine">
               <ObjectEditor v-model="engineSpec" />
@@ -121,7 +121,7 @@ import type { RowData } from '@/shared/types';
 import { arr, str } from '@/shared/lib/starsector';
 import { normalizeProjectileSpec } from '@/domain/editors/lib/normalize';
 import { useObjectField } from '@/app/composables/use-object-field';
-import { useSpriteUpload } from '@/app/composables/use-sprite-upload';
+import { useResourceReference } from '@/app/composables/use-resource-reference';
 import { editorCollapseTheme, toOptions } from '@/domain/editors/lib/editor-constants';
 
 const props = defineProps<{
@@ -145,7 +145,7 @@ const feedback = useAppFeedback();
 const localProjectile = ref<RowData>(normalizeProjectileSpec(props.projectile || { id: props.projectileId, specClass: 'projectile' }));
 const expandedSections = ref(['basic']);
 const { bindObjectField } = useObjectField(localProjectile);
-const { uploadSpriteFromInput } = useSpriteUpload();
+const { pickModImageReference } = useResourceReference();
 const specClass = computed(() => str(localProjectile.value.specClass, 'projectile'));
 const size = computed(() => arr(localProjectile.value.size, [0, 0]));
 const center = computed(() => arr(localProjectile.value.center, [0, 0]));
@@ -188,21 +188,10 @@ function applyGeneric() {
     feedback.error('JSON 无效');
   }
 }
-async function uploadSpriteFile(field: string, event: Event) {
-  try {
-    await uploadSpriteFromInput(event, {
-      feedback,
-      modRoot: props.modRoot,
-      sessionId: props.sessionId,
-      subfolder: 'missiles',
-      onUploaded: (result) => {
-        localProjectile.value[field] = result.state.path;
-        feedback.success('贴图已上传');
-      },
-    });
-  } catch (error) {
-    feedback.error(error, '上传贴图失败');
-  }
+async function pickProjectileSprite(field: 'bulletSprite' | 'sprite') {
+  const relative = await pickModImageReference({ sessionId: props.sessionId, modRoot: props.modRoot, title: '选择弹体贴图' });
+  if (!relative) return;
+  localProjectile.value[field] = relative;
 }
 watch(
   () => props.draftRevision,

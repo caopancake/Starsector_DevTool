@@ -6,7 +6,7 @@ use crate::models::{
     workspace_persistence::PersistedWorkspace,
     write::{
         AssociatedFileChange, AssociatedSpecChange, CsvRowPatch, EditorSpecKind, FileChangeRecord,
-        FileChangeReplayDirection, IndexedConfigKind, SpriteSubfolder,
+        FileChangeReplayDirection, IndexedConfigKind,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -150,13 +150,10 @@ pub struct InvalidateCoreCachePayload {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UploadSpritePayload {
+pub struct ResolveModRelativePathPayload {
     pub session_id: ProjectSessionId,
     pub mod_root: String,
-    pub filename: String,
-    pub data: String,
-    pub overwrite: bool,
-    pub subfolder: SpriteSubfolder,
+    pub absolute_path: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -435,26 +432,10 @@ mod tests {
     }
 
     #[test]
-    fn upload_sprite_payload_requires_explicit_subfolder() {
-        let result = serde_json::from_value::<UploadSpritePayload>(json!({
-            "sessionId": "session-1",
+    fn resolve_mod_relative_path_payload_requires_session_id() {
+        let result = serde_json::from_value::<ResolveModRelativePathPayload>(json!({
             "modRoot": "D:/mods/demo",
-            "filename": "demo.png",
-            "data": "AA==",
-            "overwrite": false
-        }));
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn upload_sprite_payload_requires_session_id() {
-        let result = serde_json::from_value::<UploadSpritePayload>(json!({
-            "modRoot": "D:/mods/demo",
-            "filename": "demo.png",
-            "data": "AA==",
-            "subfolder": "ships",
-            "overwrite": false
+            "absolutePath": "D:/mods/demo/graphics/ships/demo.png"
         }));
 
         assert!(result.is_err());

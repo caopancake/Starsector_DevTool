@@ -69,19 +69,12 @@
                   <label>{{ field }}</label>
                   <div class="sprite-field-row">
                     <n-input v-model:value="localWeapon[field]" @change="loadSpriteField(field)" />
-                    <input
-                      :ref="(el) => setSpriteInputRef(field, el)"
-                      class="editor-file-input"
-                      type="file"
-                      accept="image/png"
-                      @change="uploadSpriteField(field, $event)"
-                    />
                     <n-button
                       class="sprite-icon-button"
                       tertiary
-                      title="选择贴图文件"
-                      aria-label="选择贴图文件"
-                      @click="openSpriteInput(field)"
+                      title="浏览贴图（引用 Mod 内文件）"
+                      aria-label="浏览贴图"
+                      @click="pickWeaponSprite(field)"
                     >
                       <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M4 19V5h6l2 2h8v12H4z" />
@@ -98,19 +91,12 @@
                   <label>{{ field }}</label>
                   <div class="sprite-field-row">
                     <n-input v-model:value="localWeapon[field]" @change="loadSpriteField(field)" />
-                    <input
-                      :ref="(el) => setSpriteInputRef(field, el)"
-                      class="editor-file-input"
-                      type="file"
-                      accept="image/png"
-                      @change="uploadSpriteField(field, $event)"
-                    />
                     <n-button
                       class="sprite-icon-button"
                       tertiary
-                      title="选择贴图文件"
-                      aria-label="选择贴图文件"
-                      @click="openSpriteInput(field)"
+                      title="浏览贴图（引用 Mod 内文件）"
+                      aria-label="浏览贴图"
+                      @click="pickWeaponSprite(field)"
                     >
                       <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M4 19V5h6l2 2h8v12H4z" />
@@ -232,7 +218,6 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
@@ -246,7 +231,7 @@ import { useCanvasViewport } from '@/app/composables/use-canvas-viewport';
 import { useHistory } from '@/app/composables/use-history';
 import { useEditorShortcuts } from '@/app/composables/use-editor-shortcuts';
 import { useObjectField } from '@/app/composables/use-object-field';
-import { useSpriteUpload } from '@/app/composables/use-sprite-upload';
+import { useResourceReference } from '@/app/composables/use-resource-reference';
 import { editorCollapseTheme, snapToStep, toOptions } from '@/domain/editors/lib/editor-constants';
 import { drawBarrelVisual, drawCrossMarker } from '@/domain/editors/lib/canvas-visuals';
 import { findMirrorBarrelIndex, mirrorAngleDeg, mirrorLateral, MIRROR_EPSILON } from '@/domain/editors/lib/mirror';
@@ -294,7 +279,6 @@ const emit = defineEmits<{
   editProjectile: [id: string];
   preview: [id: string];
 }>();
-const feedback = useAppFeedback();
 const editorWindowRef = ref<HTMLElement>();
 const stageRef = ref<HTMLElement>();
 const canvasRef = ref<HTMLCanvasElement>();
@@ -317,12 +301,11 @@ const mirrorMode = ref(false);
 const mirrorPair = ref<number | null>(null);
 const localSpriteData = ref<Record<string, string>>({ ...(props.spriteData || {}) });
 const spriteImages = new Map<string, InstanceType<typeof Image>>();
-const spriteInputRefs = new Map<WeaponSpriteField, HTMLInputElement>();
 let last = { x: 0, y: 0 };
 const history = useHistory(() => localWeapon.value);
 const drawing = useCanvasDrawing();
 const { bindObjectField } = useObjectField(localWeapon);
-const { uploadSpriteFromInput } = useSpriteUpload();
+const { pickModImageReference } = useResourceReference();
 const turretSpriteFields = TURRET_WEAPON_SPRITE_FIELDS;
 const hardpointSpriteFields = HARDPOINT_WEAPON_SPRITE_FIELDS;
 const spriteOriginRatio: Record<WeaponViewMode, { x: number; y: number }> = {
@@ -512,17 +495,6 @@ function loadAllSpriteImages() {
 function loadSpriteField(field: WeaponSpriteField) {
   setSpriteImage(field, spriteDataFor(field));
   draw();
-}
-function setSpriteInputRef(field: WeaponSpriteField, element: unknown) {
-  const input = element instanceof window.HTMLInputElement ? element : null;
-  if (input) {
-    spriteInputRefs.set(field, input);
-  } else {
-    spriteInputRefs.delete(field);
-  }
-}
-function openSpriteInput(field: WeaponSpriteField) {
-  spriteInputRefs.get(field)?.click();
 }
 function drawSpriteLayer(ctx: CanvasRenderingContext2D, image: InstanceType<typeof Image>) {
   if (!image.width) return;
@@ -905,23 +877,11 @@ function deleteSelectedBarrelData(mode: WeaponViewMode) {
   activeBarrel.value = null;
   inspectorLock.value = null;
 }
-async function uploadSpriteField(field: WeaponSpriteField, event: Event) {
-  try {
-    await uploadSpriteFromInput(event, {
-      feedback,
-      modRoot: props.modRoot,
-      sessionId: props.sessionId,
-      subfolder: 'weapons',
-      onUploaded: (result, dataUrl) => {
-        localWeapon.value[field] = result.state.path;
-        localSpriteData.value[field] = dataUrl;
-        setSpriteImage(field, dataUrl);
-        feedback.success('贴图已上传');
-      },
-    });
-  } catch (error) {
-    feedback.error(error, '上传贴图失败');
-  }
+async function pickWeaponSprite(field: WeaponSpriteField) {
+  const relative = await pickModImageReference({ sessionId: props.sessionId, modRoot: props.modRoot, title: '选择武器贴图' });
+  if (!relative) return;
+  localWeapon.value[field] = relative;
+  setSpriteImage(field, '');
 }
 function save() {
   emit('save-requested');

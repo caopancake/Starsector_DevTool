@@ -60,13 +60,12 @@
                 <label>spriteName</label>
                 <div class="sprite-field-row">
                   <n-input v-model:value="localShip.spriteName" @change="loadSprite" />
-                  <input ref="shipSpriteInputRef" class="editor-file-input" type="file" accept="image/png" @change="uploadShipSprite" />
                   <n-button
                     class="sprite-icon-button"
                     tertiary
-                    title="选择贴图文件"
-                    aria-label="选择贴图文件"
-                    @click="shipSpriteInputRef?.click()"
+                    title="浏览贴图（引用 Mod 内文件）"
+                    aria-label="浏览贴图"
+                    @click="pickShipSprite"
                   >
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M4 19V5h6l2 2h8v12H4z" />
@@ -248,7 +247,7 @@ import { useHistory } from '@/app/composables/use-history';
 import { useCanvasDrawing } from '@/app/composables/use-canvas-drawing';
 import { useCanvasViewport } from '@/app/composables/use-canvas-viewport';
 import { useEditorShortcuts } from '@/app/composables/use-editor-shortcuts';
-import { useSpriteUpload } from '@/app/composables/use-sprite-upload';
+import { useResourceReference } from '@/app/composables/use-resource-reference';
 import { editorCollapseTheme, snapToStep, toOptions } from '@/domain/editors/lib/editor-constants';
 import { drawBoundsVisual, drawEngineVisual, drawRadiusField, drawWeaponSlotVisual } from '@/domain/editors/lib/canvas-visuals';
 import {
@@ -280,7 +279,6 @@ const feedback = useAppFeedback();
 const editorWindowRef = ref<HTMLElement>();
 const stageRef = ref<HTMLElement>();
 const canvasRef = ref<HTMLCanvasElement>();
-const shipSpriteInputRef = ref<HTMLInputElement>();
 const localShip = ref<RowData>(normalizeShipSpec(props.ship));
 const mode = ref<'overview' | 'ranges' | 'bounds' | 'weapon' | 'launchBay' | 'engine'>('overview');
 const selected = ref<number | null>(null);
@@ -302,7 +300,7 @@ const mirrorPair = ref<{ kind: ShipCanvasTarget['kind']; index: number } | null>
 let last = { x: 0, y: 0 };
 const history = useHistory(() => localShip.value);
 const drawing = useCanvasDrawing();
-const { uploadSpriteFromInput } = useSpriteUpload();
+const { pickModImageReference } = useResourceReference();
 const modes = [
   { shortcut: 'P', value: 'overview', label: '总览' },
   { shortcut: 'C', value: 'ranges', label: '范围' },
@@ -1617,26 +1615,11 @@ function applyBuiltInWeapons() {
     feedback.error('builtInWeapons JSON 无效');
   }
 }
-async function uploadShipSprite(event: Event) {
-  try {
-    await uploadSpriteFromInput(event, {
-      feedback,
-      modRoot: props.modRoot,
-      sessionId: props.sessionId,
-      subfolder: 'ships',
-      onUploaded: (result, dataUrl) => {
-        localShip.value.spriteName = result.state.path;
-        img.src = dataUrl;
-        img.onload = () => {
-          updateSpriteSize();
-          draw();
-        };
-        feedback.success('贴图已上传');
-      },
-    });
-  } catch (error) {
-    feedback.error(error, '上传贴图失败');
-  }
+async function pickShipSprite() {
+  const relative = await pickModImageReference({ sessionId: props.sessionId, modRoot: props.modRoot, title: '选择舰船贴图' });
+  if (!relative) return;
+  localShip.value.spriteName = relative;
+  loadSprite();
 }
 function save() {
   emit('save-requested');

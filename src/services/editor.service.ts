@@ -1,23 +1,12 @@
 import { querySessionEntity, querySessionEntityList } from '@/services/query.service';
 import { AppError, withCause } from '@/shared/lib/errors';
 import { queryResourceDataUrls } from '@/services/resource-cache.service';
-import { writeEditorSpec, writeSpriteUpload } from '@/services/write.service';
+import { writeEditorSpec } from '@/services/write.service';
 import { WEAPON_SPRITE_FIELDS } from '@/domain/editors/lib/weapon-sprite-fields';
 import { defaultEditorSpec } from '@/domain/editors/editor-definitions';
 import { requireRowData } from '@/shared/lib/row-data';
 import { loadImportedEditorSpecFile } from '@/shared/api/files-api';
-import type {
-  EditorSpecKind,
-  EditorWindowKind,
-  EntityData,
-  ProjectSessionId,
-  ResourceRef,
-  RowData,
-  SpriteSubfolder,
-  SpriteUploadResult,
-  SpriteUploadState,
-  WriteResult,
-} from '@/shared/types';
+import type { EditorSpecKind, EditorWindowKind, EntityData, ProjectSessionId, ResourceRef, RowData, WriteResult } from '@/shared/types';
 
 type EditorSelectOption = { label: string; value: string };
 
@@ -209,22 +198,6 @@ export async function loadImportedSpecFile(kind: EditorSpecKind, path: string): 
   return loadImportedEditorSpecFile(kind, path);
 }
 
-export function uploadEditorSprite(
-  sessionId: string,
-  modRoot: string,
-  filename: string,
-  data: string,
-  subfolder: SpriteSubfolder,
-  overwrite: boolean,
-) {
-  return writeSpriteUpload(sessionId, modRoot, filename, data, subfolder, overwrite).then(
-    (write): SpriteUploadResult => ({
-      state: spriteUploadState(write.refreshedEntity),
-      write,
-    }),
-  );
-}
-
 async function queryWeaponSprites(sessionId: ProjectSessionId, refs: Record<string, ResourceRef>): Promise<Record<string, string>> {
   const resources: { field: string; resource: ResourceRef }[] = [];
   for (const field of WEAPON_SPRITE_FIELDS) {
@@ -270,17 +243,6 @@ function requireEditorEntity(entity: EntityData | null, kind: EditorSpecKind, id
 
 function requireEditorRowData(value: unknown, message: string): RowData {
   return requireRowData(value, message);
-}
-
-function spriteUploadState(value: unknown): SpriteUploadState {
-  const row = requireEditorRowData(value, '贴图上传返回状态无效');
-  return {
-    ok: row.ok === true,
-    exists: row.exists === true,
-    path: typeof row.path === 'string' ? row.path : '',
-    overwritten: row.overwritten === true,
-    message: typeof row.message === 'string' ? row.message : null,
-  };
 }
 
 function ensureSpecContext(modRoot: string, id: string) {

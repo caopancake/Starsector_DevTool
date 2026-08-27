@@ -1,7 +1,7 @@
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import type { SchemaRuntimeContext } from '@/domain/schema/schema-runtime';
 import { pathBelongsToRoot, relativePathFromRoot } from '@/shared/lib/paths';
-import { pickFileDialog } from '@/shared/runtime/dialog.runtime';
+import { pickFileDialog, pickImageFileDialog } from '@/shared/runtime/dialog.runtime';
 
 export function useSchemaPathPicker(args: {
   runtimeContext: () => SchemaRuntimeContext | null | undefined;
@@ -9,14 +9,16 @@ export function useSchemaPathPicker(args: {
 }) {
   const feedback = useAppFeedback();
 
-  async function pickPathFile() {
+  async function pickPathFile(options: { imageFilter?: boolean } = {}) {
     const modRoot = args.runtimeContext()?.modRoot;
     if (!modRoot) return;
 
-    const selected = await pickFileDialog({
-      title: '选择文件',
-      defaultPath: modRoot,
-    });
+    const selected = options.imageFilter
+      ? await pickImageFileDialog({ title: '选择图片文件', defaultPath: modRoot })
+      : await pickFileDialog({
+          title: '选择文件',
+          defaultPath: modRoot,
+        });
 
     if (!selected || typeof selected !== 'string') return;
 

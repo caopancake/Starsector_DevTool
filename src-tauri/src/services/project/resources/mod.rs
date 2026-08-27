@@ -1,7 +1,6 @@
 mod core_graphics;
 mod refs;
 mod sprites;
-mod upload;
 
 pub use core_graphics::scan_core_graphics;
 pub(super) use refs::{
@@ -9,4 +8,4 @@ pub(super) use refs::{
     resource_data_url, resource_ref, ship_resource_refs, skin_entity_resource_refs,
     skin_resource_ref, system_resource_refs, variant_resource_refs, weapon_resource_refs,
 };
-pub use upload::upload_sprite;
+pub use sprites::resolve_mod_relative_path;

@@ -300,12 +300,3 @@ export function rgba(color: unknown, alpha = 1): string {
   const a = ((Number(c[3] ?? 255) / 255) * alpha).toFixed(3);
   return `rgba(${Number(c[0] ?? 255)},${Number(c[1] ?? 255)},${Number(c[2] ?? 255)},${a})`;
 }
-
-export function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error);
-    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
-    reader.readAsDataURL(file);
-  });
-}

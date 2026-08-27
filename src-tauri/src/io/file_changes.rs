@@ -35,14 +35,6 @@ impl FileChangeSetBuilder {
         self.file(rel_path, after_text, None)
     }
 
-    pub fn binary_file(
-        &mut self,
-        rel_path: impl AsRef<str>,
-        after_data_base64: Option<String>,
-    ) -> AppResult<&mut Self> {
-        self.file(rel_path, None, after_data_base64)
-    }
-
     pub fn file(
         &mut self,
         rel_path: impl AsRef<str>,

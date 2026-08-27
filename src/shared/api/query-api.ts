@@ -53,3 +53,7 @@ export function queryEntityList(sessionId: ProjectSessionId, kind: EntityKind): 
 export function queryResourceDataUrlBatch(sessionId: ProjectSessionId, resources: ResourceRef[]): Promise<ResourceDataUrlBatchResult> {
   return invoke('query_resource_data_urls', { payload: { sessionId, resources } });
 }
+
+export function resolveModRelativePath(sessionId: ProjectSessionId, modRoot: string, absolutePath: string): Promise<string> {
+  return invoke('resolve_mod_relative_path', { payload: { sessionId, modRoot, absolutePath } });
+}

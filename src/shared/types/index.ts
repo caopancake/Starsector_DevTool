@@ -12,9 +12,6 @@ export type {
   CsvRowKeyMapping,
   CsvRowPatch,
   CsvRowPatchAction,
-  SpriteSubfolder,
-  SpriteUploadState,
-  SpriteUploadResult,
   WriteResult,
 } from '@/shared/types/write.types';
 export type {

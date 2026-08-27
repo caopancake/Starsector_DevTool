@@ -110,26 +110,6 @@ pub enum IndexedConfigKind {
     Mission,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum SpriteSubfolder {
-    Ships,
-    Weapons,
-    Missiles,
-    Fx,
-}
-
-impl SpriteSubfolder {
-    pub fn graphics_rel_dir(self) -> &'static str {
-        match self {
-            Self::Ships => "graphics/ships",
-            Self::Weapons => "graphics/weapons",
-            Self::Missiles => "graphics/missiles",
-            Self::Fx => "graphics/fx",
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileSnapshot {

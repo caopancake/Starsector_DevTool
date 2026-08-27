@@ -9,7 +9,6 @@ export const WINDOW_EVENTS = {
   fileEditorSaved: 'file-editor-saved',
   fileEditorTextApplied: 'file-editor-text-applied',
   projectSessionInvalidated: 'project-session-invalidated',
-  spriteUploadSaved: 'sprite-upload-saved',
   appSettingsChanged: 'app-settings-changed',
 } as const;
 
@@ -44,14 +43,6 @@ export interface FileEditorTextAppliedEvent {
   path: string;
   sessionId: string;
   text: string;
-}
-
-export interface SpriteUploadSavedEvent {
-  filename: string;
-  modRoot: string;
-  overwritten: boolean;
-  sessionId: string;
-  writeResult: WriteResult;
 }
 
 export interface ProjectSessionInvalidatedEvent {

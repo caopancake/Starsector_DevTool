@@ -187,7 +187,7 @@
             @update:show="handleSelectShowUpdate"
             @update:value="emit('update', $event ?? '')"
           />
-          <n-button class="compact-icon-button" size="small" quaternary title="选择文件" @click="pickPathFile">
+          <n-button class="compact-icon-button" size="small" quaternary title="选择图片文件" @click="pickPathFile({ imageFilter: true })">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 19V5h6l2 2h8v12H4z" />
               <path d="M8 14h8M12 10v8" />

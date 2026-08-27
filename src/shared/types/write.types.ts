@@ -15,21 +15,6 @@ export interface WriteResult {
   warnings: string[];
 }
 
-export interface SpriteUploadState {
-  ok: boolean;
-  exists: boolean;
-  path: string;
-  overwritten: boolean;
-  message: string | null;
-}
-
-export interface SpriteUploadResult {
-  state: SpriteUploadState;
-  write: WriteResult;
-}
-
-export type SpriteSubfolder = 'ships' | 'weapons' | 'missiles' | 'fx';
-
 export interface AssociatedFileChange {
   relPath: string;
   afterText: string | null;

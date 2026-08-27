@@ -12,7 +12,6 @@ import type {
   ProjectSessionId,
   RowData,
   SkinEntityWrite,
-  SpriteSubfolder,
   TableKey,
   VariantEntityWrite,
   WriteResult,
@@ -54,17 +53,6 @@ export function applyFileChangeSet(
   changes: FileChangeRecord[],
 ): Promise<WriteResult> {
   return invoke('apply_file_change_set', { payload: { sessionId, modRoot, direction, changes } });
-}
-
-export function uploadSprite(
-  sessionId: ProjectSessionId,
-  modRoot: string,
-  filename: string,
-  data: string,
-  subfolder: SpriteSubfolder,
-  overwrite: boolean,
-): Promise<WriteResult> {
-  return invoke('upload_sprite', { payload: { sessionId, modRoot, filename, data, subfolder, overwrite } });
 }
 
 export function saveIndexedConfigEntity(write: IndexedConfigEntityWrite): Promise<WriteResult> {

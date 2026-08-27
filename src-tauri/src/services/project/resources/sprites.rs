@@ -82,6 +82,13 @@ pub(super) fn load_sprite_data_url(
     load_sprite_data_url_from_boundary(&mod_boundary, core_boundary.as_ref(), sprite)
 }
 
+pub fn resolve_mod_relative_path(mod_root: &str, absolute_path: &str) -> AppResult<String> {
+    let boundary = FsRootBoundary::new(Path::new(mod_root), "mod root")?;
+    boundary
+        .resolve_changed_path_to_relative(absolute_path, "selected file")?
+        .ok_or_else(|| AppError::message(format!("所选文件位于 Mod 目录之外：{absolute_path}")))
+}
+
 fn load_sprite_data_url_from_boundary(
     mod_root: &FsRootBoundary,
     core_dir: Option<&FsRootBoundary>,
@@ -272,6 +279,39 @@ mod tests {
         let _ = fs::remove_dir_all(&mod_dir);
         let _ = fs::remove_dir_all(&core_dir);
         assert!(error.contains("sprite path is outside resource root"));
+    }
+
+    #[test]
+    fn resolve_mod_relative_path_returns_forward_slash_relative() {
+        let mod_dir = temp_dir("resolve_relative_mod");
+        let sprite_dir = mod_dir.join("graphics").join("ships");
+        fs::create_dir_all(&sprite_dir).unwrap();
+        let sprite = sprite_dir.join("demo.png");
+        fs::write(&sprite, b"png").unwrap();
+
+        let relative =
+            resolve_mod_relative_path(&mod_dir.to_string_lossy(), &sprite.to_string_lossy())
+                .unwrap();
+
+        let _ = fs::remove_dir_all(&mod_dir);
+        assert_eq!(relative, "graphics/ships/demo.png");
+    }
+
+    #[test]
+    fn resolve_mod_relative_path_rejects_outside_root() {
+        let mod_dir = temp_dir("resolve_outside_mod");
+        let outside = temp_dir("resolve_outside_file_dir");
+        let outside_file = outside.join("elsewhere.png");
+        fs::write(&outside_file, b"png").unwrap();
+
+        let error =
+            resolve_mod_relative_path(&mod_dir.to_string_lossy(), &outside_file.to_string_lossy())
+                .unwrap_err()
+                .to_string();
+
+        let _ = fs::remove_dir_all(&mod_dir);
+        let _ = fs::remove_dir_all(&outside);
+        assert!(error.contains("所选文件位于 Mod 目录之外"));
     }
 
     fn temp_dir(name: &str) -> PathBuf {

@@ -33,7 +33,7 @@ pub fn run() {
             commands::scan_game_overview,
             commands::create_mod,
             commands::save_csv_patch,
-            commands::upload_sprite,
+            commands::resolve_mod_relative_path,
             commands::load_workspace,
             commands::save_workspace,
             commands::append_app_log,

@@ -20,3 +20,14 @@ export async function pickEditorSpecFile(): Promise<string | null> {
   if (!picked || Array.isArray(picked)) return null;
   return picked;
 }
+
+export async function pickImageFileDialog(options: { defaultPath?: string; title: string }): Promise<string | null> {
+  const picked = await open({
+    defaultPath: options.defaultPath,
+    multiple: false,
+    title: options.title,
+    filters: [{ name: '图片', extensions: ['png'] }],
+  });
+  if (!picked || Array.isArray(picked)) return null;
+  return picked;
+}
