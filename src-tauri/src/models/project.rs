@@ -268,7 +268,7 @@ pub struct SourceOption {
     pub value: String,
     pub description: Option<String>,
     pub resource_ref: Option<ResourceRef>,
-    pub origin: SourceOptionOrigin,
+    pub origin: ResourceSource,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -342,23 +342,6 @@ impl From<EntityKind> for ResourceOwnerKind {
             EntityKind::Skill => Self::Skills,
             EntityKind::System => Self::ShipSystems,
             EntityKind::Projectile => Self::Weapon,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[serde(rename_all = "camelCase")]
-pub enum SourceOptionOrigin {
-    Current,
-    Mod,
-    Core,
-}
-
-impl From<ResourceSource> for SourceOptionOrigin {
-    fn from(source: ResourceSource) -> Self {
-        match source {
-            ResourceSource::Mod => Self::Mod,
-            ResourceSource::Core => Self::Core,
         }
     }
 }

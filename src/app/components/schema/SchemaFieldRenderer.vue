@@ -152,7 +152,7 @@
           v-else-if="field.type === 'enum'"
           :show="selectOpen"
           :value="strVal"
-          :options="enumOptions"
+          :options="displayOptions"
           :render-label="renderSelectLabel"
           size="small"
           clearable
@@ -211,7 +211,7 @@
           v-else-if="field.type === 'string-array'"
           :show="selectOpen"
           :value="arrVal"
-          :options="sourceOptions.length > 0 ? sourceOptions : arrVal.map((v) => ({ label: v, value: v }))"
+          :options="sourceOptions.length > 0 ? listOptions : arrVal.map((v) => ({ label: v, value: v }))"
           :render-label="renderSelectLabel"
           :render-tag="renderSelectTag"
           multiple
@@ -228,7 +228,7 @@
           v-else-if="field.type === 'tag-select'"
           :show="selectOpen"
           :value="tagSelectVal"
-          :options="sourceOptions"
+          :options="tagDisplayOptions"
           :render-label="renderSelectLabel"
           :render-tag="renderSelectTag"
           multiple
@@ -358,9 +358,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, ref } from 'vue';
+import { computed, h, ref, watch } from 'vue';
 import { NTag } from 'naive-ui/es/tag';
-import type { JsonValue } from '@/shared/types';
+import type { JsonValue, ResourceRef } from '@/shared/types';
 import { useSchemaPathPicker } from '@/app/composables/use-schema-path-picker';
 import { useSchemaSourceOptions } from '@/app/composables/use-schema-source-options';
 import type { SchemaRuntimeContext } from '@/domain/schema/schema-runtime';
@@ -387,14 +387,27 @@ import {
   type SchemaKeyValueEntry,
   wrapSchemaTagValues,
 } from '@/domain/schema/schema-values';
-import { includeCurrentSelectOptions, schemaEnumSelectOptions, selectOptionText, type SelectOption } from '@/domain/schema/schema-options';
+import {
+  fieldSourceCurrentValues,
+  includeCurrentSelectOptions,
+  schemaEnumSelectOptions,
+  selectOptionText,
+  type SelectOption,
+} from '@/domain/schema/schema-options';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import { useCoreGraphics } from '@/app/composables/use-core-graphics';
 import { useSettingsStore } from '@/stores/settings.store';
 import { isCsvSource } from '@/domain/tables/csv-source-options';
+import { useSchemaSelectMedia } from '@/app/composables/use-schema-select-media';
 
 const { graphicsPaths, loadGraphics } = useCoreGraphics();
-loadGraphics();
+watch(
+  () => props.field.type === 'path-image',
+  (active) => {
+    if (active) loadGraphics();
+  },
+  { immediate: true },
+);
 
 const props = defineProps<{
   field: FieldSchema;
@@ -410,6 +423,7 @@ const emit = defineEmits<{
 const settings = useSettingsStore();
 const plainMode = computed(() => settings.isPlainEditMode);
 const fieldTitle = computed(() => [props.field.key, props.field.description ?? ''].filter(Boolean).join('\n'));
+const { schemaSelectSprite, ensureSchemaSelectSprites } = useSchemaSelectMedia();
 
 // ─── Computed value converters ────────────────────────────────────────
 
@@ -472,13 +486,58 @@ const suppressNextSelectOpen = ref(false);
 const kvSelectOpen = ref<Record<number, boolean>>({});
 const suppressNextKvSelectOpen = ref<Record<number, boolean>>({});
 
+// ─── 按需缩略图：下拉展开 / 已选值变更时才批量解析 ───────────────────
+
+interface OptionMediaEntry {
+  resource: ResourceRef;
+  value: string;
+}
+
+function collectOptionMedia(options: SelectOption[]): OptionMediaEntry[] {
+  const out: OptionMediaEntry[] = [];
+  const walk = (list: SelectOption[]) => {
+    for (const option of list) {
+      if (option.resourceRef) out.push({ resource: option.resourceRef, value: String(option.value ?? '') });
+      if (option.children?.length) walk(option.children);
+    }
+  };
+  walk(options);
+  return out;
+}
+
+function ensureSelectMedia(options: SelectOption[]) {
+  const sessionId = props.runtimeContext?.sessionId;
+  if (!sessionId || !isCsvSource(props.field.source)) return;
+  void ensureSchemaSelectSprites(
+    sessionId,
+    collectOptionMedia(options).map((entry) => entry.resource),
+  );
+}
+
+function ensureCurrentMedia() {
+  if (!isCsvSource(props.field.source)) return;
+  const sessionId = props.runtimeContext?.sessionId;
+  if (!sessionId) return;
+  const values = new Set(fieldSourceCurrentValues(props.field, props.value));
+  const matched = collectOptionMedia(sourceOptions.value).filter((entry) => values.has(entry.value));
+  if (matched.length > 0) {
+    void ensureSchemaSelectSprites(
+      sessionId,
+      matched.map((entry) => entry.resource),
+    );
+  }
+}
+
+watch([sourceOptions, () => fieldSourceCurrentValues(props.field, props.value)], () => ensureCurrentMedia(), { immediate: true });
+
 // Render label with optional thumbnail for n-select options.
 function renderSelectLabel(option: SelectOption & { label?: string; value?: string }) {
   const label = h('span', { class: 'schema-select-option-label' }, selectOptionText(option));
-  if (!option.sprite) return h('span', { title: selectOptionTitle(option) }, [label]);
+  const sprite = option.resourceRef ? schemaSelectSprite(props.runtimeContext?.sessionId, option.resourceRef) : undefined;
+  if (!sprite) return h('span', { title: selectOptionTitle(option) }, [label]);
   return h('span', { class: 'schema-select-option', title: selectOptionTitle(option) }, [
     h('img', {
-      src: option.sprite,
+      src: sprite,
       class: 'schema-select-option-thumb',
     }),
     label,
@@ -508,6 +567,11 @@ function selectOptionTitle(option: SelectOption & { label?: string; value?: stri
 const enumOptions = computed(() => {
   return schemaEnumSelectOptions(props.field, sourceOptions.value);
 });
+
+// 统一幽灵回显：值不在目录中的（坏引用/手输值）以原始文本进入选项树。
+const displayOptions = computed(() => includeCurrentSelectOptions(enumOptions.value, fieldSourceCurrentValues(props.field, props.value)));
+const listOptions = computed(() => includeCurrentSelectOptions(sourceOptions.value, arrVal.value));
+const tagDisplayOptions = computed(() => includeCurrentSelectOptions(sourceOptions.value, tagSelectVal.value));
 
 // ─── path-image graphics options ─────────────────────────────────────
 
@@ -699,11 +763,17 @@ function closeOpenKvSelectOnFieldClick(event: MouseEvent, idx: number) {
 function handleSelectShowUpdate(show: boolean) {
   if (show && suppressNextSelectOpen.value) return;
   selectOpen.value = show;
+  if (show) {
+    ensureSelectMedia(displayOptions.value);
+    ensureSelectMedia(listOptions.value);
+    ensureSelectMedia(tagDisplayOptions.value);
+  }
 }
 
 function handleKvSelectShowUpdate(idx: number, show: boolean) {
   if (show && suppressNextKvSelectOpen.value[idx]) return;
   kvSelectOpen.value[idx] = show;
+  if (show) ensureSelectMedia(kvKeyOptions.value);
 }
 
 function shouldLetSelectClickPass(event: MouseEvent): boolean {

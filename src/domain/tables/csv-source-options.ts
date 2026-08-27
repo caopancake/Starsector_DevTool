@@ -69,8 +69,7 @@ export function sourceValue(index: CsvSourceIndex, source: string | undefined | 
 }
 
 export function includeCurrentValue(options: SelectOption[], existingValues: Set<string>, value: string): SelectOption[] {
-  const trimmed = value.trim();
-  return trimmed && !existingValues.has(trimmed) ? includeCurrentSelectOptions(options, [trimmed]) : options;
+  return value.length > 0 && !existingValues.has(value) ? includeCurrentSelectOptions(options, [value]) : options;
 }
 
 export function includeCurrentValues(options: SelectOption[], existingValues: Set<string>, values: string[]): SelectOption[] {

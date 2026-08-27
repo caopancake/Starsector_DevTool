@@ -4,11 +4,10 @@
 
 ## 改动前
 
-- 依次读取 `AGENTS.md`、本文件和 `.zcode/overview.md`。
-- 前端任务读取 `.zcode/frontend-guidelines.md`；Rust 任务读取 `.zcode/backend-guidelines.md`；视觉任务读取 `.zcode/css-guidelines.md`。
+- 前端任务读取 `.zcode/frontend-guidelines.md`。
+- Rust 任务读取 `.zcode/backend-guidelines.md`。
+- 视觉任务读取 `.zcode/css-guidelines.md`。
 - 读取 `.zcode/module-map.md`，再按命中线索加载直接相关的模块文档。
-- 使用当前代码、schema、配置和 `scripts/architecture/` 静态规则核对文档事实；文档只作入口和契约索引。
-- 编辑前完整读取目标文件、直接约束文档、正式入口、直接调用对象和持久化目标。
 
 ## 模块读取
 
@@ -23,14 +22,8 @@
 - 实现前定义输入、输出、状态 owner、保存 owner、错误语义、身份边界和验证方式。
 - 当前样例只作验收输入；正式模型同时覆盖反例、缺失数据、跨 Mod、dirty 状态、回放和失败路径。
 - 错误设计回到正式状态模型、数据模型或职责边界重做；严禁叠加临时分支、兼容壳、临时 fallback、隐藏状态或样例特判。
+- 一切改动以第一性原理取最干净面；严禁保留任何迁移、非收敛分支。
 - 修改接入现有正式 API、service、orchestrator、parser、changeset 和 refresh 链路。
-- 函数或文件命名异常时先检查 `scripts/architecture/` 中的静态约束。
-- 编辑前完整读取目标文件和直接约束该文件的文档。
-- 所有文本保持 UTF-8 无 BOM；PowerShell `Get-Content` 显式使用 `-Encoding utf8`。
-- 文件内容只允许使用 `apply_patch` 修改；Rust 与全仓格式化只允许使用 `cargo fmt` 和 `npm.cmd run format`。
-- 严禁使用 Python、PowerShell、shell 重定向、`Set-Content` 或临时脚本写入、生成或批量重写文件内容。
-- 保留所有无关工作树修改和原暂存区状态；严禁回退来源不明的修改。
-- 严禁执行破坏性命令；会关闭应用、删除构建目录或改变外部状态的便捷脚本需取得明确授权。
 
 ## 问题处理
 

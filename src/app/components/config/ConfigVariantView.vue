@@ -4,11 +4,12 @@
       :selected-id="selectedVariantId"
       :variants="variants"
       :hull-names="variantHullNames"
-      :variant-sprites="variantSprites"
+      :variant-sprite-refs="variantSpriteRefs"
       :hull-options="hullOptions"
       :load-hull-options="loadHullOptions"
       :mod-root="modRoot"
       :session-id="sessionId"
+      :list-load-started-at="listLoadStartedAt"
       :create-variant="createVariant"
       :delete-variant="deleteVariant"
       @select="selectVariant"
@@ -43,10 +44,11 @@ const {
   sessionId,
   variants,
   variantHullNames,
-  variantSprites,
+  variantSpriteRefs,
   hullOptions,
   loadHullOptions,
   variantDataRevision,
+  listLoadStartedAt,
   createVariant,
   deleteVariant,
   onSaved,

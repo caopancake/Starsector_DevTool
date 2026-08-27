@@ -24,14 +24,8 @@ export function queryCsvTableWindow(
   return invoke('query_csv_table_window', { payload: { sessionId, table, start, count, search, faction } });
 }
 
-export function queryCsvSourceOptions(
-  sessionId: ProjectSessionId,
-  source: string,
-  currentValues: string[],
-  search: string | null,
-  limit: number | null,
-): Promise<SourceOptionGroup[]> {
-  return invoke('query_csv_source_options', { payload: { sessionId, source, currentValues, search, limit } });
+export function queryCsvSourceOptions(sessionId: ProjectSessionId, source: string): Promise<SourceOptionGroup[]> {
+  return invoke('query_csv_source_options', { payload: { sessionId, source } });
 }
 
 export function queryCsvRowPreview(sessionId: ProjectSessionId, table: TableKey, rowKey: string): Promise<CsvRowPreview> {

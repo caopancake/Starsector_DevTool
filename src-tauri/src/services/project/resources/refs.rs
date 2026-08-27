@@ -6,13 +6,57 @@ use super::sprites;
 use crate::errors::{AppError, AppResult};
 use crate::models::{ResourceOwnerKind, ResourceRef, ResourceSource, SkinFile};
 use serde_json::{json, Value};
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, HashMap, VecDeque},
+    path::PathBuf,
+    sync::{Mutex, OnceLock},
+    time::SystemTime,
+};
 
-pub(in crate::services::project) fn resource_data_url(
+const SPRITE_MEDIA_CACHE_CAPACITY: usize = 512;
+#[cfg(test)]
+pub(in crate::services::project) const SPRITE_MEDIA_CACHE_CAPACITY_FOR_TEST: usize =
+    SPRITE_MEDIA_CACHE_CAPACITY;
+
+struct CachedSpriteMedia {
+    resolved_path: PathBuf,
+    modified: SystemTime,
+    length: u64,
+    data_url: String,
+}
+
+struct SpriteMediaCacheState {
+    entries: HashMap<(String, String), CachedSpriteMedia>,
+    order: VecDeque<(String, String)>,
+}
+
+fn sprite_media_cache() -> &'static Mutex<SpriteMediaCacheState> {
+    static CACHE: OnceLock<Mutex<SpriteMediaCacheState>> = OnceLock::new();
+    CACHE.get_or_init(|| {
+        Mutex::new(SpriteMediaCacheState {
+            entries: HashMap::new(),
+            order: VecDeque::new(),
+        })
+    })
+}
+
+pub(in crate::services::project) struct SpriteResourceBytes {
+    pub(in crate::services::project) data_url: Option<String>,
+}
+
+pub(in crate::services::project) fn sprite_resource_bytes_cached(
+    session_id: &str,
     session: &ProjectSession,
     resource: &ResourceRef,
-) -> AppResult<Option<String>> {
-    match resource.source {
+) -> AppResult<SpriteResourceBytes> {
+    let cache_key = resource_cache_key(resource);
+    let media_key = (session_id.to_string(), cache_key);
+    if let Some(data_url) = cached_sprite_media_lookup(&media_key) {
+        return Ok(SpriteResourceBytes {
+            data_url: Some(data_url),
+        });
+    }
+    let loaded = match resource.source {
         ResourceSource::Core => {
             let root = session
                 .manifest
@@ -20,7 +64,7 @@ pub(in crate::services::project) fn resource_data_url(
                 .as_ref()
                 .map(|root| PathBuf::from(root).join("starsector-core"))
                 .ok_or_else(|| AppError::message("core resource requires starsector root"))?;
-            sprites::load_sprite_data_url_from_root(&root, &resource.rel_path)
+            sprites::load_sprite_bytes_from_root(&root, &resource.rel_path)?
         }
         ResourceSource::Mod => {
             let mod_root = PathBuf::from(&session.manifest.mod_root);
@@ -29,9 +73,83 @@ pub(in crate::services::project) fn resource_data_url(
                 .starsector_root
                 .as_ref()
                 .map(|root| PathBuf::from(root).join("starsector-core"));
-            sprites::load_sprite_data_url(&mod_root, core_dir.as_deref(), &resource.rel_path)
+            sprites::load_sprite_bytes(&mod_root, core_dir.as_deref(), &resource.rel_path)?
         }
+    };
+    let data_url = loaded.as_ref().map(|bytes| bytes.data_url.clone());
+    if let Some(bytes) = loaded {
+        store_sprite_media_entry(
+            &media_key,
+            bytes.resolved_path,
+            bytes.modified,
+            bytes.length,
+            bytes.data_url,
+        );
     }
+    Ok(SpriteResourceBytes { data_url })
+}
+
+fn cached_sprite_media_lookup(media_key: &(String, String)) -> Option<String> {
+    let cache = sprite_media_cache().lock().ok()?;
+    let entry = cache.entries.get(media_key)?;
+    let metadata = std::fs::metadata(&entry.resolved_path).ok()?;
+    if metadata.modified().ok()? != entry.modified || metadata.len() != entry.length {
+        return None;
+    }
+    Some(entry.data_url.clone())
+}
+
+fn store_sprite_media_entry(
+    media_key: &(String, String),
+    resolved_path: PathBuf,
+    modified: SystemTime,
+    length: u64,
+    data_url: String,
+) {
+    let Ok(mut cache) = sprite_media_cache().lock() else {
+        return;
+    };
+    if !cache.entries.contains_key(media_key) {
+        cache.order.push_back(media_key.clone());
+    }
+    cache.entries.insert(
+        media_key.clone(),
+        CachedSpriteMedia {
+            resolved_path,
+            modified,
+            length,
+            data_url,
+        },
+    );
+    while cache.entries.len() > SPRITE_MEDIA_CACHE_CAPACITY {
+        let Some(oldest) = cache.order.pop_front() else {
+            break;
+        };
+        cache.entries.remove(&oldest);
+    }
+}
+
+pub(in crate::services::project) fn clear_sprite_media_cache_for_session(session_id: &str) {
+    let Ok(mut cache) = sprite_media_cache().lock() else {
+        return;
+    };
+    cache.order.retain(|key| key.0 != session_id);
+    cache
+        .entries
+        .retain(|(owner_session, _), _| owner_session != session_id);
+}
+
+#[cfg(test)]
+pub(in crate::services::project) fn cached_sprite_media_contains(
+    session_id: &str,
+    resource: &ResourceRef,
+) -> bool {
+    let Ok(cache) = sprite_media_cache().lock() else {
+        return false;
+    };
+    cache
+        .entries
+        .contains_key(&(session_id.to_string(), resource_cache_key(resource)))
 }
 
 pub(in crate::services::project) fn resource_cache_key(resource: &ResourceRef) -> String {

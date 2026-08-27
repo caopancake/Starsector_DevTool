@@ -85,11 +85,6 @@ pub struct CsvTableWindowPayload {
 pub struct CsvSourceOptionsPayload {
     pub session_id: ProjectSessionId,
     pub source: String,
-    #[serde(deserialize_with = "required_nullable")]
-    pub search: Option<String>,
-    #[serde(deserialize_with = "required_nullable")]
-    pub limit: Option<usize>,
-    pub current_values: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -370,15 +365,19 @@ mod tests {
     }
 
     #[test]
-    fn csv_source_options_payload_requires_explicit_nullable_limit() {
-        let result = serde_json::from_value::<CsvSourceOptionsPayload>(json!({
+    fn csv_source_options_payload_requires_session_and_source() {
+        let payload = serde_json::from_value::<CsvSourceOptionsPayload>(json!({
             "sessionId": "session-1",
-            "source": "hullId",
-            "search": null,
-            "currentValues": []
-        }));
+            "source": "csv:ships.id"
+        }))
+        .unwrap();
 
-        assert!(result.is_err());
+        assert_eq!(payload.session_id, "session-1");
+        assert_eq!(payload.source, "csv:ships.id");
+        assert!(serde_json::from_value::<CsvSourceOptionsPayload>(json!({
+            "sessionId": "session-1"
+        }))
+        .is_err());
     }
 
     #[test]

@@ -3,13 +3,14 @@
     <header class="mission-file-list-header config-entity-list-header">
       <h3>战役列表</h3>
     </header>
-    <ul class="mission-file-items config-entity-list-items">
+    <ul :ref="setMediaRoot" class="mission-file-items config-entity-list-items">
       <li v-if="missions.length === 0" class="mission-file-empty config-entity-list-empty">
         未找到 data/missions/mission_list.csv 或其中没有战役。
       </li>
       <li
         v-for="mission in missions"
         :key="mission.id"
+        :ref="mediaRef(mission.id, props.missionIconRefs[mission.id])"
         class="mission-file-item config-entity-list-item"
         :class="{ active: mission.id === selectedId }"
         @click="emit('select', mission.id)"
@@ -53,14 +54,17 @@ import { h, onMounted, ref, watch } from 'vue';
 import { NCheckbox } from 'naive-ui/es/checkbox';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { configEntityIdInvalidMessage } from '@/domain/config/config-entities';
+import { useVisibleResourceMedia } from '@/app/composables/use-visible-resource-media';
+import type { ResourceRef } from '@/shared/types';
 
 const props = defineProps<{
   selectedId: string | null;
   refreshToken: number;
   missions: Array<{ id: string }>;
-  missionIcons: Record<string, string>;
+  missionIconRefs: Record<string, ResourceRef | null>;
   modRoot: string | null;
   sessionId: string | null;
+  listLoadStartedAt: number;
   refreshMissionList: () => Promise<void>;
   createMission: (sessionId: string, modRoot: string, id: string) => Promise<boolean>;
   deleteMission: (sessionId: string, modRoot: string, id: string, deleteDirectory: boolean) => Promise<boolean>;
@@ -70,6 +74,11 @@ const props = defineProps<{
 const emit = defineEmits<{ select: [missionId: string | null] }>();
 
 const feedback = useAppFeedback();
+const { mediaRef, mediaSrc, recordListFirstFrame, setMediaRoot } = useVisibleResourceMedia({
+  sessionId: () => props.sessionId,
+  surface: 'config-mission-list',
+  failureLabel: '读取战役图标失败',
+});
 
 const showCreateDialog = ref(false);
 const newMissionId = ref('');
@@ -77,7 +86,7 @@ const createModRoot = ref<string | null>(null);
 const createSessionId = ref<string | null>(null);
 
 function missionIcon(id: string): string {
-  return props.missionIcons[id] ?? '';
+  return mediaSrc(props.missionIconRefs[id]);
 }
 
 async function refreshList() {
@@ -176,5 +185,10 @@ onMounted(() => {
 watch(
   () => props.refreshToken,
   () => refreshList(),
+);
+
+watch(
+  () => props.missions,
+  (items) => void recordListFirstFrame(props.listLoadStartedAt, items.length),
 );
 </script>

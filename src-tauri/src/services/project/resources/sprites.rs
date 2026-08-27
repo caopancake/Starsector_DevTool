@@ -9,8 +9,16 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 use std::{
     fs,
-    path::{Component, Path},
+    path::{Component, Path, PathBuf},
+    time::SystemTime,
 };
+
+pub(super) struct SpriteBytes {
+    pub(super) resolved_path: PathBuf,
+    pub(super) modified: SystemTime,
+    pub(super) length: u64,
+    pub(super) data_url: String,
+}
 
 #[cfg(test)]
 pub(super) fn load_ship_sprite_data(
@@ -61,25 +69,34 @@ pub(super) fn load_weapon_sprite_data(
     sprites
 }
 
-pub(super) fn load_sprite_data_url_from_root(
+pub(super) fn load_sprite_bytes_from_root(
     root: &Path,
     sprite: &str,
-) -> AppResult<Option<String>> {
+) -> AppResult<Option<SpriteBytes>> {
     let boundary = FsRootBoundary::new(root, "resource root")?;
-    load_sprite_data_url_from_boundary(&boundary, None, sprite)
+    load_sprite_bytes_from_boundary(&boundary, None, sprite)
 }
 
-pub(super) fn load_sprite_data_url(
+pub(super) fn load_sprite_bytes(
     mod_root: &Path,
     core_dir: Option<&Path>,
     sprite: &str,
-) -> AppResult<Option<String>> {
+) -> AppResult<Option<SpriteBytes>> {
     let mod_boundary = FsRootBoundary::new(mod_root, "mod resource root")?;
     let core_boundary = core_dir
         .filter(|core| core.exists())
         .map(|core| FsRootBoundary::new(core, "core resource root"))
         .transpose()?;
-    load_sprite_data_url_from_boundary(&mod_boundary, core_boundary.as_ref(), sprite)
+    load_sprite_bytes_from_boundary(&mod_boundary, core_boundary.as_ref(), sprite)
+}
+
+#[cfg(test)]
+pub(super) fn load_sprite_data_url(
+    mod_root: &Path,
+    core_dir: Option<&Path>,
+    sprite: &str,
+) -> AppResult<Option<String>> {
+    Ok(load_sprite_bytes(mod_root, core_dir, sprite)?.map(|bytes| bytes.data_url))
 }
 
 pub fn resolve_mod_relative_path(mod_root: &str, absolute_path: &str) -> AppResult<String> {
@@ -89,45 +106,51 @@ pub fn resolve_mod_relative_path(mod_root: &str, absolute_path: &str) -> AppResu
         .ok_or_else(|| AppError::message(format!("所选文件位于 Mod 目录之外：{absolute_path}")))
 }
 
-fn load_sprite_data_url_from_boundary(
+fn load_sprite_bytes_from_boundary(
     mod_root: &FsRootBoundary,
     core_dir: Option<&FsRootBoundary>,
     sprite: &str,
-) -> AppResult<Option<String>> {
+) -> AppResult<Option<SpriteBytes>> {
     let Some(rel) = validate_sprite_relative_path(sprite)? else {
         return Ok(None);
     };
     // Try mod directory first
     let mod_path = mod_root.resolve_relative(&rel, "sprite path")?;
     if mod_path.is_file() {
-        let bytes = fs::read(&mod_path).map_err(|error| {
-            AppError::context(
-                format!("读取贴图文件失败 ({})", mod_path.display()),
-                error.into(),
-            )
-        })?;
-        return Ok(Some(format!(
-            "data:image/png;base64,{}",
-            general_purpose::STANDARD.encode(bytes)
-        )));
+        return read_sprite_bytes(&mod_path);
     }
     // Fallback: try starsector-core directory
     if let Some(core) = core_dir {
         let core_path = core.resolve_relative(&rel, "core sprite path")?;
         if core_path.is_file() {
-            let bytes = fs::read(&core_path).map_err(|error| {
-                AppError::context(
-                    format!("读取原版贴图文件失败 ({})", core_path.display()),
-                    error.into(),
-                )
-            })?;
-            return Ok(Some(format!(
-                "data:image/png;base64,{}",
-                general_purpose::STANDARD.encode(bytes)
-            )));
+            return read_sprite_bytes(&core_path);
         }
     }
     Ok(None)
+}
+
+fn read_sprite_bytes(path: &Path) -> AppResult<Option<SpriteBytes>> {
+    let metadata = fs::metadata(path).map_err(|error| {
+        AppError::context(
+            format!("读取贴图文件失败 ({})", path.display()),
+            error.into(),
+        )
+    })?;
+    let bytes = fs::read(path).map_err(|error| {
+        AppError::context(
+            format!("读取贴图文件失败 ({})", path.display()),
+            error.into(),
+        )
+    })?;
+    Ok(Some(SpriteBytes {
+        resolved_path: path.to_path_buf(),
+        modified: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+        length: metadata.len(),
+        data_url: format!(
+            "data:image/png;base64,{}",
+            general_purpose::STANDARD.encode(bytes)
+        ),
+    }))
 }
 
 fn validate_sprite_relative_path(sprite: &str) -> AppResult<Option<String>> {

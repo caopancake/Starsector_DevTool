@@ -2,16 +2,13 @@ import { querySessionCsvRowPreview, querySessionSourceOptions, querySessionTable
 import { queryResourceDataUrls } from '@/services/resource-cache.service';
 import { writeCsvPatch } from '@/services/write.service';
 import { recordPerformance } from '@/services/performance.service';
-import { isResourceRef } from '@/shared/lib/resource-ref';
 import type {
   AssociatedSpecChange,
   CsvFactionFilter,
   CsvRowPatch,
   CsvTableWindow,
-  HydratedSourceOption,
-  HydratedSourceOptionGroup,
   ProjectSessionId,
-  SourceOption,
+  SourceOptionGroup,
   TableKey,
   WriteResult,
 } from '@/shared/types';
@@ -27,32 +24,15 @@ export function queryTableWindow(
   return querySessionTableWindow(sessionId, table, start, count, search, faction);
 }
 
-export async function queryTableSourceOptions(
-  sessionId: ProjectSessionId,
-  source: string,
-  currentValues: string[],
-  search: string | null,
-  limit: number | null,
-): Promise<HydratedSourceOptionGroup[]> {
+export async function querySourceOptionCatalog(sessionId: ProjectSessionId, source: string): Promise<SourceOptionGroup[]> {
   const startedAt = performance.now();
-  const groups = await querySessionSourceOptions(sessionId, source, currentValues, search, limit);
-  const resources = groups.flatMap((group) => group.options.map((option) => option.resourceRef).filter(isResourceRef));
-  const dataUrls = await queryResourceDataUrls(sessionId, resources);
-  let resourceIndex = 0;
-  const hydrated = groups.map((group) => ({
-    ...group,
-    options: group.options.map((option) => {
-      const resource = isResourceRef(option.resourceRef) ? option.resourceRef : null;
-      return hydrateSourceOption(option, resource ? (dataUrls[resourceIndex++] ?? '') : '');
-    }),
-  }));
-  recordPerformance('frontend.query.sourceOptions', performance.now() - startedAt, {
+  const groups = await querySessionSourceOptions(sessionId, source);
+  recordPerformance('frontend.query.sourceCatalog', performance.now() - startedAt, {
     source,
-    groups: hydrated.length,
-    options: hydrated.reduce((sum, group) => sum + group.options.length, 0),
-    resources: resources.length,
+    groups: groups.length,
+    options: groups.reduce((sum, group) => sum + group.options.length, 0),
   });
-  return hydrated;
+  return groups;
 }
 
 export function saveTablePatch(
@@ -69,8 +49,4 @@ export async function queryTableRowPreviewDataUrl(sessionId: ProjectSessionId, t
   const resource = (await querySessionCsvRowPreview(sessionId, table, rowKey)).resourceRef;
   if (!resource) return '';
   return (await queryResourceDataUrls(sessionId, [resource]))[0] ?? '';
-}
-
-function hydrateSourceOption(option: SourceOption, dataUrl: string): HydratedSourceOption {
-  return { ...option, sprite: dataUrl };
 }

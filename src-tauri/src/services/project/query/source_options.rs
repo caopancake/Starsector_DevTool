@@ -8,16 +8,14 @@ use super::super::{
 };
 use crate::{
     errors::{AppError, AppResult},
-    models::{CsvTableKey, ResourceSource, SourceOptionGroup, SourceOptionOrigin},
+    models::{CsvTableKey, ResourceSource, SourceOptionGroup},
 };
 use serde_json::{Map, Value};
 use std::collections::{BTreeSet, HashMap};
 
 struct SourceOptionRowsContext<'a> {
     core_data: Option<&'a CoreSourceData>,
-    limit: usize,
     resource_context: SourceOptionResourceContext<'a>,
-    search: &'a str,
     seen: &'a mut BTreeSet<String>,
 }
 
@@ -31,9 +29,6 @@ struct SourceOptionResourceContext<'a> {
 pub fn query_csv_source_options(
     session_id: &str,
     source: &str,
-    current_values: &[String],
-    search: Option<String>,
-    limit: Option<usize>,
 ) -> AppResult<Vec<SourceOptionGroup>> {
     let mut guard = sessions()
         .lock()
@@ -50,8 +45,6 @@ pub fn query_csv_source_options(
         ensure_source_column(&csv.header, table_key, column)?;
     }
     let metadata_catalog = source_token_metadata_catalog(column, session)?;
-    let search = search.unwrap_or_default().to_lowercase();
-    let limit = limit.unwrap_or(200);
     let csv = session
         .csv_tables
         .get(table_key)
@@ -85,38 +78,13 @@ pub fn query_csv_source_options(
     };
     let mut seen = BTreeSet::new();
     let mut groups = Vec::new();
-    let mut current_options = source_options_from_values(
-        SourceOptionOrigin::Current,
-        column,
-        current_values,
-        &search,
-        limit,
-        &mut seen,
-        metadata_catalog.as_ref(),
-    );
-    hydrate_current_id_source_options(
-        &mut current_options,
-        column,
-        rows,
-        core_rows,
-        core_data.as_ref(),
-        resource_context,
-    )?;
-    if !current_options.is_empty() {
-        groups.push(SourceOptionGroup {
-            label: "当前值".to_string(),
-            options: current_options,
-        });
-    }
     let options = source_options_from_rows(
         ResourceSource::Mod,
         rows,
         column,
         SourceOptionRowsContext {
             core_data: None,
-            limit,
             resource_context,
-            search: &search,
             seen: &mut seen,
         },
     )?;
@@ -133,9 +101,7 @@ pub fn query_csv_source_options(
             column,
             SourceOptionRowsContext {
                 core_data: Some(core_data),
-                limit,
                 resource_context,
-                search: &search,
                 seen: &mut seen,
             },
         )?;
@@ -168,31 +134,6 @@ fn ensure_source_column(header: &[String], table: &str, column: &str) -> AppResu
     )))
 }
 
-fn source_options_from_values(
-    origin: SourceOptionOrigin,
-    column: &str,
-    values: &[String],
-    search: &str,
-    limit: usize,
-    seen: &mut BTreeSet<String>,
-    metadata_catalog: Option<&SourceTokenMetadataCatalog>,
-) -> Vec<crate::models::SourceOption> {
-    values
-        .iter()
-        .filter(|value| !value.trim().is_empty())
-        .filter(|value| search.is_empty() || value.to_lowercase().contains(search))
-        .filter(|value| seen.insert((*value).clone()))
-        .take(limit)
-        .map(|value| crate::models::SourceOption {
-            label: source_option_label_for_value(column, value, metadata_catalog),
-            value: value.clone(),
-            description: source_option_description(value, metadata_catalog),
-            resource_ref: None,
-            origin,
-        })
-        .collect()
-}
-
 fn source_options_from_rows(
     resource_source: ResourceSource,
     rows: &[SessionCsvRow],
@@ -218,14 +159,8 @@ fn source_options_from_rows(
                 .collect()
         };
         for value in values {
-            if !context.search.is_empty() && !value.to_lowercase().contains(context.search) {
-                continue;
-            }
             if !context.seen.insert(value.to_string()) {
                 continue;
-            }
-            if options.len() >= context.limit {
-                break;
             }
             options.push(source_option_from_row(
                 resource_source,
@@ -236,78 +171,8 @@ fn source_options_from_rows(
                 context.resource_context,
             )?);
         }
-        if options.len() >= context.limit {
-            break;
-        }
     }
     Ok(options)
-}
-
-fn hydrate_current_id_source_options(
-    current_options: &mut [crate::models::SourceOption],
-    column: &str,
-    mod_rows: &[SessionCsvRow],
-    core_rows: Option<&[SessionCsvRow]>,
-    core_data: Option<&CoreSourceData>,
-    resource_context: SourceOptionResourceContext<'_>,
-) -> AppResult<()> {
-    if column != "id" || current_options.is_empty() {
-        return Ok(());
-    }
-    let requested_ids = current_options
-        .iter()
-        .map(|option| option.value.clone())
-        .collect::<BTreeSet<_>>();
-    let mod_rows_by_id = source_rows_by_id(mod_rows, &requested_ids);
-    let core_rows_by_id = core_rows
-        .map(|rows| source_rows_by_id(rows, &requested_ids))
-        .unwrap_or_default();
-
-    for option in current_options {
-        let resolved = if let Some(row) = mod_rows_by_id.get(&option.value) {
-            Some(source_option_from_row(
-                ResourceSource::Mod,
-                row,
-                column,
-                &option.value,
-                None,
-                resource_context,
-            )?)
-        } else if let (Some(row), Some(core_data)) = (core_rows_by_id.get(&option.value), core_data)
-        {
-            Some(source_option_from_row(
-                ResourceSource::Core,
-                row,
-                column,
-                &option.value,
-                Some(core_data),
-                resource_context,
-            )?)
-        } else {
-            None
-        };
-        if let Some(resolved) = resolved {
-            *option = resolved;
-        }
-    }
-    Ok(())
-}
-
-fn source_rows_by_id<'a>(
-    rows: &'a [SessionCsvRow],
-    requested_ids: &BTreeSet<String>,
-) -> HashMap<String, &'a SessionCsvRow> {
-    let mut matched_rows = HashMap::new();
-    for row in rows.iter().filter(|row| !is_comment_row(&row.row)) {
-        let Some(id) = row.row.get("id").and_then(Value::as_str) else {
-            continue;
-        };
-        if id.trim().is_empty() || !requested_ids.contains(id) {
-            continue;
-        }
-        matched_rows.entry(id.to_string()).or_insert(row);
-    }
-    matched_rows
 }
 
 fn source_option_from_row(
@@ -342,7 +207,7 @@ fn source_option_from_row(
         value: value.to_string(),
         description: source_option_description(value, context.metadata_catalog),
         resource_ref,
-        origin: resource_source.into(),
+        origin: resource_source,
     })
 }
 
@@ -1206,9 +1071,7 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
-        let groups =
-            query_csv_source_options(&manifest.session_id, "csv:ships.id", &[], None, None)
-                .unwrap();
+        let groups = query_csv_source_options(&manifest.session_id, "csv:ships.id").unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
@@ -1227,7 +1090,80 @@ mod tests {
     }
 
     #[test]
-    fn current_id_source_options_reuse_mod_csv_metadata_and_resource() {
+    fn source_options_return_complete_stable_mod_then_core_catalog() {
+        let root = temp_dir("source_complete_catalog");
+        let mod_root = root.join("mods/demo");
+        std::fs::create_dir_all(mod_root.join("data/campaign")).unwrap();
+        std::fs::create_dir_all(root.join("starsector-core/data/campaign")).unwrap();
+
+        let mut mod_csv = String::from("id,name\r\n");
+        for index in 0..501 {
+            mod_csv.push_str(&format!("mod_{index:03},Mod {index:03}\r\n"));
+        }
+        let mut core_csv = String::from("id,name\r\nmod_250,Core Duplicate\r\n");
+        for index in 0..501 {
+            core_csv.push_str(&format!("core_{index:03},Core {index:03}\r\n"));
+        }
+        write_utf8_no_bom(&mod_root.join("data/campaign/commodities.csv"), &mod_csv).unwrap();
+        write_utf8_no_bom(
+            &root.join("starsector-core/data/campaign/commodities.csv"),
+            &core_csv,
+        )
+        .unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
+        let groups = query_csv_source_options(&manifest.session_id, "csv:commodities.id").unwrap();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0].label, "当前 Mod");
+        assert_eq!(groups[0].options.len(), 501);
+        assert_eq!(groups[1].label, "原版");
+        assert_eq!(groups[1].options.len(), 501);
+        assert_eq!(
+            groups
+                .iter()
+                .map(|group| group.options.len())
+                .sum::<usize>(),
+            1002
+        );
+        assert_eq!(
+            groups[0]
+                .options
+                .first()
+                .map(|option| option.value.as_str()),
+            Some("mod_000")
+        );
+        assert_eq!(
+            groups[0].options.last().map(|option| option.value.as_str()),
+            Some("mod_500")
+        );
+        assert_eq!(
+            groups[1]
+                .options
+                .first()
+                .map(|option| option.value.as_str()),
+            Some("core_000")
+        );
+        assert_eq!(
+            groups[1].options.last().map(|option| option.value.as_str()),
+            Some("core_500")
+        );
+        assert!(groups[0]
+            .options
+            .iter()
+            .all(|option| option.origin == ResourceSource::Mod));
+        assert!(groups[1]
+            .options
+            .iter()
+            .all(|option| option.origin == ResourceSource::Core));
+    }
+
+    #[test]
+    fn mod_id_source_options_include_csv_metadata_and_resource() {
         let root = temp_dir("current_source_resource_refs");
         std::fs::create_dir_all(root.join("data/hulls")).unwrap();
         write_utf8_no_bom(
@@ -1244,24 +1180,17 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
-        let groups = query_csv_source_options(
-            &manifest.session_id,
-            "csv:ships.id",
-            &["ship_a".to_string()],
-            None,
-            None,
-        )
-        .unwrap();
+        let groups = query_csv_source_options(&manifest.session_id, "csv:ships.id").unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
         let option = groups
             .iter()
-            .find(|group| group.label == "当前值")
+            .find(|group| group.label == "当前 Mod")
             .and_then(|group| group.options.first())
             .unwrap();
         assert_eq!(option.label, "Ship A (ship_a)");
-        assert_eq!(option.origin, SourceOptionOrigin::Mod);
+        assert_eq!(option.origin, ResourceSource::Mod);
         assert_eq!(
             option
                 .resource_ref
@@ -1272,7 +1201,7 @@ mod tests {
     }
 
     #[test]
-    fn current_id_source_options_reuse_core_csv_metadata_and_resource() {
+    fn core_id_source_options_include_csv_metadata_and_resource() {
         let root = temp_dir("current_core_source_resource_refs");
         let mod_root = root.join("mods/demo");
         std::fs::create_dir_all(mod_root.join("data/hulls")).unwrap();
@@ -1292,24 +1221,17 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
-        let groups = query_csv_source_options(
-            &manifest.session_id,
-            "csv:ships.id",
-            &["core_ship".to_string()],
-            None,
-            None,
-        )
-        .unwrap();
+        let groups = query_csv_source_options(&manifest.session_id, "csv:ships.id").unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
         let option = groups
             .iter()
-            .find(|group| group.label == "当前值")
+            .find(|group| group.label == "原版")
             .and_then(|group| group.options.first())
             .unwrap();
         assert_eq!(option.label, "Core Ship (core_ship)");
-        assert_eq!(option.origin, SourceOptionOrigin::Core);
+        assert_eq!(option.origin, ResourceSource::Core);
         assert_eq!(
             option
                 .resource_ref
@@ -1349,14 +1271,7 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
-        let groups = query_csv_source_options(
-            &manifest.session_id,
-            "csv:ships.id",
-            &["mod_ship".to_string(), "core_ship".to_string()],
-            None,
-            None,
-        )
-        .unwrap();
+        let groups = query_csv_source_options(&manifest.session_id, "csv:ships.id").unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
@@ -1389,29 +1304,13 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
-        let id_groups =
-            query_csv_source_options(&manifest.session_id, "csv:wings.id", &[], None, None)
-                .unwrap();
-        let current_id_groups = query_csv_source_options(
-            &manifest.session_id,
-            "csv:wings.id",
-            &["talon_wing".to_string()],
-            None,
-            None,
-        )
-        .unwrap();
-        let tag_groups =
-            query_csv_source_options(&manifest.session_id, "csv:wings.tags", &[], None, None)
-                .unwrap();
+        let id_groups = query_csv_source_options(&manifest.session_id, "csv:wings.id").unwrap();
+        let tag_groups = query_csv_source_options(&manifest.session_id, "csv:wings.tags").unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
         assert_eq!(
             source_option_label_from_groups(&id_groups, "talon_wing").as_deref(),
-            Some("截击机 (talon_wing)")
-        );
-        assert_eq!(
-            source_option_label_from_groups(&current_id_groups, "talon_wing").as_deref(),
             Some("截击机 (talon_wing)")
         );
         assert_eq!(
@@ -1442,15 +1341,9 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
-        let error = query_csv_source_options(
-            &manifest.session_id,
-            "csv:wings.id",
-            &[],
-            Some("core_wing".to_string()),
-            None,
-        )
-        .unwrap_err()
-        .to_string();
+        let error = query_csv_source_options(&manifest.session_id, "csv:wings.id")
+            .unwrap_err()
+            .to_string();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
@@ -1483,14 +1376,7 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
-        let groups = query_csv_source_options(
-            &manifest.session_id,
-            "csv:wings.id",
-            &[],
-            Some("core_wing".to_string()),
-            None,
-        )
-        .unwrap();
+        let groups = query_csv_source_options(&manifest.session_id, "csv:wings.id").unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
@@ -1504,7 +1390,7 @@ mod tests {
                     .find(|option| option.value == "core_wing")
             })
             .unwrap();
-        assert_eq!(option.origin, SourceOptionOrigin::Core);
+        assert_eq!(option.origin, ResourceSource::Core);
         assert!(option.resource_ref.is_none());
     }
 
@@ -1533,14 +1419,7 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
-        let groups = query_csv_source_options(
-            &manifest.session_id,
-            "csv:weapons.id",
-            &[],
-            Some("shared_weapon".to_string()),
-            None,
-        )
-        .unwrap();
+        let groups = query_csv_source_options(&manifest.session_id, "csv:weapons.id").unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
@@ -1554,7 +1433,7 @@ mod tests {
                     .find(|option| option.value == "shared_weapon")
             })
             .unwrap();
-        assert_eq!(option.origin, SourceOptionOrigin::Core);
+        assert_eq!(option.origin, ResourceSource::Core);
         assert!(option.resource_ref.is_none());
     }
 
@@ -1578,15 +1457,9 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
-        let error = query_csv_source_options(
-            &manifest.session_id,
-            "csv:ships.missing",
-            &["current".to_string()],
-            None,
-            None,
-        )
-        .unwrap_err()
-        .to_string();
+        let error = query_csv_source_options(&manifest.session_id, "csv:ships.missing")
+            .unwrap_err()
+            .to_string();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
@@ -1606,14 +1479,8 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
-        let groups = query_csv_source_options(
-            &manifest.session_id,
-            "csv:commodities.tags",
-            &[],
-            None,
-            None,
-        )
-        .unwrap();
+        let groups =
+            query_csv_source_options(&manifest.session_id, "csv:commodities.tags").unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
@@ -1639,11 +1506,9 @@ mod tests {
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
         let tag_groups =
-            query_csv_source_options(&manifest.session_id, "csv:weapons.tags", &[], None, None)
-                .unwrap();
+            query_csv_source_options(&manifest.session_id, "csv:weapons.tags").unwrap();
         let hint_groups =
-            query_csv_source_options(&manifest.session_id, "csv:weapons.hints", &[], None, None)
-                .unwrap();
+            query_csv_source_options(&manifest.session_id, "csv:weapons.hints").unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
@@ -1678,14 +1543,8 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
-        let groups = query_csv_source_options(
-            &manifest.session_id,
-            "csv:commodities.tags",
-            &[],
-            None,
-            None,
-        )
-        .unwrap();
+        let groups =
+            query_csv_source_options(&manifest.session_id, "csv:commodities.tags").unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
@@ -1719,27 +1578,14 @@ mod tests {
         let mut trace =
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
-        query_csv_source_options(
-            &manifest.session_id,
-            "csv:specialItems.tags",
-            &[],
-            None,
-            None,
-        )
-        .unwrap();
+        query_csv_source_options(&manifest.session_id, "csv:specialItems.tags").unwrap();
         write_utf8_no_bom(
             &root.join("data/campaign/special_items.csv"),
             "name,id,tags,plugin params,desc\r\nNew Package,new_package,package_bp,demo_bp,New description.\r\n",
         )
         .unwrap();
-        let groups = query_csv_source_options(
-            &manifest.session_id,
-            "csv:commodities.tags",
-            &[],
-            None,
-            None,
-        )
-        .unwrap();
+        let groups =
+            query_csv_source_options(&manifest.session_id, "csv:commodities.tags").unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
@@ -1763,19 +1609,9 @@ mod tests {
             crate::services::project::performance::PerformanceTrace::new("project.openSession");
         let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
         let tag_groups =
-            query_csv_source_options(&manifest.session_id, "csv:weapons.tags", &[], None, None)
-                .unwrap();
+            query_csv_source_options(&manifest.session_id, "csv:weapons.tags").unwrap();
         let hint_groups =
-            query_csv_source_options(&manifest.session_id, "csv:weapons.hints", &[], None, None)
-                .unwrap();
-        let current_tag_groups = query_csv_source_options(
-            &manifest.session_id,
-            "csv:weapons.tags",
-            &["codex_unlockable".to_string()],
-            None,
-            None,
-        )
-        .unwrap();
+            query_csv_source_options(&manifest.session_id, "csv:weapons.hints").unwrap();
 
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
@@ -1806,10 +1642,6 @@ mod tests {
         assert_eq!(
             source_option_label_from_groups(&hint_groups, "beam999").as_deref(),
             Some("beam999")
-        );
-        assert_eq!(
-            source_option_label_from_groups(&current_tag_groups, "codex_unlockable").as_deref(),
-            Some("codex_unlockable (百科可解锁)")
         );
     }
 

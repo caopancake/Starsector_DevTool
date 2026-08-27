@@ -3,9 +3,10 @@
     <ConfigFactionList
       :selected-id="selectedFaction"
       :factions="factions"
-      :faction-crests="factionCrests"
+      :faction-crest-refs="factionCrestRefs"
       :mod-root="modRoot"
       :session-id="sessionId"
+      :list-load-started-at="listLoadStartedAt"
       :create-faction="createFaction"
       :delete-faction="deleteFaction"
       @select="selectFaction"
@@ -39,8 +40,9 @@ const {
   selectedFaction,
   factionDataRevision,
   factionPreviewRevision,
+  listLoadStartedAt,
   factions,
-  factionCrests,
+  factionCrestRefs,
   modRoot,
   sessionId,
   schemaRuntimeContext,

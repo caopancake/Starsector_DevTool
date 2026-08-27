@@ -32,16 +32,8 @@ export function querySessionTableWindow(
   );
 }
 
-export function querySessionSourceOptions(
-  sessionId: ProjectSessionId,
-  source: string,
-  currentValues: string[],
-  search: string | null,
-  limit: number | null,
-): Promise<SourceOptionGroup[]> {
-  return queryCached(sessionId, 'csv-source-options', { source, currentValues, search, limit }, () =>
-    queryCsvSourceOptions(sessionId, source, currentValues, search, limit),
-  );
+export function querySessionSourceOptions(sessionId: ProjectSessionId, source: string): Promise<SourceOptionGroup[]> {
+  return queryCached(sessionId, 'csv-source-options', { source }, () => queryCsvSourceOptions(sessionId, source));
 }
 
 export function querySessionCsvRowPreview(sessionId: ProjectSessionId, table: TableKey, rowKey: string): Promise<CsvRowPreview> {

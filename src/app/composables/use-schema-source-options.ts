@@ -1,9 +1,8 @@
 import { computed, onUnmounted, ref, watch } from 'vue';
 import type { FieldSchema } from '@/domain/schema/schema.types';
-import { SCHEMA_SOURCE_OPTION_LIMIT, type SchemaRuntimeContext } from '@/domain/schema/schema-runtime';
-import { fieldSourceCurrentValues, mapSourceGroupsToSelectOptions, type SelectOption } from '@/domain/schema/schema-options';
+import type { SchemaRuntimeContext } from '@/domain/schema/schema-runtime';
+import { mapSourceGroupsToSelectOptions, type SelectOption } from '@/domain/schema/schema-options';
 import { isCsvSource } from '@/domain/tables/csv-source-options';
-import { schemaStableIdentity } from '@/domain/schema/schema-sections';
 import type { ResourceRef } from '@/shared/types';
 
 export function useSchemaSourceOptions(args: {
@@ -13,13 +12,12 @@ export function useSchemaSourceOptions(args: {
 }) {
   const loadedOptions = ref<SelectOption[]>([]);
   const sourceOptions = computed<SelectOption[]>(() => loadedOptions.value);
-  const currentValues = computed(() => fieldSourceCurrentValues(args.field(), args.value()));
-  const currentValuesKey = computed(() => schemaStableIdentity(currentValues.value));
   let requestId = 0;
   let stopInvalidation: (() => void) | null = null;
 
+  // 目录只与 (sessionId, source) 相关：当前值由渲染层经 includeCurrentSelectOptions 做幽灵回显，不参与目录查询。
   watch(
-    () => [args.runtimeContext()?.sessionId ?? null, args.field().source ?? null, currentValuesKey.value] as const,
+    () => [args.runtimeContext()?.sessionId ?? null, args.field().source ?? null] as const,
     () => {
       void reloadSourceOptions();
     },
@@ -52,7 +50,7 @@ export function useSchemaSourceOptions(args: {
       return;
     }
 
-    const groups = await context?.querySourceOptions?.(source, currentValues.value, undefined, SCHEMA_SOURCE_OPTION_LIMIT);
+    const groups = await context?.querySourceOptions?.(source);
     if (activeRequestId !== requestId || sessionId !== args.runtimeContext()?.sessionId || source !== args.field().source) return;
     loadedOptions.value = groups ? mapSourceGroupsToSelectOptions(groups) : [];
   }

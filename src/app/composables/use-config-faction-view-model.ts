@@ -22,8 +22,9 @@ export function useConfigFactionViewModel() {
   const factionDataRevision = ref(0);
   const factionPreviewRevision = ref(0);
   const factions = ref<Record<string, RowData>>({});
-  const factionCrests = ref<Record<string, string>>({});
+  const factionCrestRefs = ref<Record<string, ResourceRef | null>>({});
   const factionCrestResourceRefs = ref<ResourceRef[]>([]);
+  const listLoadStartedAt = ref(0);
   const project = useProjectStore();
   const feedback = useAppFeedback();
   const schemaRuntimeContext = useSchemaRuntimeContext(() => project.activeManifest);
@@ -36,16 +37,17 @@ export function useConfigFactionViewModel() {
     const sessionId = project.activeSessionId;
     if (!sessionId) {
       factions.value = {};
-      factionCrests.value = {};
+      factionCrestRefs.value = {};
       factionCrestResourceRefs.value = [];
       selectedFaction.value = null;
       return;
     }
+    listLoadStartedAt.value = performance.now();
     try {
       const records = await listConfigFactionRecords(sessionId);
       if (requestId !== factionsRequestId || sessionId !== project.activeSessionId) return;
       factions.value = Object.fromEntries(records.map((record) => [record.id, record.data]));
-      factionCrests.value = Object.fromEntries(records.map((record) => [record.id, record.crestSrc]));
+      factionCrestRefs.value = Object.fromEntries(records.map((record) => [record.id, record.crestRef]));
       factionCrestResourceRefs.value = records.flatMap((record) => (record.crestRef ? [record.crestRef] : []));
       if (selectedFaction.value && !factions.value[selectedFaction.value]) selectedFaction.value = null;
       if (!selectedFaction.value) selectedFaction.value = Object.keys(factions.value).sort()[0] ?? null;
@@ -137,7 +139,7 @@ export function useConfigFactionViewModel() {
   const stopResourceInvalidation = subscribeResourceInvalidations((event) => {
     if (event.sessionId !== project.activeSessionId) return;
     if (!hasResourceInvalidation(event, factionCrestResourceRefs.value)) return;
-    void loadFactions({ reloadEditorData: false });
+    factionPreviewRevision.value += 1;
   });
   onUnmounted(() => {
     stopQueryInvalidation();
@@ -152,8 +154,9 @@ export function useConfigFactionViewModel() {
     selectedFaction,
     factionDataRevision,
     factionPreviewRevision,
+    listLoadStartedAt,
     factions,
-    factionCrests,
+    factionCrestRefs,
     modRoot,
     sessionId,
     schemaRuntimeContext,

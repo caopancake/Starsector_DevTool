@@ -7,30 +7,28 @@ import {
   isConfigEntityId,
   trimmedConfigStringField,
 } from '@/domain/config/config-entities';
-import { listSkinEntities } from '@/services/config-entity.service';
-import { queryHullReferenceOptions, querySkinPreviewResources } from '@/services/config-resource.service';
+import { listSkinRecords } from '@/services/config-entity.service';
+import { queryHullReferenceOptions } from '@/services/config-resource.service';
 import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import type { ResourceRef, RowData, SkinFile } from '@/shared/types';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import type { SelectOption } from '@/domain/schema/schema-options';
 import { hasEntityInvalidation, hasQueryInvalidation, subscribeQueryInvalidations } from '@/services/query-cache.service';
-import { hasResourceInvalidation, subscribeResourceInvalidations } from '@/services/resource-cache.service';
 
 export function useConfigSkinViewModel() {
   const selectedSkinId = ref<string | null>(null);
   const skins = ref<SkinFile[]>([]);
-  const skinSprites = ref<Record<string, string>>({});
-  const skinSpriteResourceRefs = ref<ResourceRef[]>([]);
+  const skinSpriteRefs = ref<Record<string, ResourceRef | null>>({});
   const hullOptions = ref<SelectOption[]>([]);
   const skinDataRevision = ref(0);
+  const listLoadStartedAt = ref(0);
   const project = useProjectStore();
   const settings = useSettingsStore();
   const feedback = useAppFeedback();
   const modRoot = computed(() => project.activeManifest?.modRoot ?? null);
   const sessionId = computed(() => project.activeManifest?.sessionId ?? null);
   let skinsRequestId = 0;
-  let skinSpritesRequestId = 0;
   let hullOptionsRequestId = 0;
   const hullOptionsLoaded = ref(false);
 
@@ -39,19 +37,19 @@ export function useConfigSkinViewModel() {
     const sessionId = project.activeSessionId;
     if (!sessionId) {
       skins.value = [];
-      skinSprites.value = {};
-      skinSpriteResourceRefs.value = [];
+      skinSpriteRefs.value = {};
       selectedSkinId.value = null;
       skinDataRevision.value += 1;
       return;
     }
+    listLoadStartedAt.value = performance.now();
     const selectedId = selectedSkinId.value;
     const previousSelected = selectedId ? skins.value.find((skin) => skin.skinHullId === selectedId) : null;
     try {
-      const loadedSkins = await listSkinEntities(sessionId);
+      const records = await listSkinRecords(sessionId);
       if (requestId !== skinsRequestId || sessionId !== project.activeSessionId) return;
-      skins.value = loadedSkins;
-      await loadSkinSprites();
+      skins.value = records.map((record) => record.skin);
+      skinSpriteRefs.value = Object.fromEntries(records.map((record) => [record.skin.skinHullId, record.spriteRef]));
       const nextSelected = selectedId ? skins.value.find((skin) => skin.skinHullId === selectedId) : null;
       if (selectedEntityDataChanged(previousSelected, nextSelected)) skinDataRevision.value += 1;
       if (selectedSkinId.value && !skins.value.some((skin) => skin.skinHullId === selectedSkinId.value)) {
@@ -60,28 +58,6 @@ export function useConfigSkinViewModel() {
     } catch (error) {
       if (requestId !== skinsRequestId || sessionId !== project.activeSessionId) return;
       feedback.error(error, '加载舰船皮肤失败');
-    }
-  }
-
-  async function loadSkinSprites() {
-    const requestId = ++skinSpritesRequestId;
-    const sessionId = project.activeSessionId;
-    const sourceSkins = skins.value;
-    if (!sessionId || skins.value.length === 0) {
-      skinSprites.value = {};
-      skinSpriteResourceRefs.value = [];
-      return;
-    }
-    try {
-      const resources = await querySkinPreviewResources(
-        sessionId,
-        sourceSkins.map((skin) => skin.skinHullId),
-      );
-      if (requestId !== skinSpritesRequestId || sessionId !== project.activeSessionId || sourceSkins !== skins.value) return;
-      skinSpriteResourceRefs.value = resources.resourceRefs;
-      skinSprites.value = resources.sprites;
-    } catch (error) {
-      feedback.error(error, '读取舰船皮肤缩略图失败');
     }
   }
 
@@ -195,18 +171,11 @@ export function useConfigSkinViewModel() {
     const hullReferenceQueryChanged = hasQueryInvalidation(event, 'hull-references');
     if (skinsChanged) void loadSkins();
     if (hullReferenceQueryChanged) {
-      void loadSkinSprites();
       if (hullOptionsLoaded.value) void loadHullOptions();
     }
   });
-  const stopResourceInvalidation = subscribeResourceInvalidations((event) => {
-    if (event.sessionId !== project.activeSessionId) return;
-    if (!hasResourceInvalidation(event, skinSpriteResourceRefs.value)) return;
-    void loadSkinSprites();
-  });
   onUnmounted(() => {
     stopQueryInvalidation();
-    stopResourceInvalidation();
   });
 
   return {
@@ -214,10 +183,11 @@ export function useConfigSkinViewModel() {
     modRoot,
     sessionId,
     skins,
-    skinSprites,
+    skinSpriteRefs,
     hullOptions,
     loadHullOptions,
     skinDataRevision,
+    listLoadStartedAt,
     createSkin,
     deleteSkin,
     loadSkins,

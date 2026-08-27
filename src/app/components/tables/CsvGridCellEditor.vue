@@ -14,7 +14,7 @@
         <span v-for="value in listValue" :key="value" class="csv-cell-tag" :title="listValueDescription(value)">{{ value }}</span>
       </template>
       <template v-else-if="isReferenceControl">
-        <img v-if="referenceMatch?.option.sprite" class="csv-cell-thumb" :src="referenceMatch.option.sprite" :alt="displayValue" />
+        <img v-if="sprite" class="csv-cell-thumb" :src="sprite" :alt="displayValue" />
         <span class="csv-cell-value">{{ displayValue }}</span>
       </template>
       <template v-else>
@@ -50,7 +50,9 @@ import {
   isCsvListControl,
   isCsvReferenceControl,
 } from '@/domain/tables/csv-column-schema';
+import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
+import { useSchemaSelectMedia } from '@/app/composables/use-schema-select-media';
 import CsvCellPicker from '@/app/components/tables/CsvCellPicker.vue';
 
 const props = defineProps<{
@@ -67,6 +69,8 @@ const emit = defineEmits<{
 
 const settings = useSettingsStore();
 const plainMode = computed(() => settings.isPlainEditMode);
+const project = useProjectStore();
+const { schemaSelectSprite } = useSchemaSelectMedia();
 const inputRef = ref<HTMLInputElement | null>(null);
 const pickerAnchor = ref<{ height: number; left: number; top: number; width: number } | null>(null);
 
@@ -93,6 +97,12 @@ const pickerOptions = computed(() => {
 const pickerValues = computed(() => (isListControl.value ? listValue.value : rawValue.value ? [rawValue.value] : []));
 const referenceMatch = computed(() => sourceValue(props.sourceIndex, props.column.schema?.source, rawValue.value));
 const displayValue = computed(() => referenceMatch.value?.option.label ?? rawValue.value);
+
+const sprite = computed(() => {
+  const match = referenceMatch.value;
+  if (!match?.option.resourceRef) return undefined;
+  return schemaSelectSprite(project.activeSessionId ?? undefined, match.option.resourceRef);
+});
 
 onMounted(() => {
   localInputValue.value = rawValue.value;

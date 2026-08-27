@@ -23,8 +23,9 @@ export function useConfigMissionViewModel() {
   const missionEditorReloadToken = ref(0);
   const missionIconRefreshToken = ref(0);
   const missionRows = ref<RowData[]>([]);
-  const missionIcons = ref<Record<string, string>>({});
+  const missionIconRefs = ref<Record<string, ResourceRef | null>>({});
   const missionIconResourceRefs = ref<ResourceRef[]>([]);
+  const listLoadStartedAt = ref(0);
   const project = useProjectStore();
   const feedback = useAppFeedback();
 
@@ -45,16 +46,17 @@ export function useConfigMissionViewModel() {
     const activeSessionId = sessionId.value;
     if (!activeSessionId) {
       missionRows.value = [];
-      missionIcons.value = {};
+      missionIconRefs.value = {};
       missionIconResourceRefs.value = [];
       selectedMission.value = null;
       return;
     }
+    listLoadStartedAt.value = performance.now();
     try {
       const records = await listConfigMissionRecords(activeSessionId);
       if (requestId !== missionsRequestId || activeSessionId !== sessionId.value) return;
       missionRows.value = records.map((record) => record.list);
-      missionIcons.value = Object.fromEntries(records.map((record) => [record.id, record.iconSrc]));
+      missionIconRefs.value = Object.fromEntries(records.map((record) => [record.id, record.iconRef]));
       missionIconResourceRefs.value = records.flatMap((record) => (record.iconRef ? [record.iconRef] : []));
       const missions = missionItems.value.map((mission) => mission.id);
       if (!selectedMission.value && missions[0]) selectedMission.value = missions[0];
@@ -183,8 +185,6 @@ export function useConfigMissionViewModel() {
   }
 
   async function refreshMissionResources() {
-    await queryMissions();
-    refreshToken.value += 1;
     missionIconRefreshToken.value += 1;
   }
 
@@ -193,9 +193,10 @@ export function useConfigMissionViewModel() {
     refreshToken,
     missionEditorReloadToken,
     missionIconRefreshToken,
+    listLoadStartedAt,
     missionRows,
     missionItems,
-    missionIcons,
+    missionIconRefs,
     modRoot,
     sessionId,
     handleSaved,

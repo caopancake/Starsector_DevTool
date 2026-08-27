@@ -3,17 +3,22 @@
     <header class="variant-list-header config-entity-list-header">
       <h3>装配列表</h3>
     </header>
-    <ul class="variant-list-items config-entity-list-items">
+    <ul :ref="setMediaRoot" class="variant-list-items config-entity-list-items">
       <li v-if="variants.length === 0" class="variant-list-empty config-entity-list-empty">未找到 data/variants 下的 .variant 文件。</li>
       <li
         v-for="variant in variants"
         :key="variant.variantId"
+        :ref="mediaRef(variant.variantId, props.variantSpriteRefs[variant.variantId])"
         class="variant-list-item config-entity-list-item"
         :class="{ active: variant.variantId === selectedId }"
         @click="emit('select', variant.variantId)"
       >
         <span class="variant-list-preview config-entity-thumb">
-          <img v-if="props.variantSprites[variant.variantId]" :src="props.variantSprites[variant.variantId]" alt="" />
+          <img
+            v-if="mediaSrc(props.variantSpriteRefs[variant.variantId])"
+            :src="mediaSrc(props.variantSpriteRefs[variant.variantId])"
+            alt=""
+          />
           <svg v-else class="variant-list-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 3 5 18l7 3 7-3-7-15z" />
             <path d="M12 3v18M7 15l5 2 5-2" />
@@ -61,19 +66,21 @@
 import { computed, ref, watch } from 'vue';
 import { useSettingsStore } from '@/stores/settings.store';
 import { configVariantListTitle } from '@/domain/config/config-entities';
-import type { VariantFile } from '@/shared/types';
+import type { ResourceRef, VariantFile } from '@/shared/types';
 import type { SelectOption } from '@/domain/schema/schema-options';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
+import { useVisibleResourceMedia } from '@/app/composables/use-visible-resource-media';
 
 const props = defineProps<{
   selectedId: string | null;
   hullNames: Record<string, string>;
   variants: VariantFile[];
-  variantSprites: Record<string, string>;
+  variantSpriteRefs: Record<string, ResourceRef | null>;
   hullOptions: SelectOption[];
   loadHullOptions: () => Promise<void>;
   modRoot: string | null;
   sessionId: string | null;
+  listLoadStartedAt: number;
   createVariant: (sessionId: string, modRoot: string, hullId: string, variantId: string) => Promise<boolean>;
   deleteVariant: (sessionId: string, modRoot: string, variant: Pick<VariantFile, 'relPath' | 'variantId'>) => Promise<boolean>;
 }>();
@@ -81,6 +88,11 @@ const emit = defineEmits<{ select: [variantId: string | null] }>();
 
 const settings = useSettingsStore();
 const feedback = useAppFeedback();
+const { mediaRef, mediaSrc, recordListFirstFrame, setMediaRoot } = useVisibleResourceMedia({
+  sessionId: () => props.sessionId,
+  surface: 'config-variant-list',
+  failureLabel: '读取装配缩略图失败',
+});
 
 const showCreateDialog = ref(false);
 const openingCreateDialog = ref(false);
@@ -152,5 +164,10 @@ watch(
     }
   },
   { immediate: true },
+);
+
+watch(
+  () => props.variants,
+  (items) => void recordListFirstFrame(props.listLoadStartedAt, items.length),
 );
 </script>

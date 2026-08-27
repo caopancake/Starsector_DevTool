@@ -14,12 +14,7 @@ import type {
   WriteResult,
 } from '@/shared/types';
 import { querySessionEntity, querySessionEntityList } from '@/services/query.service';
-import {
-  hydrateFactionCrests,
-  hydrateFactionPreviewImages,
-  hydrateMissionIcon,
-  hydrateMissionIcons,
-} from '@/services/config-resource.service';
+import { hydrateFactionPreviewImages, hydrateMissionIcon } from '@/services/config-resource.service';
 import {
   writeCreateIndexedConfigEntity,
   writeCreateSkinEntity,
@@ -42,7 +37,6 @@ export interface ConfigFactionRecord {
   crestRef: ResourceRef | null;
   id: string;
   data: RowData;
-  crestSrc: string;
 }
 
 export interface ConfigFactionPreviewImages {
@@ -54,7 +48,16 @@ export interface ConfigMissionRecord {
   iconRef: ResourceRef | null;
   id: string;
   list: RowData;
-  iconSrc: string;
+}
+
+export interface ConfigVariantRecord {
+  variant: VariantFile;
+  spriteRef: ResourceRef | null;
+}
+
+export interface ConfigSkinRecord {
+  skin: SkinFile;
+  spriteRef: ResourceRef | null;
 }
 
 async function listFactionEntityRecords(sessionId: ProjectSessionId): Promise<EntityData[]> {
@@ -75,12 +78,10 @@ async function getMissionEntity(sessionId: ProjectSessionId, id: string): Promis
 
 export async function listConfigFactionRecords(sessionId: ProjectSessionId): Promise<ConfigFactionRecord[]> {
   const entities = await listFactionEntityRecords(sessionId);
-  const { crestRefs, crestSrcs } = await hydrateFactionCrests(sessionId, entities);
   return entities.map((entity) => ({
-    crestRef: crestRefs[entity.id] ?? null,
+    crestRef: entity.resourceRefs.crest ?? null,
     id: entity.id,
     data: requireConfigRowData(entity.data, `势力 ${entity.id} 数据无效`),
-    crestSrc: crestSrcs[entity.id] ?? '',
   }));
 }
 
@@ -91,14 +92,12 @@ export async function queryFactionPreviewImages(sessionId: ProjectSessionId, id:
 
 export async function listConfigMissionRecords(sessionId: ProjectSessionId): Promise<ConfigMissionRecord[]> {
   const entities = await listMissionEntities(sessionId);
-  const { iconRefs, iconSrcs } = await hydrateMissionIcons(sessionId, entities);
   return entities.map((entity) => {
     const data = requireConfigRowData(entity.data, `战役 ${entity.id} 数据无效`);
     return {
-      iconRef: iconRefs[entity.id] ?? null,
+      iconRef: entity.resourceRefs.icon ?? null,
       id: entity.id,
       list: { ...requireConfigRowData(data.list, `战役 ${entity.id} 列表数据无效`), id: entity.id },
-      iconSrc: iconSrcs[entity.id] ?? '',
     };
   });
 }
@@ -120,8 +119,22 @@ export async function listVariantEntities(sessionId: ProjectSessionId): Promise<
   return (await querySessionEntityList(sessionId, 'variant')).map((entity) => variantFileFromEntityData(entity.data));
 }
 
+export async function listVariantRecords(sessionId: ProjectSessionId): Promise<ConfigVariantRecord[]> {
+  return (await querySessionEntityList(sessionId, 'variant')).map((entity) => ({
+    variant: variantFileFromEntityData(entity.data),
+    spriteRef: entity.resourceRefs.sprite ?? null,
+  }));
+}
+
 export async function listSkinEntities(sessionId: ProjectSessionId): Promise<SkinFile[]> {
   return (await querySessionEntityList(sessionId, 'skin')).map((entity) => skinFileFromEntityData(entity.data));
+}
+
+export async function listSkinRecords(sessionId: ProjectSessionId): Promise<ConfigSkinRecord[]> {
+  return (await querySessionEntityList(sessionId, 'skin')).map((entity) => ({
+    skin: skinFileFromEntityData(entity.data),
+    spriteRef: entity.resourceRefs.sprite ?? null,
+  }));
 }
 
 export function saveModInfo(sessionId: string, modRoot: string, data: RowData): Promise<WriteResult> {

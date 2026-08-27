@@ -7,24 +7,23 @@ import {
   isConfigEntityId,
   trimmedConfigStringField,
 } from '@/domain/config/config-entities';
-import { listVariantEntities } from '@/services/config-entity.service';
-import { queryHullPreviewResources, queryHullReferenceOptions } from '@/services/config-resource.service';
+import { listVariantRecords } from '@/services/config-entity.service';
+import { queryHullPreviewMetadata, queryHullReferenceOptions } from '@/services/config-resource.service';
 import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import type { ResourceRef, RowData, VariantFile } from '@/shared/types';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import type { SelectOption } from '@/domain/schema/schema-options';
 import { hasEntityInvalidation, hasQueryInvalidation, subscribeQueryInvalidations } from '@/services/query-cache.service';
-import { hasResourceInvalidation, subscribeResourceInvalidations } from '@/services/resource-cache.service';
 
 export function useConfigVariantViewModel() {
   const selectedVariantId = ref<string | null>(null);
   const variants = ref<VariantFile[]>([]);
   const variantHullNames = ref<Record<string, string>>({});
-  const variantSprites = ref<Record<string, string>>({});
-  const variantSpriteResourceRefs = ref<ResourceRef[]>([]);
+  const variantSpriteRefs = ref<Record<string, ResourceRef | null>>({});
   const hullOptions = ref<SelectOption[]>([]);
   const variantDataRevision = ref(0);
+  const listLoadStartedAt = ref(0);
   const project = useProjectStore();
   const settings = useSettingsStore();
   const feedback = useAppFeedback();
@@ -41,18 +40,19 @@ export function useConfigVariantViewModel() {
     if (!sessionId) {
       variants.value = [];
       variantHullNames.value = {};
-      variantSprites.value = {};
-      variantSpriteResourceRefs.value = [];
+      variantSpriteRefs.value = {};
       selectedVariantId.value = null;
       variantDataRevision.value += 1;
       return;
     }
+    listLoadStartedAt.value = performance.now();
     const selectedId = selectedVariantId.value;
     const previousSelected = selectedId ? variants.value.find((variant) => variant.variantId === selectedId) : null;
     try {
-      const loadedVariants = await listVariantEntities(sessionId);
+      const records = await listVariantRecords(sessionId);
       if (requestId !== variantsRequestId || sessionId !== project.activeSessionId) return;
-      variants.value = loadedVariants;
+      variants.value = records.map((record) => record.variant);
+      variantSpriteRefs.value = Object.fromEntries(records.map((record) => [record.variant.variantId, record.spriteRef]));
       await loadVariantHullReferences();
       const nextSelected = selectedId ? variants.value.find((variant) => variant.variantId === selectedId) : null;
       if (selectedEntityDataChanged(previousSelected, nextSelected)) variantDataRevision.value += 1;
@@ -71,22 +71,16 @@ export function useConfigVariantViewModel() {
     const sourceVariants = variants.value;
     if (!sessionId || variants.value.length === 0) {
       variantHullNames.value = {};
-      variantSprites.value = {};
-      variantSpriteResourceRefs.value = [];
       return;
     }
     try {
-      const resources = await queryHullPreviewResources(
+      const hullNames = await queryHullPreviewMetadata(
         sessionId,
         sourceVariants.map((variant) => variant.hullId),
       );
       if (requestId !== variantHullReferencesRequestId || sessionId !== project.activeSessionId || sourceVariants !== variants.value)
         return;
-      variantSpriteResourceRefs.value = resources.resourceRefs;
-      variantHullNames.value = resources.hullNames;
-      variantSprites.value = Object.fromEntries(
-        sourceVariants.map((variant) => [variant.variantId, resources.sprites[variant.hullId] ?? '']),
-      );
+      variantHullNames.value = hullNames;
     } catch (error) {
       feedback.error(error, '读取装配缩略图失败');
     }
@@ -206,14 +200,8 @@ export function useConfigVariantViewModel() {
       if (hullOptionsLoaded.value) void loadHullOptions();
     }
   });
-  const stopResourceInvalidation = subscribeResourceInvalidations((event) => {
-    if (event.sessionId !== project.activeSessionId) return;
-    if (!hasResourceInvalidation(event, variantSpriteResourceRefs.value)) return;
-    void loadVariantHullReferences();
-  });
   onUnmounted(() => {
     stopQueryInvalidation();
-    stopResourceInvalidation();
   });
 
   return {
@@ -222,10 +210,11 @@ export function useConfigVariantViewModel() {
     sessionId,
     variants,
     variantHullNames,
-    variantSprites,
+    variantSpriteRefs,
     hullOptions,
     loadHullOptions,
     variantDataRevision,
+    listLoadStartedAt,
     createVariant,
     deleteVariant,
     loadVariants,

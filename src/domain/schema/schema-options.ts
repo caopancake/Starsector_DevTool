@@ -1,4 +1,4 @@
-import type { HydratedSourceOptionGroup, ResourceRef } from '@/shared/types';
+import type { ResourceRef, SourceOptionGroup } from '@/shared/types';
 import type { FieldSchema } from '@/domain/schema/schema.types';
 import { schemaArrayStringValues, schemaKeyValueEntries, schemaStringValue, schemaTagValues } from '@/domain/schema/schema-values';
 
@@ -6,7 +6,6 @@ export interface SelectOption {
   label: string;
   value: string;
   description?: string | null;
-  sprite?: string;
   resourceRef?: ResourceRef | null;
   type?: 'group';
   key?: string;
@@ -16,7 +15,7 @@ export interface SelectOption {
 export interface FlatSelectOption {
   description?: string | null;
   label: string;
-  sprite?: string;
+  resourceRef?: ResourceRef | null;
   value: string;
 }
 
@@ -83,9 +82,8 @@ export function groupSelectOptions(options: SelectOption[]): SelectOptionGroup[]
 export function includeCurrentSelectOptions(options: SelectOption[], values: string[]): SelectOption[] {
   const seen = new Set<string>();
   const current = values
-    .map((value) => value.trim())
     .filter((value) => {
-      if (!value || seen.has(value) || selectOptionValueExists(options, value)) return false;
+      if (value.length === 0 || seen.has(value) || selectOptionValueExists(options, value)) return false;
       seen.add(value);
       return true;
     })
@@ -107,7 +105,7 @@ export function fieldSourceCurrentValues(field: FieldSchema, value: unknown): st
   return text ? [text] : [];
 }
 
-export function mapSourceGroupsToSelectOptions(groups: HydratedSourceOptionGroup[]): SelectOption[] {
+export function mapSourceGroupsToSelectOptions(groups: SourceOptionGroup[]): SelectOption[] {
   return groups.map((group) => ({
     type: 'group',
     key: `group:${group.label}`,
@@ -117,7 +115,6 @@ export function mapSourceGroupsToSelectOptions(groups: HydratedSourceOptionGroup
       label: option.label,
       value: option.value,
       description: option.description,
-      sprite: option.sprite,
       resourceRef: option.resourceRef ?? null,
     })),
   }));
@@ -127,7 +124,7 @@ function flatSelectOption(option: SelectOption): FlatSelectOption {
   return {
     label: selectOptionText(option),
     description: option.description ?? null,
-    sprite: option.sprite,
+    resourceRef: option.resourceRef ?? null,
     value: option.value,
   };
 }

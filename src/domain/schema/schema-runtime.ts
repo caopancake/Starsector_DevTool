@@ -1,10 +1,8 @@
-import type { HydratedSourceOptionGroup, ProjectSessionId, ResourceRef } from '@/shared/types';
-
-export const SCHEMA_SOURCE_OPTION_LIMIT = 500;
+import type { ProjectSessionId, ResourceRef, SourceOptionGroup } from '@/shared/types';
 
 export interface SchemaRuntimeContext {
   modRoot: string;
   sessionId: ProjectSessionId;
-  querySourceOptions?: (source: string, currentValues: string[], search?: string, limit?: number) => Promise<HydratedSourceOptionGroup[]>;
+  querySourceOptions?: (source: string) => Promise<SourceOptionGroup[]>;
   subscribeSourceOptionInvalidation?: (source: string, resources: () => ResourceRef[], listener: () => void) => () => void;
 }

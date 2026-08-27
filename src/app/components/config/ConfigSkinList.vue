@@ -3,17 +3,18 @@
     <header class="skin-list-header config-entity-list-header">
       <h3>舰船皮肤列表</h3>
     </header>
-    <ul class="skin-list-items config-entity-list-items">
+    <ul :ref="setMediaRoot" class="skin-list-items config-entity-list-items">
       <li v-if="skins.length === 0" class="skin-list-empty config-entity-list-empty">未找到 data/hulls/skins 下的 .skin 文件。</li>
       <li
         v-for="skin in skins"
         :key="skin.skinHullId"
+        :ref="mediaRef(skin.skinHullId, props.skinSpriteRefs[skin.skinHullId])"
         class="skin-list-item config-entity-list-item"
         :class="{ active: skin.skinHullId === selectedId }"
         @click="emit('select', skin.skinHullId)"
       >
         <span class="skin-list-preview config-entity-thumb">
-          <img v-if="props.skinSprites[skin.skinHullId]" :src="props.skinSprites[skin.skinHullId]" alt="" />
+          <img v-if="mediaSrc(props.skinSpriteRefs[skin.skinHullId])" :src="mediaSrc(props.skinSpriteRefs[skin.skinHullId])" alt="" />
           <svg v-else class="skin-list-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 3 5 18l7 3 7-3-7-15z" />
             <path d="M8 16h8M9 12h6" />
@@ -60,18 +61,20 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useSettingsStore } from '@/stores/settings.store';
-import type { SkinFile } from '@/shared/types';
+import type { ResourceRef, SkinFile } from '@/shared/types';
 import type { SelectOption } from '@/domain/schema/schema-options';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
+import { useVisibleResourceMedia } from '@/app/composables/use-visible-resource-media';
 
 const props = defineProps<{
   selectedId: string | null;
   skins: SkinFile[];
-  skinSprites: Record<string, string>;
+  skinSpriteRefs: Record<string, ResourceRef | null>;
   hullOptions: SelectOption[];
   loadHullOptions: () => Promise<void>;
   modRoot: string | null;
   sessionId: string | null;
+  listLoadStartedAt: number;
   createSkin: (sessionId: string, modRoot: string, baseHullId: string, skinHullId: string) => Promise<boolean>;
   deleteSkin: (sessionId: string, modRoot: string, skin: Pick<SkinFile, 'relPath' | 'skinHullId'>) => Promise<boolean>;
 }>();
@@ -79,6 +82,11 @@ const emit = defineEmits<{ select: [skinHullId: string | null] }>();
 
 const settings = useSettingsStore();
 const feedback = useAppFeedback();
+const { mediaRef, mediaSrc, recordListFirstFrame, setMediaRoot } = useVisibleResourceMedia({
+  sessionId: () => props.sessionId,
+  surface: 'config-skin-list',
+  failureLabel: '读取舰船皮肤缩略图失败',
+});
 
 const showCreateDialog = ref(false);
 const openingCreateDialog = ref(false);
@@ -150,5 +158,10 @@ watch(
     }
   },
   { immediate: true },
+);
+
+watch(
+  () => props.skins,
+  (items) => void recordListFirstFrame(props.listLoadStartedAt, items.length),
 );
 </script>

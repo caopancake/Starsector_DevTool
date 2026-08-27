@@ -4,9 +4,10 @@
       :selected-id="selectedMission"
       :refresh-token="refreshToken"
       :missions="missionItems"
-      :mission-icons="missionIcons"
+      :mission-icon-refs="missionIconRefs"
       :mod-root="modRoot"
       :session-id="sessionId"
+      :list-load-started-at="listLoadStartedAt"
       :refresh-mission-list="refreshMissionList"
       :create-mission="createMission"
       :delete-mission="deleteMission"
@@ -44,8 +45,9 @@ const {
   refreshToken,
   missionEditorReloadToken,
   missionIconRefreshToken,
+  listLoadStartedAt,
   missionItems,
-  missionIcons,
+  missionIconRefs,
   modRoot,
   sessionId,
   handleSaved,

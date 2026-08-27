@@ -4,10 +4,11 @@
       <h3>势力列表</h3>
     </header>
 
-    <ul class="faction-list-items config-entity-list-items">
+    <ul :ref="setMediaRoot" class="faction-list-items config-entity-list-items">
       <li
         v-for="faction in factions"
         :key="faction.id"
+        :ref="mediaRef(faction.id, props.factionCrestRefs[faction.id])"
         class="faction-list-item config-entity-list-item"
         :class="{ active: faction.id === selectedId }"
         @click="selectFaction(faction.id)"
@@ -50,24 +51,31 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, ref } from 'vue';
+import { computed, h, ref, watch } from 'vue';
 import { NCheckbox } from 'naive-ui/es/checkbox';
-import type { RowData } from '@/shared/types';
+import type { ResourceRef, RowData } from '@/shared/types';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { configFactionListItems } from '@/domain/config/config-entities';
+import { useVisibleResourceMedia } from '@/app/composables/use-visible-resource-media';
 
 const props = defineProps<{
   selectedId: string | null;
   factions: Record<string, RowData>;
-  factionCrests: Record<string, string>;
+  factionCrestRefs: Record<string, ResourceRef | null>;
   modRoot: string | null;
   sessionId: string | null;
+  listLoadStartedAt: number;
   createFaction: (sessionId: string, modRoot: string, id: string) => Promise<boolean>;
   deleteFaction: (sessionId: string, modRoot: string, id: string, deleteFile: boolean) => Promise<boolean>;
 }>();
 const emit = defineEmits<{ select: [factionId: string | null] }>();
 
 const feedback = useAppFeedback();
+const { mediaRef, mediaSrc, recordListFirstFrame, setMediaRoot } = useVisibleResourceMedia({
+  sessionId: () => props.sessionId,
+  surface: 'config-faction-list',
+  failureLabel: '读取势力徽标失败',
+});
 
 const showCreateDialog = ref(false);
 const newFactionId = ref('');
@@ -75,9 +83,10 @@ const createModRoot = ref<string | null>(null);
 const createSessionId = ref<string | null>(null);
 
 const factions = computed(() => configFactionListItems(props.factions));
+watch(factions, (items) => void recordListFirstFrame(props.listLoadStartedAt, items.length));
 
 function factionCrest(id: string): string {
-  return props.factionCrests[id] ?? '';
+  return mediaSrc(props.factionCrestRefs[id]);
 }
 
 function selectFaction(id: string) {

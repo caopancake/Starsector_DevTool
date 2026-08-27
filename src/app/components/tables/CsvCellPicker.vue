@@ -19,7 +19,7 @@
           @click="selectOption(option.value)"
         >
           <span v-if="multiple" class="csv-cell-picker-check">{{ selectedValues.has(option.value) ? '✓' : '' }}</span>
-          <img v-if="option.sprite" class="csv-cell-picker-thumb" :src="option.sprite" :alt="option.label" />
+          <img v-if="optionSprite(option)" class="csv-cell-picker-thumb" :src="optionSprite(option)" :alt="option.label" />
           <span class="csv-cell-picker-label">{{ option.label }}</span>
           <span v-if="option.value !== option.label" class="csv-cell-picker-value">{{ option.value }}</span>
         </button>
@@ -29,8 +29,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watchEffect } from 'vue';
 import { groupSelectOptions, type SelectOption } from '@/domain/schema/schema-options';
+import { useProjectStore } from '@/stores/project.store';
+import { useSchemaSelectMedia } from '@/app/composables/use-schema-select-media';
 
 const props = defineProps<{
   anchor: { height: number; left: number; top: number; width: number };
@@ -43,6 +45,24 @@ const emit = defineEmits<{
   close: [];
   update: [values: string[]];
 }>();
+
+const project = useProjectStore();
+const { schemaSelectSprite, ensureSchemaSelectSprites } = useSchemaSelectMedia();
+const sessionId = computed(() => project.activeSessionId ?? undefined);
+
+function optionSprite(option: SelectOption): string | undefined {
+  return schemaSelectSprite(sessionId.value ?? undefined, option.resourceRef);
+}
+
+watchEffect(
+  () => {
+    const sid = sessionId.value;
+    if (!sid) return;
+    const resources = props.options.flatMap((option) => (option.resourceRef ? [option.resourceRef] : []));
+    if (resources.length > 0) void ensureSchemaSelectSprites(sid, resources);
+  },
+  { flush: 'post' },
+);
 
 const query = ref('');
 const searchRef = ref<HTMLInputElement | null>(null);

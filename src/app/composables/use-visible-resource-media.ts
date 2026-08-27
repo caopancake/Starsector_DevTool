@@ -1,0 +1,176 @@
+import { nextTick, onUnmounted, watch, type ComponentPublicInstance } from 'vue';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
+import { ensureResourceMedia, resourceMediaDataUrl, subscribeResourceMediaInvalidations } from '@/services/resource-media.service';
+import { resourceCacheKey } from '@/services/resource-cache.service';
+import { sameResourceRef } from '@/shared/lib/resource-ref';
+import type { ResourceRef } from '@/shared/types';
+import { recordPerformance } from '@/services/performance.service';
+
+interface RegisteredMedia {
+  element: Element | null;
+  resource: ResourceRef | null;
+  visible: boolean;
+}
+
+export function useVisibleResourceMedia(args: { sessionId: () => string | null | undefined; surface: string; failureLabel: string }) {
+  const feedback = useAppFeedback();
+  const registered = new Map<string, RegisteredMedia>();
+  const elementEntries = new Map<Element, RegisteredMedia>();
+  const callbacks = new Map<string, (element: Element | ComponentPublicInstance | null) => void>();
+  const reportedFailures = new Set<string>();
+  let root: HTMLElement | null = null;
+  let observer: IntersectionObserver | null = null;
+  let resizeObserver: ResizeObserver | null = null;
+  let rootHeight = -1;
+  let disposed = false;
+  let firstFrameRequestId = 0;
+
+  function setMediaRoot(element: Element | ComponentPublicInstance | null): void {
+    const nextRoot = element instanceof HTMLElement ? element : null;
+    if (root === nextRoot) return;
+    resizeObserver?.disconnect();
+    root = nextRoot;
+    rootHeight = -1;
+    if (root) {
+      resizeObserver = new ResizeObserver(() => rebuildObserverWhenHeightChanges());
+      resizeObserver.observe(root);
+    }
+    rebuildObserver();
+  }
+
+  function mediaRef(id: string, resource: ResourceRef | null | undefined) {
+    const current = registered.get(id) ?? { element: null, resource: null, visible: false };
+    const resourceChanged =
+      current.resource !== null && resource !== null && resource !== undefined && !sameResourceRef(current.resource, resource);
+    current.resource = resource ?? null;
+    registered.set(id, current);
+    if (resourceChanged && current.visible && current.resource) void ensureVisible([current.resource]);
+    let callback = callbacks.get(id);
+    if (!callback) {
+      callback = (element) => registerElement(id, element);
+      callbacks.set(id, callback);
+    }
+    return callback;
+  }
+
+  function mediaSrc(resource: ResourceRef | null | undefined): string {
+    return resourceMediaDataUrl(args.sessionId(), resource) ?? '';
+  }
+
+  async function recordListFirstFrame(startedAt: number, entities: number): Promise<void> {
+    if (startedAt <= 0) return;
+    const requestId = ++firstFrameRequestId;
+    await nextTick();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    if (disposed || requestId !== firstFrameRequestId) return;
+    const observedImages = [...registered.values()].filter((entry) => entry.visible && entry.resource).length;
+    recordPerformance('frontend.config.listFirstFrame', performance.now() - startedAt, {
+      surface: args.surface,
+      entities,
+      observedImages,
+    });
+  }
+
+  function registerElement(id: string, element: Element | ComponentPublicInstance | null): void {
+    const entry = registered.get(id);
+    if (!entry) return;
+    if (entry.element) {
+      observer?.unobserve(entry.element);
+      elementEntries.delete(entry.element);
+    }
+    entry.element = element instanceof Element ? element : null;
+    entry.visible = false;
+    if (entry.element) {
+      elementEntries.set(entry.element, entry);
+      observer?.observe(entry.element);
+    }
+  }
+
+  function rebuildObserverWhenHeightChanges(): void {
+    const nextHeight = root?.clientHeight ?? 0;
+    if (nextHeight === rootHeight) return;
+    rebuildObserver();
+  }
+
+  function rebuildObserver(): void {
+    observer?.disconnect();
+    observer = null;
+    rootHeight = root?.clientHeight ?? 0;
+    if (!root || typeof IntersectionObserver === 'undefined') return;
+    observer = new IntersectionObserver(handleIntersections, {
+      root,
+      rootMargin: `${rootHeight}px 0px ${rootHeight}px 0px`,
+      threshold: 0,
+    });
+    for (const entry of registered.values()) {
+      entry.visible = false;
+      if (entry.element) observer.observe(entry.element);
+    }
+  }
+
+  function handleIntersections(entries: IntersectionObserverEntry[]): void {
+    const newlyVisible: ResourceRef[] = [];
+    for (const observed of entries) {
+      const entry = elementEntries.get(observed.target);
+      if (!entry) continue;
+      entry.visible = observed.isIntersecting;
+      if (entry.visible && entry.resource) newlyVisible.push(entry.resource);
+    }
+    if (newlyVisible.length > 0) void ensureVisible(newlyVisible);
+  }
+
+  async function ensureVisible(resources: ResourceRef[]): Promise<void> {
+    const sessionId = args.sessionId();
+    if (!sessionId || disposed) return;
+    try {
+      const result = await ensureResourceMedia(sessionId, resources, args.surface);
+      const newFailures = result.failedResources.filter((resource) => {
+        const key = resourceCacheKey(sessionId, resource);
+        if (reportedFailures.has(key)) return false;
+        reportedFailures.add(key);
+        return true;
+      });
+      if (newFailures.length > 0) feedback.warning(`${args.failureLabel}：${newFailures.length} 个资源读取失败`);
+    } catch (error) {
+      const firstUnreported = resources.find((resource) => {
+        const key = resourceCacheKey(sessionId, resource);
+        if (reportedFailures.has(key)) return false;
+        reportedFailures.add(key);
+        return true;
+      });
+      if (firstUnreported) feedback.error(error, args.failureLabel);
+    }
+  }
+
+  const stopInvalidation = subscribeResourceMediaInvalidations((event) => {
+    if (event.sessionId !== args.sessionId()) return;
+    const affected = [...registered.values()].flatMap((entry) => {
+      if (!entry.visible || !entry.resource) return [];
+      if (event.scope !== 'session' && !event.resources.some((resource) => sameResourceRef(resource, entry.resource!))) return [];
+      reportedFailures.delete(resourceCacheKey(event.sessionId, entry.resource));
+      return [entry.resource];
+    });
+    if (affected.length > 0) void ensureVisible(affected);
+  });
+
+  watch(
+    () => args.sessionId(),
+    () => {
+      reportedFailures.clear();
+      rebuildObserver();
+    },
+  );
+
+  onUnmounted(() => {
+    disposed = true;
+    observer?.disconnect();
+    resizeObserver?.disconnect();
+    stopInvalidation();
+    registered.clear();
+    elementEntries.clear();
+    callbacks.clear();
+    reportedFailures.clear();
+  });
+
+  return { mediaRef, mediaSrc, recordListFirstFrame, setMediaRoot };
+}

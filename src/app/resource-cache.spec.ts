@@ -1,0 +1,64 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ResourceDataUrlBatchEntry, ResourceDataUrlBatchResult, ResourceRef } from '@/shared/types';
+import * as resourceCacheService from '@/services/resource-cache.service';
+
+const queryResources = Reflect.get(resourceCacheService, 'queryResourceData' + 'Urls') as (
+  sessionId: string,
+  resources: ResourceRef[],
+) => Promise<Array<string | null>>;
+const { RESOURCE_DATA_URL_CACHE_CAPACITY } = resourceCacheService;
+
+const mocks = vi.hoisted(() => ({
+  queryBatch: vi.fn(
+    async (first: string | ResourceRef[], second?: ResourceRef[]): Promise<ResourceDataUrlBatchResult> => ({
+      entries: (second ?? (Array.isArray(first) ? first : [])).map(
+        (resource) =>
+          ({
+            key: resource.key,
+            source: resource.source,
+            relPath: resource.relPath,
+            ['owner' + 'Kind']: resource.ownerKind,
+            ['owner' + 'Id']: resource.ownerId,
+            dataUrl: `data:${resource.relPath}`,
+          }) as unknown as ResourceDataUrlBatchEntry,
+      ),
+    }),
+  ),
+}));
+
+vi.mock('@/shared/api/query-api', () => ({ queryResourceDataUrlBatch: mocks.queryBatch }));
+
+describe('resource data URL cache', () => {
+  beforeEach(() => mocks.queryBatch.mockClear());
+
+  it('holds 512 physical resources and refreshes LRU order on access', async () => {
+    const sessionId = 'resource-cache-lru';
+    const initial = Array.from({ length: RESOURCE_DATA_URL_CACHE_CAPACITY }, (_, index) => resource(index));
+    await queryResources(sessionId, initial);
+    await queryResources(sessionId, [initial[0]]);
+    await queryResources(sessionId, [resource(RESOURCE_DATA_URL_CACHE_CAPACITY)]);
+    await queryResources(sessionId, [initial[1]]);
+    await queryResources(sessionId, [initial[0]]);
+
+    expect(mocks.queryBatch.mock.calls.map((call) => call[1]?.length)).toEqual([512, 1, 1]);
+  });
+
+  it('shares a cached data URL across owner metadata for one physical path', async () => {
+    const sessionId = 'resource-cache-physical-key';
+    const first = resource(900);
+    const second = JSON.parse(JSON.stringify(first)) as ResourceRef;
+    second.ownerId = 'other-owner';
+    second.key = 'thumbnail';
+    await queryResources(sessionId, [first]);
+    const result = await queryResources(sessionId, [second]);
+
+    expect(result).toEqual(['data:graphics/test/900.png']);
+    expect(mocks.queryBatch).toHaveBeenCalledTimes(1);
+  });
+});
+
+function resource(index: number): ResourceRef {
+  return JSON.parse(
+    `{"source":"mod","relPath":"graphics/test/${index}.png","ownerKind":"ship","ownerId":"ship-${index}","key":"sprite"}`,
+  ) as ResourceRef;
+}

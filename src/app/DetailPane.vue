@@ -67,6 +67,7 @@ import { useTablesStore } from '@/stores/tables.store';
 import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
+import { useSchemaSelectMedia } from '@/app/composables/use-schema-select-media';
 import { cell, MODULE_LABELS, rowDisplayId } from '@/shared/lib/starsector';
 import { detailActionKey, detailActionLabel, detailActionsForRow, type TableDetailAction } from '@/domain/tables/table-detail-actions';
 import { isCsvCommentRow } from '@/domain/tables/csv-comment-row';
@@ -94,6 +95,7 @@ defineEmits<{
 
 const tables = useTablesStore();
 const project = useProjectStore();
+const { schemaSelectSprite, ensureSchemaSelectSprites } = useSchemaSelectMedia();
 const settings = useSettingsStore();
 const workspace = useWorkspaceStore();
 const showReferenceDecorations = computed(() => settings.editMode === 'smart');
@@ -224,7 +226,11 @@ function schemaPreviewItem(schema: CsvColumnSchema, row: RowData): SchemaPreview
     if (match.option) {
       base.display = match.option.label;
       base.meta = match.group ? `${csvColumnControlLabel(schema.control)} · ${match.group}` : csvColumnControlLabel(schema.control);
-      base.sprite = match.option.sprite ?? '';
+      const sid = project.activeSessionId ?? undefined;
+      if (match.option.resourceRef && sid) {
+        void ensureSchemaSelectSprites(sid, [match.option.resourceRef]);
+        base.sprite = schemaSelectSprite(sid, match.option.resourceRef) ?? '';
+      }
     }
     return base;
   }

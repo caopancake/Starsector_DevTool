@@ -1,5 +1,5 @@
 import { computed } from 'vue';
-import { queryTableSourceOptions } from '@/services/csv-table.service';
+import { querySourceOptionCatalog } from '@/services/csv-table.service';
 import { hasSourceInvalidation, subscribeQueryInvalidations } from '@/services/query-cache.service';
 import { hasResourceInvalidation, subscribeResourceInvalidations } from '@/services/resource-cache.service';
 import type { SchemaRuntimeContext } from '@/domain/schema/schema-runtime';
@@ -16,8 +16,7 @@ export function createSchemaRuntimeContext(modRoot: string, sessionId: string): 
   return {
     modRoot,
     sessionId,
-    querySourceOptions: (source, currentValues, search, limit) =>
-      queryTableSourceOptions(sessionId, source, currentValues, search ?? null, limit ?? null),
+    querySourceOptions: (source) => querySourceOptionCatalog(sessionId, source),
     subscribeSourceOptionInvalidation: (source, resources, listener) => {
       const stopQueryInvalidation = subscribeQueryInvalidations((event) => {
         if (event.sessionId !== sessionId) return;

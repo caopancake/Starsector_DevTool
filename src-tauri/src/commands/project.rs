@@ -34,14 +34,8 @@ pub fn query_csv_table_window(payload: CsvTableWindowPayload) -> Result<CsvTable
 pub fn query_csv_source_options(
     payload: CsvSourceOptionsPayload,
 ) -> Result<Vec<SourceOptionGroup>, String> {
-    services::project::query_csv_source_options(
-        &payload.session_id,
-        &payload.source,
-        &payload.current_values,
-        payload.search,
-        payload.limit,
-    )
-    .map_err(|e| e.to_string())
+    services::project::query_csv_source_options(&payload.session_id, &payload.source)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

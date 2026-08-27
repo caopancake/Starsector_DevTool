@@ -5,7 +5,7 @@ import { useWorkspaceStore } from '@/stores/workspace.store';
 import { createCsvGridModel } from '@/domain/tables/csv-grid-model';
 import { csvColumnSchemaFor } from '@/domain/tables/csv-column-schema';
 import { recordPerformance } from '@/services/performance.service';
-import { queryTableRowPreviewDataUrl, queryTableSourceOptions, queryTableWindow } from '@/services/csv-table.service';
+import { querySourceOptionCatalog, queryTableRowPreviewDataUrl, queryTableWindow } from '@/services/csv-table.service';
 import type { SelectOption } from '@/domain/schema/schema-options';
 import { hasSourceInvalidation, hasTableInvalidation, subscribeQueryInvalidations } from '@/services/query-cache.service';
 import { hasResourceInvalidation, subscribeResourceInvalidations } from '@/services/resource-cache.service';
@@ -185,7 +185,7 @@ export function useCsvTableViewModel() {
     const sources = [...visibleSourceIds()];
     const entries = await Promise.all(
       sources.map(async (source) => {
-        const groups = await queryTableSourceOptions(sessionId, source, [], null, 500);
+        const groups = await querySourceOptionCatalog(sessionId, source);
         const options = groups.map((group) => ({
           type: 'group' as const,
           label: group.label,
@@ -194,7 +194,6 @@ export function useCsvTableViewModel() {
             label: option.label,
             value: option.value,
             description: option.description,
-            sprite: option.sprite,
             resourceRef: option.resourceRef ?? null,
           })),
         }));

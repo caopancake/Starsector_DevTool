@@ -6,7 +6,7 @@
     <span v-for="value in listValues" :key="value" class="csv-cell-tag" :title="listValueDescription(value)">{{ value }}</span>
   </template>
   <template v-else-if="isReferenceControl">
-    <img v-if="referenceMatch?.option.sprite" class="csv-cell-thumb" :src="referenceMatch.option.sprite" :alt="displayValue" />
+    <img v-if="sprite" class="csv-cell-thumb" :src="sprite" :alt="displayValue" />
     <span class="csv-cell-value">{{ displayValue }}</span>
     <span class="csv-cell-caret">⌄</span>
   </template>
@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, watchEffect } from 'vue';
 import { cell } from '@/shared/lib/starsector';
 import type { CsvWindowRow } from '@/shared/types';
 import type { CsvGridColumn } from '@/domain/tables/csv-grid-model';
@@ -33,7 +33,9 @@ import {
   isCsvListControl,
   isCsvReferenceControl,
 } from '@/domain/tables/csv-column-schema';
+import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
+import { useSchemaSelectMedia } from '@/app/composables/use-schema-select-media';
 
 const props = defineProps<{
   column: CsvGridColumn;
@@ -44,6 +46,8 @@ const props = defineProps<{
 const rawValue = computed(() => cell(props.row.row[props.column.key]));
 const settings = useSettingsStore();
 const plainMode = computed(() => settings.isPlainEditMode);
+const project = useProjectStore();
+const { schemaSelectSprite, ensureSchemaSelectSprites } = useSchemaSelectMedia();
 const control = computed(() => csvColumnControl(props.column.schema));
 const isListControl = computed(() => isCsvListControl(control.value));
 const isReferenceControl = computed(() => isCsvReferenceControl(control.value));
@@ -51,6 +55,19 @@ const listValues = computed(() => csvListValues(rawValue.value));
 const referenceMatch = computed(() => sourceValue(props.sourceIndex, props.column.schema?.source, rawValue.value));
 const showsPickerCaret = computed(() => csvControlUsesPicker(control.value) && !isListControl.value && !isReferenceControl.value);
 const displayValue = computed(() => referenceMatch.value?.option.label ?? rawValue.value);
+
+const sprite = computed(() => {
+  const match = referenceMatch.value;
+  if (!match?.option.resourceRef) return undefined;
+  return schemaSelectSprite(project.activeSessionId ?? undefined, match.option.resourceRef);
+});
+
+watchEffect(() => {
+  const match = referenceMatch.value;
+  const sessionId = project.activeSessionId;
+  if (!sessionId || !match?.option.resourceRef) return;
+  void ensureSchemaSelectSprites(sessionId, [match.option.resourceRef]);
+});
 
 function listValueDescription(value: string): string | undefined {
   return sourceValue(props.sourceIndex, props.column.schema?.source, value)?.option.description ?? undefined;

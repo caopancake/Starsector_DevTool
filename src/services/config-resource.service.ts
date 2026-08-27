@@ -5,30 +5,6 @@ import { isResourceRef } from '@/shared/lib/resource-ref';
 import type { EntityData, ProjectSessionId, ResourceRef } from '@/shared/types';
 import type { SelectOption } from '@/domain/schema/schema-options';
 
-export interface HydratedResourceMap {
-  hullNames: Record<string, string>;
-  resourceRefs: ResourceRef[];
-  sprites: Record<string, string>;
-}
-
-export async function hydrateFactionCrests(
-  sessionId: ProjectSessionId,
-  entities: EntityData[],
-): Promise<{ crestRefs: Record<string, ResourceRef>; crestSrcs: Record<string, string> }> {
-  const crestEntities = entities.flatMap((entity) => {
-    const resource = entity.resourceRefs.crest;
-    return resource ? [{ id: entity.id, resource }] : [];
-  });
-  const crestUrls = await queryResourceDataUrls(
-    sessionId,
-    crestEntities.map((entity) => entity.resource),
-  );
-  return {
-    crestRefs: Object.fromEntries(crestEntities.map((entity) => [entity.id, entity.resource])),
-    crestSrcs: Object.fromEntries(crestEntities.map((entity, index) => [entity.id, crestUrls[index] ?? ''])),
-  };
-}
-
 export async function hydrateFactionPreviewImages(
   sessionId: ProjectSessionId,
   entity: EntityData | null,
@@ -47,24 +23,6 @@ export async function hydrateFactionPreviewImages(
     result[entry.key] = dataUrls[index] ?? '';
   });
   return result;
-}
-
-export async function hydrateMissionIcons(
-  sessionId: ProjectSessionId,
-  entities: EntityData[],
-): Promise<{ iconRefs: Record<string, ResourceRef>; iconSrcs: Record<string, string> }> {
-  const iconEntities = entities.flatMap((entity) => {
-    const resource = entity.resourceRefs.icon;
-    return resource ? [{ id: entity.id, resource }] : [];
-  });
-  const iconUrls = await queryResourceDataUrls(
-    sessionId,
-    iconEntities.map((entity) => entity.resource),
-  );
-  return {
-    iconRefs: Object.fromEntries(iconEntities.map((entity) => [entity.id, entity.resource])),
-    iconSrcs: Object.fromEntries(iconEntities.map((entity, index) => [entity.id, iconUrls[index] ?? ''])),
-  };
 }
 
 export async function hydrateMissionIcon(sessionId: ProjectSessionId, entity: EntityData): Promise<string> {
@@ -88,33 +46,7 @@ export async function queryHullReferenceOptions(sessionId: ProjectSessionId, ref
   });
 }
 
-export async function queryHullPreviewResources(sessionId: ProjectSessionId, hullIds: string[]): Promise<HydratedResourceMap> {
-  return measurePerformanceAsync('frontend.config.hullPreviewResources', { hulls: hullIds.length }, async () => {
-    const result = await querySessionHullReferences(sessionId, hullIds);
-    return hydrateResourceMap(sessionId, result.hullNames, result.sprites);
-  });
-}
-
-export async function querySkinPreviewResources(sessionId: ProjectSessionId, skinIds: string[]): Promise<HydratedResourceMap> {
-  return measurePerformanceAsync('frontend.config.skinPreviewResources', { skins: skinIds.length }, async () => {
-    const result = await querySessionHullReferences(sessionId, skinIds);
-    return hydrateResourceMap(sessionId, result.hullNames, result.sprites);
-  });
-}
-
-async function hydrateResourceMap(
-  sessionId: ProjectSessionId,
-  hullNames: Record<string, string>,
-  refs: Record<string, ResourceRef>,
-): Promise<HydratedResourceMap> {
-  const entries = Object.entries(refs);
-  const dataUrls = await queryResourceDataUrls(
-    sessionId,
-    entries.map(([, ref]) => ref),
-  );
-  return {
-    hullNames,
-    resourceRefs: entries.map(([, ref]) => ref),
-    sprites: Object.fromEntries(entries.map(([id], index) => [id, dataUrls[index] ?? ''])),
-  };
+export async function queryHullPreviewMetadata(sessionId: ProjectSessionId, hullIds: string[]): Promise<Record<string, string>> {
+  const result = await querySessionHullReferences(sessionId, hullIds);
+  return result.hullNames;
 }

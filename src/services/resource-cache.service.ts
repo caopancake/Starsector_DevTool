@@ -30,6 +30,7 @@ export interface ResourceCacheInvalidationEvent {
 type ResourceCacheInvalidationListener = (event: ResourceCacheInvalidationEvent) => void;
 
 const cache = new Map<string, CachedResourceDataUrl>();
+export const RESOURCE_DATA_URL_CACHE_CAPACITY = 512;
 const pending = new Map<string, PendingResource>();
 const keyVersions = new Map<string, number>();
 const invalidationListeners = new Set<ResourceCacheInvalidationListener>();
@@ -40,7 +41,10 @@ export async function queryResourceDataUrls(sessionId: ProjectSessionId, resourc
   const pendingLoads: Promise<void>[] = [];
   resources.forEach((resource, index) => {
     const key = keys[index];
-    if (cache.has(key)) return;
+    if (cache.has(key)) {
+      touchCachedResource(key);
+      return;
+    }
     const pendingResource = pending.get(key);
     if (pendingResource) {
       pendingLoads.push(pendingResource.promise);
@@ -136,15 +140,8 @@ function bumpKeyVersion(key: string) {
   keyVersions.set(key, (keyVersions.get(key) ?? 0) + 1);
 }
 
-function resourceCacheKey(sessionId: ProjectSessionId, resource: ResourceRef): string {
-  return JSON.stringify([
-    sessionId,
-    resource.source,
-    normalizeFsPath(resource.relPath),
-    resource.ownerKind,
-    resource.ownerId,
-    resource.key,
-  ]);
+export function resourceCacheKey(sessionId: ProjectSessionId, resource: ResourceRef): string {
+  return JSON.stringify([sessionId, resource.source, normalizeFsPath(resource.relPath)]);
 }
 
 function cacheResourceBatchResult(
@@ -161,6 +158,7 @@ function cacheResourceBatchResult(
     ensureResourceEntryMatch(entry, resource);
     const key = resourceCacheKey(sessionId, resource);
     if ((keyVersions.get(key) ?? 0) !== versions.get(key)) return;
+    cache.delete(key);
     cache.set(key, {
       dataUrl: entry.dataUrl,
       relPath: normalizeFsPath(resource.relPath),
@@ -168,7 +166,24 @@ function cacheResourceBatchResult(
       sessionId,
       source: resource.source,
     });
+    evictCachedResources();
   });
+}
+
+function touchCachedResource(key: string): void {
+  const entry = cache.get(key);
+  if (!entry) return;
+  cache.delete(key);
+  cache.set(key, entry);
+}
+
+function evictCachedResources(): void {
+  while (cache.size > RESOURCE_DATA_URL_CACHE_CAPACITY) {
+    const oldestKey = cache.keys().next().value as string | undefined;
+    if (oldestKey === undefined) return;
+    cache.delete(oldestKey);
+    keyVersions.delete(oldestKey);
+  }
 }
 
 function ensureResourceEntryMatch(entry: ResourceDataUrlBatchEntry, resource: ResourceRef): void {

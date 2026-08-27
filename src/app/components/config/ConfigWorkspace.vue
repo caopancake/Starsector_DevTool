@@ -11,8 +11,9 @@
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent } from 'vue';
+import { defineAsyncComponent, onMounted } from 'vue';
 import { useWorkspaceStore } from '@/stores/workspace.store';
+import { preloadNaiveComponents } from '@/app/naive-ui.runtime';
 
 const ConfigModOverview = defineAsyncComponent(() => import('@/app/components/config/ConfigModOverview.vue'));
 const ConfigFileHistoryView = defineAsyncComponent(() => import('@/app/components/config/ConfigFileHistoryView.vue'));
@@ -23,4 +24,8 @@ const ConfigSkinView = defineAsyncComponent(() => import('@/app/components/confi
 const ConfigVariantView = defineAsyncComponent(() => import('@/app/components/config/ConfigVariantView.vue'));
 
 const workspace = useWorkspaceStore();
+
+onMounted(() => {
+  preloadNaiveComponents();
+});
 </script>

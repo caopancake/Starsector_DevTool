@@ -104,16 +104,7 @@ export interface SourceOption {
   value: string;
   description: string | null;
   resourceRef: ResourceRef | null;
-  origin: SourceOptionOrigin;
-}
-
-export interface HydratedSourceOption extends SourceOption {
-  sprite: string;
-}
-
-export interface HydratedSourceOptionGroup {
-  label: string;
-  options: HydratedSourceOption[];
+  origin: ResourceSource;
 }
 
 export interface EntityData {
@@ -126,7 +117,6 @@ export interface EntityData {
 export type EntityKind = 'ship' | 'weapon' | 'projectile' | 'system' | 'skill' | 'faction' | 'mission' | 'variant' | 'skin';
 export const RESOURCE_SOURCES = ['mod', 'core'] as const;
 export type ResourceSource = (typeof RESOURCE_SOURCES)[number];
-export type SourceOptionOrigin = 'current' | ResourceSource;
 export const RESOURCE_OWNER_KINDS = [
   'ship',
   'weapon',

@@ -56,8 +56,6 @@ export type {
   HullReferenceKind,
   HullReferenceOption,
   HullReferencesResult,
-  HydratedSourceOption,
-  HydratedSourceOptionGroup,
   OpenDirectoryKind,
   OpenDirectoryResult,
   InvalidatedEntityRef,
@@ -75,7 +73,6 @@ export type {
   ResourceSource,
   SourceOption,
   SourceOptionGroup,
-  SourceOptionOrigin,
   TableSummary,
 } from '@/shared/types/query.types';
 export { RESOURCE_OWNER_KINDS, RESOURCE_SOURCES } from '@/shared/types/query.types';

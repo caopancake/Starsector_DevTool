@@ -3,11 +3,12 @@
     <ConfigSkinList
       :selected-id="selectedSkinId"
       :skins="skins"
-      :skin-sprites="skinSprites"
+      :skin-sprite-refs="skinSpriteRefs"
       :hull-options="hullOptions"
       :load-hull-options="loadHullOptions"
       :mod-root="modRoot"
       :session-id="sessionId"
+      :list-load-started-at="listLoadStartedAt"
       :create-skin="createSkin"
       :delete-skin="deleteSkin"
       @select="selectSkin"
@@ -41,10 +42,11 @@ const {
   modRoot,
   sessionId,
   skins,
-  skinSprites,
+  skinSpriteRefs,
   hullOptions,
   loadHullOptions,
   skinDataRevision,
+  listLoadStartedAt,
   createSkin,
   deleteSkin,
   onSaved,
