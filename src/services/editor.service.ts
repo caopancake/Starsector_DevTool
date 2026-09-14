@@ -11,11 +11,7 @@ import type { EditorSpecKind, EditorWindowKind, EntityData, ProjectSessionId, Re
 type EditorSelectOption = { label: string; value: string };
 
 export type EditorEntityBundle =
-  | ShipEditorEntityBundle
-  | WeaponEditorEntityBundle
-  | ProjectileEditorEntityBundle
-  | SystemEditorEntityBundle
-  | WeaponPreviewEntityBundle;
+  ShipEditorEntityBundle | WeaponEditorEntityBundle | ProjectileEditorEntityBundle | SystemEditorEntityBundle | WeaponPreviewEntityBundle;
 
 export interface ShipEditorEntityBundle {
   kind: 'ship';

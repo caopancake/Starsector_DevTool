@@ -245,16 +245,7 @@ import {
 } from '@/domain/editors/lib/weapon-sprite-fields';
 
 type InspectorSection =
-  | 'basic'
-  | 'turretSprites'
-  | 'hardpointSprites'
-  | 'turretBarrels'
-  | 'hardpointBarrels'
-  | 'barrelMode'
-  | 'anim'
-  | 'proj'
-  | 'beam'
-  | 'sound';
+  'basic' | 'turretSprites' | 'hardpointSprites' | 'turretBarrels' | 'hardpointBarrels' | 'barrelMode' | 'anim' | 'proj' | 'beam' | 'sound';
 type BarrelPreview = { kind: 'add'; coord: { x: number; y: number } } | { kind: 'angle'; angle: number } | null;
 
 const props = defineProps<{

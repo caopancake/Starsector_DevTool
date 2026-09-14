@@ -2,12 +2,7 @@ import { recordPerformance } from '@/services/performance.service';
 import type { EntityKind, InvalidatedQueryScope, ProjectInvalidation } from '@/shared/types';
 
 export type QueryCacheKind =
-  | 'csv-table-window'
-  | 'csv-source-options'
-  | 'csv-row-preview'
-  | 'hull-references'
-  | 'entity-detail'
-  | 'entity-list';
+  'csv-table-window' | 'csv-source-options' | 'csv-row-preview' | 'hull-references' | 'entity-detail' | 'entity-list';
 
 export interface QueryIdentity {
   queryKind: QueryCacheKind;

@@ -8,16 +8,7 @@ export interface DiscoveredField {
 }
 
 export type DiscoveredFieldType =
-  | 'boolean'
-  | 'integer'
-  | 'float'
-  | 'string'
-  | 'path-image'
-  | 'string-array'
-  | 'color-rgba'
-  | 'array-of-object'
-  | 'tag-select'
-  | 'object';
+  'boolean' | 'integer' | 'float' | 'string' | 'path-image' | 'string-array' | 'color-rgba' | 'array-of-object' | 'tag-select' | 'object';
 
 export type ProjectSessionId = string;
 

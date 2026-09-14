@@ -9,21 +9,19 @@ const queryResources = Reflect.get(resourceCacheService, 'queryResourceData' + '
 const { RESOURCE_DATA_URL_CACHE_CAPACITY } = resourceCacheService;
 
 const mocks = vi.hoisted(() => ({
-  queryBatch: vi.fn(
-    async (first: string | ResourceRef[], second?: ResourceRef[]): Promise<ResourceDataUrlBatchResult> => ({
-      entries: (second ?? (Array.isArray(first) ? first : [])).map(
-        (resource) =>
-          ({
-            key: resource.key,
-            source: resource.source,
-            relPath: resource.relPath,
-            ['owner' + 'Kind']: resource.ownerKind,
-            ['owner' + 'Id']: resource.ownerId,
-            dataUrl: `data:${resource.relPath}`,
-          }) as unknown as ResourceDataUrlBatchEntry,
-      ),
-    }),
-  ),
+  queryBatch: vi.fn(async (first: string | ResourceRef[], second?: ResourceRef[]): Promise<ResourceDataUrlBatchResult> => ({
+    entries: (second ?? (Array.isArray(first) ? first : [])).map(
+      (resource) =>
+        ({
+          key: resource.key,
+          source: resource.source,
+          relPath: resource.relPath,
+          ['owner' + 'Kind']: resource.ownerKind,
+          ['owner' + 'Id']: resource.ownerId,
+          dataUrl: `data:${resource.relPath}`,
+        }) as unknown as ResourceDataUrlBatchEntry,
+    ),
+  })),
 }));
 
 vi.mock('@/shared/api/query-api', () => ({ queryResourceDataUrlBatch: mocks.queryBatch }));

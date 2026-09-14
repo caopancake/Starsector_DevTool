@@ -312,13 +312,7 @@ const modes = [
 type ShipCanvasTarget = { kind: 'weapon' | 'engine' | 'bound' | 'center' | 'shield'; i: number; distance: number };
 type ShipCanvasTargetIdentity = Pick<ShipCanvasTarget, 'kind' | 'i'>;
 type ShipDragKind =
-  | ShipCanvasTarget['kind']
-  | 'collisionRadius'
-  | 'shieldRadius'
-  | 'weaponAngle'
-  | 'weaponArc'
-  | 'engineAngle'
-  | 'engineSize';
+  ShipCanvasTarget['kind'] | 'collisionRadius' | 'shieldRadius' | 'weaponAngle' | 'weaponArc' | 'engineAngle' | 'engineSize';
 type InspectorSection = 'basic' | 'sprite' | 'props' | 'weapons' | 'launchBays' | 'engines' | 'bounds' | 'advanced' | 'builtins';
 type ModifierState = Pick<MouseEvent | KeyboardEvent, 'altKey' | 'ctrlKey' | 'shiftKey'>;
 type HoverPreview =
