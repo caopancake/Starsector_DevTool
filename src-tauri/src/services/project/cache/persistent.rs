@@ -10,7 +10,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     fs,
     path::{Path, PathBuf},
-    sync::{Mutex, OnceLock},
+    sync::{LazyLock, Mutex},
 };
 use walkdir::WalkDir;
 
@@ -24,7 +24,7 @@ const CACHE_DIRECTORY: &str = "project-index-cache";
 const MOD_INDEX_DIRECTORY: &str = "mods";
 const CORE_INDEX_DIRECTORY: &str = "core";
 
-static CACHE_ROOT: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
+static CACHE_ROOT: LazyLock<Mutex<Option<PathBuf>>> = LazyLock::new(|| Mutex::new(None));
 
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct ProjectIndex {
@@ -66,7 +66,6 @@ struct SourceFileFingerprint {
 pub(crate) fn configure_persistent_index_cache(app_data_dir: &Path) -> AppResult<()> {
     let cache_root = app_data_dir.join(CACHE_DIRECTORY);
     let mut guard = CACHE_ROOT
-        .get_or_init(|| Mutex::new(None))
         .lock()
         .map_err(|_| AppError::message("persistent project cache lock poisoned"))?;
     *guard = Some(cache_root);
@@ -150,7 +149,6 @@ pub(super) fn save_core_cache(starsector_root: &str, cache: &CoreCache) -> AppRe
 
 fn configured_cache_root() -> AppResult<Option<PathBuf>> {
     CACHE_ROOT
-        .get_or_init(|| Mutex::new(None))
         .lock()
         .map(|root| root.clone())
         .map_err(|_| AppError::message("persistent project cache lock poisoned"))

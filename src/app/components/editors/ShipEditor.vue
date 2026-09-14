@@ -235,7 +235,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
@@ -276,9 +276,9 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ close: []; 'save-requested': []; 'draft-changed': [ship: RowData]; 'load-external': [] }>();
 const feedback = useAppFeedback();
-const editorWindowRef = ref<HTMLElement>();
-const stageRef = ref<HTMLElement>();
-const canvasRef = ref<HTMLCanvasElement>();
+const editorWindowRef = useTemplateRef<HTMLElement>('editorWindowRef');
+const stageRef = useTemplateRef<HTMLElement>('stageRef');
+const canvasRef = useTemplateRef<HTMLCanvasElement>('canvasRef');
 const localShip = ref<RowData>(normalizeShipSpec(props.ship));
 const mode = ref<'overview' | 'ranges' | 'bounds' | 'weapon' | 'launchBay' | 'engine'>('overview');
 const selected = ref<number | null>(null);

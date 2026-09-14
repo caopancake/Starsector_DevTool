@@ -1,6 +1,6 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::{read_json_file, validate_walk_entry, FsRootBoundary},
+    io::{FsRootBoundary, read_json_file, validate_walk_entry},
     models::{GameModSummary, GameOverviewData, GameScanWarning, GameWarningEditTarget},
 };
 use serde_json::Value;
@@ -225,11 +225,8 @@ fn append_duplicate_id_warnings(mods: &[GameModSummary], warnings: &mut Vec<Game
 mod tests {
     use super::*;
     use crate::io::write_utf8_no_bom;
-    use std::{
-        fs,
-        path::{Path, PathBuf},
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use crate::testutil::temp_dir;
+    use std::{fs, path::Path};
 
     #[test]
     fn scan_game_overview_reads_mod_summaries_only() {
@@ -280,10 +277,12 @@ mod tests {
         let overview = scan_game_overview(&root.join(".."));
 
         let _ = fs::remove_dir_all(root);
-        assert!(overview
-            .warnings
-            .iter()
-            .any(|warning| warning.message.contains("无效 Starsector 根目录")));
+        assert!(
+            overview
+                .warnings
+                .iter()
+                .any(|warning| warning.message.contains("无效 Starsector 根目录"))
+        );
     }
 
     #[test]
@@ -299,18 +298,24 @@ mod tests {
 
         let _ = fs::remove_dir_all(root);
         assert!(!overview.core_available);
-        assert!(overview
-            .warnings
-            .iter()
-            .any(|w| w.message.contains("starsector-core")));
-        assert!(overview
-            .warnings
-            .iter()
-            .any(|w| w.message.contains("缺少 mod_info.json")));
-        assert!(overview
-            .warnings
-            .iter()
-            .any(|w| w.message.contains("重复 Mod id")));
+        assert!(
+            overview
+                .warnings
+                .iter()
+                .any(|w| w.message.contains("starsector-core"))
+        );
+        assert!(
+            overview
+                .warnings
+                .iter()
+                .any(|w| w.message.contains("缺少 mod_info.json"))
+        );
+        assert!(
+            overview
+                .warnings
+                .iter()
+                .any(|w| w.message.contains("重复 Mod id"))
+        );
     }
 
     #[test]
@@ -352,20 +357,12 @@ mod tests {
         let overview = scan_game_overview(&root);
 
         let _ = fs::remove_dir_all(root);
-        assert!(overview
-            .warnings
-            .iter()
-            .any(|w| w.message.contains("无法读取 mods 目录:")));
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
+        assert!(
+            overview
+                .warnings
+                .iter()
+                .any(|w| w.message.contains("无法读取 mods 目录:"))
+        );
     }
 
     fn path_string(path: &Path) -> String {

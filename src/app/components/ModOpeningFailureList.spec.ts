@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import ModOpeningFailureList from '@/app/components/ModOpeningFailureList.vue';
+import { nButtonStub } from '@/test/stubs';
 import type { ModOpeningFailure } from '@/shared/types';
 
 let wrapper: VueWrapper | null = null;
@@ -33,7 +34,7 @@ function mountList(failures: ModOpeningFailure[]): VueWrapper {
     props: { failures },
     global: {
       stubs: {
-        'n-button': { emits: ['click'], template: '<button @click="$emit(\'click\')"><slot /></button>' },
+        'n-button': nButtonStub,
       },
     },
   });

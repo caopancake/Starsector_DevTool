@@ -1,5 +1,6 @@
 export function classifyFrontendPath(path) {
   if (!path.startsWith('src/')) return { layer: 'external', role: 'external', domain: null };
+  if (/\.spec\.(ts|tsx)$/.test(path)) return { layer: 'test', role: 'test', domain: null };
   if (path.startsWith('src/shared/api/')) return { layer: 'shared', role: 'api', domain: sharedApiDomain(path) };
   if (path.startsWith('src/shared/')) return { layer: 'shared', role: 'shared', domain: sharedDomain(path) };
   if (path.startsWith('src/domain/')) return { layer: 'domain', role: roleFor(path), domain: segment(path, 2) };

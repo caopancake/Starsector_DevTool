@@ -1,4 +1,4 @@
-use crate::domain::editor_config_definitions::{editor_spec_definition, EntitySpecDefinition};
+use crate::domain::editor_config_definitions::{EntitySpecDefinition, editor_spec_definition};
 use crate::{
     domain::config::validate_config_id,
     errors::{AppError, AppResult},
@@ -105,10 +105,8 @@ fn validate_imported_editor_spec_path(
 mod tests {
     use super::*;
     use crate::io::{read_utf8_no_bom, write_utf8_no_bom};
-    use std::{
-        fs,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use crate::testutil::temp_dir;
+    use std::fs;
 
     #[test]
     fn save_editor_spec_uses_fixed_weapon_target_boundary() {
@@ -282,16 +280,6 @@ mod tests {
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(value.get("id").and_then(Value::as_str), Some("demo"));
-    }
-
-    fn temp_dir(name: &str) -> std::path::PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 
     fn temp_linked_file(

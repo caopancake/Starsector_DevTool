@@ -9,8 +9,8 @@ use super::super::{
 use crate::{
     errors::{AppError, AppResult},
     models::{
-        CsvFactionFilter, CsvRowPreview, CsvTableKey, CsvTableWindow, CsvWindowRow,
-        CSV_FACTION_FIELD,
+        CSV_FACTION_FIELD, CsvFactionFilter, CsvRowPreview, CsvTableKey, CsvTableWindow,
+        CsvWindowRow,
     },
 };
 

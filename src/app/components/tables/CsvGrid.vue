@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue';
 import type { CsvGridRowSlot, CsvWindowRow } from '@/shared/types';
 import type { ModTableState } from '@/shared/types/workspace.types';
 import type { CsvGridColumn, CsvGridModel } from '@/domain/tables/csv-grid-model';
@@ -49,7 +49,7 @@ const emit = defineEmits<{
   'update-cell': [rowKey: string, column: string, value: string];
 }>();
 
-const panelRef = ref<{ clientHeight?: number; scrollTop?: number } | null>(null);
+const panelRef = useTemplateRef<HTMLDivElement>('panelRef');
 const activeCell = ref<ActiveCell | null>(null);
 const performanceLogger = usePerformanceLogger();
 const activeCellKey = computed(() =>

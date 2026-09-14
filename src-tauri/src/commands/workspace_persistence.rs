@@ -1,18 +1,18 @@
 use crate::{
-    models::{command_payloads::SaveWorkspacePayload, PersistedWorkspace},
+    errors::AppError,
+    models::{PersistedWorkspace, command_payloads::SaveWorkspacePayload},
     services,
 };
 
-#[tauri::command]
-pub fn load_workspace(app_handle: tauri::AppHandle) -> Result<PersistedWorkspace, String> {
-    services::workspace_persistence::load_app_workspace(app_handle).map_err(|e| e.to_string())
+#[tauri::command(async)]
+pub fn load_workspace(app_handle: tauri::AppHandle) -> Result<PersistedWorkspace, AppError> {
+    services::workspace_persistence::load_app_workspace(app_handle)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn save_workspace(
     app_handle: tauri::AppHandle,
     payload: SaveWorkspacePayload,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     services::workspace_persistence::save_app_workspace(app_handle, payload.state)
-        .map_err(|e| e.to_string())
 }

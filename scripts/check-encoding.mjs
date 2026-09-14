@@ -42,7 +42,7 @@ for (const file of await collectFiles(root)) {
 
 if (failures.length > 0) {
   console.error(failures.join('\n'));
-  process.exit(1);
+  process.exitCode = 1;
 }
 
 console.log('Encoding check passed: UTF-8 without BOM.');

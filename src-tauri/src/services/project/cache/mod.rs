@@ -9,7 +9,7 @@ use crate::{
 };
 use std::{
     collections::BTreeMap,
-    sync::{Mutex, OnceLock},
+    sync::{LazyLock, Mutex},
 };
 
 use super::model::{CoreCache, ProjectSession};
@@ -24,16 +24,17 @@ pub(crate) use csv::{
 };
 pub(crate) use invalidation::invalidate_session_changes;
 
-static PROJECT_SESSIONS: OnceLock<Mutex<BTreeMap<ProjectSessionId, ProjectSession>>> =
-    OnceLock::new();
-static CORE_CACHES: OnceLock<Mutex<BTreeMap<String, CoreCache>>> = OnceLock::new();
+static PROJECT_SESSIONS: LazyLock<Mutex<BTreeMap<ProjectSessionId, ProjectSession>>> =
+    LazyLock::new(|| Mutex::new(BTreeMap::new()));
+static CORE_CACHES: LazyLock<Mutex<BTreeMap<String, CoreCache>>> =
+    LazyLock::new(|| Mutex::new(BTreeMap::new()));
 
 pub(crate) fn sessions() -> &'static Mutex<BTreeMap<ProjectSessionId, ProjectSession>> {
-    PROJECT_SESSIONS.get_or_init(|| Mutex::new(BTreeMap::new()))
+    &PROJECT_SESSIONS
 }
 
 pub(crate) fn core_caches() -> &'static Mutex<BTreeMap<String, CoreCache>> {
-    CORE_CACHES.get_or_init(|| Mutex::new(BTreeMap::new()))
+    &CORE_CACHES
 }
 
 pub(crate) fn session_for<'a>(

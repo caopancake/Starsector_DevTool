@@ -1,7 +1,7 @@
 use crate::{
     errors::{AppError, AppResult},
     io::read_csv_data,
-    models::{CsvTable, CsvTableKey, CSV_FACTION_FIELD},
+    models::{CSV_FACTION_FIELD, CsvTable, CsvTableKey},
 };
 use serde_json::Value;
 use std::path::Path;
@@ -9,7 +9,7 @@ use std::path::Path;
 use super::super::{
     factions,
     model::{
-        is_comment_row, ProjectSession, SessionCsvRow, SessionCsvTable, MISSION_LIST_TABLE_KEY,
+        MISSION_LIST_TABLE_KEY, ProjectSession, SessionCsvRow, SessionCsvTable, is_comment_row,
     },
 };
 use super::core::load_core_csv_table;
@@ -168,6 +168,7 @@ fn is_faction_padding_row(row: &serde_json::Map<String, Value>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testutil::temp_dir;
     use crate::{
         io::write_utf8_no_bom,
         models::{EntitySummaries, ProjectManifest},
@@ -176,8 +177,6 @@ mod tests {
     use std::{
         collections::{BTreeMap, HashMap},
         fs,
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
     };
 
     #[test]
@@ -284,15 +283,5 @@ mod tests {
         assert!(!ships[1].row.contains_key(CSV_FACTION_FIELD));
         assert!(!ships[2].row.contains_key(CSV_FACTION_FIELD));
         assert!(!skills[0].row.contains_key(CSV_FACTION_FIELD));
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 }

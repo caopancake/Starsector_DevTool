@@ -161,6 +161,7 @@ fn timestamp_seconds() -> u64 {
 mod tests {
     use super::*;
     use crate::io::read_utf8_no_bom;
+    use crate::testutil::temp_dir;
 
     #[test]
     fn append_log_and_status_roundtrip() {
@@ -201,15 +202,5 @@ mod tests {
         let status = log_status(&dir).unwrap();
         let _ = fs::remove_dir_all(dir);
         assert_eq!(status.size_bytes, 0);
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 }

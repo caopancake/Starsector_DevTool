@@ -3,7 +3,8 @@ name = "starsector-devtool"
 version = "0.1.0"
 description = "Native Starsector mod configuration tool"
 authors = ["Starsector DevTool"]
-edition = "2021"
+edition = "2024"
+rust-version = "1.85"
 
 [lib]
 name = "starsector_devtool_lib"
@@ -21,5 +22,6 @@ serde_json = "1"
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"
+thiserror = "2"
 walkdir = "2.5"
 

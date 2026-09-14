@@ -48,7 +48,6 @@ const mocks = vi.hoisted(() => {
       setLoading: vi.fn(),
     },
     tables: { hydrate: vi.fn(), hydrateWithoutActivate: vi.fn(), removeModState: vi.fn() },
-    editors: { activateFor: vi.fn(), removeModState: vi.fn() },
     fileHistory: { activateFor: vi.fn(), removeModState: vi.fn() },
     csvHistory: { clearForMod: vi.fn() },
     openProject: vi.fn(),
@@ -58,7 +57,6 @@ const mocks = vi.hoisted(() => {
 vi.mock('@/stores/workspace.store', () => ({ useWorkspaceStore: () => mocks.workspaceStore }));
 vi.mock('@/stores/project.store', () => ({ useProjectStore: () => mocks.project }));
 vi.mock('@/stores/tables.store', () => ({ useTablesStore: () => mocks.tables }));
-vi.mock('@/stores/editors.store', () => ({ useEditorsStore: () => mocks.editors }));
 vi.mock('@/stores/file-history.store', () => ({ useFileHistoryStore: () => mocks.fileHistory }));
 vi.mock('@/stores/tables-edit-history.store', () => ({ useTablesEditHistoryStore: () => mocks.csvHistory }));
 vi.mock('@/services/session.service', () => ({
@@ -78,7 +76,6 @@ beforeEach(() => {
   mocks.workspaceStore.activeModRoot = null;
   mocks.workspaceStore.currentView = 'overview';
   mocks.workspaceStore.mods.clear();
-  vi.clearAllMocks();
   mocks.workspaceStore.isModImported.mockReturnValue(false);
   mocks.workspaceStore.removeLoadedModEntry.mockImplementation((modRoot: string) => mocks.workspaceStore.mods.delete(modRoot));
   mocks.openProject.mockResolvedValue({ modInfo: { name: 'Demo' } });

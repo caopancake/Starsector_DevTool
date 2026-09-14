@@ -1,4 +1,4 @@
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { onUnmounted, ref, watch } from 'vue';
 import type { FieldSchema } from '@/domain/schema/schema.types';
 import type { SchemaRuntimeContext } from '@/domain/schema/schema-runtime';
 import { mapSourceGroupsToSelectOptions, type SelectOption } from '@/domain/schema/schema-options';
@@ -11,7 +11,6 @@ export function useSchemaSourceOptions(args: {
   runtimeContext: () => SchemaRuntimeContext | null | undefined;
 }) {
   const loadedOptions = ref<SelectOption[]>([]);
-  const sourceOptions = computed<SelectOption[]>(() => loadedOptions.value);
   let requestId = 0;
   let stopInvalidation: (() => void) | null = null;
 
@@ -64,6 +63,6 @@ export function useSchemaSourceOptions(args: {
 
   return {
     reloadSourceOptions,
-    sourceOptions,
+    sourceOptions: loadedOptions,
   };
 }

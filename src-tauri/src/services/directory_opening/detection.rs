@@ -86,10 +86,8 @@ fn resolve_known_root(
 mod tests {
     use super::*;
     use crate::io::write_utf8_no_bom;
-    use std::{
-        fs,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use crate::testutil::temp_dir;
+    use std::fs;
 
     #[test]
     fn detect_game_root_returns_overview() {
@@ -166,10 +164,12 @@ mod tests {
         assert_eq!(detected.kind, OpenDirectoryKind::ExternalMod);
         assert_eq!(detected.starsector_root, None);
         assert_eq!(detected.mod_root.as_deref(), Some(expected_mod.as_str()));
-        assert!(detected
-            .warnings
-            .iter()
-            .any(|warning| warning.message.contains("已忽略无效 Starsector 根目录")));
+        assert!(
+            detected
+                .warnings
+                .iter()
+                .any(|warning| warning.message.contains("已忽略无效 Starsector 根目录"))
+        );
     }
 
     #[test]
@@ -180,20 +180,12 @@ mod tests {
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(detected.kind, OpenDirectoryKind::Unknown);
-        assert!(detected
-            .warnings
-            .iter()
-            .any(|warning| warning.message.contains("未识别")));
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
+        assert!(
+            detected
+                .warnings
+                .iter()
+                .any(|warning| warning.message.contains("未识别"))
+        );
     }
 
     fn path_string(path: &Path) -> String {

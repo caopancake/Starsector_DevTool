@@ -6,6 +6,9 @@ mod models;
 mod parsers;
 mod services;
 
+#[cfg(test)]
+pub(crate) mod testutil;
+
 use tauri::Manager;
 
 pub fn run() {

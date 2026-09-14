@@ -1,4 +1,3 @@
-import { useEditorsStore } from '@/stores/editors.store';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import { useProjectStore } from '@/stores/project.store';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
@@ -33,7 +32,6 @@ export async function removeLoadedModRuntime(modRoot: string) {
   const workspace = useWorkspaceStore();
   const project = useProjectStore();
   const tables = useTablesStore();
-  const editors = useEditorsStore();
   const fileHistory = useFileHistoryStore();
   const csvEditHistory = useTablesEditHistoryStore();
   const sessionId = project.getSessionId(modRoot);
@@ -45,7 +43,6 @@ export async function removeLoadedModRuntime(modRoot: string) {
 
   workspace.removeLoadedModEntry(modRoot);
   tables.removeModState(modRoot);
-  editors.removeModState(modRoot);
   fileHistory.removeModState(modRoot);
   csvEditHistory.clearForMod(modRoot);
   project.removeProjectManifest(modRoot);

@@ -217,7 +217,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
@@ -270,9 +270,9 @@ const emit = defineEmits<{
   editProjectile: [id: string];
   preview: [id: string];
 }>();
-const editorWindowRef = ref<HTMLElement>();
-const stageRef = ref<HTMLElement>();
-const canvasRef = ref<HTMLCanvasElement>();
+const editorWindowRef = useTemplateRef<HTMLElement>('editorWindowRef');
+const stageRef = useTemplateRef<HTMLElement>('stageRef');
+const canvasRef = useTemplateRef<HTMLCanvasElement>('canvasRef');
 const localWeapon = ref<RowData>(normalizeWeaponSpec(props.weapon));
 const viewMode = ref<WeaponViewMode>('turret');
 const selected = ref<number | null>(null);

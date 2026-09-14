@@ -1,10 +1,10 @@
-import { ref, type Ref } from 'vue';
+import { ref, type ShallowRef } from 'vue';
 import type { Point } from '@/domain/editors/editor-types';
 export type { Point } from '@/domain/editors/editor-types';
 
 type CoordinateSpace = 'ship' | 'weapon';
 
-export function useCanvasViewport(canvasRef: Ref<HTMLCanvasElement | undefined>, initialScale: number, maxScale: number) {
+export function useCanvasViewport(canvasRef: Readonly<ShallowRef<HTMLCanvasElement | null>>, initialScale: number, maxScale: number) {
   const scale = ref(initialScale);
   const pan = ref<Point>({ x: 0, y: 0 });
 

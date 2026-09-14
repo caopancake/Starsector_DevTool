@@ -1,7 +1,7 @@
 use crate::{
     errors::{AppError, AppResult},
     io::{read_csv_data, read_json_file},
-    models::{FactionMeta, CSV_DEFAULT_FACTION_ID},
+    models::{CSV_DEFAULT_FACTION_ID, FactionMeta},
 };
 use serde_json::{Map, Value};
 use std::{
@@ -246,12 +246,9 @@ fn rgb_to_hex(values: &[Value]) -> String {
 mod tests {
     use super::*;
     use crate::io::write_utf8_no_bom;
+    use crate::testutil::temp_dir;
     use serde_json::json;
-    use std::{
-        fs,
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use std::fs;
 
     #[test]
     fn detects_faction_from_blueprint_tag() {
@@ -421,15 +418,5 @@ mod tests {
         let _ = fs::remove_dir_all(root);
         assert!(load_error.contains("faction file must be a JSON object"));
         assert!(discover_error.contains("faction file must be a JSON object"));
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 }

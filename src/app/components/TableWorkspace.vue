@@ -16,7 +16,7 @@
           />
         </div>
         <div class="top-action-group">
-          <n-button :disabled="!activeManifest" @click="$emit('add-row')">新建</n-button>
+          <n-button :disabled="!project.activeManifest" @click="$emit('add-row')">新建</n-button>
           <n-button type="error" ghost :disabled="!tables.selectedRowKey" @click="$emit('delete-row')">删除</n-button>
         </div>
         <div class="top-action-group">
@@ -68,8 +68,6 @@ defineEmits<{
 const tables = useTablesStore();
 const project = useProjectStore();
 const csvTable = useCsvTableViewModel();
-
-const activeManifest = computed(() => project.activeManifest);
 
 const factionOptions = computed(() => csvFactionFilterOptions());
 </script>

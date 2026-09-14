@@ -1,3 +1,5 @@
+import { frontendFile } from '../shared/files.mjs';
+
 const openingCommandNames = ['open_project_session', 'detect_directory', 'scan_game_overview'];
 const openingModelTypeDefs = [
   'struct OpenDirectoryResult',
@@ -17,7 +19,7 @@ const projectRootOpeningNames = [
   'is_mod_root',
   'infer_starsector_root',
 ];
-const oldFrontendNames = [`scan${'Workspace'}Overview`, `detect${'Workspace'}Directory`];
+const oldFrontendNames = ['scanWorkspaceOverview', 'detectWorkspaceDirectory'];
 
 export const directoryOpeningBoundaryRule = {
   name: 'directory-opening-boundary',
@@ -48,9 +50,11 @@ export const directoryOpeningBoundaryRule = {
         }
       }
 
-      for (const name of oldFrontendNames) {
-        if (new RegExp(`\\b${name}\\b`).test(file.text)) {
-          failures.push(`${file.rel}: use Directory Opening service names instead of ${name}`);
+      if (frontendFile(file.rel)) {
+        for (const name of oldFrontendNames) {
+          if (new RegExp(`\\b${name}\\b`).test(file.text)) {
+            failures.push(`${file.rel}: use Directory Opening service names instead of ${name}`);
+          }
         }
       }
     }

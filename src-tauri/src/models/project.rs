@@ -443,7 +443,7 @@ pub struct FactionMeta {
 #[cfg(test)]
 mod tests {
     use super::{EntityData, EntityKind};
-    use serde_json::{json, Map, Value};
+    use serde_json::{Map, Value, json};
     use std::collections::BTreeMap;
 
     #[test]

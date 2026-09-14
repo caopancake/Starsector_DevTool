@@ -2,7 +2,7 @@
   <div class="schema-field" :class="{ 'nested-row': isNested }">
     <span class="field-label" :title="fieldTitle">{{ field.label }}</span>
     <div class="field-control">
-      <template v-if="plainMode">
+      <template v-if="settings.isPlainEditMode">
         <n-input
           v-if="field.type === 'string'"
           :value="strVal"
@@ -400,15 +400,6 @@ import { useSettingsStore } from '@/stores/settings.store';
 import { isCsvSource } from '@/domain/tables/csv-source-options';
 import { useSchemaSelectMedia } from '@/app/composables/use-schema-select-media';
 
-const { graphicsPaths, loadGraphics } = useCoreGraphics();
-watch(
-  () => props.field.type === 'path-image',
-  (active) => {
-    if (active) loadGraphics();
-  },
-  { immediate: true },
-);
-
 const props = defineProps<{
   field: FieldSchema;
   value: unknown;
@@ -420,8 +411,16 @@ const emit = defineEmits<{
   update: [value: unknown];
 }>();
 
+const { graphicsPaths, loadGraphics } = useCoreGraphics();
+watch(
+  () => props.field.type === 'path-image',
+  (active) => {
+    if (active) loadGraphics();
+  },
+  { immediate: true },
+);
+
 const settings = useSettingsStore();
-const plainMode = computed(() => settings.isPlainEditMode);
 const fieldTitle = computed(() => [props.field.key, props.field.description ?? ''].filter(Boolean).join('\n'));
 const { schemaSelectSprite, ensureSchemaSelectSprites } = useSchemaSelectMedia();
 

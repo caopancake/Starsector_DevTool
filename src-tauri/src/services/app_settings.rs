@@ -1,8 +1,8 @@
 use crate::{
     errors::{AppError, AppResult},
     io::{
-        path_belongs_to_root, read_utf8_no_bom, validate_safe_absolute_path, write_utf8_no_bom,
-        FsRootBoundary,
+        FsRootBoundary, path_belongs_to_root, read_utf8_no_bom, validate_safe_absolute_path,
+        write_utf8_no_bom,
     },
     models::AppSettings,
     services::{app_log, app_paths, workspace_persistence},
@@ -195,7 +195,8 @@ pub fn settings_path(app_data_dir: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use crate::testutil::temp_dir;
 
     #[test]
     fn load_settings_returns_default_when_missing() {
@@ -298,15 +299,5 @@ mod tests {
         let _ = fs::remove_dir_all(&app_data);
         assert!(result.is_err());
         assert!(!file_path.exists());
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 }

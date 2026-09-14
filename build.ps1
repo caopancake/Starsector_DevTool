@@ -1,7 +1,7 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = "Stop"
 
-$ProjectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ProjectDir = $PSScriptRoot
 $ExeName = "starsector-devtool.exe"
 $SourceExe = Join-Path $ProjectDir "src-tauri\target\release\$ExeName"
 

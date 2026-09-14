@@ -45,8 +45,7 @@ import { useProjectStore } from '@/stores/project.store';
 import { buildConfigModOverview } from '@/domain/config/mod-overview';
 
 const project = useProjectStore();
-const data = computed(() => project.activeManifest);
-const overview = computed(() => buildConfigModOverview(data.value));
+const overview = computed(() => buildConfigModOverview(project.activeManifest));
 
 const modName = computed(() => overview.value.modName);
 const modVersion = computed(() => overview.value.modVersion);

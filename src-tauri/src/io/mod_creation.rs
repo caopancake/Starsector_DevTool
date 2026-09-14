@@ -1,6 +1,6 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::{read_json_file, validate_walk_entry, write_utf8_no_bom, FsRootBoundary},
+    io::{FsRootBoundary, read_json_file, validate_walk_entry, write_utf8_no_bom},
 };
 use serde_json::Value;
 use std::{
@@ -108,18 +108,16 @@ fn mod_id(info: &Value) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testutil::temp_dir;
     use crate::{
         domain::mod_creation::{
-            render_initial_mod_info, validate_new_mod_template, ValidatedNewModTemplate,
+            ValidatedNewModTemplate, render_initial_mod_info, validate_new_mod_template,
         },
         io::{read_json_file, read_text_bytes_no_bom, write_utf8_no_bom},
         models::NewModTemplate,
-        services::project::{open_project_session_traced, PerformanceTrace},
+        services::project::{PerformanceTrace, open_project_session_traced},
     };
-    use std::{
-        fs,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use std::fs;
 
     #[test]
     fn creates_loadable_minimal_mod_template_with_crlf_metadata() {
@@ -193,15 +191,5 @@ mod tests {
             game_version: "0.98a".to_string(),
         })
         .unwrap()
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 }

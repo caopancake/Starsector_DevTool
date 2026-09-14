@@ -2,7 +2,7 @@ use crate::{
     errors::{AppError, AppResult},
     io::FsRootBoundary,
 };
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 #[cfg(test)]
 use serde_json::Value;
 #[cfg(test)]
@@ -175,11 +175,8 @@ fn path_escapes_resource_root(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        fs,
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use crate::testutil::temp_dir;
+    use std::fs;
 
     #[test]
     fn missing_sprite_does_not_create_entry() {
@@ -335,15 +332,5 @@ mod tests {
         let _ = fs::remove_dir_all(&mod_dir);
         let _ = fs::remove_dir_all(&outside);
         assert!(error.contains("所选文件位于 Mod 目录之外"));
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 }

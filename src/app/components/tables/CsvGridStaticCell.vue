@@ -1,5 +1,5 @@
 <template>
-  <template v-if="plainMode">
+  <template v-if="settings.isPlainEditMode">
     <span class="csv-cell-value">{{ rawValue }}</span>
   </template>
   <template v-else-if="isListControl">
@@ -45,7 +45,6 @@ const props = defineProps<{
 
 const rawValue = computed(() => cell(props.row.row[props.column.key]));
 const settings = useSettingsStore();
-const plainMode = computed(() => settings.isPlainEditMode);
 const project = useProjectStore();
 const { schemaSelectSprite, ensureSchemaSelectSprites } = useSchemaSelectMedia();
 const control = computed(() => csvColumnControl(props.column.schema));

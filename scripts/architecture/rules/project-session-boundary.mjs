@@ -2,7 +2,7 @@ import { classifyFrontendPath } from '../shared/classify.mjs';
 import { frontendFile } from '../shared/files.mjs';
 
 const manifestMutationNames = ['registerProjectManifest', 'replaceProjectManifest', 'removeProjectManifest'];
-const forbiddenManifestPatchNames = [`update${'Manifest'}`, `update${'EntitySummary'}`];
+const forbiddenManifestPatchNames = ['updateManifest', 'updateEntitySummary'];
 const manifestSummaryFields = ['entitySummaries', 'tableSummaries', 'tableEntitySummaries'];
 
 export const projectSessionBoundaryRule = {

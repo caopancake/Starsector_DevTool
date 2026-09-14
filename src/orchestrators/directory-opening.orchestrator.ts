@@ -1,7 +1,6 @@
 import type { CreatedMod, ModEntry, ProjectManifest } from '@/shared/types';
 import { cell, formatModVersion } from '@/shared/lib/starsector';
 import { pathBasename } from '@/shared/lib/paths';
-import { useEditorsStore } from '@/stores/editors.store';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import { useProjectStore } from '@/stores/project.store';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
@@ -122,12 +121,10 @@ export async function openModProjectManifest(modRoot: string, starsectorRoot: st
 export function hydrateOpenedModRuntime(modRoot: string, loaded: ProjectManifest, activate: boolean) {
   const project = useProjectStore();
   const tables = useTablesStore();
-  const editors = useEditorsStore();
   const fileHistory = useFileHistoryStore();
   if (activate) {
     project.setActiveModRoot(modRoot);
     tables.hydrate(modRoot, loaded);
-    editors.activateFor(modRoot);
     fileHistory.activateFor(modRoot);
   } else {
     tables.hydrateWithoutActivate(modRoot, loaded);
@@ -147,13 +144,11 @@ function updateLoadedEntry(modRoot: string, loaded: ProjectManifest): string {
 function rollbackFailedModOpening(modRoot: string) {
   const workspace = useWorkspaceStore();
   const tables = useTablesStore();
-  const editors = useEditorsStore();
   const fileHistory = useFileHistoryStore();
   const csvEditHistory = useTablesEditHistoryStore();
   const project = useProjectStore();
   workspace.removeLoadedModEntry(modRoot);
   tables.removeModState(modRoot);
-  editors.removeModState(modRoot);
   fileHistory.removeModState(modRoot);
   csvEditHistory.clearForMod(modRoot);
   project.removeProjectManifest(modRoot);

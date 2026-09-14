@@ -45,18 +45,13 @@
         @input="handleTextInput"
         @scroll="syncScroll"
       />
-      <div
-        v-if="targetLine"
-        ref="highlightRef"
-        class="file-editor-line-highlight"
-        :style="{ top: `${(targetLine - 1) * lineHeight - scrollTop}px` }"
-      />
+      <div v-if="targetLine" class="file-editor-line-highlight" :style="{ top: `${(targetLine - 1) * lineHeight - scrollTop}px` }" />
     </section>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 import { useDirtyWindowCloseGuard } from '@/app/composables/use-dirty-window-close-guard';
 import { useFileEditorViewModel } from '@/app/composables/use-file-editor-view-model';
 import { useSettingsStore } from '@/stores/settings.store';
@@ -83,8 +78,8 @@ const fileTypeText = computed(() => {
 const modRootName = computed(() => (modRoot ? pathBasename(modRoot) : '未知 Mod'));
 const scrollTop = ref(0);
 const lineHeight = 20;
-const textareaRef = ref<HTMLTextAreaElement>();
-const lineGutterRef = ref<HTMLElement>();
+const textareaRef = useTemplateRef<HTMLTextAreaElement>('textareaRef');
+const lineGutterRef = useTemplateRef<HTMLElement>('lineGutterRef');
 const {
   contextLabel,
   contextMessage,

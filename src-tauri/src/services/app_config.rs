@@ -67,10 +67,8 @@ mod tests {
         models::{AppLogEntry, AppLogLevel},
         services::app_settings,
     };
-    use std::{
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+
+    use crate::testutil::temp_dir;
 
     #[test]
     fn clear_config_files_keeps_log() {
@@ -99,15 +97,5 @@ mod tests {
         assert!(!workspace_exists);
         assert!(!settings_exists);
         assert!(!nested_exists);
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 }

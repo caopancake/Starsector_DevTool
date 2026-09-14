@@ -1,15 +1,15 @@
 use super::super::{
-    model::{string_field, ProjectSession, WEAPON_SPRITE_FIELDS},
+    model::{ProjectSession, WEAPON_SPRITE_FIELDS, string_field},
     table_definitions::hull_resource_ref,
 };
 use super::sprites;
 use crate::errors::{AppError, AppResult};
 use crate::models::{ResourceOwnerKind, ResourceRef, ResourceSource, SkinFile};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
     path::PathBuf,
-    sync::{Mutex, OnceLock},
+    sync::{LazyLock, Mutex},
     time::SystemTime,
 };
 
@@ -31,13 +31,13 @@ struct SpriteMediaCacheState {
 }
 
 fn sprite_media_cache() -> &'static Mutex<SpriteMediaCacheState> {
-    static CACHE: OnceLock<Mutex<SpriteMediaCacheState>> = OnceLock::new();
-    CACHE.get_or_init(|| {
+    static CACHE: LazyLock<Mutex<SpriteMediaCacheState>> = LazyLock::new(|| {
         Mutex::new(SpriteMediaCacheState {
             entries: HashMap::new(),
             order: VecDeque::new(),
         })
-    })
+    });
+    &CACHE
 }
 
 pub(in crate::services::project) struct SpriteResourceBytes {
@@ -90,7 +90,13 @@ pub(in crate::services::project) fn sprite_resource_bytes_cached(
 }
 
 fn cached_sprite_media_lookup(media_key: &(String, String)) -> Option<String> {
-    let cache = sprite_media_cache().lock().ok()?;
+    let cache = match sprite_media_cache().lock() {
+        Ok(cache) => cache,
+        Err(_) => {
+            eprintln!("sprite media cache lock poisoned");
+            return None;
+        }
+    };
     let entry = cache.entries.get(media_key)?;
     let metadata = std::fs::metadata(&entry.resolved_path).ok()?;
     if metadata.modified().ok()? != entry.modified || metadata.len() != entry.length {
@@ -107,6 +113,7 @@ fn store_sprite_media_entry(
     data_url: String,
 ) {
     let Ok(mut cache) = sprite_media_cache().lock() else {
+        eprintln!("sprite media cache lock poisoned");
         return;
     };
     if !cache.entries.contains_key(media_key) {
@@ -131,6 +138,7 @@ fn store_sprite_media_entry(
 
 pub(in crate::services::project) fn clear_sprite_media_cache_for_session(session_id: &str) {
     let Ok(mut cache) = sprite_media_cache().lock() else {
+        eprintln!("sprite media cache lock poisoned");
         return;
     };
     cache.order.retain(|key| key.0 != session_id);
@@ -145,6 +153,7 @@ pub(in crate::services::project) fn cached_sprite_media_contains(
     resource: &ResourceRef,
 ) -> bool {
     let Ok(cache) = sprite_media_cache().lock() else {
+        eprintln!("sprite media cache lock poisoned");
         return false;
     };
     cache

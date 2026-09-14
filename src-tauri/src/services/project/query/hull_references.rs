@@ -5,7 +5,7 @@ use super::super::cache::{
 use super::super::resources::{resource_ref, skin_resource_ref};
 use super::super::{
     cache::{load_core_ship_files, load_core_skin_files},
-    model::{is_comment_row, string_field, string_from_row, ProjectSession, SessionCsvRow},
+    model::{ProjectSession, SessionCsvRow, is_comment_row, string_field, string_from_row},
 };
 use crate::{
     errors::{AppError, AppResult},
@@ -370,7 +370,8 @@ mod tests {
     use super::super::super::session::{close_project_session, open_project_session_traced};
     use super::*;
     use crate::io::write_utf8_no_bom;
-    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use crate::testutil::temp_dir;
 
     #[test]
     fn hull_reference_query_returns_mod_and_core_ship_and_skin_refs() {
@@ -537,15 +538,5 @@ mod tests {
         );
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
-    }
-
-    fn temp_dir(name: &str) -> std::path::PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        std::fs::create_dir_all(&path).unwrap();
-        path
     }
 }

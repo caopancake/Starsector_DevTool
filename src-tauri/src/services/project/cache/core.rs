@@ -1,6 +1,6 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::{load_json_dir_by_id, read_csv_data, FsRootBoundary},
+    io::{FsRootBoundary, load_json_dir_by_id, read_csv_data},
     models::{CsvTableKey, SkinFile, VariantFile},
 };
 use serde_json::Value;
@@ -217,10 +217,8 @@ pub(crate) fn load_core_source_data(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        fs,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use crate::testutil::temp_dir;
+    use std::fs;
 
     #[test]
     fn core_cache_rejects_parent_dir_root() {
@@ -273,15 +271,5 @@ mod tests {
         assert_eq!(loaded["demo"]["spriteName"], "before");
         assert!(persisted.and_then(|cache| cache.ship_files).is_some());
         assert_eq!(changed["demo"]["spriteName"], "after");
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 }

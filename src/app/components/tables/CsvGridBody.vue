@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, toRef } from 'vue';
+import { toRef, useTemplateRef } from 'vue';
 import type { CsvGridRowSlot, CsvWindowRow } from '@/shared/types';
 import type { CsvGridColumn } from '@/domain/tables/csv-grid-model';
 import type { CsvSourceIndex } from '@/domain/tables/csv-source-options';
@@ -52,9 +52,7 @@ const emit = defineEmits<{
   'update-cell': [rowKey: string, column: string, value: string];
 }>();
 
-const bodyRef = ref<{
-  querySelector: (selector: string) => { classList: { add: (name: string) => void; remove: (name: string) => void } } | null;
-} | null>(null);
+const bodyRef = useTemplateRef<HTMLTableSectionElement>('bodyRef');
 const { handleRowClick } = useTableDomSelection(bodyRef, toRef(props, 'selectedRowKey'));
 
 function selectRow(rowKey: string, event: MouseEvent) {

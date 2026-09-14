@@ -5,7 +5,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { useTemplateRef } from 'vue';
 import type { CsvColumnControl } from '@/domain/tables/csv-column-schema';
 
 defineProps<{
@@ -13,7 +13,7 @@ defineProps<{
   control: CsvColumnControl | 'text';
 }>();
 
-const frameRef = ref<HTMLElement | null>(null);
+const frameRef = useTemplateRef<HTMLElement>('frameRef');
 
 defineExpose({ frameRef });
 </script>

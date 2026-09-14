@@ -1,3 +1,4 @@
+import globals from 'globals';
 import js from '@eslint/js';
 import pluginVue from 'eslint-plugin-vue';
 import tseslint from 'typescript-eslint';
@@ -13,20 +14,7 @@ export default [
     files: ['**/*.vue', '**/*.ts'],
     languageOptions: {
       globals: {
-        CanvasRenderingContext2D: 'readonly',
-        Event: 'readonly',
-        HTMLCanvasElement: 'readonly',
-        HTMLElement: 'readonly',
-        HTMLInputElement: 'readonly',
-        HTMLTextAreaElement: 'readonly',
-        Image: 'readonly',
-        KeyboardEvent: 'readonly',
-        MouseEvent: 'readonly',
-        WheelEvent: 'readonly',
-        cancelAnimationFrame: 'readonly',
-        document: 'readonly',
-        requestAnimationFrame: 'readonly',
-        window: 'readonly',
+        ...globals.browser,
       },
       parserOptions: {
         parser: tseslint.parser,
@@ -48,8 +36,7 @@ export default [
     files: ['scripts/**/*.mjs', '*.config.js'],
     languageOptions: {
       globals: {
-        console: 'readonly',
-        process: 'readonly',
+        ...globals.node,
       },
     },
   },

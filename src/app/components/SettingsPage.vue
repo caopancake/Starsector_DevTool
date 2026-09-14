@@ -107,6 +107,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue';
+import type { JsonValue } from '@/shared/types';
 import { ACCENT_PRESETS, MAX_HISTORY_LIMIT, useSettingsStore } from '@/stores/settings.store';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import { useSettingsViewModel } from '@/app/composables/use-settings-view-model';
@@ -139,7 +140,7 @@ watch(
   },
 );
 
-function applyCustomAccent(value: string | number[] = customAccentDraft.value) {
+function applyCustomAccent(value: JsonValue | number[] = customAccentDraft.value) {
   if (typeof value !== 'string') return;
   customAccentDraft.value = value;
   const applied = settings.setCustomAccent(value);

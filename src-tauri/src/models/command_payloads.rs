@@ -374,10 +374,12 @@ mod tests {
 
         assert_eq!(payload.session_id, "session-1");
         assert_eq!(payload.source, "csv:ships.id");
-        assert!(serde_json::from_value::<CsvSourceOptionsPayload>(json!({
-            "sessionId": "session-1"
-        }))
-        .is_err());
+        assert!(
+            serde_json::from_value::<CsvSourceOptionsPayload>(json!({
+                "sessionId": "session-1"
+            }))
+            .is_err()
+        );
     }
 
     #[test]

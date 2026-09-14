@@ -217,10 +217,10 @@ fn is_reparse_point(_metadata: &fs::Metadata) -> bool {
 mod tests {
     use super::FsRootBoundary;
     use crate::io::write_utf8_no_bom;
+    use crate::testutil::temp_dir;
     use std::{
         fs,
         path::{Path, PathBuf},
-        time::{SystemTime, UNIX_EPOCH},
     };
 
     #[test]
@@ -315,16 +315,6 @@ mod tests {
         let _ = fs::remove_dir_all(root);
         let _ = fs::remove_dir_all(outside);
         assert!(result.is_err());
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 
     fn temp_linked_dir(name: &str, rel_link: &str) -> Option<(PathBuf, PathBuf, PathBuf)> {

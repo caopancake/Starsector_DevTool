@@ -52,11 +52,8 @@ fn insert_projectiles(
 mod tests {
     use super::*;
     use crate::io::write_utf8_no_bom;
-    use std::{
-        fs,
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use crate::testutil::temp_dir;
+    use std::fs;
 
     #[test]
     fn mod_projectile_overrides_core_fallback() {
@@ -84,15 +81,5 @@ mod tests {
             loaded["core_only"]["_source"],
             ResourceSource::Core.as_str()
         );
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 }

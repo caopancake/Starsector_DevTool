@@ -76,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, onUnmounted, reactive, ref, useTemplateRef, watch } from 'vue';
 import type { JsonValue } from '@/shared/types';
 
 type ChannelMode = 'rgb' | 'rgba';
@@ -99,7 +99,6 @@ interface HsvDraft {
 
 const props = withDefaults(
   defineProps<{
-    modelValue?: JsonValue | number[];
     channels?: ChannelMode;
     output?: ColorOutput;
     label?: string;
@@ -110,16 +109,15 @@ const props = withDefaults(
     channels: 'rgba',
     output: 'rgba-array',
     label: '',
-    modelValue: () => [],
     defaultValue: () => [128, 128, 128, 255],
     allowTextInput: true,
   },
 );
 
-const emit = defineEmits<{ 'update:modelValue': [value: number[] | string] }>();
+const modelValue = defineModel<JsonValue | number[]>('modelValue', { default: () => [] });
 
 const panelOpen = ref(false);
-const svRef = ref<HTMLElement | null>(null);
+const svRef = useTemplateRef<HTMLElement>('svRef');
 const textDraft = ref('');
 const textValid = ref(true);
 const draft = reactive<HsvDraft>({ h: 0, s: 0, v: 0, a: 255 });
@@ -128,7 +126,7 @@ const effectiveOutput = computed<ColorOutput>(() =>
   props.output === 'rgba-array' && props.channels === 'rgb' ? 'rgb-array' : props.output,
 );
 
-const currentColor = computed<RgbaColor>(() => parseColor(props.modelValue, arrayToRgba(props.defaultValue, props.defaultValue))!);
+const currentColor = computed<RgbaColor>(() => parseColor(modelValue.value, arrayToRgba(props.defaultValue, props.defaultValue))!);
 const hueRgb = computed(() => hsvToRgb(draft.h, 100, 100));
 const draftColor = computed<RgbaColor>(() => ({ ...hsvToRgb(draft.h, draft.s, draft.v), a: clampChannel(draft.a) }));
 
@@ -177,7 +175,7 @@ function channelValue(channel: ChannelKey): number {
 
 function emitColor(color: RgbaColor) {
   const normalized = { ...color, a: props.channels === 'rgb' ? 255 : color.a };
-  emit('update:modelValue', formatColor(normalized, effectiveOutput.value));
+  modelValue.value = formatColor(normalized, effectiveOutput.value);
 }
 
 function loadDraft(color: RgbaColor) {

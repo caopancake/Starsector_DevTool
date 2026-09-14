@@ -19,7 +19,12 @@ export const resourceBoundaryRule = {
       if (/\bqueryResourceDataUrl\b|\bquery_resource_data_url\b/.test(file.text)) {
         failures.push(`${file.rel}: single resource data URL APIs are forbidden`);
       }
-      if (current.layer !== 'services' && current.layer !== 'shared' && /\bqueryResourceDataUrls\b/.test(file.text)) {
+      if (
+        current.layer !== 'services' &&
+        current.layer !== 'shared' &&
+        current.layer !== 'test' &&
+        /\bqueryResourceDataUrls\b/.test(file.text)
+      ) {
         failures.push(`${file.rel}: batch resource API must be wrapped by resource-cache service`);
       }
       if (/\bPromise\.all\s*\([^)]*queryResource/s.test(file.text)) {

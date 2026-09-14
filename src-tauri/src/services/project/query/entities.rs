@@ -46,7 +46,8 @@ mod tests {
     use crate::io::write_utf8_no_bom;
     use serde_json::{Map, Value};
     use std::collections::BTreeMap;
-    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use crate::testutil::temp_dir;
 
     #[test]
     fn mission_entity_query_returns_index_descriptor_text_and_icon_ref() {
@@ -437,15 +438,5 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
         assert_eq!(entities.len(), 1);
         assert_eq!(entities[0].id, "skill_one");
-    }
-
-    fn temp_dir(name: &str) -> std::path::PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        std::fs::create_dir_all(&path).unwrap();
-        path
     }
 }

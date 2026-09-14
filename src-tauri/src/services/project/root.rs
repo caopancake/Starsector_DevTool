@@ -45,11 +45,8 @@ pub(super) fn count_mission_list_entries(mod_root: &Path) -> AppResult<usize> {
 mod tests {
     use super::*;
     use crate::io::write_utf8_no_bom;
-    use std::{
-        fs,
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use crate::testutil::temp_dir;
+    use std::fs;
 
     #[test]
     fn mission_count_ignores_comment_rows() {
@@ -65,15 +62,5 @@ mod tests {
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(count, 1);
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 }

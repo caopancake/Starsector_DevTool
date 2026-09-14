@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, useTemplateRef } from 'vue';
 import { cell } from '@/shared/lib/starsector';
 import type { CsvWindowRow } from '@/shared/types';
 import type { CsvGridColumn } from '@/domain/tables/csv-grid-model';
@@ -68,10 +68,9 @@ const emit = defineEmits<{
 }>();
 
 const settings = useSettingsStore();
-const plainMode = computed(() => settings.isPlainEditMode);
 const project = useProjectStore();
 const { schemaSelectSprite } = useSchemaSelectMedia();
-const inputRef = ref<HTMLInputElement | null>(null);
+const inputRef = useTemplateRef<HTMLInputElement>('inputRef');
 const pickerAnchor = ref<{ height: number; left: number; top: number; width: number } | null>(null);
 
 // Local buffer for native input — only commits on blur/Enter, avoids reactive cascade during typing.
@@ -80,7 +79,7 @@ const localInputValue = ref('');
 const rawValue = computed(() => cell(props.row.row[props.column.key]));
 const control = computed(() => csvColumnControl(props.column.schema));
 const usesNativeInput = computed(() => {
-  if (plainMode.value) return true;
+  if (settings.isPlainEditMode) return true;
   return csvControlUsesNativeInput(control.value);
 });
 const isListControl = computed(() => isCsvListControl(control.value));

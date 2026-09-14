@@ -1,11 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ResourceDataUrlBatchEntry, ResourceDataUrlBatchResult, ResourceRef } from '@/shared/types';
 import * as resourceCacheService from '@/services/resource-cache.service';
 
-const queryResources = Reflect.get(resourceCacheService, 'queryResourceData' + 'Urls') as (
-  sessionId: string,
-  resources: ResourceRef[],
-) => Promise<Array<string | null>>;
+const { queryResourceDataUrls: queryResources } = resourceCacheService;
 const { RESOURCE_DATA_URL_CACHE_CAPACITY } = resourceCacheService;
 
 const mocks = vi.hoisted(() => ({
@@ -27,8 +24,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/shared/api/query-api', () => ({ queryResourceDataUrlBatch: mocks.queryBatch }));
 
 describe('resource data URL cache', () => {
-  beforeEach(() => mocks.queryBatch.mockClear());
-
   it('holds 512 physical resources and refreshes LRU order on access', async () => {
     const sessionId = 'resource-cache-lru';
     const initial = Array.from({ length: RESOURCE_DATA_URL_CACHE_CAPACITY }, (_, index) => resource(index));

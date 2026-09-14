@@ -1,27 +1,27 @@
 use crate::{
+    errors::AppError,
     models::{
+        GameOverviewData, OpenDirectoryResult, ProjectManifest,
         command_payloads::{
             DetectDirectoryPayload, OpenProjectSessionPayload, ScanGameOverviewPayload,
         },
-        GameOverviewData, OpenDirectoryResult, ProjectManifest,
     },
     services,
 };
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn open_project_session(
     app_handle: tauri::AppHandle,
     payload: OpenProjectSessionPayload,
-) -> Result<ProjectManifest, String> {
+) -> Result<ProjectManifest, AppError> {
     services::directory_opening::open_project_session_with_root(
         app_handle,
         payload.mod_root,
         payload.starsector_root,
     )
-    .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn detect_directory(payload: DetectDirectoryPayload) -> OpenDirectoryResult {
     services::directory_opening::detect_directory(
         std::path::Path::new(&payload.path),
@@ -29,7 +29,7 @@ pub fn detect_directory(payload: DetectDirectoryPayload) -> OpenDirectoryResult 
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn scan_game_overview(payload: ScanGameOverviewPayload) -> GameOverviewData {
     services::directory_opening::scan_game_overview(std::path::Path::new(&payload.starsector_root))
 }

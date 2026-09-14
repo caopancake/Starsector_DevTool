@@ -1,18 +1,18 @@
 use crate::{
-    models::{command_payloads::SaveAppSettingsPayload, AppSettings},
+    errors::AppError,
+    models::{AppSettings, command_payloads::SaveAppSettingsPayload},
     services,
 };
 
 #[tauri::command]
-pub fn load_app_settings(app_handle: tauri::AppHandle) -> Result<AppSettings, String> {
-    services::app_settings::load_app_settings(app_handle).map_err(|e| e.to_string())
+pub fn load_app_settings(app_handle: tauri::AppHandle) -> Result<AppSettings, AppError> {
+    services::app_settings::load_app_settings(app_handle)
 }
 
 #[tauri::command]
 pub fn save_app_settings(
     app_handle: tauri::AppHandle,
     payload: SaveAppSettingsPayload,
-) -> Result<AppSettings, String> {
+) -> Result<AppSettings, AppError> {
     services::app_settings::save_app_settings(app_handle, payload.settings)
-        .map_err(|e| e.to_string())
 }

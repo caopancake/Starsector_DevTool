@@ -57,13 +57,10 @@ import JsonFieldEditor from '@/shared/ui/JsonFieldEditor.vue';
 
 const props = defineProps<{
   schema: FileSchema;
-  modelValue: RowData;
   runtimeContext?: SchemaRuntimeContext | null;
 }>();
 
-const emit = defineEmits<{
-  'update:modelValue': [value: RowData];
-}>();
+const modelValue = defineModel<RowData>({ required: true });
 
 const sections = computed<SectionSchema[]>(() => getSchemaSections(props.schema));
 
@@ -72,10 +69,10 @@ const schemaKeys = computed<string[]>(() => getSchemaFieldKeys(props.schema));
 const extraSource = computed(() => getExtraFieldSource(props.schema));
 
 const extraModelValue = computed<RowData>(() => {
-  if (!isMultiSourceSchema(props.schema)) return props.modelValue;
+  if (!isMultiSourceSchema(props.schema)) return modelValue.value;
   const sourceId = extraSource.value;
   if (!sourceId) return {};
-  const sourceValue = props.modelValue[sourceId];
+  const sourceValue = modelValue.value[sourceId];
   return sourceValue && typeof sourceValue === 'object' && !Array.isArray(sourceValue) ? (sourceValue as RowData) : {};
 });
 
@@ -114,17 +111,17 @@ function toggleSection(id: string) {
 }
 
 function onFieldUpdate(key: string, value: unknown) {
-  const updated = setNestedValue(props.modelValue, key, value);
-  emit('update:modelValue', updated);
+  const updated = setNestedValue(modelValue.value, key, value);
+  modelValue.value = updated;
 }
 
 function onExtraUpdate(value: RowData) {
   if (!isMultiSourceSchema(props.schema)) {
-    emit('update:modelValue', value);
+    modelValue.value = value;
     return;
   }
   const sourceId = extraSource.value;
   if (!sourceId) return;
-  emit('update:modelValue', setNestedValue(props.modelValue, sourceId, value));
+  modelValue.value = setNestedValue(modelValue.value, sourceId, value);
 }
 </script>

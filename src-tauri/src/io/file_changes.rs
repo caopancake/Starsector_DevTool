@@ -1,12 +1,12 @@
 use crate::{
     errors::{AppError, AppResult},
     io::{
-        read_utf8_no_bom, validate_safe_relative_path, validate_walk_entry, write_utf8_no_bom,
-        FsRootBoundary,
+        FsRootBoundary, read_utf8_no_bom, validate_safe_relative_path, validate_walk_entry,
+        write_utf8_no_bom,
     },
     models::{FileChangeKind, FileChangeRecord, FileSnapshot},
 };
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use std::{fs, path::Path};
 use walkdir::WalkDir;
 
@@ -121,7 +121,9 @@ pub fn build_file_change(
         (None, None)
     };
     if let Some(data) = &after_data_base64 {
-        general_purpose::STANDARD.decode(data)?;
+        general_purpose::STANDARD.decode(data).map_err(|e| {
+            AppError::context(format!("解码文件数据失败 ({})", path.display()), e.into())
+        })?;
     }
     Ok(FileChangeRecord {
         kind: FileChangeKind::File,
@@ -235,7 +237,9 @@ fn apply_file_change(change: &FileChangeRecord, direction: ChangeDirection) -> A
         if let Some(text) = text {
             write_utf8_no_bom(path, text)?;
         } else if let Some(data) = data_base64 {
-            let bytes = general_purpose::STANDARD.decode(data)?;
+            let bytes = general_purpose::STANDARD.decode(data).map_err(|e| {
+                AppError::context(format!("解码文件数据失败 ({})", path.display()), e.into())
+            })?;
             fs::write(path, bytes)?;
         } else {
             return Err(AppError::message("changeset missing file content"));
@@ -384,7 +388,9 @@ fn restore_snapshot_file(path: &Path, file: &FileSnapshot) -> AppResult<()> {
         .data_base64
         .as_deref()
         .ok_or_else(|| AppError::message("directory snapshot missing file data"))?;
-    let bytes = general_purpose::STANDARD.decode(data)?;
+    let bytes = general_purpose::STANDARD.decode(data).map_err(|e| {
+        AppError::context(format!("解码文件数据失败 ({})", path.display()), e.into())
+    })?;
     fs::write(path, bytes)?;
     Ok(())
 }
@@ -392,11 +398,8 @@ fn restore_snapshot_file(path: &Path, file: &FileSnapshot) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        fs,
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use crate::testutil::temp_dir;
+    use std::fs;
 
     #[test]
     fn rollback_changes_reports_restore_errors() {
@@ -437,13 +440,5 @@ mod tests {
         assert!(error.contains("apply failed"));
         assert!(error.contains("first rollback failed"));
         assert!(error.contains("second rollback failed"));
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        std::env::temp_dir().join(format!("starsector_devtool_{name}_{unique}"))
     }
 }

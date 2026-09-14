@@ -1,14 +1,14 @@
-import { onMounted, onUnmounted, type Ref } from 'vue';
+import { onMounted, onUnmounted, type ShallowRef } from 'vue';
 
 type ShortcutHandlers = {
   redo: () => void;
   save?: () => void;
   undo: () => void;
   onKeyDown?: (event: KeyboardEvent) => void;
-  scope?: Ref<HTMLElement | undefined>;
+  scope?: Readonly<ShallowRef<HTMLElement | null>>;
 };
 
-function shouldIgnoreShortcut(event: KeyboardEvent, scope?: HTMLElement) {
+function shouldIgnoreShortcut(event: KeyboardEvent, scope?: HTMLElement | null) {
   const target = event.target as HTMLElement | null;
   if (!target) return false;
   if (scope && !scope.contains(target)) return false;

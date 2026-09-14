@@ -1,5 +1,5 @@
 use super::model::{
-    ProjectSession, SessionCsvTable, SpecBundle, MISSION_LIST_REL_PATH, MISSION_LIST_TABLE_KEY,
+    MISSION_LIST_REL_PATH, MISSION_LIST_TABLE_KEY, ProjectSession, SessionCsvTable, SpecBundle,
 };
 use super::{
     cache::{self, session_for_mut, sessions},
@@ -10,7 +10,7 @@ use super::{
 };
 use crate::{
     errors::{AppError, AppResult},
-    io::{load_json_dir_by_id, read_csv_data, FsRootBoundary},
+    io::{FsRootBoundary, load_json_dir_by_id, read_csv_data},
     models::{CsvTableKey, EntitySummaries, ProjectManifest, TableSummary},
     models::{FileChangeRecord, ProjectInvalidation, ProjectSessionInvalidationResult},
 };
@@ -410,6 +410,7 @@ pub(super) fn load_spec_bundle(
 mod tests {
     use super::*;
     use crate::io::write_utf8_no_bom;
+    use crate::testutil::temp_dir;
 
     #[test]
     fn open_project_session_rejects_variant_missing_required_ids() {
@@ -515,10 +516,12 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(root);
         assert_eq!(manifest.entity_summaries.missions, 1);
-        assert!(!manifest_json["tableSummaries"]
-            .as_object()
-            .unwrap()
-            .contains_key(MISSION_LIST_TABLE_KEY));
+        assert!(
+            !manifest_json["tableSummaries"]
+                .as_object()
+                .unwrap()
+                .contains_key(MISSION_LIST_TABLE_KEY)
+        );
     }
 
     #[test]
@@ -576,11 +579,13 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(root);
         assert_eq!(loaded.entity_summaries.variants, 1);
-        assert!(loaded
-            .warnings
-            .iter()
-            .any(|warning| warning.message.contains("重复 variantId dup")
-                && warning.path.contains("two.variant")));
+        assert!(
+            loaded
+                .warnings
+                .iter()
+                .any(|warning| warning.message.contains("重复 variantId dup")
+                    && warning.path.contains("two.variant"))
+        );
     }
 
     #[test]
@@ -624,11 +629,13 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(root);
         assert_eq!(loaded.entity_summaries.skins, 1);
-        assert!(loaded
-            .warnings
-            .iter()
-            .any(|warning| warning.message.contains("重复 skinHullId dup")
-                && warning.path.contains("two.skin")));
+        assert!(
+            loaded
+                .warnings
+                .iter()
+                .any(|warning| warning.message.contains("重复 skinHullId dup")
+                    && warning.path.contains("two.skin"))
+        );
     }
 
     #[test]
@@ -658,33 +665,31 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(root);
         let _ = std::fs::remove_dir_all(cache_root);
-        assert!(cached
-            .variant_files
-            .iter()
-            .any(|file| file.variant_id == "before"));
-        assert!(changed
-            .variant_files
-            .iter()
-            .any(|file| file.variant_id == "after"));
-        assert!(cached_trace
-            .log_messages(&[])
-            .iter()
-            .any(|message| message.contains("name=persistent_index")
-                && message.contains("result=hit")));
-        assert!(changed_trace
-            .log_messages(&[])
-            .iter()
-            .any(|message| message.contains("name=persistent_index")
-                && message.contains("result=miss")));
-    }
-
-    fn temp_dir(name: &str) -> std::path::PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        std::fs::create_dir_all(&path).unwrap();
-        path
+        assert!(
+            cached
+                .variant_files
+                .iter()
+                .any(|file| file.variant_id == "before")
+        );
+        assert!(
+            changed
+                .variant_files
+                .iter()
+                .any(|file| file.variant_id == "after")
+        );
+        assert!(
+            cached_trace
+                .log_messages(&[])
+                .iter()
+                .any(|message| message.contains("name=persistent_index")
+                    && message.contains("result=hit"))
+        );
+        assert!(
+            changed_trace
+                .log_messages(&[])
+                .iter()
+                .any(|message| message.contains("name=persistent_index")
+                    && message.contains("result=miss"))
+        );
     }
 }

@@ -107,7 +107,8 @@ pub(super) fn load_skin_files(mod_root: &Path) -> AppResult<(Vec<SkinFile>, Vec<
 mod tests {
     use super::*;
     use crate::io::write_utf8_no_bom;
-    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use crate::testutil::temp_dir;
 
     #[test]
     fn duplicate_variant_ids_keep_first_and_warn() {
@@ -150,18 +151,26 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
         assert_eq!(variants.len(), 3);
         assert_eq!(warnings.len(), 3);
-        assert!(variants
-            .iter()
-            .any(|variant| variant.variant_id == "kite_hegemony_Interceptor"));
-        assert!(variants
-            .iter()
-            .any(|variant| variant.variant_id == "kite_original_Stock"));
-        assert!(variants
-            .iter()
-            .any(|variant| variant.variant_id == "ziggurat_Experimental"));
-        assert!(warnings
-            .iter()
-            .any(|warning| warning.message.contains("kite_hegemony_Interceptor")));
+        assert!(
+            variants
+                .iter()
+                .any(|variant| variant.variant_id == "kite_hegemony_Interceptor")
+        );
+        assert!(
+            variants
+                .iter()
+                .any(|variant| variant.variant_id == "kite_original_Stock")
+        );
+        assert!(
+            variants
+                .iter()
+                .any(|variant| variant.variant_id == "ziggurat_Experimental")
+        );
+        assert!(
+            warnings
+                .iter()
+                .any(|warning| warning.message.contains("kite_hegemony_Interceptor"))
+        );
     }
 
     #[test]
@@ -184,18 +193,10 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
         assert_eq!(variants.len(), 1);
         assert_eq!(warnings.len(), 1);
-        assert!(warnings[0]
-            .message
-            .contains("重复 variantId kite_hegemony_Interceptor"));
-    }
-
-    fn temp_dir(name: &str) -> std::path::PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        std::fs::create_dir_all(&path).unwrap();
-        path
+        assert!(
+            warnings[0]
+                .message
+                .contains("重复 variantId kite_hegemony_Interceptor")
+        );
     }
 }

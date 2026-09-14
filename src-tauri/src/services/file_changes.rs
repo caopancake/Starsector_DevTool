@@ -1,8 +1,8 @@
 use crate::{
     errors::AppResult,
     io::{
-        apply_changes, validate_safe_relative_path, ChangeDirection, FileChangeSetBuilder,
-        FsRootBoundary,
+        ChangeDirection, FileChangeSetBuilder, FsRootBoundary, apply_changes,
+        validate_safe_relative_path,
     },
     models::{AssociatedFileChange, FileChangeRecord, FileChangeReplayDirection, WriteResult},
 };
@@ -55,17 +55,17 @@ fn validate_snapshot_relative_path(path: &str) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testutil::temp_dir;
     use crate::{
         io::{
             build_directory_delete_change, build_file_change, read_utf8_no_bom, write_utf8_no_bom,
         },
         models::{AssociatedFileChange, FileChangeKind, FileChangeReplayDirection, FileSnapshot},
     };
-    use base64::{engine::general_purpose, Engine as _};
+    use base64::{Engine as _, engine::general_purpose};
     use std::{
         fs,
         path::{Path, PathBuf},
-        time::{SystemTime, UNIX_EPOCH},
     };
 
     #[test]
@@ -173,16 +173,20 @@ mod tests {
         let result = write_result(vec![change]);
 
         let _ = fs::remove_dir_all(root);
-        assert!(result
-            .invalidation
-            .paths
-            .iter()
-            .any(|path| path_string(path) == path_string(&dir)));
-        assert!(result
-            .invalidation
-            .paths
-            .iter()
-            .any(|path| { path_string(path) == path_string(dir.join("demo.variant")) }));
+        assert!(
+            result
+                .invalidation
+                .paths
+                .iter()
+                .any(|path| path_string(path) == path_string(&dir))
+        );
+        assert!(
+            result
+                .invalidation
+                .paths
+                .iter()
+                .any(|path| { path_string(path) == path_string(dir.join("demo.variant")) })
+        );
     }
 
     #[test]
@@ -492,16 +496,6 @@ mod tests {
         }
 
         let _ = fs::remove_dir_all(root);
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 
     fn temp_linked_dir(name: &str) -> Option<(PathBuf, PathBuf, PathBuf)> {

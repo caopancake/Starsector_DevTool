@@ -64,10 +64,8 @@ fn normalize_known_cp1252_bytes(mut bytes: Vec<u8>) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+
+    use crate::testutil::temp_path;
 
     #[test]
     fn rejects_utf8_bom() {
@@ -119,13 +117,5 @@ mod tests {
 
         let _ = fs::remove_file(path);
         assert_eq!(text, "left - right");
-    }
-
-    fn temp_path(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        std::env::temp_dir().join(format!("{stamp}_{name}"))
     }
 }

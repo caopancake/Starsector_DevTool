@@ -2,7 +2,7 @@ use crate::{
     domain::config::{build_skin_file, validate_config_id},
     domain::editor_config_definitions::entity_spec_definition,
     errors::{AppError, AppResult},
-    io::{read_json_file, strip_internal_fields, FileChangeSetBuilder},
+    io::{FileChangeSetBuilder, read_json_file, strip_internal_fields},
     models::{EntityKind, WriteResult},
 };
 use serde_json::Value;
@@ -87,8 +87,8 @@ fn require_skin_file_target(mod_root: &Path, rel_path: &str, skin_hull_id: &str)
     Ok(())
 }
 
-fn skin_spec_definition(
-) -> crate::errors::AppResult<&'static crate::domain::editor_config_definitions::EntitySpecDefinition>
+fn skin_spec_definition()
+-> crate::errors::AppResult<&'static crate::domain::editor_config_definitions::EntitySpecDefinition>
 {
     entity_spec_definition(EntityKind::Skin)
         .ok_or_else(|| AppError::message("舰船皮肤 spec 定义不存在"))
@@ -97,16 +97,13 @@ fn skin_spec_definition(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testutil::temp_dir;
     use crate::{
         io::{read_utf8_no_bom, write_utf8_no_bom},
         models::FileChangeReplayDirection,
         services::file_changes::apply_file_change_set,
     };
-    use std::{
-        fs,
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use std::fs;
 
     #[test]
     fn skin_save_can_rename_file_with_undo_redo() {
@@ -236,15 +233,5 @@ mod tests {
         let _ = fs::remove_dir_all(root);
         assert!(result.is_err());
         assert!(!target_exists);
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 }

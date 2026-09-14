@@ -2,7 +2,7 @@ use crate::domain::editor_config_definitions::entity_spec_definition;
 use crate::{
     domain::config::validate_config_id,
     errors::{AppError, AppResult},
-    io::{read_csv_data, strip_internal_fields, FileChangeSetBuilder},
+    io::{FileChangeSetBuilder, read_csv_data, strip_internal_fields},
     models::{EntityKind, IndexedConfigKind, WriteResult},
     parsers::render_csv_text,
 };
@@ -457,16 +457,13 @@ fn add_mission_delete_target_change(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testutil::temp_dir;
     use crate::{
         io::{read_utf8_no_bom, write_utf8_no_bom},
         models::FileChangeReplayDirection,
         services::file_changes::apply_file_change_set,
     };
-    use std::{
-        fs,
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use std::fs;
 
     #[test]
     fn faction_save_can_rename_file_and_index_with_undo_redo() {
@@ -501,9 +498,11 @@ mod tests {
 
         assert!(!dir.join("old.faction").exists());
         assert!(dir.join("new.faction").exists());
-        assert!(read_utf8_no_bom(&dir.join("factions.csv"))
-            .unwrap()
-            .contains("new,data/world/factions/new.faction"));
+        assert!(
+            read_utf8_no_bom(&dir.join("factions.csv"))
+                .unwrap()
+                .contains("new,data/world/factions/new.faction")
+        );
 
         apply_file_change_set(
             &root.to_string_lossy(),
@@ -636,15 +635,5 @@ mod tests {
             path.replace('\\', "/")
                 .ends_with("data/missions/demo/mission_text.txt")
         }));
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 }

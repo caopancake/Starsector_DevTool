@@ -1,4 +1,5 @@
 use crate::{
+    errors::AppError,
     models::command_payloads::{
         CloseProjectSessionPayload, CsvRowPreviewPayload, CsvSourceOptionsPayload,
         CsvTableWindowPayload, HullReferencesPayload, InvalidateCoreCachePayload,
@@ -12,13 +13,13 @@ use crate::{
     services,
 };
 
-#[tauri::command]
-pub fn close_project_session(payload: CloseProjectSessionPayload) -> Result<(), String> {
-    services::project::close_project_session(payload.session_id).map_err(|e| e.to_string())
+#[tauri::command(async)]
+pub fn close_project_session(payload: CloseProjectSessionPayload) -> Result<(), AppError> {
+    services::project::close_project_session(payload.session_id)
 }
 
 #[tauri::command]
-pub fn query_csv_table_window(payload: CsvTableWindowPayload) -> Result<CsvTableWindow, String> {
+pub fn query_csv_table_window(payload: CsvTableWindowPayload) -> Result<CsvTableWindow, AppError> {
     services::project::query_csv_table_window(
         &payload.session_id,
         payload.table,
@@ -27,60 +28,52 @@ pub fn query_csv_table_window(payload: CsvTableWindowPayload) -> Result<CsvTable
         payload.search,
         payload.faction,
     )
-    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn query_csv_source_options(
     payload: CsvSourceOptionsPayload,
-) -> Result<Vec<SourceOptionGroup>, String> {
+) -> Result<Vec<SourceOptionGroup>, AppError> {
     services::project::query_csv_source_options(&payload.session_id, &payload.source)
-        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn query_csv_row_preview(payload: CsvRowPreviewPayload) -> Result<CsvRowPreview, String> {
+pub fn query_csv_row_preview(payload: CsvRowPreviewPayload) -> Result<CsvRowPreview, AppError> {
     services::project::query_csv_row_preview(&payload.session_id, payload.table, &payload.row_key)
-        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn query_hull_references(
     payload: HullReferencesPayload,
-) -> Result<HullReferencesResult, String> {
+) -> Result<HullReferencesResult, AppError> {
     services::project::query_hull_references(&payload.session_id, &payload.reference_ids)
-        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn query_entity(payload: QueryEntityPayload) -> Result<Option<EntityData>, String> {
+pub fn query_entity(payload: QueryEntityPayload) -> Result<Option<EntityData>, AppError> {
     services::project::query_entity(&payload.session_id, payload.kind, &payload.id)
-        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn query_entity_list(payload: QueryEntityListPayload) -> Result<Vec<EntityData>, String> {
+pub fn query_entity_list(payload: QueryEntityListPayload) -> Result<Vec<EntityData>, AppError> {
     services::project::query_entity_list(&payload.session_id, payload.kind)
-        .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn query_resource_data_urls(
     payload: ResourceDataUrlBatchPayload,
-) -> Result<ResourceDataUrlBatchResult, String> {
+) -> Result<ResourceDataUrlBatchResult, AppError> {
     services::project::query_resource_data_urls(&payload.session_id, payload.resources)
-        .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn invalidate_project_session(
     payload: InvalidateProjectSessionPayload,
-) -> Result<ProjectSessionInvalidationResult, String> {
+) -> Result<ProjectSessionInvalidationResult, AppError> {
     services::project::invalidate_project_session(&payload.session_id, payload.changes)
-        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn invalidate_core_cache(payload: InvalidateCoreCachePayload) -> Result<(), String> {
-    services::project::invalidate_core_cache(&payload.starsector_root).map_err(|e| e.to_string())
+pub fn invalidate_core_cache(payload: InvalidateCoreCachePayload) -> Result<(), AppError> {
+    services::project::invalidate_core_cache(&payload.starsector_root)
 }

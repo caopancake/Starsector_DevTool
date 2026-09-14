@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const openManagedWindow = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 
@@ -16,10 +16,6 @@ const settings: AppSettings = {
   starsectorRoot: 'D:\\game',
   logDirectory: null,
 };
-
-beforeEach(() => {
-  openManagedWindow.mockClear();
-});
 
 describe('workspace warning file editor window', () => {
   it('opens recovery mode with the structured target and parsed position', async () => {

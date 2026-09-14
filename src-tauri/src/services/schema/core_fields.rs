@@ -1,6 +1,6 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::{read_json_file, validate_walk_entry, FsRootBoundary},
+    io::{FsRootBoundary, read_json_file, validate_walk_entry},
     models::{DiscoveredField, DiscoveredFieldType, ResourceSource},
 };
 use serde_json::Value;
@@ -129,10 +129,10 @@ fn infer_type(value: &Value) -> DiscoveredFieldType {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testutil::temp_dir;
     use std::{
         fs,
         path::{Path, PathBuf},
-        time::{SystemTime, UNIX_EPOCH},
     };
 
     #[test]
@@ -194,16 +194,6 @@ mod tests {
         let _ = fs::remove_dir_all(root);
         let _ = fs::remove_dir_all(outside);
         assert!(result.is_err());
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 
     fn temp_core_linked_dir(name: &str, rel_link: &str) -> Option<(PathBuf, PathBuf, PathBuf)> {

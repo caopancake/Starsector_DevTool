@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, useTemplateRef } from 'vue';
 import type { CsvWindowRow } from '@/shared/types';
 import type { CsvGridColumn } from '@/domain/tables/csv-grid-model';
 import type { CsvSourceIndex } from '@/domain/tables/csv-source-options';
@@ -36,7 +36,7 @@ defineProps<{
   sourceIndex: CsvSourceIndex;
 }>();
 
-const frameRef = ref<{ frameRef: HTMLElement | null } | null>(null);
+const frameRef = useTemplateRef('frameRef');
 const frameElement = computed(() => frameRef.value?.frameRef ?? null);
 
 const emit = defineEmits<{

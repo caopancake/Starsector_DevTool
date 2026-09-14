@@ -36,7 +36,7 @@ import { computed } from 'vue';
 import { marked } from 'marked';
 import changelogRaw from '../../../CHANGELOG.md?raw';
 
-const changelogHtml = computed(() => marked(changelogRaw) as string);
+const changelogHtml = computed(() => marked.parse(changelogRaw, { async: false }));
 </script>
 
 <style scoped>

@@ -6,7 +6,7 @@ use super::super::entity_definitions::associated_spec_definition;
 use super::super::model::SessionCsvRow;
 use crate::{
     errors::{AppError, AppResult},
-    io::{read_json_file, strip_internal_fields, FileChangeSetBuilder},
+    io::{FileChangeSetBuilder, read_json_file, strip_internal_fields},
     models::{
         AssociatedSpecChange, AssociatedSpecChangeAction, CsvRowKeyMapping, CsvRowPatch,
         CsvRowPatchAction, CsvTableKey, WriteResult,
@@ -51,11 +51,13 @@ pub fn save_csv_patch(
         table_data.header = header;
     }
     let write_result: WriteResult<()> = WriteResult::new(changes, key_map, None, Vec::new());
-    debug_assert!(write_result
-        .invalidation
-        .paths
-        .iter()
-        .all(|path| !path.is_empty()));
+    debug_assert!(
+        write_result
+            .invalidation
+            .paths
+            .iter()
+            .all(|path| !path.is_empty())
+    );
     debug_assert!(write_result.refreshed_entity().is_none());
     debug_assert!(write_result.warnings().is_empty());
     Ok(write_result)
@@ -172,6 +174,7 @@ fn rewrite_associated_spec_id(id_field: &str, path: &Path, new_id: &str) -> AppR
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testutil::temp_dir;
     use crate::{
         io::{read_utf8_no_bom, write_utf8_no_bom},
         models::{
@@ -184,10 +187,7 @@ mod tests {
         },
     };
     use serde_json::{Map, Value};
-    use std::{
-        path::Path,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use std::path::Path;
 
     #[test]
     fn save_csv_patch_creates_associated_spec_in_one_changeset() {
@@ -444,16 +444,6 @@ mod tests {
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
         assert!(error.contains("CSV upsert row key does not exist"));
-    }
-
-    fn temp_dir(name: &str) -> std::path::PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        std::fs::create_dir_all(&path).unwrap();
-        path
     }
 
     fn row_with_id(field: &str, id: &str) -> Map<String, Value> {

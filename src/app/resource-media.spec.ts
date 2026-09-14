@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/services/resource-cache.service', () => ({
-  ['queryResourceData' + 'Urls']: mocks.query,
+  queryResourceDataUrls: mocks.query,
   resourceCacheKey: (sessionId: string, resource: ResourceRef) => JSON.stringify([sessionId, resource.source, resource.relPath]),
   subscribeResourceInvalidations: (listener: (event: ResourceCacheInvalidationEvent) => void) => {
     mocks.invalidationListener = listener;
@@ -23,8 +23,6 @@ vi.mock('@/services/performance.service', () => ({ recordPerformance: mocks.reco
 describe('resource media service', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    mocks.query.mockClear();
-    mocks.recordPerformance.mockClear();
   });
 
   afterEach(() => vi.useRealTimers());

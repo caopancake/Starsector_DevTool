@@ -25,7 +25,7 @@ for (const filePath of files) {
 
 if (failures.length > 0) {
   console.error(failures.join('\n'));
-  process.exit(1);
+  process.exitCode = 1;
 }
 
 console.log(`Identifier length check passed: variables and functions <= ${maxIdentifierLength} characters.`);

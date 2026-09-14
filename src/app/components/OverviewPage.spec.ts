@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import OverviewPage from '@/app/components/OverviewPage.vue';
+import { nButtonStub } from '@/test/stubs';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 
 vi.mock('@/app/composables/use-create-mod-view-model', async () => {
@@ -41,7 +42,7 @@ describe('OverviewPage external Mod opening failures', () => {
         stubs: {
           GameOverviewPanel: true,
           LoadedModsPanel: true,
-          'n-button': { emits: ['click'], template: '<button @click="$emit(\'click\')"><slot /></button>' },
+          'n-button': nButtonStub,
           'n-input': true,
           'n-modal': true,
         },

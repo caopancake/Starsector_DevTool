@@ -5,7 +5,7 @@ use crate::{
     services::{
         app_log, app_paths,
         project::{
-            configure_persistent_index_cache, open_project_session_traced, PerformanceTrace,
+            PerformanceTrace, configure_persistent_index_cache, open_project_session_traced,
         },
     },
 };

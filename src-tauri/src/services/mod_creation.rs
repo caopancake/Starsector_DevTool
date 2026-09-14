@@ -1,7 +1,7 @@
 use crate::{
     domain::mod_creation::{render_initial_mod_info, validate_new_mod_template},
     errors::AppResult,
-    io::{mod_creation::create_new_mod, FsRootBoundary},
+    io::{FsRootBoundary, mod_creation::create_new_mod},
     models::{CreatedMod, NewModDestination, NewModTemplate},
     services::directory_opening::{infer_starsector_root, resolve_game_mods_directory},
 };
@@ -37,11 +37,8 @@ pub fn create_mod(
 mod tests {
     use super::*;
     use crate::models::NewModTemplate;
-    use std::{
-        fs,
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use crate::testutil::temp_dir;
+    use std::fs;
 
     #[test]
     fn game_destination_creates_mod_under_the_game_mods_directory() {
@@ -121,15 +118,5 @@ mod tests {
             version: "1.0.0".to_string(),
             game_version: "0.98a".to_string(),
         }
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 }

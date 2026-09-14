@@ -1,6 +1,6 @@
 use crate::{
     errors::AppResult,
-    io::{parse_csv_text, FsRootBoundary},
+    io::{FsRootBoundary, parse_csv_text},
     models::{
         CsvTableKey, EntityKind, FileChangeKind, FileChangeRecord, InvalidatedEntityRef,
         InvalidatedQueryKind, InvalidatedQueryScope, InvalidatedResourceScope, ProjectInvalidation,
@@ -523,16 +523,13 @@ fn refresh_table_entity_summary(session: &mut ProjectSession, table_key: &str) -
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testutil::temp_dir;
     use crate::{
         io::write_utf8_no_bom,
         models::{CsvTableKey, FileChangeKind, FileChangeRecord, FileSnapshot},
         services::project::performance::PerformanceTrace,
     };
-    use std::{
-        fs,
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use std::{fs, path::PathBuf};
 
     #[test]
     fn invalidating_variant_path_refreshes_session_variant_index() {
@@ -563,14 +560,18 @@ mod tests {
         .unwrap();
 
         let _ = fs::remove_dir_all(root);
-        assert!(session
-            .variant_files
-            .iter()
-            .any(|variant| variant.variant_id == "new"));
-        assert!(!session
-            .variant_files
-            .iter()
-            .any(|variant| variant.variant_id == "old"));
+        assert!(
+            session
+                .variant_files
+                .iter()
+                .any(|variant| variant.variant_id == "new")
+        );
+        assert!(
+            !session
+                .variant_files
+                .iter()
+                .any(|variant| variant.variant_id == "old")
+        );
         assert_eq!(session.manifest.entity_summaries.variants, 1);
         assert_eq!(
             invalidation.entities,
@@ -624,11 +625,13 @@ mod tests {
         let _ = fs::remove_dir_all(root);
         assert!(session.tag_map.contains_key("demo_new_bp"));
         assert!(!session.tag_map.contains_key("demo_old_bp"));
-        assert!(session
-            .csv_tables
-            .get(CsvTableKey::Ships.as_str())
-            .and_then(|table| table.rows.as_ref())
-            .is_none());
+        assert!(
+            session
+                .csv_tables
+                .get(CsvTableKey::Ships.as_str())
+                .and_then(|table| table.rows.as_ref())
+                .is_none()
+        );
         assert!(invalidation.entities.contains(&invalidated_entity(
             EntityKind::Faction,
             Some("demo".to_string())
@@ -909,16 +912,6 @@ mod tests {
         assert_eq!(session.manifest.entity_summaries.ships, 1);
         assert!(session.ship_files.contains_key("current"));
         assert!(!session.ship_files.contains_key("external"));
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        fs::create_dir_all(&path).unwrap();
-        path
     }
 
     fn file_change(

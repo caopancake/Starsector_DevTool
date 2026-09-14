@@ -43,10 +43,11 @@ mod tests {
     use super::*;
     use crate::models::{ResourceOwnerKind, ResourceRef, ResourceSource};
     use crate::services::project::resources::cached_sprite_media_contains;
-    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use crate::testutil::temp_dir;
 
     fn general_purpose_base64(bytes: &[u8]) -> String {
-        use base64::{engine::general_purpose, Engine as _};
+        use base64::{Engine as _, engine::general_purpose};
         general_purpose::STANDARD.encode(bytes)
     }
 
@@ -321,16 +322,6 @@ mod tests {
 
         assert!(!cached_sprite_media_contains(&session_id, &resource));
         let _ = std::fs::remove_dir_all(root);
-    }
-
-    fn temp_dir(name: &str) -> std::path::PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{stamp}_{name}"));
-        std::fs::create_dir_all(&path).unwrap();
-        path
     }
 
     fn temp_linked_dir(

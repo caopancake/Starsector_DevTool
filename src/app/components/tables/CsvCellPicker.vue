@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watchEffect } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watchEffect } from 'vue';
 import { groupSelectOptions, type SelectOption } from '@/domain/schema/schema-options';
 import { useProjectStore } from '@/stores/project.store';
 import { useSchemaSelectMedia } from '@/app/composables/use-schema-select-media';
@@ -65,7 +65,7 @@ watchEffect(
 );
 
 const query = ref('');
-const searchRef = ref<HTMLInputElement | null>(null);
+const searchRef = useTemplateRef<HTMLInputElement>('searchRef');
 const selectedValues = computed(() => new Set(props.values));
 const pickerStyle = computed(() => ({
   left: `${props.anchor.left}px`,

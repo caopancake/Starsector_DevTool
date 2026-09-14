@@ -9,30 +9,21 @@
 import { ref, watch } from 'vue';
 import type { RowData } from '@/shared/types';
 
-const props = withDefaults(
-  defineProps<{
-    modelValue?: RowData;
-    title?: string;
-  }>(),
-  {
-    modelValue: () => ({}),
-    title: '',
-  },
-);
+withDefaults(defineProps<{ title?: string }>(), {
+  title: '',
+});
 
-const emit = defineEmits<{ 'update:modelValue': [value: RowData] }>();
-const text = ref(JSON.stringify(props.modelValue || {}, null, 2));
+const model = defineModel<RowData>({ default: () => ({}) });
 
-watch(
-  () => props.modelValue,
-  (value) => {
-    text.value = JSON.stringify(value || {}, null, 2);
-  },
-);
+const text = ref(JSON.stringify(model.value || {}, null, 2));
+
+watch(model, (value) => {
+  text.value = JSON.stringify(value || {}, null, 2);
+});
 
 function apply() {
   try {
-    emit('update:modelValue', JSON.parse(text.value || '{}'));
+    model.value = JSON.parse(text.value || '{}');
   } catch {
     // Keep the invalid text in place so the user can correct it.
   }

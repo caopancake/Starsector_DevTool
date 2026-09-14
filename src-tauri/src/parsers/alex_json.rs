@@ -1,50 +1,49 @@
 use crate::errors::AppResult;
 use regex::Regex;
 use serde_json::Value;
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
-static TRAILING_COMMA_RE: OnceLock<Regex> = OnceLock::new();
-static UNQUOTED_KEY_RE: OnceLock<Regex> = OnceLock::new();
-static UNQUOTED_VALUE_RE: OnceLock<Regex> = OnceLock::new();
-static BOOL_LITERAL_RE: OnceLock<Regex> = OnceLock::new();
-static LEADING_DOT_NUMBER_RE: OnceLock<Regex> = OnceLock::new();
-static FLOAT_SUFFIX_RE: OnceLock<Regex> = OnceLock::new();
-static LEADING_ZERO_INT_RE: OnceLock<Regex> = OnceLock::new();
-static LEADING_PLUS_RE: OnceLock<Regex> = OnceLock::new();
+static TRAILING_COMMA_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r",\s*([}\]])").expect("valid trailing comma regex"));
+static UNQUOTED_KEY_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?m)(^|[\{,\s])([A-Za-z_][A-Za-z0-9_]*)\s*:"#).expect("valid key regex")
+});
+static UNQUOTED_VALUE_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?m)([:,\[]\s*)([A-Za-z_][A-Za-z0-9_]*)\b"#).expect("valid unquoted value regex")
+});
+static BOOL_LITERAL_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?m)([:,\[]\s*)(True|TRUE|False|FALSE)\b"#).expect("valid bool literal regex")
+});
+static LEADING_PLUS_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"([:,\[]\s*)\+(\d)").expect("valid leading-plus regex"));
+static LEADING_DOT_NUMBER_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(^|[:,\[]\s*)(-?)\.(\d+)").expect("valid leading-dot number regex")
+});
+static FLOAT_SUFFIX_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(\d+\.?\d*)f\b").expect("valid float suffix regex"));
+static LEADING_ZERO_INT_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(^|[:,\[]\s*)(-?)0+(\d+)").expect("valid leading-zero int regex")
+});
 
 pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
-    let trailing_re = TRAILING_COMMA_RE
-        .get_or_init(|| Regex::new(r",\s*([}\]])").expect("valid trailing comma regex"));
-    let key_re = UNQUOTED_KEY_RE.get_or_init(|| {
-        Regex::new(r#"(?m)(^|[\{,\s])([A-Za-z_][A-Za-z0-9_]*)\s*:"#).expect("valid key regex")
-    });
+    let trailing_re = &TRAILING_COMMA_RE;
+    let key_re = &UNQUOTED_KEY_RE;
 
     // Matches unquoted identifier values (after : or , or [ that are NOT true/false/null/numbers)
-    let value_re = UNQUOTED_VALUE_RE.get_or_init(|| {
-        Regex::new(r#"(?m)([:,\[]\s*)([A-Za-z_][A-Za-z0-9_]*)\b"#)
-            .expect("valid unquoted value regex")
-    });
-    let bool_literal_re = BOOL_LITERAL_RE.get_or_init(|| {
-        Regex::new(r#"(?m)([:,\[]\s*)(True|TRUE|False|FALSE)\b"#).expect("valid bool literal regex")
-    });
+    let value_re = &UNQUOTED_VALUE_RE;
+    let bool_literal_re = &BOOL_LITERAL_RE;
 
     // Matches leading-plus numbers (+100, +0.5) that Java/Starsector parsers accept but JSON rejects.
-    let leading_plus_re = LEADING_PLUS_RE
-        .get_or_init(|| Regex::new(r"([:,\[]\s*)\+(\d)").expect("valid leading-plus regex"));
+    let leading_plus_re = &LEADING_PLUS_RE;
 
     // Matches Starsector-style leading-dot decimals after JSON separators: .5, -.5, .0f.
-    let leading_dot_number_re = LEADING_DOT_NUMBER_RE.get_or_init(|| {
-        Regex::new(r"(^|[:,\[]\s*)(-?)\.(\d+)").expect("valid leading-dot number regex")
-    });
+    let leading_dot_number_re = &LEADING_DOT_NUMBER_RE;
 
     // Matches Java-style float suffix: 1f, 0.5f, 1.0f → strip the trailing 'f'
-    let float_suffix_re = FLOAT_SUFFIX_RE
-        .get_or_init(|| Regex::new(r"(\d+\.?\d*)f\b").expect("valid float suffix regex"));
+    let float_suffix_re = &FLOAT_SUFFIX_RE;
 
     // Matches leading-zero integers (000, 007, 01) that Java/Starsector parsers accept.
-    let leading_zero_int_re = LEADING_ZERO_INT_RE.get_or_init(|| {
-        Regex::new(r"(^|[:,\[]\s*)(-?)0+(\d+)").expect("valid leading-zero int regex")
-    });
+    let leading_zero_int_re = &LEADING_ZERO_INT_RE;
 
     // Starsector data files commonly use shell-style `#` comments; strip from `#` to line end, but only outside quoted strings.
     let mut cleaned = strip_hash_comments(text);
