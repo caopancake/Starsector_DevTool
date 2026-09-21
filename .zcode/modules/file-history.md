@@ -12,5 +12,5 @@
 ## 不变量
 
 - 仅记录实际 changes，不记录前端草稿；回放前/写入前后端重校验所有路径归属与链接父链。
-- refresh 或回放失败不移动栈；dirty 文件编辑器只暂存外部文本。history limit 由 settings 输入，不自行读配置。
+- refresh 或回放失败不移动栈；dirty 文件编辑器只暂存外部文本。history limit 由 settings 输入，不自行读配置。双栈结构由统一编辑会话原语承载，entry 形状与 replay-commit 语义归本模块。
 - 回放与首次保存共用 `FileChangeRecord` 的 before/after 快照；目录事件逐文件展开，因此旧 ID、新 ID 与删除前实体均能精确失效。

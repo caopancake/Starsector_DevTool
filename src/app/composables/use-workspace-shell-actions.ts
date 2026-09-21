@@ -128,9 +128,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
 
   function confirmCloseWorkspace() {
     const target = captureWorkspaceCloseTarget();
-    const hasDirtyMods = target.modRoots.some(
-      (modRoot) => tables.hasModDirtyChanges(modRoot) || draftSessions.hasDirtyDraftForMod(modRoot),
-    );
+    const hasDirtyMods = target.modRoots.some((modRoot) => draftSessions.hasUnsavedWorkForMod(modRoot));
     feedback.confirmWarning({
       title: '关闭工作区',
       content: hasDirtyMods ? '当前工作区有未保存修改，关闭后这些修改将丢失。确认关闭？' : '确认关闭当前工作区？',
@@ -140,7 +138,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   }
 
   function confirmRemoveMod(modRoot: string) {
-    if (tables.hasModDirtyChanges(modRoot) || draftSessions.hasDirtyDraftForMod(modRoot)) {
+    if (draftSessions.hasUnsavedWorkForMod(modRoot)) {
       feedback.confirmWarning({
         title: '移除 Mod',
         content: '该 Mod 有未保存修改，移除后修改将丢失。确认移除？',

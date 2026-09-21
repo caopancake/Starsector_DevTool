@@ -78,12 +78,12 @@ Owner 原则：每个通用机制只有一个正式实现与一个 owner 模块�
 
 Owner 原则："基线-草稿-dirty-外部更新挂起-撤销/重做"在全仓只有一个正式模型与一个 owner；CSV 单元粒度、整文件快照与纯文本是同一原语的三种特化，不是三套实现。
 
-- [ ] 在 `src/domain` 建立框架无关的统一 EditSession 正式模型：baseline、draft、派生 dirty、revision、pendingExternal、undo/redo 栈与 historyLimit，equals/clone 以选项注入；原语配完整单元测试。
-- [ ] 分步迁移：先迁配置/编辑器草稿（`use-draft-session.ts`）与文本撤销（`use-text-history.ts`），再迁文件历史（`file-history.store.ts`）与 CSV 撤销（`tables-edit-history.store.ts`）的栈与 id 生成，最后迁 CSV 表格草稿（`tables.store.ts` ModTableState 的 draft 部分与 `domain/tables/csv-table-draft.ts`）；删除各机制的私有实现。
-- [ ] 建立 Mod 级未保存工作查询的唯一 owner（workspace store 聚合），`ModTabsBar.vue`、`AppContent.vue`、`use-workspace-shell-actions.ts` 中的手工 `||` 并集全部改走唯一入口。
-- [ ] dirty 登记模型统一：CSV 表格草稿与配置草稿向同一注册点登记，消费方不再感知机制差异。
-- [ ] 迁移完成后清退旧术语与旧 API；`csv-draft-boundary`、`draft-session-boundary`、`file-history-boundary` 规则同步改写为新原语的边界断言。
-- [ ] 跑前端全套检查 + 手工验收：CSV 编辑/撤销/重做、配置草稿/外部更新交接、文件编辑器撤销、未保存关闭确认全链路。
+- [x] 在 `src/domain/edit-session.ts` 建立框架无关双原语（定形经确认）：`createEditSessionValue`（baseline/draft/派生 dirty/revision/pendingExternal，equals/clone 注入）+ `createUndoStack`（双栈/limit/nextId/clear，条目形状由机制自定）；配 16 个 vitest 单元测试。
+- [x] 分步迁移：`use-draft-session.ts` 改为原语适配器（保持 Ref API，消费者零改动）；`use-text-history.ts`、`file-history.store.ts`（id 生成收敛为原语 `nextId`）、`tables-edit-history.store.ts` 的双栈全部迁移；CSV 表格草稿保持领域特化（单元格级 dirty 承载单元格 UI 标记，经确认不强迁值级原语），其撤销已由共享栈承载。
+- [x] 建立 Mod 级未保存工作查询的唯一 owner：`draft-sessions.store` 扩为未保存工作注册表（`registerDraftSession` + `registerDirtySource` + `hasUnsavedWorkForMod`），`tables.store` 以 `hasModDirtyChanges` 注册判定源；`ModTabsBar.vue`、`AppContent.vue`、`use-workspace-shell-actions.ts` 三处手工 `||` 并集全部改走唯一入口（后两处连带删除失用的 tables 依赖）。
+- [x] dirty 登记模型统一：配置草稿走会话登记、CSV 表格走判定源登记，消费方只查询注册表。
+- [x] `draft-session-boundary` 新增"编辑会话原语禁止业务模块直引（仅四个适配器可消费）"断言；`csv-draft-boundary`、`file-history-boundary` 的归属断言经复核仍然成立，无需改写。
+- [x] 跑前端全套检查全绿（format 仅剩 HEAD 既有 write.service.ts 问题）；手工验收清单：CSV 编辑/撤销/重做、配置草稿外部更新交接、文件编辑器撤销、未保存关闭确认四条链路待人工过一遍。
 
 ### Phase 2.2: 缓存原语统一
 

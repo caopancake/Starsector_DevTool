@@ -16,6 +16,7 @@ import { getNextActiveKeyAfterRemoval } from '@/shared/lib/store-utils';
 import { csvDirtyCells } from '@/domain/tables/csv-dirty';
 import { DEFAULT_CSV_FACTION_FILTER, filterFromOptionValue, filterOptionValue } from '@/domain/tables/csv-faction-filter';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
+import { useDraftSessionsStore } from '@/stores/draft-sessions.store';
 import {
   applyCsvTableWindowDraft,
   applySavedCsvRowKeyMapDraft,
@@ -218,6 +219,9 @@ export const useTablesStore = defineStore('tables', () => {
     if (!state) return false;
     return TABLE_KEYS.some((key) => Object.keys(state.dirty[key]).length > 0);
   }
+
+  // 表格未保存状态进入未保存工作注册表，供 Mod 级判定统一查询。
+  useDraftSessionsStore().registerDirtySource(hasModDirtyChanges);
 
   // --- Existing API ---
 

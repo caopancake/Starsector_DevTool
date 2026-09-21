@@ -2,13 +2,15 @@
 
 ## 定义
 
-以目标身份管理 base、draft、dirty、revision 与 pending external 的前端编辑状态机。
+以目标身份管理 base、draft、dirty、revision 与 pending external 的前端编辑状态机，以及全仓"未保存工作"的唯一注册表。
 
 ## Owner 与链路
 
 - ViewModel 为一个明确编辑目标创建/切换 Draft Session；用户编辑改 draft，保存成功以返回实体提交 base；外部刷新按目标/revision 接入。
+- base/draft/pending external/revision 的状态机由 domain 的统一编辑会话原语承载；文本撤销、CSV 撤销与文件历史的双栈结构由同一原语家族的撤销栈承载，各机制保留自己的条目形状与提交语义。
 - 组件只消费状态与发事件，不能以 prop 变化直接覆盖 draft。
 - 主窗口的配置 Draft Session 在存活期间按 `modRoot` 登记 dirty；配置对象切换、页面/Mod 导航、移除 Mod、关闭工作区和关闭主窗口都先查询该登记，再决定是否允许销毁当前会话。
+- 未保存工作注册表是 Mod 级判定的唯一入口：配置草稿按会话登记，CSV 表格等其它机制以判定函数登记；消费方必须查询注册表，严禁自行对多个来源做并集。
 
 ## 不变量
 

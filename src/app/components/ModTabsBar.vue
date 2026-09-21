@@ -42,18 +42,16 @@
 <script setup lang="ts">
 import { useWorkspaceNavigationActions } from '@/app/composables/use-workspace-navigation-actions';
 import { useDraftSessionsStore } from '@/stores/draft-sessions.store';
-import { useTablesStore } from '@/stores/tables.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 
 defineEmits<{ 'remove-mod': [modRoot: string] }>();
 
 const workspace = useWorkspaceStore();
-const tables = useTablesStore();
 const draftSessions = useDraftSessionsStore();
 const navigation = useWorkspaceNavigationActions();
 
 function hasDirtyChanges(modRoot: string): boolean {
-  return tables.hasModDirtyChanges(modRoot) || draftSessions.hasDirtyDraftForMod(modRoot);
+  return draftSessions.hasUnsavedWorkForMod(modRoot);
 }
 
 function statusLabel(status: 'loading' | 'ready' | 'error'): string {

@@ -50,7 +50,6 @@ import { useMainWindowShortcuts } from '@/app/composables/use-main-window-shortc
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useDirtyWindowCloseGuard } from '@/app/composables/use-dirty-window-close-guard';
 import { registerActiveSaveHandler, unregisterActiveSaveHandler } from '@/shared/lib/save-command-registry';
-import { useTablesStore } from '@/stores/tables.store';
 import { useDraftSessionsStore } from '@/stores/draft-sessions.store';
 
 const OverviewPage = defineAsyncComponent(() => import('@/app/components/OverviewPage.vue'));
@@ -62,14 +61,11 @@ const ConfigWorkspace = defineAsyncComponent(() => import('@/app/components/conf
 const project = useProjectStore();
 const settings = useSettingsStore();
 const workspace = useWorkspaceStore();
-const tables = useTablesStore();
 const draftSessions = useDraftSessionsStore();
 const feedback = useAppFeedback();
 const actions = useWorkspaceShellActions(feedback);
 useMainWindowShortcuts(feedback);
-const hasUnsavedMainWindowChanges = computed(() =>
-  workspace.loadedModList.some((mod) => tables.hasModDirtyChanges(mod.modRoot) || draftSessions.hasDirtyDraftForMod(mod.modRoot)),
-);
+const hasUnsavedMainWindowChanges = computed(() => workspace.loadedModList.some((mod) => draftSessions.hasUnsavedWorkForMod(mod.modRoot)));
 const closeGuard = useDirtyWindowCloseGuard({
   content: '主窗口中仍有未保存修改，关闭后这些修改将丢失。',
   dirty: hasUnsavedMainWindowChanges,

@@ -1,32 +1,32 @@
-import { computed, ref } from 'vue';
+import { computed, reactive } from 'vue';
+import { createUndoStack } from '@/domain/edit-session';
 
 export function useTextHistory() {
-  const undoStack = ref<string[]>([]);
-  const redoStack = ref<string[]>([]);
+  const stack = reactive(createUndoStack<string>());
 
-  const canUndo = computed(() => undoStack.value.length > 0);
-  const canRedo = computed(() => redoStack.value.length > 0);
+  const canUndo = computed(() => stack.canUndo());
+  const canRedo = computed(() => stack.canRedo());
 
   function pushChange(previousText: string) {
-    undoStack.value.push(previousText);
-    redoStack.value = [];
+    stack.push(previousText);
   }
 
   function undo(currentText: string): string {
     if (!canUndo.value) return currentText;
-    redoStack.value.push(currentText);
-    return undoStack.value.pop() ?? currentText;
+    const previous = stack.popUndo();
+    stack.pushRedo(currentText);
+    return previous ?? currentText;
   }
 
   function redo(currentText: string): string {
     if (!canRedo.value) return currentText;
-    undoStack.value.push(currentText);
-    return redoStack.value.pop() ?? currentText;
+    const next = stack.popRedo();
+    stack.pushUndo(currentText);
+    return next ?? currentText;
   }
 
   function clear() {
-    undoStack.value = [];
-    redoStack.value = [];
+    stack.clear();
   }
 
   return {

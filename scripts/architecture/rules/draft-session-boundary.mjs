@@ -28,6 +28,11 @@ export const draftSessionBoundaryRule = {
         if (target.domain === 'draft-session' && current.domain !== 'edit-target-draft-session') {
           failures.push(`${file.rel}: business editing modules must use edit target draft session, not draft session primitive`);
         }
+        if (isEditSessionPrimitive(target) && !isEditSessionAdapter(current)) {
+          failures.push(
+            `${file.rel}: edit session primitives must be consumed through their adapters (use-draft-session, use-text-history, file-history store, tables-edit-history store)`,
+          );
+        }
         if (target.domain === 'config-editor-draft-session' && current.role === 'component' && current.domain === 'config') {
           failures.push(`${file.rel}: config editor components must consume editor ViewModel output, not config draft session`);
         }
@@ -51,6 +56,20 @@ export const draftSessionBoundaryRule = {
 
 function ownsBusinessDependency(target) {
   return target.role === 'api' || target.role === 'service' || target.role === 'orchestrator' || target.role === 'store';
+}
+
+function isEditSessionPrimitive(target) {
+  return target.layer === 'domain' && target.domain === 'edit-session';
+}
+
+function isEditSessionAdapter(current) {
+  if (current.layer === 'test') return true;
+  return (
+    (current.layer === 'app' &&
+      current.role === 'composable' &&
+      (current.domain === 'draft-session' || current.domain === 'text-history')) ||
+    (current.layer === 'stores' && (current.domain === 'file-history' || current.domain === 'tables-edit-history'))
+  );
 }
 
 function isBusinessEditingModule(current) {

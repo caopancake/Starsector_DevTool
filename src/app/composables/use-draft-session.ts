@@ -1,10 +1,9 @@
 import { computed, ref, type Ref } from 'vue';
-import { deepClone } from '@/shared/lib/starsector';
-import { stableDeepEqual } from '@/shared/lib/stable-compare';
+import { createEditSessionValue, type EditSessionValueOptions } from '@/domain/edit-session';
 
-export interface DraftSessionOptions<T> {
-  clone?: (value: T) => T;
-  equals?: (left: T, right: T) => boolean;
+const DEFAULT_EXTERNAL_NOTICE = '外部版本已更新，当前未保存草稿已保留。';
+
+export interface DraftSessionOptions<T> extends EditSessionValueOptions<T> {
   externalNotice?: string;
 }
 
@@ -25,63 +24,26 @@ export interface DraftSession<T> {
   setDraft: (value: T) => void;
 }
 
-const DEFAULT_EXTERNAL_NOTICE = '外部版本已更新，当前未保存草稿已保留。';
-
 export function useDraftSession<T>(initialValue: T, options: DraftSessionOptions<T> = {}): DraftSession<T> {
-  const clone = options.clone ?? deepClone;
-  const equals = options.equals ?? stableDeepEqual;
-  const baseValue = ref<T>(clone(initialValue)) as Ref<T>;
-  const draftValue = ref<T>(clone(initialValue)) as Ref<T>;
-  const pendingExternalValue = ref<T | null>(null) as Ref<T | null>;
-  const revision = ref(0);
+  const { externalNotice, ...sessionOptions } = options;
+  const session = createEditSessionValue(initialValue, sessionOptions);
 
-  const dirty = computed(() => !equals(baseValue.value, draftValue.value));
-  const hasPendingExternalValue = computed(() => pendingExternalValue.value !== null);
-  const externalUpdateNotice = computed(() =>
-    pendingExternalValue.value !== null ? (options.externalNotice ?? DEFAULT_EXTERNAL_NOTICE) : '',
-  );
+  const baseValue = ref<T>(session.baseline) as Ref<T>;
+  const draftValue = ref<T>(session.draft) as Ref<T>;
+  const pendingExternalValue = ref<T | null>(session.pendingExternal) as Ref<T | null>;
+  const revision = ref(session.revision);
 
-  function loadBase(value: T) {
-    const next = clone(value);
-    const draftChanged = !equals(draftValue.value, next);
-    baseValue.value = next;
-    draftValue.value = clone(next);
-    pendingExternalValue.value = null;
-    if (draftChanged) revision.value += 1;
+  function dispatch(action: () => void): void {
+    action();
+    baseValue.value = session.baseline;
+    draftValue.value = session.draft;
+    pendingExternalValue.value = session.pendingExternal;
+    revision.value = session.revision;
   }
 
-  function setDraft(value: T) {
-    draftValue.value = clone(value);
-  }
-
-  function applyExternal(value: T) {
-    const next = clone(value);
-    if (dirty.value) {
-      pendingExternalValue.value = next;
-      return;
-    }
-    loadBase(next);
-  }
-
-  function loadPendingExternal() {
-    if (pendingExternalValue.value === null) return;
-    loadBase(pendingExternalValue.value);
-  }
-
-  function commitSaved(value?: T) {
-    const next = clone(value ?? draftValue.value);
-    baseValue.value = next;
-    draftValue.value = clone(next);
-    pendingExternalValue.value = null;
-  }
-
-  function resetDraft() {
-    draftValue.value = clone(baseValue.value);
-  }
-
-  function clear(value: T) {
-    loadBase(value);
-  }
+  const dirty = computed(() => session.dirty);
+  const hasPendingExternalValue = computed(() => session.hasPendingExternal);
+  const externalUpdateNotice = computed(() => (session.hasPendingExternal ? (externalNotice ?? DEFAULT_EXTERNAL_NOTICE) : ''));
 
   return {
     baseValue,
@@ -91,12 +53,12 @@ export function useDraftSession<T>(initialValue: T, options: DraftSessionOptions
     hasPendingExternalValue,
     pendingExternalValue,
     revision,
-    applyExternal,
-    clear,
-    commitSaved,
-    loadBase,
-    loadPendingExternal,
-    resetDraft,
-    setDraft,
+    applyExternal: (value) => dispatch(() => session.applyExternal(value)),
+    clear: (value) => dispatch(() => session.clear(value)),
+    commitSaved: (value) => dispatch(() => session.commitSaved(value)),
+    loadBase: (value) => dispatch(() => session.loadBaseline(value)),
+    loadPendingExternal: () => dispatch(() => session.loadPendingExternal()),
+    resetDraft: () => dispatch(() => session.resetDraft()),
+    setDraft: (value) => dispatch(() => session.setDraft(value)),
   };
 }
