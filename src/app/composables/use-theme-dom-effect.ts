@@ -2,8 +2,9 @@ import { watch } from 'vue';
 import { useSettingsStore } from '@/stores/settings.store';
 import type { ThemeColorTokens } from '@/domain/settings/theme';
 
-// 主题 DOM 副作用的唯一归属：store 只持状态，本 effect 把主题令牌写到 document。
-// 由 WindowShell（唯一 shell）调用，主窗口与子窗口都经此生效。
+// Sole owner of the theme DOM side effect: the store only holds state, this effect
+// writes theme tokens to the document. Mounted by the single WindowShell so the main
+// window and child windows all pick it up.
 export function useThemeDomEffect() {
   const settings = useSettingsStore();
   watch(

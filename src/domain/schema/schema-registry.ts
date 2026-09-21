@@ -66,7 +66,7 @@ export function getCsvColumnSchemas(table: TableKey): CsvColumnSchema[] {
   return CSV_COLUMN_SCHEMAS[table] ?? [];
 }
 
-// ─── 运行时形状校验：schema 资产在此唯一入口转为类型化输出 ──────────────
+// Runtime shape validation: schema assets become typed output only through this entry.
 
 function parseFileSchema(id: string, raw: unknown): FileSchema {
   const asset = asRecord(raw, `schema ${id}`);

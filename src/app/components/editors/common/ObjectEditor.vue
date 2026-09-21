@@ -27,7 +27,7 @@ function apply() {
   try {
     model.value = JSON.parse(text.value || '{}');
   } catch {
-    // 原文保留在输入框等待修正；由宿主组件给出告警反馈。
+    // Keep the raw text in place for correction; the host component surfaces the warning.
     emit('invalid-json');
   }
 }

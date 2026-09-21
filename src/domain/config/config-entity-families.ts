@@ -2,8 +2,9 @@ import { configVariantListTitle } from '@/domain/config/config-entities';
 import type { RowData } from '@/shared/types';
 
 /**
- * 配置实体族的参数化定义：Skin/Variant 两族共享同一组件与视图模型，
- * 族间差异（文案、字段名、图标、排序、水合需求）只存在于本定义。
+ * Parameterized definition of the config entity families: the Skin/Variant families
+ * share one component set and view models, and family differences (copy, field names,
+ * icons, sorting, hydration needs) exist only inside this definition.
  */
 export interface ConfigEntityFamilyDefinition {
   id: 'variant' | 'skin';

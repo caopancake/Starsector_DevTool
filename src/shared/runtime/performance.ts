@@ -1,6 +1,7 @@
 /**
- * 前端性能遥测横切设施。日志落盘能力通过 setPerformanceLogSink 由
- * app-feedback-log 服务在模块加载时注入；本模块不依赖任何 service。
+ * Frontend performance telemetry cross-cutting facility. Log persistence is injected
+ * via setPerformanceLogSink by the app-feedback-log service at module load; this
+ * module depends on no service.
  */
 
 export interface PerformanceFields {

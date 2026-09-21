@@ -3,7 +3,8 @@ import { defineStore } from 'pinia';
 
 type SaveHandler = () => void | Promise<void>;
 
-// 主窗口 Ctrl+S 的活动保存目标注册表：同一时刻只有一个表面持有保存权。
+// Registry of the active Ctrl+S save target in the main window: exactly one surface
+// holds the save right at a time.
 export const useSaveCommandStore = defineStore('save-command', () => {
   const activeHandler = ref<SaveHandler | null>(null);
 

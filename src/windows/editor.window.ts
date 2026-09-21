@@ -2,8 +2,8 @@ import { openManagedWindow } from '@/windows/managed.window';
 import type { AppSettings, EditorWindowKind, ProjectSessionId, RowData } from '@/shared/types';
 import { editorWindowDefinition, editorWindowTitle } from '@/domain/editors/editor-definitions';
 
-// draftSnapshot 走 URL query 的独立上限：超限去掉该参数优雅降级，
-// 预览窗口回退到已保存 bundle，不阻断开窗。
+// Independent cap for draftSnapshot passed through the URL query: drop the param above
+// the limit so the preview window degrades to the saved bundle instead of failing to open.
 const DRAFT_SNAPSHOT_QUERY_LIMIT = 8000;
 
 export interface EditorWindowRequest {

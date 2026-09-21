@@ -1,8 +1,10 @@
 /**
- * 运行时缓存原语：插入序 LRU 容量淘汰、key 版本计数、pending 去重与整体
- * 重置。语义层（失效匹配、批量加载、性能埋点）由各缓存 service 在其上实现。
- * 状态为纯数据并以闭包持有；需要响应式视图的缓存（如媒体投影）自行在
- * service 层处理，本原语保持框架无关。
+ * Runtime cache primitive: insertion-order LRU capacity eviction, per-key version
+ * counters, pending deduplication and full reset. Semantic layers (invalidation
+ * matching, batch loading, performance instrumentation) are implemented on top by the
+ * individual cache services. State is plain data held in a closure; caches needing
+ * reactive views (such as the media projection) handle that in their own service layer,
+ * keeping this primitive framework-agnostic.
  */
 
 export interface RuntimeCacheOptions {

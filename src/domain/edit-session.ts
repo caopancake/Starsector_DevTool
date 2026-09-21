@@ -2,9 +2,11 @@ import { deepClone } from '@/shared/lib/starsector';
 import { stableDeepEqual } from '@/shared/lib/stable-compare';
 
 /**
- * 统一编辑会话原语（框架无关，可在边界被 `reactive()` 包装获得响应性）。
- * 全仓的"基线-草稿-dirty-外部更新挂起"与"撤销/重做栈"只允许这两个 owner 实现；
- * 各编辑机制（配置草稿、文本撤销、CSV 撤销、文件历史）是它们的特化或包装。
+ * Unified edit-session primitive (framework-agnostic; can be wrapped with `reactive()`
+ * at the boundary for reactivity). These owners are the only sanctioned implementations
+ * of the baseline-draft-dirty-pending-external state machine and the undo/redo stacks;
+ * each editing mechanism (config drafts, text undo, CSV undo, file history) specializes
+ * or wraps them.
  */
 
 export interface EditSessionValueOptions<T> {
@@ -105,9 +107,10 @@ export interface UndoStackState<TEntry> {
 }
 
 /**
- * 撤销/重做双栈的唯一状态形状。状态是纯数据（可被 `reactive()` 包装获得响应
- * 性），所有变更必须经下面的操作函数进行——操作以 state 为首参，包装后经
- * proxy 的每次变更都能被 Vue 追踪；闭包或裸对象直改不会触发响应式更新。
+ * Sole state shape of the undo/redo dual stacks. The state is plain data (wrap it with
+ * `reactive()` for reactivity); every mutation must go through the operation functions
+ * below, which take the state as their first argument so each mutation stays trackable
+ * through the proxy. Mutating a closure-held or bare object never triggers updates.
  */
 export function createUndoStackState<TEntry>(limit = 100): UndoStackState<TEntry> {
   return { undoStack: [], redoStack: [], limit, sequence: 0 };

@@ -28,8 +28,8 @@ export function captureWorkspaceCloseTarget(): WorkspaceCloseTarget {
   };
 }
 
-// 关闭 Mod 的 5-store 清理序列唯一用例：workspace/tables/fileHistory/csvEditHistory/project。
-// 缓存失效、Rust session 关闭与视图回退等差异行为由各调用方在用例之外自行组合。
+// Sole use case for the 5-store removal sequence: workspace/tables/fileHistory/csvEditHistory/project.
+// Cache invalidation, Rust session close and view rollback are composed by callers outside the case.
 export function removeModRuntimeState(modRoot: string) {
   const workspace = useWorkspaceStore();
   const project = useProjectStore();

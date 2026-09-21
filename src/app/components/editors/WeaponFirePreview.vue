@@ -58,6 +58,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useShortcutDispatch } from '@/app/composables/use-shortcut-dispatch';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import EditorInspector from '@/app/components/editors/common/EditorInspector.vue';
@@ -493,28 +494,21 @@ function loadSpriteImages() {
     spriteImages.set(field, image);
   }
 }
-function handleKeyDown(event: KeyboardEvent) {
-  if (!hasWeaponSpec.value) return;
-  const key = event.key.toLowerCase();
-  if (key === 'u') {
-    event.preventDefault();
-    setView('turret');
-  } else if (key === 'h') {
-    event.preventDefault();
-    setView('hardpoint');
-  }
-}
+useShortcutDispatch({
+  keys: {
+    u: () => setView('turret'),
+    h: () => setView('hardpoint'),
+  },
+});
 onMounted(() => {
   loadSpriteImages();
   resize();
   window.addEventListener('resize', resize);
-  window.addEventListener('keydown', handleKeyDown);
   reset();
 });
 onUnmounted(() => {
   cancelAnimationFrame(anim);
   window.removeEventListener('resize', resize);
-  window.removeEventListener('keydown', handleKeyDown);
 });
 watch(() => props.spriteData, loadSpriteImages, { deep: true });
 </script>

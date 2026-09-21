@@ -105,7 +105,7 @@ describe('table-save orchestrator', () => {
     writeCsvPatch.mockResolvedValue(writeResult());
     const target = captureActiveTableSaveTarget(project.getManifest(MOD_ROOT));
     completeSavedWrite.mockImplementationOnce(async () => {
-      // 失效与历史登记必须发生在草稿清理之前。
+      // Invalidation and history recording must happen before the draft cleanup.
       expect(Object.keys(state.dirty.ships).length).toBe(1);
     });
 

@@ -13,7 +13,7 @@ export interface SavedWriteCompletion {
   sessionId: string;
 }
 
-/** 写入完成登记 owner：成功 WriteResult 进入文件历史并触发 ProjectSession 刷新。 */
+/** Owner of saved-write recording: a successful WriteResult enters file history and triggers ProjectSession refresh. */
 export async function completeSavedWrite(completion: SavedWriteCompletion, project: ProjectStore): Promise<void> {
   validateSavedWriteCompletion(completion);
   assertSavedWriteSessionCurrent(completion, project);

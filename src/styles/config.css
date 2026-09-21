@@ -447,7 +447,7 @@
   aspect-ratio: 1;
 }
 
-/* --- 通用配置页骨架（config 页共用，替代借用 settings.css 类名） --- */
+/* Shared config page skeleton (used by all config pages, replaces borrowed settings classes) */
 .config-page {
   display: grid;
   align-content: start;

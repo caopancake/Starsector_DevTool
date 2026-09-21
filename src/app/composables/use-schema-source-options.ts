@@ -14,7 +14,8 @@ export function useSchemaSourceOptions(args: {
   let requestId = 0;
   let stopInvalidation: (() => void) | null = null;
 
-  // 目录只与 (sessionId, source) 相关：当前值由渲染层经 includeCurrentSelectOptions 做幽灵回显，不参与目录查询。
+  // The catalog only depends on (sessionId, source): current values are ghost-echoed by the
+  // renderer via includeCurrentSelectOptions and never participate in the catalog query.
   watch(
     () => [args.runtimeContext()?.sessionId ?? null, args.field().source ?? null] as const,
     () => {

@@ -6,7 +6,7 @@
   width: 100vw;
   height: 100vh;
   place-items: center;
-  background: rgba(15, 23, 42, 0.42);
+  background: var(--color-overlay);
 }
 
 .editor-window-app {
@@ -232,6 +232,16 @@
   min-height: 0;
   padding: var(--space-3);
   overflow: auto;
+}
+
+.projectile-body h4 {
+  margin: var(--space-2) 0 var(--space-1);
+}
+
+.system-editor-textarea {
+  min-height: 160px;
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 
 .preview-scroll {

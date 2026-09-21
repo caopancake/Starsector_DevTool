@@ -19,7 +19,8 @@ export interface ManagedWindowRequest {
   size: ManagedWindowSize;
 }
 
-// URL query 携带 settings/draftSnapshot 等大字段的总长度守卫：超限拒绝创建并给出明确错误。
+// Total-length guard for the URL query carrying settings/draftSnapshot and similar large
+// fields: refuse creation above the limit with an explicit error.
 export const MANAGED_WINDOW_QUERY_MAX_LENGTH = 12000;
 
 export function normalizeWindowKey(value: string): string {

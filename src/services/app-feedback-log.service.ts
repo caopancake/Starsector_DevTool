@@ -17,7 +17,8 @@ export function recordLogBestEffort(entry: AppLogEntry): void {
   void recordLog(entry).catch(ignoreAppLogWriteFailure);
 }
 
-// 性能遥测经由此服务的落盘能力写出；注入点在 shared/runtime，避免反向依赖。
+// Performance telemetry persists through this service's logging capability; the injection
+// point lives in shared/runtime to keep the dependency direction one-way.
 setPerformanceLogSink((entry) => recordLogBestEffort(entry));
 
 function ignoreAppLogWriteFailure(): void {

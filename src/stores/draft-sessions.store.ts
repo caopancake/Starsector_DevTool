@@ -7,9 +7,10 @@ interface DraftSessionRegistration {
 }
 
 /**
- * 未保存工作的唯一注册表：所有"某 Mod 是否有未保存修改"的判定都从这里回答。
- * 值级草稿会话通过 registerDraftSession 登记；CSV 表格等其它机制通过
- * registerDirtySource 提供判定函数。消费方严禁再自行对多个来源做并集。
+ * Sole registry of unsaved work: every "does this Mod have unsaved changes" question
+ * is answered here. Value-level draft sessions register via registerDraftSession;
+ * other mechanisms such as CSV tables provide a predicate via registerDirtySource.
+ * Consumers must never union multiple sources on their own.
  */
 export const useDraftSessionsStore = defineStore('draft-sessions', () => {
   const registrations = new Map<number, DraftSessionRegistration>();

@@ -220,7 +220,7 @@ export const useTablesStore = defineStore('tables', () => {
     return TABLE_KEYS.some((key) => Object.keys(state.dirty[key]).length > 0);
   }
 
-  // 表格未保存状态进入未保存工作注册表，供 Mod 级判定统一查询。
+  // Table unsaved state joins the unsaved-work registry for unified Mod-level queries.
   useDraftSessionsStore().registerDirtySource(hasModDirtyChanges);
 
   // --- Existing API ---

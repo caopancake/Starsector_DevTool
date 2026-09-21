@@ -174,7 +174,7 @@ async function closeEditorWindow() {
   await closeCurrentWindow();
 }
 
-// 文本编辑面：撤销/重做必须在 textarea 内生效，因此开启 undoRedoInEditable。
+// Text surface: undo/redo must work inside the textarea, so this surface opts in.
 useShortcutDispatch({
   undoRedoInEditable: true,
   commands: {

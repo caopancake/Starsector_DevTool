@@ -8,7 +8,7 @@
         :external-update-notice="externalUpdateNotice"
         @load-external="$emit('load-external')"
       />
-      <div class="projectile-body" style="overflow-y: auto; max-height: calc(100vh - 108px)">
+      <div class="projectile-body">
         <n-collapse v-model:expanded-names="expandedSections" :theme-overrides="editorCollapseTheme">
           <n-collapse-item title="基础信息" name="basic">
             <div class="form-grid">
@@ -207,11 +207,11 @@
               ><n-input-number :value="localSystem.launchDelay" :step="0.1" @update:value="setField('launchDelay', $event)" />
               <label>最大无人机数</label><n-input-number :value="localSystem.maxDrones" @update:value="setField('maxDrones', $event)" />
             </div>
-            <h4 style="margin: 8px 0 4px">无人机行为定义</h4>
+            <h4 class="system-editor-heading">无人机行为定义</h4>
             <textarea
               :value="droneBehaviorJson"
+              class="system-editor-textarea"
               @change="applyDroneBehavior(($event.target as HTMLTextAreaElement).value)"
-              style="width: 100%; min-height: 160px; font-family: monospace; font-size: 12px"
             />
           </n-collapse-item>
 

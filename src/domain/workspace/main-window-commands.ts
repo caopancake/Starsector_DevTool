@@ -1,7 +1,8 @@
 export type ShortcutCommand = 'undo' | 'redo' | 'save' | 'close';
 
 export interface ShortcutKeyOptions {
-  // 文本编辑表面需要在输入框内继续响应撤销/重做；其余表面默认豁免输入焦点。
+  // Text surfaces keep undo/redo working inside editable targets; other surfaces
+  // exempt input focus by default.
   undoRedoInEditable?: boolean;
 }
 

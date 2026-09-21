@@ -492,7 +492,7 @@ const feedback = useAppFeedback();
 const kvSelectOpen = ref<Record<number, boolean>>({});
 const suppressNextKvSelectOpen = ref<Record<number, boolean>>({});
 
-// ─── 按需缩略图：下拉展开 / 已选值变更时才批量解析 ───────────────────
+// On-demand thumbnails: resolve in batch only on dropdown open or selection change.
 
 interface OptionMediaEntry {
   resource: ResourceRef;
@@ -574,7 +574,7 @@ const enumOptions = computed(() => {
   return schemaEnumSelectOptions(props.field, sourceOptions.value);
 });
 
-// 统一幽灵回显：值不在目录中的（坏引用/手输值）以原始文本进入选项树。
+// Ghost echo: values missing from the catalog (broken refs, manual input) enter the option tree as raw text.
 const displayOptions = computed(() => includeCurrentSelectOptions(enumOptions.value, fieldSourceCurrentValues(props.field, props.value)));
 const listOptions = computed(() => includeCurrentSelectOptions(sourceOptions.value, arrVal.value));
 const tagDisplayOptions = computed(() => includeCurrentSelectOptions(sourceOptions.value, tagSelectVal.value));
@@ -663,8 +663,9 @@ function removeArrayItem(idx: number) {
 
 const kvEntries = computed<SchemaKeyValueEntry[]>(() => schemaKeyValueEntries(props.value, props.field.format));
 
-// 行 id 与条目按位置对齐：增行追加、删行截断，id 不随下标平移，
-// 行内下拉展开态因此跟随内容而非行号，无需删除时手工重排。
+// Row ids align with entries by position: appended on add, truncated on remove.
+// Ids never shift with indexes, so the dropdown open state follows the row content
+// and removal needs no manual re-indexing.
 const kvRowIds = ref<number[]>([]);
 let nextKvRowId = 1;
 watch(
@@ -748,8 +749,8 @@ function emitSchemaUiJsonText(raw: string) {
   emit('update', parseSchemaUiJsonText(raw));
 }
 
-// 提交边界（blur/enter）校验：JSON 形态文本解析失败时提示一次，
-// 逐键输入期不告警，避免半成品 JSON 触发告警刷屏。
+// Commit-boundary (blur/enter) validation: warn once when JSON-shaped text fails to parse.
+// Per-keystroke input never warns, so half-written JSON does not spam notifications.
 function warnInvalidUiJsonOnCommit(raw: string) {
   const trimmed = raw.trim();
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return;

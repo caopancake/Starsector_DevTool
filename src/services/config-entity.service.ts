@@ -11,9 +11,10 @@ import {
 import type { ConfigMissionEditorData, ProjectSessionId } from '@/shared/types';
 
 /**
- * 配置实体读 service：配置实体查询的唯一包装（app 层禁止直调 querySession*），
- * 记录整形委托 domain/config/config-records；写路径归 write.service 与
- * config-save 编排，不在本服务。
+ * Read service for config entities: the only wrapper around config entity queries
+ * (the app layer must not call querySession* directly). Record shaping is delegated
+ * to domain/config/config-records; write paths belong to write.service and the
+ * config-save orchestration, never to this service.
  */
 export function listConfigFactionRecords(sessionId: ProjectSessionId) {
   return querySessionEntityList(sessionId, 'faction').then((entities) => entities.map(toConfigFactionRecord));
