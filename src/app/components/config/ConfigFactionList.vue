@@ -108,19 +108,16 @@ async function doCreate() {
   const trimmedId = newFactionId.value.trim();
   if (!trimmedId) {
     feedback.warning('ID 不能为空');
-    return;
+    return false;
   }
   if (props.factions[trimmedId]) {
     feedback.warning(`势力 "${trimmedId}" 已存在`);
-    return;
+    return false;
   }
-  try {
-    if (!(await props.createFaction(targetSessionId, targetModRoot, trimmedId))) return false;
-    showCreateDialog.value = false;
-    if (props.modRoot === targetModRoot && props.sessionId === targetSessionId) selectFaction(trimmedId);
-  } catch (error) {
-    feedback.error(error, '创建势力失败');
-  }
+  if (!(await props.createFaction(targetSessionId, targetModRoot, trimmedId))) return false;
+  showCreateDialog.value = false;
+  if (props.modRoot === targetModRoot && props.sessionId === targetSessionId) selectFaction(trimmedId);
+  return true;
 }
 
 function confirmDelete(id: string) {

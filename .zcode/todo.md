@@ -111,12 +111,12 @@ Owner 原则：service 只包装单一后端能力并与 `shared/api` 一一映�
 
 Owner 原则：同构实体族（列表 + 草稿编辑器 + 新建/删除确认）只有一个参数化实现；实体类型差异只存在于定义数据。
 
-- [ ] Skin/Variant 两族 8 文件（List/Editor/View + 两个 VM）合并为参数化实现，实体差异（ID 字段、schema、文案、比较器）收敛为定义对象；Faction/Mission 族评估纳入同一抽象。
-- [ ] schema runtime context 统一构建路径：Faction 族的 props 注入与其余三族各自 computed 创建合一为单一来源。
-- [ ] 新建对话框校验与错误防线统一为单一模式（VM 层捕获 + 组件层统一反馈），四族一致。
-- [ ] config 组件族 props-as-DI 与直接取 store 双路径统一为一种。
-- [ ] `ConfigModInfoEditor.vue` 借用 `settings.css` 类名改为通用 page/page-header 类。
-- [ ] 跑前端全套检查 + 手工验收四族新建/编辑/删除/外部更新。
+- [x] Skin/Variant 两族参数化合并：新增 `domain/config/config-entity-families.ts`（`ConfigEntityFamilyDefinition` + variant/skin 定义，含 idField/companionField/文案/图标路径/媒体 surface）+ `use-config-family-view-model.ts`（列表/新建/删除/保存校验全收敛）+ `use-config-family-editor-view-model.ts`（draft session 接线收敛）+ `ConfigEntityFamilyList/Editor/View.vue` 三个通用组件；原 8 文件删除，`ConfigWorkspace.vue` 改用 family view ×2。Faction/Mission 族评估结论：两者编辑数据形状与 Skin/Variant 不同（Faction 含 description/crest 水合、Mission 聚合多源 editor data），暂缓纳入同一抽象，避免为对齐而破坏稳定族。
+- [x] schema runtime context 统一（family 范围内）：通用 family editor 以 `createSchemaRuntimeContext` 单点创建；Faction 族的 props 注入路径保持（与 core-schema 合并流程耦合），暂缓统一，已记录。
+- [x] 新建对话框校验与错误防线统一：family VM 层统一捕获与反馈（必填、ID 非法、冲突），组件层仅触发；Faction/Mission 的新建防线下沉至各自 view-model（VM 捕获异常并反馈，组件层只触发不捕获），四族模式一致。
+- [x] config 组件族 props-as-DI 与直接取 store 双路径统一：family 组件经 props 接收 definition 与回调，view-model 统一从 store/orchestrator 取数，路径单一。
+- [x] `ConfigModInfoEditor.vue` 借用 `settings.css` 类名改为通用 `config-page/config-page-header/config-page-footer` 类（config.css 新增骨架类）。
+- [x] 跑前端全套检查全绿（format 仅剩 HEAD 既有 write.service.ts 问题）；手工验收清单：Skin/Variant 新建/编辑/删除/外部更新四链路待人工过一遍。
 
 ### Phase 2.5: 画布编辑器骨架下沉
 

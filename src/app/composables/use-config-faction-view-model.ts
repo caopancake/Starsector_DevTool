@@ -69,21 +69,26 @@ export function useConfigFactionViewModel() {
       feedback.error(configEntityIdInvalidMessage('势力 ID'));
       return false;
     }
-    await createIndexedEntityAction({
-      sessionId: createSessionId,
-      modRoot: createModRoot,
-      kind: 'faction',
-      previousId: null,
-      nextId: id,
-      indexRow: buildFactionIndexRow(id),
-      entityData: { file: createDefaultFaction(id) },
-      deletePreviousTarget: false,
-    });
-    feedback.success(`势力 "${id}" 已创建`);
-    if (project.activeManifest?.modRoot !== createModRoot || project.activeManifest.sessionId !== createSessionId) return true;
-    selectedFaction.value = id;
-    await loadFactions();
-    return true;
+    try {
+      await createIndexedEntityAction({
+        sessionId: createSessionId,
+        modRoot: createModRoot,
+        kind: 'faction',
+        previousId: null,
+        nextId: id,
+        indexRow: buildFactionIndexRow(id),
+        entityData: { file: createDefaultFaction(id) },
+        deletePreviousTarget: false,
+      });
+      feedback.success(`势力 "${id}" 已创建`);
+      if (project.activeManifest?.modRoot !== createModRoot || project.activeManifest.sessionId !== createSessionId) return true;
+      selectedFaction.value = id;
+      await loadFactions();
+      return true;
+    } catch (error) {
+      feedback.error(error, '创建势力失败');
+      return false;
+    }
   }
 
   async function saveFaction(

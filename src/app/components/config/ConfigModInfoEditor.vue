@@ -1,6 +1,6 @@
 <template>
-  <div class="settings-page">
-    <header class="settings-header">
+  <div class="config-page">
+    <header class="config-page-header">
       <h1>Mod 信息</h1>
     </header>
 
@@ -8,7 +8,7 @@
 
     <SchemaFormRenderer v-if="schema" :schema="schema" v-model="draftData" :runtime-context="schemaRuntimeContext" />
 
-    <footer class="settings-footer">
+    <footer class="config-page-footer">
       <n-button v-if="hasPendingExternalData" secondary type="warning" @click="loadPendingExternalData">载入外部版本</n-button>
       <n-button type="primary" :loading="saving" :disabled="!dirty" @click="save">保存</n-button>
     </footer>

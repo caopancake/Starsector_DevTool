@@ -4,8 +4,8 @@
     <ConfigFileHistoryView v-else-if="workspace.configView === 'file-history'" />
     <ConfigModInfoEditor v-else-if="workspace.configView === 'mod-info'" />
     <ConfigFactionView v-else-if="workspace.configView === 'factions'" />
-    <ConfigSkinView v-else-if="workspace.configView === 'skins'" />
-    <ConfigVariantView v-else-if="workspace.configView === 'variants'" />
+    <ConfigEntityFamilyView v-else-if="workspace.configView === 'skins'" family-id="skin" />
+    <ConfigEntityFamilyView v-else-if="workspace.configView === 'variants'" family-id="variant" />
     <ConfigMissionView v-else-if="workspace.configView === 'mission'" />
   </main>
 </template>
@@ -20,8 +20,7 @@ const ConfigFileHistoryView = defineAsyncComponent(() => import('@/app/component
 const ConfigModInfoEditor = defineAsyncComponent(() => import('@/app/components/config/ConfigModInfoEditor.vue'));
 const ConfigFactionView = defineAsyncComponent(() => import('@/app/components/config/ConfigFactionView.vue'));
 const ConfigMissionView = defineAsyncComponent(() => import('@/app/components/config/ConfigMissionView.vue'));
-const ConfigSkinView = defineAsyncComponent(() => import('@/app/components/config/ConfigSkinView.vue'));
-const ConfigVariantView = defineAsyncComponent(() => import('@/app/components/config/ConfigVariantView.vue'));
+const ConfigEntityFamilyView = defineAsyncComponent(() => import('@/app/components/config/ConfigEntityFamilyView.vue'));
 
 const workspace = useWorkspaceStore();
 

@@ -446,3 +446,28 @@
   width: min(100%, 256px);
   aspect-ratio: 1;
 }
+
+/* --- 通用配置页骨架（config 页共用，替代借用 settings.css 类名） --- */
+.config-page {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 28px 36px;
+  overflow-y: auto;
+}
+
+.config-page-header h1 {
+  margin: 0 0 var(--space-2);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.config-page-footer {
+  display: flex;
+  width: min(680px, 100%);
+  justify-content: flex-end;
+  padding-top: var(--space-1);
+}

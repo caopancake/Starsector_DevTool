@@ -125,16 +125,11 @@ async function doCreateMission() {
     feedback.warning(`战役 "${id}" 已存在`);
     return false;
   }
-  try {
-    if (!(await props.createMission(targetSessionId, targetModRoot, id))) return false;
-    showCreateDialog.value = false;
-    if (props.modRoot !== targetModRoot || props.sessionId !== targetSessionId) return true;
-    await refreshList();
-    emit('select', id);
-  } catch (error) {
-    feedback.error(error, '创建战役失败');
-    return false;
-  }
+  if (!(await props.createMission(targetSessionId, targetModRoot, id))) return false;
+  showCreateDialog.value = false;
+  if (props.modRoot !== targetModRoot || props.sessionId !== targetSessionId) return true;
+  await refreshList();
+  emit('select', id);
   return true;
 }
 

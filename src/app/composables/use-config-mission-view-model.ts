@@ -77,21 +77,26 @@ export function useConfigMissionViewModel() {
       feedback.error(configEntityIdInvalidMessage('战役 ID'));
       return false;
     }
-    await createIndexedEntityAction({
-      sessionId: createSessionId,
-      modRoot: createModRoot,
-      kind: 'mission',
-      previousId: null,
-      nextId: id,
-      indexRow: buildMissionIndexRow([], ['mission'], id),
-      entityData: { descriptor: { title: id }, text: '' },
-      deletePreviousTarget: false,
-    });
-    feedback.success(`战役 "${id}" 已创建`);
-    if (modRoot.value !== createModRoot || sessionId.value !== createSessionId) return true;
-    selectedMission.value = id;
-    await queryMissions();
-    return true;
+    try {
+      await createIndexedEntityAction({
+        sessionId: createSessionId,
+        modRoot: createModRoot,
+        kind: 'mission',
+        previousId: null,
+        nextId: id,
+        indexRow: buildMissionIndexRow([], ['mission'], id),
+        entityData: { descriptor: { title: id }, text: '' },
+        deletePreviousTarget: false,
+      });
+      feedback.success(`战役 "${id}" 已创建`);
+      if (modRoot.value !== createModRoot || sessionId.value !== createSessionId) return true;
+      selectedMission.value = id;
+      await queryMissions();
+      return true;
+    } catch (error) {
+      feedback.error(error, '创建战役失败');
+      return false;
+    }
   }
 
   async function saveMission(
