@@ -1,15 +1,171 @@
 # Todo
 
-## Phase 2: ProjectSession invalidation 精度修复
+## Phase 1: 架构修正——正确性、响应性与防护基础
 
-- [x] 将 ProjectSession invalidation 从实体整类 `id: null` 粗粒度影响，收敛为能定位具体实体时必须携带实体 ID。
-- [x] spec 单文件路径必须按统一 entity definition 推导具体实体影响：`.ship`、`.wpn`、`.proj`、`.system`、`.skill`、`.variant`、`.skin`、Faction `.faction`。
-- [x] CSV patch 保存必须从 row patch、rowKey 映射和关联 spec 动作产出具体实体影响；无法从路径直接定位的整表外部变化继续使用正式整表 scope。
-- [x] directory changeset 必须从 before/after snapshot 枚举受影响 spec 文件，生成对应实体影响；不能只用目录路径粗暴清整类。
-- [x] rename 必须同时失效旧 ID 和新 ID；delete 必须能从 before state 或旧 session 索引拿到旧 ID。
-- [x] 前端 query cache 按 `InvalidatedEntityRef.id` 精确清理 entity-detail；`id: null` 只用于正式全类影响。
-- [x] 补 Rust 测试覆盖 spec 修改、删除、rename、CSV patch create/delete/rename、目录回放和整表外部变化的 invalidation 输出。
-- [x] 跑前端格式、类型、lint、编码检查和 Rust test、fmt、clippy。
+> 目标：先消灭正确性实伤、收紧静态防护并清空死代码，为 Phase 2 的 Owner 重构提供安全网。`build.bat` 为必要发布设施，与 `build.ps1` 并存是既定决策，不属整改对象。
+
+### Phase 1.1: Rust 命令线程模型与锁边界
+
+Owner 原则：`PROJECT_SESSIONS` 锁只保护 session 注册表与 session 状态的一致性；一切磁盘 IO（读 core、写盘、目录重扫、指纹计算）必须在锁外执行；一切含 IO 的 command 必须在异步线程执行。
+
+- [ ] `src-tauri/src/commands/project.rs` 中 7 个纯 `#[tauri::command]` 的 query/invalidate 命令改为 `#[tauri::command(async)]`；`app_feedback_log.rs`、`app_settings.rs` 的同步命令逐一按 IO 属性评估后统一标注。
+- [ ] `services/project/write/csv_patch.rs`：changeset 写盘（`builder.apply()`）移出锁临界区；锁内只完成行数据读取与写后状态提交，两段之间不得持有跨锁引用。
+- [ ] `services/project/query/source_options.rs`：core CSV 与 core source data 加载移出锁外（先取 session 快照与 root，锁外加载，再短锁回写缓存）。
+- [ ] `services/project/session.rs`：invalidation 触发的目录重扫移出锁外。
+- [ ] 补并发回归测试：多 session 并发 query 与单 session 写入互不串行阻塞；以审查确认锁临界区内无文件系统调用。
+- [ ] 跑 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test`。
+
+### Phase 1.2: core 缓存指纹与外设正确性
+
+- [ ] core 指纹改为会话级缓存：ProjectSession 建立时计算一次、invalidate 时增量更新；各 `load_core_*` 加载器未命中不得再触发全目录重读加重哈希（`cache/core.rs` → `persistent::core_fingerprint`）。
+- [ ] `resources/sprites.rs` 的 data URL MIME 按扩展名判定（png/jpg/jpeg/gif），判定逻辑与 `core_graphics.rs` 扫描白名单同源为单一实现。
+- [ ] `services/system_open.rs` Windows 分支改为 `explorer.exe` 直接打开目标路径，移除 `cmd /C start` 的元字符解释面。
+- [ ] `services/project/projectiles.rs` 删除恒为 true 的 `overwrite` 参数与不可达分支。
+- [ ] `persistent.rs` 的 FNV-1a 内容指纹保留，但在实现处注明碰撞语义与持久化缓存兼容约束。
+- [ ] 跑 Rust 三件套检查。
+
+### Phase 1.3: Rust 单一实现收敛
+
+Owner 原则：每个通用机制只有一个正式实现与一个 owner 模块；镜像成对的实体文件合并为参数化单一实现。
+
+- [ ] `path_is_or_in_dir` / `path_affects_target` 收敛为 `io/paths.rs` 单一实现；`domain/editor_config_definitions.rs`、`services/project/entity_definitions.rs`、`cache/invalidation.rs` 删除各自私有副本。
+- [ ] `normalize_rel_path`（`model.rs`、`persistent.rs`）与 `relative_path_key`（`io/paths.rs`）合并为 `io/paths.rs` 单一实现。
+- [ ] JSON 目录扫描统一：`io/json_files.rs` 提供唯一 walkdir 扫描入口（含统一错误上下文与校验）；`services/project/spec_files.rs` 的 variant/skin 两段扫描与 `editor_config/spec_files.rs` 的目标查找改为复用，错误消息措辞统一。
+- [ ] `editor_config/variants.rs` 与 `skins.rs` 合并为参数化单一实现（由 entity definition 提供 ID 字段、目录、校验与文案），成对镜像的测试同步合并为参数化测试。
+- [ ] CP1252 智能引号归一化收敛到 `io/text.rs` 单一映射表，`parsers/alex_csv.rs` 复用；"读入即归一化"行为写入模块契约。
+- [ ] `editor_config/indexed_entities.rs` 与 mission 链路以 `serde_json::json!` 手拼的 refreshed entity 改为 models 层类型化 wire 模型。
+- [ ] `commands/editor_config.rs` 中重复的 session 守卫下沉为统一入口（extractor 或单一守卫函数）。
+- [ ] 生产代码中守卫后 `unwrap()` 改写为 `if let Some(...)`；静态注册表查找的 `expect()` 统一改为返回 `Result` 的查找函数。
+- [ ] `session_id` 生成改为进程内单调计数器；为 session 注册表补显式上限或孤儿回收兜底。
+- [ ] `model.rs` 的 `WEAPON_SPRITE_FIELDS` 测试副本改为引用生产常量。
+- [ ] 跑 Rust 三件套检查。
+
+### Phase 1.4: 静态规则引擎修复
+
+- [ ] 修复 `.zcode/modules/*.md` 不被文件收集器收录导致 `workspace-module-boundary` 文档检查永不触发的死分支：文档边界检查改用独立文档收集器，或扩展 `shared/files.mjs` 收集范围。
+- [ ] `check-identifier-length.mjs` 与 `rust-project-layer-boundary.mjs` 的 `#[cfg(test)]` 块剥离统一为"先剥注释/字符串、再配平花括号"的顺序，并共享同一实现，删除双份拷贝。
+- [ ] 清理规则引擎死导出：`rustLayerForPath`、`rustLayerForCratePath`、`withTsExtension`、`fileTextByRel` 及其配套的模块级可变状态；`exportedFunctionNames` 双实现合一。
+- [ ] `directory-opening-boundary.mjs` 的裸路径正则改写为 self-boundary 允许的形式，或将该形态显式纳入 self-boundary 禁令。
+- [ ] 跑 `check-architecture`、`check-identifier-length`、`check-encoding` 三个脚本并确认全绿。
+
+### Phase 1.5: 前端死代码与残留清理
+
+- [ ] 删除零引用导出：`file-history.store.ts` 的 `canUndoFileSave`/`canRedoFileSave`/`activeUndoStack`/`activeRedoStack`/`activeHistoryCount`；`windows/editor.window.ts` 的 `openShipEditorWindow`/`openWeaponEditorWindow`/`openSystemEditorWindow`；`use-canvas-drawing.ts` 的 `drawDot`/`drawCrosshair`；`use-history.ts` 的 `reset`；`csv-faction-filter.ts` 的 `isFilterableTable`；`tables.store.ts` 末尾的 `MODULE_LABELS` 再导出。
+- [ ] `tables.store.ts`：`discardTableDraftForReload` 与 `loadExternalTableDraft` 同体异名合一，统一为一个语义化名称并同步全部调用方；`addNewRow`/`deleteSelected` 去除无 `await` 的 `async`。
+- [ ] `settings-persistence.orchestrator.ts` 的窗口监听补 unlisten 生命周期管理，与 `window-save.orchestrator.ts` 的清理约定一致。
+- [ ] `SystemEditor.vue` 删除未使用的 `modRoot` prop，父级同步移除传参。
+- [ ] `schema-select-media.service.ts` 薄壳删除，消费方直接使用 resource-media service。
+- [ ] `requireConfigRowData`/`requireEditorRowData` 无信息量包装删除，统一使用 `shared/lib/row-data` 的 `requireRowData`。
+- [ ] 移除零引用生产依赖 `@vue/devtools-api`。
+- [ ] 跑前端 format:check、encoding:check、lint、typecheck、test、build。
+
+### Phase 1.6: 工具链与配置硬化
+
+- [ ] `tsconfig.json` 补 `noUnusedLocals`、`noUnusedParameters`、`noFallthroughCasesInSwitch`、`verbatimModuleSyntax`，并统一与 `tsconfig.node.json` 的 target；`noUncheckedIndexedAccess` 单独评估改动面后决定是否启用。
+- [ ] 新增 CI 工作流：push/PR 执行 format:check、encoding:check、lint（含架构与标识符检查）、typecheck、test、build 与 cargo fmt/clippy/test。
+- [ ] 处置零消费的 `schemas/_meta.json`：默认删除。
+- [ ] 确认 `.zcode/bugs.md` 删除现状的处置（保持删除则同步移除 `module-map.md` 中对它的唯一引用），消除悬空契约。
+- [ ] README 技术栈说明补 Pinia。
+
+## Phase 2: 架构修正——Owner 职责重构
+
+> 目标：为重复机制建立唯一正式 Owner，归位 service / orchestrator / component / composable 职责。每个子阶段完成后必须按事后要求同步 `.zcode` 对应契约文档。
+
+### Phase 2.1: 统一编辑会话原语
+
+Owner 原则："基线-草稿-dirty-外部更新挂起-撤销/重做"在全仓只有一个正式模型与一个 owner；CSV 单元粒度、整文件快照与纯文本是同一原语的三种特化，不是三套实现。
+
+- [ ] 在 `src/domain` 建立框架无关的统一 EditSession 正式模型：baseline、draft、派生 dirty、revision、pendingExternal、undo/redo 栈与 historyLimit，equals/clone 以选项注入；原语配完整单元测试。
+- [ ] 分步迁移：先迁配置/编辑器草稿（`use-draft-session.ts`）与文本撤销（`use-text-history.ts`），再迁文件历史（`file-history.store.ts`）与 CSV 撤销（`tables-edit-history.store.ts`）的栈与 id 生成，最后迁 CSV 表格草稿（`tables.store.ts` ModTableState 的 draft 部分与 `domain/tables/csv-table-draft.ts`）；删除各机制的私有实现。
+- [ ] 建立 Mod 级未保存工作查询的唯一 owner（workspace store 聚合），`ModTabsBar.vue`、`AppContent.vue`、`use-workspace-shell-actions.ts` 中的手工 `||` 并集全部改走唯一入口。
+- [ ] dirty 登记模型统一：CSV 表格草稿与配置草稿向同一注册点登记，消费方不再感知机制差异。
+- [ ] 迁移完成后清退旧术语与旧 API；`csv-draft-boundary`、`draft-session-boundary`、`file-history-boundary` 规则同步改写为新原语的边界断言。
+- [ ] 跑前端全套检查 + 手工验收：CSV 编辑/撤销/重做、配置草稿/外部更新交接、文件编辑器撤销、未保存关闭确认全链路。
+
+### Phase 2.2: 缓存原语统一
+
+Owner 原则：通用缓存机制（key 版本、pending 去重、容量淘汰、失效订阅、可重置）只有一个 owner 实现；query/resource/media 三种缓存只是配置差异。
+
+- [ ] 在 `src/shared/runtime` 建立通用缓存原语（可注入 key、容量、失效事件类型，支持重置以隔离测试）。
+- [ ] `query-cache.service.ts`、`resource-cache.service.ts`、`resource-media.service.ts` 改为原语实例，删除各自的四件套 Map 与 bump/evict/notify/subscribe 副本。
+- [ ] 失效链路保持唯一 owner：写后仍由 project-session-refresh 统一先资源后查询，顺序不变。
+- [ ] `stableStringify` 三份实现（`shared/lib/stable-compare.ts`、`query-cache.service.ts`、`domain/schema/schema-sections.ts`）合并为 `shared/lib/stable-compare.ts` 唯一实现。
+- [ ] 补缓存原语单元测试（失效、去重、LRU、重置）。
+
+### Phase 2.3: service 层 owner 归位
+
+Owner 原则：service 只包装单一后端能力并与 `shared/api` 一一映射；跨能力组合、媒体水合与遥测埋点属 orchestrator 或横切设施，不属于任何 service。
+
+- [ ] 重声明并执行 service 依赖规则：service 禁止 import 其它 service，基础设施例外必须显式白名单入规则；`frontend-layer-boundary.mjs` 同步改写。
+- [ ] `performance.service` 的遥测改为 `shared/runtime` 横切设施，摘除所有 service 对它的直接依赖（埋点上移 api 包装层或 orchestrator）。
+- [ ] 拆解聚合型 service：`config-entity.service.ts`、`editor.service.ts`、`csv-table.service.ts` 的读聚合与保存编排上移至对应 orchestrator（config-save、table-save、编辑器保存编排），service 退回单一能力包装。
+- [ ] `editor.service.ts` 对 `shared/api/files-api` 的直接消费并入 `files.service`，恢复 api 与 service 的一一映射。
+- [ ] orchestrator 层组合规则成文：允许高层编排低层用例、必须单向无环；评估 `file-history-session` 的"写入完成登记"与"重放执行"是否拆分为两个 owner。
+- [ ] 更新 `.zcode/overview.md` 与 `frontend-guidelines.md` 的 service 契约描述。
+
+### Phase 2.4: 配置实体组件族参数化
+
+Owner 原则：同构实体族（列表 + 草稿编辑器 + 新建/删除确认）只有一个参数化实现；实体类型差异只存在于定义数据。
+
+- [ ] Skin/Variant 两族 8 文件（List/Editor/View + 两个 VM）合并为参数化实现，实体差异（ID 字段、schema、文案、比较器）收敛为定义对象；Faction/Mission 族评估纳入同一抽象。
+- [ ] schema runtime context 统一构建路径：Faction 族的 props 注入与其余三族各自 computed 创建合一为单一来源。
+- [ ] 新建对话框校验与错误防线统一为单一模式（VM 层捕获 + 组件层统一反馈），四族一致。
+- [ ] config 组件族 props-as-DI 与直接取 store 双路径统一为一种。
+- [ ] `ConfigModInfoEditor.vue` 借用 `settings.css` 类名改为通用 page/page-header 类。
+- [ ] 跑前端全套检查 + 手工验收四族新建/编辑/删除/外部更新。
+
+### Phase 2.5: 画布编辑器骨架下沉
+
+- [ ] 抽取 `use-canvas-editor` composable：命中检测、镜像轴/光标/选区绘制、选区同步、undo 集成、window 事件三件套、resize 与 inspector 联动；`ShipEditor.vue` 与 `WeaponEditor.vue` 改为复用，现有 `use-canvas-viewport`/`use-canvas-drawing` 并入或作为其依赖。
+- [ ] `WeaponFirePreview.vue` 与 WeaponEditor 重复的坐标/贴图字段映射纯函数收敛为同源实现。
+- [ ] 4 处 `deep: true, flush: 'sync'` 深度同步 watch 改为显式提交模型：拖拽/输入在动作边界提交 draft 并记录撤销，删除同步深比较。
+- [ ] 跑前端全套检查 + 手工验收舰船/武器画布拖拽、镜像、撤销与武器发射预览。
+
+### Phase 2.6: 表格渲染与交互一致性
+
+- [ ] 8 处 v-for index key 改为结构化稳定 key（字段路径/条目 id）；`SchemaFieldRenderer.vue` 的 `removeKvEntry` 手工重排补偿逻辑随之删除。
+- [ ] 快捷键统一：单一 shortcut 分发（域命令式，含输入焦点豁免与 Ctrl+S 全局语义），`use-editor-shortcuts`、`EditorWindowContent` 与 `FileEditorContent` 的自写 handler、`use-main-window-shortcuts` 四套合一；键位语义与 Phase 8 规划对齐，不新增键位。
+- [ ] JSON 编辑失败处理统一：ObjectEditor、SchemaFieldRenderer、SystemEditor 提交非法 JSON 统一给出 warning/error 反馈，禁止静默吞掉。
+- [ ] SystemEditor 内联的额外字段编辑实现删除，复用 `JsonFieldEditor`；评估 `JsonFieldEditor` 归属（schema 模块或 shared/ui 择一）。
+- [ ] `WeaponEditor.vue` 事件 `editProjectile` 改 kebab-case `edit-projectile`；naming 规则接线事件命名约束。
+- [ ] 评估 `use-table-dom-selection` 的 DOM class 与响应式双轨选中态收敛为响应式唯一来源。
+- [ ] 跑前端全套检查 + 手工验收表格选中、kv 字段增删、快捷键与 JSON 编辑。
+
+### Phase 2.7: settings、主题与窗口层归位
+
+- [ ] `settings.store.ts` 拆分：色彩数学下沉 `src/domain` 纯函数；写 DOM 的主题副作用上移 app 层 effect；store 只持状态，输入校验规则下沉 domain。
+- [ ] `App.vue` 与 `WindowShell.vue` 复制的 Provider 栈与 settings 持久化/镜像双入口合并为单一 shell 实现（以模式参数区分主窗口/子窗口）。
+- [ ] `current.window.ts` 关窗 API 统一为单一 owner；`reloadCurrentWebviewWindow` 命名与实现对齐。
+- [ ] `managed.window.ts` 子窗口创建补错误监听与失败反馈；draft/settings 大 JSON 走 URL query 增加长度守卫或改走结构化事件传递。
+- [ ] `window-save.orchestrator.ts` 的事件类型 import 统一从 `window.events` 取。
+- [ ] `shared/lib/save-command-registry.ts` 迁为正式 store（owner 归 stores/），消除 `m_` 前缀特例。
+- [ ] 关闭 Mod 的 5-store 清理序列抽为单一用例函数，`directory-opening.orchestrator.ts` 与 `workspace-lifecycle.orchestrator.ts` 复用。
+- [ ] `file-editor.css` 并入 `index.css` 聚合，`main.ts` 恢复单一样式入口。
+- [ ] 评估 `DataTable.vue`/`DetailPane.vue` 根层组件归位到 components/ 对应子目录。
+
+### Phase 2.8: schema 资产归一
+
+- [ ] `schemas/*.schema.json` 三种结构统一到 field-schema/v1 单一正式形态（扁平 fields、sections、sources 聚合三选一为基准，其余迁移）。
+- [ ] CSV 列 schema（`schemas/csv/*.columns.json`）与 spec schema 统一目录与后缀命名约定。
+- [ ] `schema-registry.ts` 与 `csv-column-schema.ts` 合并为单一加载路径；散落的 `as` 强转收敛为唯一入口处的运行时形状校验。
+- [ ] schema 消费端（SchemaFormRenderer/SchemaFieldRenderer）只依赖统一加载器的输出类型。
+- [ ] 跑前端全套检查 + 手工验收四类配置实体与 CSV 富控件渲染。
+
+### Phase 2.9: 错误语义、命名与一致性收尾
+
+- [ ] 错误类型边界成文并入规则：domain 允许值语义裸 Error；service/orchestrator 必须抛带 action 的 AppError；修正 `write.service.ts` 与 `mod-creation.orchestrator.ts` 中的裸 Error。
+- [ ] Pinia store id 统一 kebab-case，naming-boundary 接线。
+- [ ] `app-feedback.ts` 工厂与 `use-app-feedback.ts` 的关系成文（工厂 + hook 单一入口），工厂内直取 store 与开窗的行为评估上移。
+- [ ] `shared/types` barrel 直引的散点收敛走统一入口。
+- [ ] 全仓 grep 复核收尾：死导出、同名同体方法、service 互调为零；三个静态检查脚本全绿。
+
+### Phase 2.10: 测试补强与文档同步
+
+- [ ] 为 EditSession 原语、缓存原语、快捷键分发、schema 统一加载器补 vitest 单元测试。
+- [ ] 为保存链路 orchestrators（table-save/config-save/file-save/window-save）补直接测试：事件进出、changeset 提交、失效顺序。
+- [ ] Rust 侧保持既有覆盖，variants/skins 合并后以参数化测试覆盖两实体全部行为。
+- [ ] 按 workflow.md 事后要求同步 `.zcode/overview.md`、`frontend-guidelines.md`、`backend-guidelines.md`、`module-map.md` 与受影响 `modules/*.md` 契约。
+- [ ] 跑前后端全套检查，列出仍需人工确认的运行时行为清单。
 
 ## Phase 3: 外置文本 JSON 支持
 

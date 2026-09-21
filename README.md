@@ -63,7 +63,7 @@ src-tauri\target\release\starsector-devtool.exe
 
 项目只发布单文件 exe，不生成安装包。
 
-仓库也提供 [build.ps1](./build.ps1) 与 [build.bat](./build.bat)。这两个便捷脚本会结束正在运行的 `starsector-devtool` 进程并清理 `dist/`，仅应在确认可中断当前程序时使用。
+仓库也提供 [build.ps1](./build.ps1) 与 [build.bat](./build.bat)。这两个便捷脚本会结束正在运行的 `starsector-devtool` 进程并清理 `dist/`，仅应在确认可中断当前程序时使用。为了兼容性考虑，bat 脚本是必须的。
 
 ## 验证
 
