@@ -1,5 +1,6 @@
 {
   "$schema": "starsector-devtool/field-schema/v1",
+  "id": "mod-info",
   "fileType": "mod_info.json",
   "displayName": "Mod 信息",
   "description": "Mod 的基本元数据定义文件，包含 ID、名称、版本、依赖等信息",

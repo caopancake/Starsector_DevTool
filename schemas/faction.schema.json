@@ -1,5 +1,6 @@
 {
   "$schema": "starsector-devtool/field-schema/v1",
+  "id": "faction",
   "fileType": ".faction",
   "displayName": "势力定义",
   "description": "Starsector 势力配置文件，定义势力的外观、舰队组成、教条、关系等",

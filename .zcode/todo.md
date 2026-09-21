@@ -167,11 +167,17 @@ Owner 原则：同构实体族（列表 + 草稿编辑器 + 新建/删除确认�
 
 ### Phase 2.10: 测试补强与文档同步
 
-- [ ] 为 EditSession 原语、缓存原语、快捷键分发、schema 统一加载器补 vitest 单元测试。
-- [ ] 为保存链路 orchestrators（table-save/config-save/file-save/window-save）补直接测试：事件进出、changeset 提交、失效顺序。
-- [ ] Rust 侧保持既有覆盖，variants/skins 合并后以参数化测试覆盖两实体全部行为。
-- [ ] 按 workflow.md 事后要求同步 `.zcode/overview.md`、`frontend-guidelines.md`、`backend-guidelines.md`、`module-map.md` 与受影响 `modules/*.md` 契约。
-- [ ] 跑前后端全套检查，列出仍需人工确认的运行时行为清单。
+- [x] EditSession 原语与缓存原语测试已在 2.1/2.2 建立（17 + 8 个用例），本轮复核覆盖达标。
+- [x] 快捷键分发测试：新增 `main-window-commands.spec.ts` 覆盖 `shortcutCommandFromKeyEvent` 全键位表（Ctrl+S 全局含输入框、Ctrl+Z/Ctrl+Shift+Z/Ctrl+Y 三路重做、输入焦点豁免与 `undoRedoInEditable` 开关、Escape→close、Alt 阻断）。
+- [x] schema 统一加载器测试：新增 `schema-registry.spec.ts` 断言 5 个 spec 资产按 field-schema/v1 形态加载（`$schema`、sections、sources 形状、字段闭合类型集合）、14 个 csv 表列 schema 键与控件闭合集合、未知 id 返回 null；资产形状损坏会在模块加载时抛错（运行时防线）。
+- [x] 保存链路 orchestrator 直接测试：`table-save.orchestrator.spec.ts`（真实 store + mock write/history——capture 匹配、无 dirty noop、upsert/delete changeset 构造、历史登记先于草稿清理、session 变化 noop）、`config-save.orchestrator.spec.ts`（十个写动作委托、entityId 解析、indexedConfigHistoryLabel 标签、默认数据同源断言）、`file-save.orchestrator.spec.ts`（空变更过滤、spec/basename 标签）、`window-save.orchestrator.spec.ts`（事件注册、编辑器保存回调触发条件、dispose 释放）。
+- [x] Rust 侧保持既有覆盖：cargo test 263 通过，editor_config 参数化测试覆盖 variants/skins 两实体保存改名/撤销重做/可回放删除/路径越界拒绝/ID 匹配全部行为。
+- [x] 按 workflow.md 事后要求同步文档：overview.md 补唯一窗口壳与跨模块单一 owner 原语清单；frontend-guidelines 补错误语义边界、store id、类型桶约束；backend-guidelines 复核仍准确；module-map 与受影响 modules（schema/app-settings/windowing/workspace/ship-editor/weapon-editor/weapon-preview/projectile-editor/system-editor/app-feedback-log）已按阶段同步。
+- [x] 跑前后端全套检查全绿（前端：typecheck、lint、架构三脚本、encoding、103 测试、build、format 零例外；Rust：fmt/clippy/test 263 通过）。仍需人工确认的运行时行为清单见各阶段 todo 与下方汇总：
+  - 画布：舰船/武器拖拽、镜像成对、撤销重做、T 检查器联动、贴图宽高同步、发射点角度与删除。
+  - 表格：选中高亮滚动保持、kv 行增删改名展开态跟随、数组项删除焦点、富控件列（enum/reference/tags/布尔/图片路径）。
+  - 快捷键与窗口：三窗口 Ctrl+S、文本区 undo/redo、编辑器 Ctrl+Y、主题三窗口同步、子窗口设置镜像、开窗失败反馈、大草稿预览降级。
+  - 配置：五类实体表单渲染与保存、faction core 字段合并区、新建 Mod 默认值与打开失败反馈、同表重复保存的排他写提示。
 
 ## Phase 3: 外置文本 JSON 支持
 

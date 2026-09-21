@@ -1,0 +1,162 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createPinia, setActivePinia } from 'pinia';
+
+const writeCsvPatch = vi.hoisted(() => vi.fn());
+const completeSavedWrite = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+
+vi.mock('@/services/write.service', () => ({ writeCsvPatch }));
+vi.mock('@/orchestrators/file-history-write.orchestrator', () => ({ completeSavedWrite }));
+
+import type { ProjectInvalidation, ProjectManifest, WriteResult } from '@/shared/types';
+import { TABLE_KEYS } from '@/shared/types';
+import { useProjectStore } from '@/stores/project.store';
+import { useTablesStore } from '@/stores/tables.store';
+import { captureActiveTableSaveTarget, saveCapturedTableChanges } from '@/orchestrators/table-save.orchestrator';
+
+const MOD_ROOT = 'M:\\test-mod';
+const SESSION_ID = 'sess-1';
+
+function buildManifest(overrides: Partial<ProjectManifest> = {}): ProjectManifest {
+  return {
+    sessionId: SESSION_ID,
+    modRoot: MOD_ROOT,
+    starsectorRoot: null,
+    coreAvailable: false,
+    associatedSpecTables: [],
+    modInfo: {},
+    tableSummaries: Object.fromEntries(
+      TABLE_KEYS.map((key) => [key, { path: `${key}.csv`, header: ['id', 'hullName'], available: key === 'ships', totalRows: 1 }]),
+    ) as ProjectManifest['tableSummaries'],
+    tableEntitySummaries: Object.fromEntries(TABLE_KEYS.map((key) => [key, 0])) as ProjectManifest['tableEntitySummaries'],
+    entitySummaries: {
+      factions: 0,
+      missions: 0,
+      ships: 0,
+      weapons: 0,
+      projectiles: 0,
+      variants: 0,
+      skins: 0,
+      systems: 0,
+      skills: 0,
+    },
+    warnings: [],
+    ...overrides,
+  };
+}
+
+function writeResult(overrides: Partial<WriteResult> = {}): WriteResult {
+  const invalidation: ProjectInvalidation = { paths: [], tables: [], entities: [], resources: [], queryScopes: [], session: false };
+  return {
+    changes: [
+      {
+        path: `${MOD_ROOT}\\ships.csv`,
+        kind: 'file',
+        beforeExists: true,
+        beforeText: '',
+        beforeDataBase64: null,
+        beforeFiles: [],
+        afterExists: true,
+        afterText: '',
+        afterDataBase64: null,
+        afterFiles: [],
+      },
+    ],
+    invalidation,
+    keyMap: [],
+    refreshedEntity: null,
+    warnings: [],
+    ...overrides,
+  };
+}
+
+function hydrateActiveTable() {
+  const tables = useTablesStore();
+  tables.hydrate(MOD_ROOT, buildManifest());
+  const state = tables.getModTableState(MOD_ROOT);
+  if (!state) throw new Error('table state missing after hydrate');
+  state.tables.ships = [{ _rowKey: 'ships:r1', id: 'npc1', hullName: 'A' }];
+  return state;
+}
+
+describe('table-save orchestrator', () => {
+  beforeEach(() => setActivePinia(createPinia()));
+
+  it('is a noop when nothing is dirty', async () => {
+    const tables = useTablesStore();
+    const project = useProjectStore();
+    project.manifests.set(MOD_ROOT, buildManifest());
+    tables.hydrate(MOD_ROOT, buildManifest());
+
+    const target = captureActiveTableSaveTarget(project.getManifest(MOD_ROOT));
+    expect(await saveCapturedTableChanges(target, [])).toBe('noop');
+    expect(writeCsvPatch).not.toHaveBeenCalled();
+    expect(completeSavedWrite).not.toHaveBeenCalled();
+  });
+
+  it('submits upsert patches without the internal row key and clears dirty after recording history', async () => {
+    const tables = useTablesStore();
+    const project = useProjectStore();
+    project.manifests.set(MOD_ROOT, buildManifest());
+    const state = hydrateActiveTable();
+
+    tables.updateCellValueByKey('ships:r1', 'hullName', 'B');
+    expect(Object.keys(state.dirty.ships).length).toBe(1);
+
+    writeCsvPatch.mockResolvedValue(writeResult());
+    const target = captureActiveTableSaveTarget(project.getManifest(MOD_ROOT));
+    completeSavedWrite.mockImplementationOnce(async () => {
+      // 失效与历史登记必须发生在草稿清理之前。
+      expect(Object.keys(state.dirty.ships).length).toBe(1);
+    });
+
+    expect(await saveCapturedTableChanges(target, [])).toBe('saved');
+    expect(writeCsvPatch).toHaveBeenCalledWith(
+      'sess-1',
+      MOD_ROOT,
+      'ships',
+      [{ rowKey: 'ships:r1', action: 'upsert', row: { id: 'npc1', hullName: 'B' } }],
+      [],
+    );
+    expect(completeSavedWrite).toHaveBeenCalledWith(
+      {
+        modRoot: MOD_ROOT,
+        sessionId: SESSION_ID,
+        label: '保存 ships CSV',
+        result: expect.objectContaining({ changes: expect.any(Array) }),
+      },
+      project,
+    );
+    expect(Object.keys(state.dirty.ships).length).toBe(0);
+  });
+
+  it('submits a delete patch for dirty deletion rows', async () => {
+    const project = useProjectStore();
+    project.manifests.set(MOD_ROOT, buildManifest());
+    const state = hydrateActiveTable();
+
+    state.tables.ships = [{ _rowKey: 'ships:r1', id: 'npc1', hullName: 'A' }];
+    state.dirty.ships['ships:r1'] = { action: 'delete' };
+
+    writeCsvPatch.mockResolvedValue(writeResult());
+    completeSavedWrite.mockResolvedValue(undefined);
+    const target = captureActiveTableSaveTarget(project.getManifest(MOD_ROOT));
+
+    expect(await saveCapturedTableChanges(target, [])).toBe('saved');
+    expect(writeCsvPatch).toHaveBeenCalledWith('sess-1', MOD_ROOT, 'ships', [{ rowKey: 'ships:r1', action: 'delete', row: {} }], []);
+  });
+
+  it('is a noop when the session changed since capture', async () => {
+    const tables = useTablesStore();
+    const project = useProjectStore();
+    project.manifests.set(MOD_ROOT, buildManifest());
+    const state = hydrateActiveTable();
+
+    tables.updateCellValueByKey('ships:r1', 'hullName', 'B');
+    const target = captureActiveTableSaveTarget(project.getManifest(MOD_ROOT));
+    project.manifests.set(MOD_ROOT, { ...buildManifest(), sessionId: 'sess-2' });
+
+    expect(await saveCapturedTableChanges(target, [])).toBe('noop');
+    expect(writeCsvPatch).not.toHaveBeenCalled();
+    expect(state.dirty.ships['ships:r1']).toBeDefined();
+  });
+});

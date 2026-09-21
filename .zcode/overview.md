@@ -12,13 +12,14 @@
 
 - `src/main.ts` 按 URL 中的窗口类型加载主窗口、专用编辑器窗口或文件编辑器窗口，并在挂载前初始化 settings、Pinia 与 Naive UI。
 - Rust `src-tauri/src/lib.rs` 注册目录识别、ProjectSession、query、write、资源、workspace、settings、日志、配置实体与文件变更命令。
-- `src/app/App.vue` 是主窗口应用壳入口；专用编辑器根与文件编辑器根分别挂载各自窗口所需的 ViewModel 和组件。
+- `src/app/WindowShell.vue` 是唯一窗口壳，以 main/child 模式区分设置持久化与设置镜像并统一挂载主题 DOM effect；`src/app/App.vue` 以 main 模式包装为主窗口入口，专用编辑器根与文件编辑器根分别挂载各自窗口所需的 ViewModel 和组件。
 
 ## 顶层职责
 
 - `src/app/` 保存窗口根、页面、组件和 ViewModel/composable；组件负责渲染、输入和局部 UI 状态。
 - `src/domain/` 保存纯规则和转换；`src/services/` 包装单一后端能力，service 之间默认禁止依赖，仅白名单内的基础设施边（缓存宿主、投影订阅、文件写底座）例外；`src/orchestrators/` 编排跨模块用户动作且依赖图必须单向无环。
 - `src/stores/` 保存内存运行态；`src/windows/` 管理窗口身份、生命周期和事件；`src/shared/` 保存跨模块 API、runtime、类型和纯工具。
+- 跨模块单一 owner 原语：编辑会话与撤销栈在 `domain/edit-session`；画布交互骨架在 `use-canvas-editor`；快捷键命令映射与分发在 `domain/workspace/main-window-commands` 加 `use-shortcut-dispatch`；主题令牌与设置校验在 `domain/settings`；schema 资产由 `schema-registry` 单一入口加载并运行时校验。
 - `src/styles/` 保存全局主题、应用框架和业务样式；`schemas/` 保存配置字段与 CSV 列 schema。
 - `src-tauri/src/commands/` 处理 wire 参数、错误转换和 service 调用；`services/` 提供目录、ProjectSession、配置实体、文件、settings、日志、workspace 与资源能力。
 - `src-tauri/src/domain/` 保存纯业务规则；`io/` 保存路径和文件边界；`parsers/` 保存格式解析与渲染；`models/` 保存 wire 和内部模型。
