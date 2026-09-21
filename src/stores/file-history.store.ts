@@ -1,14 +1,26 @@
 import { defineStore } from 'pinia';
 import { reactive, ref } from 'vue';
-import { createUndoStack, type UndoStack } from '@/domain/edit-session';
+import {
+  clearUndoStack,
+  createUndoStackState,
+  nextUndoStackId,
+  peekRedoEntry,
+  peekUndoEntry,
+  popRedoEntry,
+  popUndoEntry,
+  pushRedoEntry,
+  pushUndoEntry,
+  setUndoStackLimit,
+  type UndoStackState,
+} from '@/domain/edit-session';
 import { AppError } from '@/shared/lib/errors';
 import type { FileChangeRecord } from '@/shared/types';
 import type { FileSaveHistoryEntry } from '@/shared/types/file-history.types';
 
-type FileHistoryStack = UndoStack<FileSaveHistoryEntry>;
+type FileHistoryStack = UndoStackState<FileSaveHistoryEntry>;
 
 function createFileHistoryStack(): FileHistoryStack {
-  return createUndoStack<FileSaveHistoryEntry>({ idPrefix: 'file_hist' });
+  return createUndoStackState<FileSaveHistoryEntry>();
 }
 
 export const useFileHistoryStore = defineStore('fileHistory', () => {
@@ -33,37 +45,40 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     if (!modRoot) throw new AppError('无法记录文件历史：缺少 Mod 根目录', { action: 'push-saved-write-entry' });
     if (changes.length === 0) throw new AppError('无法记录文件历史：写入结果没有文件变更', { action: 'push-saved-write-entry' });
     const stack = getStack(modRoot) ?? stateMap.set(modRoot, createFileHistoryStack()).get(modRoot)!;
-    stack.push({ id: stack.nextId(), timestamp: Date.now(), kind: 'file-save', changes, label });
+    pushUndoEntry(stack, { id: nextUndoStackId(stack, 'file_hist'), timestamp: Date.now(), kind: 'file-save', changes, label });
   }
 
   function peekSavedWriteUndo(modRoot: string | null): FileSaveHistoryEntry | null {
-    return getStack(modRoot)?.peekUndo() ?? null;
+    const stack = getStack(modRoot);
+    return stack ? (peekUndoEntry(stack) ?? null) : null;
   }
 
   function peekSavedWriteRedo(modRoot: string | null): FileSaveHistoryEntry | null {
-    return getStack(modRoot)?.peekRedo() ?? null;
+    const stack = getStack(modRoot);
+    return stack ? (peekRedoEntry(stack) ?? null) : null;
   }
 
   function commitReplayUndo(modRoot: string | null, entryId: string): boolean {
     const stack = getStack(modRoot);
-    const top = stack?.peekUndo();
+    const top = stack ? peekUndoEntry(stack) : undefined;
     if (!stack || !top || top.id !== entryId) return false;
-    stack.popUndo();
-    stack.pushRedo(top);
+    popUndoEntry(stack);
+    pushRedoEntry(stack, top);
     return true;
   }
 
   function commitReplayRedo(modRoot: string | null, entryId: string): boolean {
     const stack = getStack(modRoot);
-    const top = stack?.peekRedo();
+    const top = stack ? peekRedoEntry(stack) : undefined;
     if (!stack || !top || top.id !== entryId) return false;
-    stack.popRedo();
-    stack.pushUndo(top);
+    popRedoEntry(stack);
+    pushUndoEntry(stack, top, { clearRedo: false });
     return true;
   }
 
   function clearForMod(modRoot: string) {
-    getStack(modRoot)?.clear();
+    const stack = getStack(modRoot);
+    if (stack) clearUndoStack(stack);
   }
 
   function getHistoryStacks(modRoot: string) {
@@ -76,7 +91,7 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
 
   function setHistoryLimit(limit: number) {
     historyLimit.value = limit;
-    for (const stack of stateMap.values()) stack.setLimit(limit);
+    for (const stack of stateMap.values()) setUndoStackLimit(stack, limit);
   }
 
   return {

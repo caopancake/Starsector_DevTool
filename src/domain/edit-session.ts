@@ -97,89 +97,70 @@ export function createEditSessionValue<T>(initialValue: T, options: EditSessionV
   };
 }
 
-export interface UndoStackOptions {
-  limit?: number;
-  idPrefix?: string;
+export interface UndoStackState<TEntry> {
+  undoStack: TEntry[];
+  redoStack: TEntry[];
+  limit: number;
+  sequence: number;
 }
 
-export interface UndoStack<TEntry> {
-  readonly undoStack: readonly TEntry[];
-  readonly redoStack: readonly TEntry[];
-  readonly limit: number;
-  nextId(): string;
-  push(entry: TEntry): void;
-  pushUndo(entry: TEntry): void;
-  pushRedo(entry: TEntry): void;
-  canUndo(): boolean;
-  canRedo(): boolean;
-  peekUndo(): TEntry | undefined;
-  peekRedo(): TEntry | undefined;
-  popUndo(): TEntry | undefined;
-  popRedo(): TEntry | undefined;
-  clear(): void;
-  setLimit(limit: number): void;
+/**
+ * 撤销/重做双栈的唯一状态形状。状态是纯数据（可被 `reactive()` 包装获得响应
+ * 性），所有变更必须经下面的操作函数进行——操作以 state 为首参，包装后经
+ * proxy 的每次变更都能被 Vue 追踪；闭包或裸对象直改不会触发响应式更新。
+ */
+export function createUndoStackState<TEntry>(limit = 100): UndoStackState<TEntry> {
+  return { undoStack: [], redoStack: [], limit, sequence: 0 };
 }
 
-let entrySequence = 0;
+export function nextUndoStackId<TEntry>(state: UndoStackState<TEntry>, idPrefix: string): string {
+  return `${idPrefix}_${Date.now()}_${++state.sequence}`;
+}
 
-export function createUndoStack<TEntry>(options: UndoStackOptions = {}): UndoStack<TEntry> {
-  const limit = options.limit ?? 100;
-  const idPrefix = options.idPrefix ?? 'entry';
-  const state = { undoStack: [] as TEntry[], redoStack: [] as TEntry[], limit };
+export function canUndoEntry<TEntry>(state: UndoStackState<TEntry>): boolean {
+  return state.undoStack.length > 0;
+}
 
-  function trimToLimit(): void {
-    while (state.undoStack.length > state.limit) state.undoStack.shift();
-  }
+export function canRedoEntry<TEntry>(state: UndoStackState<TEntry>): boolean {
+  return state.redoStack.length > 0;
+}
 
-  return {
-    get undoStack() {
-      return state.undoStack;
-    },
-    get redoStack() {
-      return state.redoStack;
-    },
-    get limit() {
-      return state.limit;
-    },
-    nextId() {
-      return `${idPrefix}_${Date.now()}_${++entrySequence}`;
-    },
-    push(entry) {
-      state.undoStack.push(entry);
-      state.redoStack.length = 0;
-      trimToLimit();
-    },
-    pushUndo(entry) {
-      state.undoStack.push(entry);
-    },
-    pushRedo(entry) {
-      state.redoStack.push(entry);
-    },
-    canUndo() {
-      return state.undoStack.length > 0;
-    },
-    canRedo() {
-      return state.redoStack.length > 0;
-    },
-    peekUndo() {
-      return state.undoStack[state.undoStack.length - 1];
-    },
-    peekRedo() {
-      return state.redoStack[state.redoStack.length - 1];
-    },
-    popUndo() {
-      return state.undoStack.pop();
-    },
-    popRedo() {
-      return state.redoStack.pop();
-    },
-    clear() {
-      state.undoStack.length = 0;
-      state.redoStack.length = 0;
-    },
-    setLimit(nextLimit) {
-      state.limit = nextLimit;
-      trimToLimit();
-    },
-  };
+export function peekUndoEntry<TEntry>(state: UndoStackState<TEntry>): TEntry | undefined {
+  return state.undoStack[state.undoStack.length - 1];
+}
+
+export function peekRedoEntry<TEntry>(state: UndoStackState<TEntry>): TEntry | undefined {
+  return state.redoStack[state.redoStack.length - 1];
+}
+
+export function pushUndoEntry<TEntry>(state: UndoStackState<TEntry>, entry: TEntry, { clearRedo = true } = {}): void {
+  state.undoStack.push(entry);
+  if (clearRedo) state.redoStack.length = 0;
+  trimUndoStack(state);
+}
+
+export function pushRedoEntry<TEntry>(state: UndoStackState<TEntry>, entry: TEntry): void {
+  state.redoStack.push(entry);
+}
+
+export function popUndoEntry<TEntry>(state: UndoStackState<TEntry>): TEntry | undefined {
+  return state.undoStack.pop();
+}
+
+export function popRedoEntry<TEntry>(state: UndoStackState<TEntry>): TEntry | undefined {
+  return state.redoStack.pop();
+}
+
+export function clearUndoStack<TEntry>(state: UndoStackState<TEntry>): void {
+  state.undoStack.length = 0;
+  state.redoStack.length = 0;
+}
+
+export function setUndoStackLimit<TEntry>(state: UndoStackState<TEntry>, limit: number): void {
+  state.limit = limit;
+  trimUndoStack(state);
+}
+
+function trimUndoStack<TEntry>(state: UndoStackState<TEntry>): void {
+  while (state.undoStack.length > state.limit) state.undoStack.shift();
 }

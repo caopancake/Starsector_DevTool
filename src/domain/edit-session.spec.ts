@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { createEditSessionValue, createUndoStack } from './edit-session';
+import { computed, reactive } from 'vue';
+import {
+  canRedoEntry,
+  canUndoEntry,
+  clearUndoStack,
+  createEditSessionValue,
+  createUndoStackState,
+  nextUndoStackId,
+  peekRedoEntry,
+  peekUndoEntry,
+  popRedoEntry,
+  popUndoEntry,
+  pushRedoEntry,
+  pushUndoEntry,
+  setUndoStackLimit,
+} from './edit-session';
 
 const identity = <T>(value: T): T => value;
 const strictEquals = <T>(left: T, right: T): boolean => left === right;
@@ -118,65 +133,70 @@ describe('createEditSessionValue', () => {
   });
 });
 
-describe('createUndoStack', () => {
+describe('createUndoStackState', () => {
   it('push clears the redo stack', () => {
-    const stack = createUndoStack<number>();
-    stack.push(1);
-    stack.push(2);
-    stack.popUndo();
-    stack.push(3);
-    expect(stack.canRedo()).toBe(false);
+    const stack = createUndoStackState<number>();
+    pushUndoEntry(stack, 1);
+    pushUndoEntry(stack, 2);
+    popUndoEntry(stack);
+    pushUndoEntry(stack, 3);
+    expect(canRedoEntry(stack)).toBe(false);
     expect(stack.undoStack).toEqual([1, 3]);
   });
 
-  it('pop moves entries between stacks', () => {
-    const stack = createUndoStack<number>();
-    stack.push(1);
-    stack.push(2);
-    expect(stack.canUndo()).toBe(true);
-    const undoEntry = stack.popUndo();
+  it('moves entries between the undo and redo stacks', () => {
+    const stack = createUndoStackState<number>();
+    pushUndoEntry(stack, 1);
+    pushUndoEntry(stack, 2);
+    expect(canUndoEntry(stack)).toBe(true);
+    expect(peekUndoEntry(stack)).toBe(2);
+    const undoEntry = popUndoEntry(stack);
     expect(undoEntry).toBe(2);
-    stack.pushRedo(undoEntry!);
-    expect(stack.canRedo()).toBe(true);
-    expect(stack.peekRedo()).toBe(2);
-    const redoEntry = stack.popRedo();
+    pushRedoEntry(stack, undoEntry!);
+    expect(canRedoEntry(stack)).toBe(true);
+    expect(peekRedoEntry(stack)).toBe(2);
+    const redoEntry = popRedoEntry(stack);
     expect(redoEntry).toBe(2);
-    stack.pushUndo(redoEntry!);
+    pushUndoEntry(stack, redoEntry!, { clearRedo: false });
     expect(stack.undoStack).toEqual([1, 2]);
   });
 
   it('trims the undo stack to the limit', () => {
-    const stack = createUndoStack<number>({ limit: 2 });
-    stack.push(1);
-    stack.push(2);
-    stack.push(3);
+    const stack = createUndoStackState<number>(2);
+    pushUndoEntry(stack, 1);
+    pushUndoEntry(stack, 2);
+    pushUndoEntry(stack, 3);
     expect(stack.undoStack).toEqual([2, 3]);
-    stack.setLimit(1);
+    setUndoStackLimit(stack, 1);
     expect(stack.undoStack).toEqual([3]);
     expect(stack.limit).toBe(1);
   });
 
-  it('generates prefixed unique ids via nextId', () => {
-    const stack = createUndoStack<number>({ idPrefix: 'hist' });
-    const first = stack.nextId();
-    const second = stack.nextId();
+  it('generates prefixed unique ids via nextUndoStackId', () => {
+    const stack = createUndoStackState<number>();
+    const first = nextUndoStackId(stack, 'hist');
+    const second = nextUndoStackId(stack, 'hist');
     expect(first.startsWith('hist_')).toBe(true);
     expect(second.startsWith('hist_')).toBe(true);
     expect(first).not.toBe(second);
   });
 
-  it('push assigns no id and keeps entries as provided', () => {
-    const stack = createUndoStack<number>();
-    stack.push(1);
-    expect(stack.peekUndo()).toBe(1);
+  it('clear empties both stacks', () => {
+    const stack = createUndoStackState<number>();
+    pushUndoEntry(stack, 1);
+    pushRedoEntry(stack, 9);
+    clearUndoStack(stack);
+    expect(canUndoEntry(stack)).toBe(false);
+    expect(canRedoEntry(stack)).toBe(false);
   });
 
-  it('clear empties both stacks', () => {
-    const stack = createUndoStack<number>();
-    stack.push(1);
-    stack.pushRedo(9);
-    stack.clear();
-    expect(stack.canUndo()).toBe(false);
-    expect(stack.canRedo()).toBe(false);
+  it('stays reactive when the state is wrapped by Vue reactive', () => {
+    const stack = reactive(createUndoStackState<number>());
+    const count = computed(() => stack.undoStack.length);
+    expect(count.value).toBe(0);
+    pushUndoEntry(stack, 1);
+    expect(count.value).toBe(1);
+    popUndoEntry(stack);
+    expect(count.value).toBe(0);
   });
 });

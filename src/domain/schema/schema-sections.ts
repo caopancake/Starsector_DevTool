@@ -1,4 +1,5 @@
 import { isInternalJsonFieldKey } from '@/shared/lib/json-fields';
+import { stableStringify } from '@/shared/lib/stable-compare';
 import type { FileSchema, SectionSchema } from '@/domain/schema/schema.types';
 
 export function getSchemaSections(schema: FileSchema): SectionSchema[] {
@@ -35,13 +36,5 @@ export function getExtraFieldSource(schema: FileSchema): string | null {
 }
 
 export function schemaSectionCollapseIdentity(schema: FileSchema): string {
-  return schemaStableIdentity([schema.id, getSchemaSections(schema).map((section) => [section.id, section.collapsed])]);
-}
-
-export function schemaStableIdentity(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map((item) => schemaStableIdentity(item)).join(',')}]`;
-  const record = value as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
-  return `{${keys.map((key) => `${JSON.stringify(key)}:${schemaStableIdentity(record[key])}`).join(',')}}`;
+  return stableStringify([schema.id, getSchemaSections(schema).map((section) => [section.id, section.collapsed])]);
 }

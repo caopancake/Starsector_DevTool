@@ -2,6 +2,7 @@ import { queryResourceDataUrlBatch } from '@/shared/api/query-api';
 import { normalizeFsPath } from '@/shared/lib/paths';
 import { AppError } from '@/shared/lib/errors';
 import { sameResourceRef } from '@/shared/lib/resource-ref';
+import { createRuntimeCache } from '@/shared/runtime/cache';
 import type { ProjectInvalidation, ProjectSessionId, ResourceDataUrlBatchEntry, ResourceRef } from '@/shared/types';
 
 interface CachedResourceDataUrl {
@@ -29,10 +30,9 @@ export interface ResourceCacheInvalidationEvent {
 
 type ResourceCacheInvalidationListener = (event: ResourceCacheInvalidationEvent) => void;
 
-const cache = new Map<string, CachedResourceDataUrl>();
 export const RESOURCE_DATA_URL_CACHE_CAPACITY = 512;
-const pending = new Map<string, PendingResource>();
-const keyVersions = new Map<string, number>();
+
+const dataUrlCache = createRuntimeCache<string, CachedResourceDataUrl>({ capacity: RESOURCE_DATA_URL_CACHE_CAPACITY });
 const invalidationListeners = new Set<ResourceCacheInvalidationListener>();
 
 export async function queryResourceDataUrls(sessionId: ProjectSessionId, resources: ResourceRef[]): Promise<(string | null)[]> {
@@ -41,11 +41,8 @@ export async function queryResourceDataUrls(sessionId: ProjectSessionId, resourc
   const pendingLoads: Promise<void>[] = [];
   resources.forEach((resource, index) => {
     const key = keys[index];
-    if (cache.has(key)) {
-      touchCachedResource(key);
-      return;
-    }
-    const pendingResource = pending.get(key);
+    if (dataUrlCache.get(key) !== undefined) return;
+    const pendingResource = dataUrlCache.getPending<PendingResource>(key);
     if (pendingResource) {
       pendingLoads.push(pendingResource.promise);
       return;
@@ -56,22 +53,23 @@ export async function queryResourceDataUrls(sessionId: ProjectSessionId, resourc
     pendingLoads.push(loadMissingResources(sessionId, [...missing.values()]));
   }
   if (pendingLoads.length > 0) await Promise.all(pendingLoads);
-  return keys.map((key) => cache.get(key)?.dataUrl ?? null);
+  return keys.map((key) => dataUrlCache.peek(key)?.dataUrl ?? null);
 }
 
 export function invalidateResourceCacheForSession(sessionId: ProjectSessionId) {
   const invalidated: ResourceRef[] = [];
-  for (const [key, entry] of cache.entries()) {
-    if (entry.sessionId !== sessionId) continue;
+  for (const key of [...dataUrlCache.keys()]) {
+    const entry = dataUrlCache.peek(key);
+    if (!entry || entry.sessionId !== sessionId) continue;
     invalidated.push(entry.resource);
-    cache.delete(key);
-    keyVersions.delete(key);
+    dataUrlCache.delete(key);
   }
-  for (const [key, entry] of pending.entries()) {
-    if (entry.sessionId !== sessionId) continue;
-    invalidated.push(entry.resource);
-    bumpKeyVersion(key);
-    pending.delete(key);
+  for (const key of [...dataUrlCache.keys()]) {
+    const pendingEntry = dataUrlCache.getPending<PendingResource>(key);
+    if (!pendingEntry || pendingEntry.sessionId !== sessionId) continue;
+    invalidated.push(pendingEntry.resource);
+    dataUrlCache.bumpVersion(key);
+    dataUrlCache.deletePending(key);
   }
   notifyResourceInvalidated(sessionId, invalidated, 'session', null);
 }
@@ -83,20 +81,25 @@ export function invalidateResourceCacheByProject(sessionId: ProjectSessionId, in
   }
   if (invalidation.resources.length === 0) return;
   const invalidated: ResourceRef[] = [];
-  for (const [key, entry] of cache.entries()) {
-    if (entry.sessionId !== sessionId) continue;
+  for (const key of [...dataUrlCache.keys()]) {
+    const entry = dataUrlCache.peek(key);
+    if (!entry || entry.sessionId !== sessionId) continue;
     if (invalidation.resources.some((scope) => scope.source === entry.source && normalizeFsPath(scope.relPath) === entry.relPath)) {
       invalidated.push(entry.resource);
-      cache.delete(key);
-      keyVersions.delete(key);
+      dataUrlCache.delete(key);
     }
   }
-  for (const [key, entry] of pending.entries()) {
-    if (entry.sessionId !== sessionId) continue;
-    if (invalidation.resources.some((scope) => scope.source === entry.source && normalizeFsPath(scope.relPath) === entry.relPath)) {
-      invalidated.push(entry.resource);
-      bumpKeyVersion(key);
-      pending.delete(key);
+  for (const key of [...dataUrlCache.keys()]) {
+    const pendingEntry = dataUrlCache.getPending<PendingResource>(key);
+    if (!pendingEntry || pendingEntry.sessionId !== sessionId) continue;
+    if (
+      invalidation.resources.some(
+        (scope) => scope.source === pendingEntry.source && normalizeFsPath(scope.relPath) === pendingEntry.relPath,
+      )
+    ) {
+      invalidated.push(pendingEntry.resource);
+      dataUrlCache.bumpVersion(key);
+      dataUrlCache.deletePending(key);
     }
   }
   notifyResourceInvalidated(sessionId, invalidated, 'resources', invalidation);
@@ -113,19 +116,23 @@ export function hasResourceInvalidation(event: ResourceCacheInvalidationEvent, r
   return event.resources.some((resource) => resources.some((candidate) => sameResourceRef(candidate, resource)));
 }
 
+export function resourceCacheKey(sessionId: ProjectSessionId, resource: ResourceRef): string {
+  return JSON.stringify([sessionId, resource.source, normalizeFsPath(resource.relPath)]);
+}
+
 async function loadMissingResources(sessionId: ProjectSessionId, missing: { key: string; resource: ResourceRef }[]): Promise<void> {
   const request = missing.map((entry) => entry.resource);
-  const versions = new Map(missing.map((entry) => [entry.key, keyVersions.get(entry.key) ?? 0]));
+  const versions = new Map(missing.map((entry) => [entry.key, dataUrlCache.versionOf(entry.key)]));
   const promise = queryResourceDataUrlBatch(sessionId, request)
     .then((result) => cacheResourceBatchResult(sessionId, request, result.entries, versions))
     .finally(() => {
       for (const entry of missing) {
-        if (pending.get(entry.key)?.promise === promise) pending.delete(entry.key);
-        if (!pending.has(entry.key) && !cache.has(entry.key)) keyVersions.delete(entry.key);
+        if (dataUrlCache.getPending<PendingResource>(entry.key)?.promise === promise) dataUrlCache.deletePending(entry.key);
+        if (!dataUrlCache.hasPending(entry.key) && !dataUrlCache.has(entry.key)) dataUrlCache.deleteVersion(entry.key);
       }
     });
   for (const entry of missing) {
-    pending.set(entry.key, {
+    dataUrlCache.setPending(entry.key, {
       promise,
       relPath: normalizeFsPath(entry.resource.relPath),
       resource: entry.resource,
@@ -134,14 +141,6 @@ async function loadMissingResources(sessionId: ProjectSessionId, missing: { key:
     });
   }
   await promise;
-}
-
-function bumpKeyVersion(key: string) {
-  keyVersions.set(key, (keyVersions.get(key) ?? 0) + 1);
-}
-
-export function resourceCacheKey(sessionId: ProjectSessionId, resource: ResourceRef): string {
-  return JSON.stringify([sessionId, resource.source, normalizeFsPath(resource.relPath)]);
 }
 
 function cacheResourceBatchResult(
@@ -157,33 +156,15 @@ function cacheResourceBatchResult(
     const resource = request[index];
     ensureResourceEntryMatch(entry, resource);
     const key = resourceCacheKey(sessionId, resource);
-    if ((keyVersions.get(key) ?? 0) !== versions.get(key)) return;
-    cache.delete(key);
-    cache.set(key, {
+    if (dataUrlCache.versionOf(key) !== versions.get(key)) return;
+    dataUrlCache.set(key, {
       dataUrl: entry.dataUrl,
       relPath: normalizeFsPath(resource.relPath),
       resource,
       sessionId,
       source: resource.source,
     });
-    evictCachedResources();
   });
-}
-
-function touchCachedResource(key: string): void {
-  const entry = cache.get(key);
-  if (!entry) return;
-  cache.delete(key);
-  cache.set(key, entry);
-}
-
-function evictCachedResources(): void {
-  while (cache.size > RESOURCE_DATA_URL_CACHE_CAPACITY) {
-    const oldestKey = cache.keys().next().value as string | undefined;
-    if (oldestKey === undefined) return;
-    cache.delete(oldestKey);
-    keyVersions.delete(oldestKey);
-  }
 }
 
 function ensureResourceEntryMatch(entry: ResourceDataUrlBatchEntry, resource: ResourceRef): void {

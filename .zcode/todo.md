@@ -89,11 +89,12 @@ Owner 原则："基线-草稿-dirty-外部更新挂起-撤销/重做"在全仓�
 
 Owner 原则：通用缓存机制（key 版本、pending 去重、容量淘汰、失效订阅、可重置）只有一个 owner 实现；query/resource/media 三种缓存只是配置差异。
 
-- [ ] 在 `src/shared/runtime` 建立通用缓存原语（可注入 key、容量、失效事件类型，支持重置以隔离测试）。
-- [ ] `query-cache.service.ts`、`resource-cache.service.ts`、`resource-media.service.ts` 改为原语实例，删除各自的四件套 Map 与 bump/evict/notify/subscribe 副本。
-- [ ] 失效链路保持唯一 owner：写后仍由 project-session-refresh 统一先资源后查询，顺序不变。
-- [ ] `stableStringify` 三份实现（`shared/lib/stable-compare.ts`、`query-cache.service.ts`、`domain/schema/schema-sections.ts`）合并为 `shared/lib/stable-compare.ts` 唯一实现。
-- [ ] 补缓存原语单元测试（失效、去重、LRU、重置）。
+- [x] 在 `src/shared/runtime/cache.ts` 建立通用缓存原语 `createRuntimeCache`（插入序 LRU 容量淘汰 + touch 重排、key 版本计数、pending 去重、`reset()` 测试隔离），配 8 个 vitest 单元测试。
+- [x] `query-cache.service.ts` 重建于原语之上：按 `QueryCacheKind` 持 6 个实例（各自容量），失效/版本/pending 全走实例；`resource-cache.service.ts` 重建为单实例（容量 512）；语义层（queryScopes 匹配、资源匹配、批量加载、性能埋点）原样保留。
+- [x] `resource-media.service.ts` 定型为 resource-cache 之上的响应式投影视图（模板绑定 + 25ms 合批队列），不构成第二份数据缓存 owner，不强迁原语（避免 services 层依赖 Vue reactive）；定位已写入模块契约。
+- [x] 失效链路保持唯一 owner：写后仍由 project-session-refresh 统一先资源后查询，顺序不变；消费方零改动。
+- [x] `stableStringify` 三份实现合并为 `shared/lib/stable-compare.ts` 唯一导出实现（query-cache 的 localeCompare 排序与 schema-sections 的 `schemaStableIdentity` 副本删除；参数键均为 ASCII，键序等价）。
+- [x] 补缓存原语单元测试（LRU 逐出、touch 重排、版本、pending、reset）。附带修复 Phase 2.1 遗留回归：撤销原语改状态工厂 + 纯操作函数，消除 reactive 包装后闭包直改不触发 UI 更新的问题，并以 `computed` 断言测试锁定。
 
 ### Phase 2.3: service 层 owner 归位
 

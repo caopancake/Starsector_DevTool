@@ -1,4 +1,6 @@
 import { recordPerformance } from '@/services/performance.service';
+import { createRuntimeCache, type RuntimeCache } from '@/shared/runtime/cache';
+import { stableStringify } from '@/shared/lib/stable-compare';
 import type { EntityKind, InvalidatedQueryScope, ProjectInvalidation } from '@/shared/types';
 
 export type QueryCacheKind =
@@ -29,10 +31,6 @@ export interface QueryCacheInvalidationEvent {
 
 type QueryCacheInvalidationListener = (event: QueryCacheInvalidationEvent) => void;
 
-const cache = new Map<string, QueryCacheEntry>();
-const pending = new Map<string, PendingQueryEntry>();
-const keyVersions = new Map<string, number>();
-const invalidationListeners = new Set<QueryCacheInvalidationListener>();
 const LRU_CAPACITY: Record<QueryCacheKind, number> = {
   'csv-table-window': 80,
   'csv-source-options': 240,
@@ -42,38 +40,48 @@ const LRU_CAPACITY: Record<QueryCacheKind, number> = {
   'entity-list': 128,
 };
 
+const QUERY_CACHE_KINDS = Object.keys(LRU_CAPACITY) as QueryCacheKind[];
+const caches = new Map<QueryCacheKind, RuntimeCache<string, QueryCacheEntry>>(
+  QUERY_CACHE_KINDS.map((queryKind) => [queryKind, createRuntimeCache<string, QueryCacheEntry>({ capacity: LRU_CAPACITY[queryKind] })]),
+);
+const invalidationListeners = new Set<QueryCacheInvalidationListener>();
+
+function cacheFor(queryKind: QueryCacheKind): RuntimeCache<string, QueryCacheEntry> {
+  return caches.get(queryKind)!;
+}
+
 export async function queryCached<T>(
   sessionId: string,
   queryKind: QueryCacheKind,
   parameters: Record<string, unknown>,
   loader: () => Promise<T>,
 ): Promise<T> {
+  const cache = cacheFor(queryKind);
   const key = queryCacheKey(sessionId, queryKind, parameters);
   const startedAt = performance.now();
   const cached = cache.get(key);
   if (cached) {
-    touchCacheEntry(key, cached);
     recordPerformance('frontend.queryCache', performance.now() - startedAt, { queryKind, hit: true });
     return cached.value as T;
   }
-  const pendingQuery = pending.get(key);
+  const pendingQuery = cache.getPending<PendingQueryEntry>(key);
   if (pendingQuery) {
     recordPerformance('frontend.queryCache', performance.now() - startedAt, { queryKind, hit: true, pending: true });
     return (await pendingQuery.promise) as T;
   }
-  const version = keyVersions.get(key) ?? 0;
+  const version = cache.versionOf(key);
   const loaded = loader()
     .then((value) => {
-      if ((keyVersions.get(key) ?? 0) === version) {
-        setCacheEntry(key, { queryKind, parameters, sessionId, value });
+      if (cache.versionOf(key) === version) {
+        cache.set(key, { queryKind, parameters, sessionId, value });
       }
       return value;
     })
     .finally(() => {
-      if (pending.get(key)?.promise === loaded) pending.delete(key);
-      if (!pending.has(key) && !cache.has(key)) keyVersions.delete(key);
+      if (cache.getPending<PendingQueryEntry>(key)?.promise === loaded) cache.deletePending(key);
+      if (!cache.hasPending(key) && !cache.has(key)) cache.deleteVersion(key);
     });
-  pending.set(key, { queryKind, parameters, promise: loaded, sessionId, version });
+  cache.setPending<PendingQueryEntry>(key, { queryKind, parameters, promise: loaded, sessionId, version });
   const value = await loaded;
   recordPerformance('frontend.queryCache', performance.now() - startedAt, { queryKind, hit: false });
   return value;
@@ -81,37 +89,43 @@ export async function queryCached<T>(
 
 export function invalidateQueryCacheForSession(sessionId: string) {
   const invalidatedQueries: QueryIdentity[] = [];
-  for (const [key, entry] of cache.entries()) {
-    if (entry.sessionId !== sessionId) continue;
-    invalidatedQueries.push(queryIdentity(entry));
-    cache.delete(key);
-    keyVersions.delete(key);
-  }
-  for (const [key, entry] of pending.entries()) {
-    if (entry.sessionId !== sessionId) continue;
-    invalidatedQueries.push(queryIdentity(entry));
-    bumpKeyVersion(key);
-    pending.delete(key);
+  for (const queryKind of QUERY_CACHE_KINDS) {
+    const cache = cacheFor(queryKind);
+    for (const key of [...cache.keys()]) {
+      const entry = cache.peek(key);
+      if (!entry || entry.sessionId !== sessionId) continue;
+      invalidatedQueries.push(queryIdentity(entry));
+      cache.delete(key);
+    }
+    for (const key of [...cache.keys()]) {
+      const pendingEntry = cache.getPending<PendingQueryEntry>(key);
+      if (!pendingEntry || pendingEntry.sessionId !== sessionId) continue;
+      invalidatedQueries.push(queryIdentity(pendingEntry));
+      cache.bumpVersion(key);
+      cache.deletePending(key);
+    }
   }
   notifyQueryCacheInvalidated(sessionId, invalidatedQueries, 'session', null);
 }
 
 export function invalidateQueryCacheByProject(sessionId: string, invalidation: ProjectInvalidation) {
   const invalidatedQueries: QueryIdentity[] = [];
-  for (const [key, entry] of cache.entries()) {
-    if (entry.sessionId !== sessionId) continue;
-    if (shouldInvalidateQuery(entry, invalidation)) {
+  for (const queryKind of QUERY_CACHE_KINDS) {
+    const cache = cacheFor(queryKind);
+    for (const key of [...cache.keys()]) {
+      const entry = cache.peek(key);
+      if (!entry || entry.sessionId !== sessionId) continue;
+      if (!shouldInvalidateQuery(entry, invalidation)) continue;
       invalidatedQueries.push(queryIdentity(entry));
       cache.delete(key);
-      keyVersions.delete(key);
     }
-  }
-  for (const [key, entry] of pending.entries()) {
-    if (entry.sessionId !== sessionId) continue;
-    if (shouldInvalidateQuery(entry, invalidation)) {
-      invalidatedQueries.push(queryIdentity(entry));
-      bumpKeyVersion(key);
-      pending.delete(key);
+    for (const key of [...cache.keys()]) {
+      const pendingEntry = cache.getPending<PendingQueryEntry>(key);
+      if (!pendingEntry || pendingEntry.sessionId !== sessionId) continue;
+      if (!shouldInvalidateQuery(pendingEntry, invalidation)) continue;
+      invalidatedQueries.push(queryIdentity(pendingEntry));
+      cache.bumpVersion(key);
+      cache.deletePending(key);
     }
   }
   notifyQueryCacheInvalidated(sessionId, invalidatedQueries, 'paths', invalidation);
@@ -155,36 +169,6 @@ export function hasSourceInvalidation(event: QueryCacheInvalidationEvent, source
 export function hasTableInvalidation(event: QueryCacheInvalidationEvent, queryKind: 'csv-table-window', table: string): boolean {
   if (event.scope === 'session') return false;
   return event.queries.some((query) => query.queryKind === queryKind && queryParameterText(query.parameters, 'table') === table);
-}
-
-function bumpKeyVersion(key: string) {
-  keyVersions.set(key, (keyVersions.get(key) ?? 0) + 1);
-}
-
-function touchCacheEntry(key: string, entry: QueryCacheEntry) {
-  cache.delete(key);
-  cache.set(key, entry);
-}
-
-function setCacheEntry(key: string, entry: QueryCacheEntry) {
-  cache.set(key, entry);
-  evictCacheEntries(entry.sessionId, entry.queryKind);
-}
-
-function evictCacheEntries(sessionId: string, queryKind: QueryCacheKind) {
-  let count = 0;
-  const capacity = LRU_CAPACITY[queryKind];
-  for (const entry of cache.values()) {
-    if (entry.sessionId === sessionId && entry.queryKind === queryKind) count += 1;
-  }
-  if (count <= capacity) return;
-  for (const [key, entry] of cache.entries()) {
-    if (entry.sessionId !== sessionId || entry.queryKind !== queryKind) continue;
-    cache.delete(key);
-    keyVersions.delete(key);
-    count -= 1;
-    if (count <= capacity) return;
-  }
 }
 
 function queryIdentity(query: QueryIdentity): QueryIdentity {
@@ -270,15 +254,4 @@ function queryScopeMatchesEntity(
 
 function queryCacheKey(sessionId: string, queryKind: QueryCacheKind, parameters: Record<string, unknown>) {
   return JSON.stringify([sessionId, queryKind, stableStringify(parameters)]);
-}
-
-function stableStringify(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.entries(value as Record<string, unknown>)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, entry]) => `${JSON.stringify(key)}:${stableStringify(entry)}`)
-      .join(',')}}`;
-  }
-  return JSON.stringify(value);
 }
