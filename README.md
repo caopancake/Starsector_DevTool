@@ -38,6 +38,7 @@ Windows 桌面版 Starsector Mod 配置工具，使用 Tauri 2 + Vue 3 + TypeScr
 - Tauri 2
 - Rust
 - Vue 3
+- Pinia
 - TypeScript
 - Naive UI
 - Canvas 2D

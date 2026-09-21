@@ -317,7 +317,7 @@
 
         <!-- array-of-object -->
         <div v-else-if="field.type === 'array-of-object' && field.nested" class="array-of-object">
-          <div v-for="(item, idx) in arrayItems" :key="idx" class="array-item">
+          <div v-for="(_, idx) in arrayItems" :key="idx" class="array-item">
             <div class="array-item-header">
               <span class="array-item-index">#{{ idx + 1 }}</span>
               <n-button class="compact-icon-button" size="tiny" quaternary title="删除" @click="removeArrayItem(idx)">

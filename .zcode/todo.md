@@ -63,11 +63,12 @@ Owner 原则：每个通用机制只有一个正式实现与一个 owner 模块�
 
 ### Phase 1.6: 工具链与配置硬化
 
-- [ ] `tsconfig.json` 补 `noUnusedLocals`、`noUnusedParameters`、`noFallthroughCasesInSwitch`、`verbatimModuleSyntax`，并统一与 `tsconfig.node.json` 的 target；`noUncheckedIndexedAccess` 单独评估改动面后决定是否启用。
-- [ ] 新增 CI 工作流：push/PR 执行 format:check、encoding:check、lint（含架构与标识符检查）、typecheck、test、build 与 cargo fmt/clippy/test。
-- [ ] 处置零消费的 `schemas/_meta.json`：默认删除。
-- [ ] 确认 `.zcode/bugs.md` 删除现状的处置（保持删除则同步移除 `module-map.md` 中对它的唯一引用），消除悬空契约。
-- [ ] README 技术栈说明补 Pinia。
+- [x] `tsconfig.json` 补 `noUnusedLocals`、`noUnusedParameters`、`noFallthroughCasesInSwitch`、`verbatimModuleSyntax`（暴露 1 处 v-for 未用参数已修复），target/lib 与 `tsconfig.node.json` 统一为 ES2023。
+- [ ] `noUncheckedIndexedAccess` 实测暴露 108 处错误（ShipEditor 30、settings.store 16、resource-cache 9 等），改动面大，暂缓启用；后续可按文件分批消化。
+- [x] 新增 CI 工作流 `.github/workflows/ci.yml`：push/PR 在 windows-latest 执行 format:check、encoding:check、lint、typecheck、test、build 与 cargo fmt/clippy/test。
+- [x] 处置零消费的 `schemas/_meta.json`：已删除（删除前复核全仓零引用）。
+- [x] `.zcode/bugs.md` 删除已由用户提交入库，保持删除；`.zcode/module-map.md` 中对它的唯一引用已移除，悬空契约消除。
+- [x] README 技术栈说明补 Pinia。
 
 ## Phase 2: 架构修正——Owner 职责重构
 

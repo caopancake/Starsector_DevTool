@@ -7,7 +7,7 @@
 - 先从 `.zcode/overview.md` 确定运行入口，再用 API、组件、ViewModel、service、command、parser、状态键、文件格式、资源 identity 或持久化目标选择模块。
 - 索引归属仍不明确时，只读取候选模块的 `定义` 与 `不变量` 进行判定。
 - 命中模块后沿当前调用、状态、数据或生命周期关系读取直接依赖；严禁按文件体量扩大范围。
-- 设计候选只允许写入 `.zcode/reference.md`，阶段任务只允许写入 `.zcode/todo.md`，已知体验问题只允许写入 `.zcode/bugs.md`。
+- 设计候选只允许写入 `.zcode/reference.md`，阶段任务只允许写入 `.zcode/todo.md`。
 
 ## 模块文档规范
 
