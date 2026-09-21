@@ -22,7 +22,7 @@ use std::{
 };
 
 pub fn close_project_session(session_id: String) -> AppResult<()> {
-    super::resources::clear_sprite_media_cache_for_session(&session_id);
+    super::resources::clear_sprite_media_for_session(&session_id);
     sessions()
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?
@@ -81,7 +81,7 @@ pub(crate) fn open_project_session_traced(
             break;
         };
         guard.remove(&oldest);
-        super::resources::clear_sprite_media_cache_for_session(&oldest);
+        super::resources::clear_sprite_media_for_session(&oldest);
     }
     guard.insert(manifest.session_id.clone(), Arc::new(Mutex::new(session)));
     Ok(manifest)

@@ -4,6 +4,7 @@ pub mod command_payloads;
 pub mod directory_opening;
 pub mod mod_creation;
 pub mod project;
+pub mod text;
 pub mod workspace_persistence;
 pub mod write;
 
@@ -14,6 +15,7 @@ pub use app_settings::*;
 pub use directory_opening::*;
 pub use mod_creation::*;
 pub use project::*;
+pub(crate) use text::*;
 pub use workspace_persistence::*;
 pub use write::*;
 

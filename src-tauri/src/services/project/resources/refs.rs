@@ -154,7 +154,7 @@ fn store_sprite_media_entry(
     }
 }
 
-pub(in crate::services::project) fn clear_sprite_media_cache_for_session(session_id: &str) {
+pub(in crate::services::project) fn clear_sprite_media_for_session(session_id: &str) {
     let Ok(mut cache) = sprite_media_cache().lock() else {
         eprintln!("sprite media cache lock poisoned");
         return;

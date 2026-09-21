@@ -1,6 +1,7 @@
 use crate::{
     errors::{AppError, AppResult},
     io::paths::validate_walk_entry,
+    models::known_cp1252_char,
 };
 use std::{fs, path::Path};
 
@@ -46,18 +47,6 @@ pub fn write_utf8_no_bom(path: &Path, text: &str) -> AppResult<()> {
         )
     })?;
     Ok(())
-}
-
-/// The shared CP1252 smart-punctuation mapping. Reading normalizes these
-/// bytes silently, and the normalization is written back to disk on save —
-/// it is a recovery feature for broken legacy files, not a lossless decode.
-pub(crate) fn known_cp1252_char(byte: u8) -> Option<char> {
-    match byte {
-        0x91 | 0x92 => Some('\''),
-        0x93 | 0x94 => Some('"'),
-        0x96 => Some('-'),
-        _ => None,
-    }
 }
 
 fn normalize_known_cp1252_bytes(mut bytes: Vec<u8>) -> Vec<u8> {

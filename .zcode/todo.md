@@ -43,11 +43,12 @@ Owner 原则：每个通用机制只有一个正式实现与一个 owner 模块�
 
 ### Phase 1.4: 静态规则引擎修复
 
-- [ ] 修复 `.zcode/modules/*.md` 不被文件收集器收录导致 `workspace-module-boundary` 文档检查永不触发的死分支：文档边界检查改用独立文档收集器，或扩展 `shared/files.mjs` 收集范围。
-- [ ] `check-identifier-length.mjs` 与 `rust-project-layer-boundary.mjs` 的 `#[cfg(test)]` 块剥离统一为"先剥注释/字符串、再配平花括号"的顺序，并共享同一实现，删除双份拷贝。
-- [ ] 清理规则引擎死导出：`rustLayerForPath`、`rustLayerForCratePath`、`withTsExtension`、`fileTextByRel` 及其配套的模块级可变状态；`exportedFunctionNames` 双实现合一。
-- [ ] `directory-opening-boundary.mjs` 的裸路径正则改写为 self-boundary 允许的形式，或将该形态显式纳入 self-boundary 禁令。
-- [ ] 跑 `check-architecture`、`check-identifier-length`、`check-encoding` 三个脚本并确认全绿。
+- [x] 修复 `.zcode/modules/*.md` 不被文件收集器收录导致 `workspace-module-boundary` 文档检查永不触发的死分支：收集器纳入 `.zcode/modules/*.md`，规则以 `singleFileByRel` 锚定文档并注入验证检查真实触发。
+- [x] `check-identifier-length.mjs` 与 `rust-project-layer-boundary.mjs` 的 `#[cfg(test)]` 块剥离统一到 `shared/rust-source.mjs` 单一实现；剥离改为确定性状态机（嵌套块注释、原始串 hash、lifetime 先于 char literal 判定、单遍扫描），先剥注释/字符串再配平花括号；旧链式正则会被 `'\"'` 类字符字面量与 lifetime 撇号打跨行失配（已实证并修复）。
+- [x] 清理规则引擎死导出：`rustLayerForPath`、`rustLayerForCratePath`、`withTsExtension`、`fileTextByRel` 及其模块级可变状态全部删除；`exportedFunctionNames` 双实现合一（naming-boundary 改用 shared 版）。
+- [x] `directory-opening-boundary.mjs` 的裸路径正则特判改写为锚点数据表（rel → 名单/文案），并将该正则形态显式纳入 self-boundary 禁令（`usesBarePathRegexIdentity`），注入验证对旧形态真实触发。
+- [x] 引擎修复暴露并修复两个被掩盖的真实违规：`parsers→io` 依赖（`known_cp1252_char` 迁至 models，依赖矩阵允许 parsers/io 共同依赖）与超长函数名 `clear_sprite_media_cache_for_session`（重命名为 `clear_sprite_media_for_session`）。
+- [x] 跑 `check-architecture`、`check-identifier-length`、`check-encoding` 三个脚本并确认全绿（配套 cargo fmt/clippy/test 263 通过）。
 
 ### Phase 1.5: 前端死代码与残留清理
 

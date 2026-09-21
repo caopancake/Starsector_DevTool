@@ -14,7 +14,6 @@ export async function collectArchitectureFiles(root) {
       text: await readFile(path, 'utf8'),
     })),
   );
-  currentFiles = files;
   return files;
 }
 
@@ -38,19 +37,16 @@ async function collectPaths(root, dir) {
       continue;
     }
     const extension = entry.name.includes('.') ? entry.name.slice(entry.name.lastIndexOf('.')) : '';
-    if (architectureExtensions.has(extension) && (extension !== '.json' || rel.startsWith('schemas/'))) files.push(path);
+    const isModuleDoc = extension === '.md' && rel.startsWith('.zcode/modules/');
+    if ((architectureExtensions.has(extension) && (extension !== '.json' || rel.startsWith('schemas/'))) || isModuleDoc) {
+      files.push(path);
+    }
   }
   return files;
 }
 
 function normalizePath(path) {
   return path.replace(/\\/g, '/');
-}
-
-let currentFiles = [];
-
-export function fileTextByRel(rel) {
-  return currentFiles.find((file) => file.rel === rel)?.text ?? '';
 }
 
 export function singleFileByRel(files, rel) {

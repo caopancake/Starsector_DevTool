@@ -1,4 +1,5 @@
 import { frontendFile } from '../shared/files.mjs';
+import { exportedFunctionNames } from '../shared/imports.mjs';
 
 export const namingBoundaryRule = {
   name: 'naming-boundary',
@@ -39,10 +40,3 @@ export const namingBoundaryRule = {
     return failures;
   },
 };
-
-function exportedFunctionNames(text) {
-  return [
-    ...[...text.matchAll(/export\s+(?:async\s+)?function\s+([A-Za-z0-9_]+)/g)].map((match) => match[1]),
-    ...[...text.matchAll(/export\s+const\s+([A-Za-z0-9_]+)\s*=\s*(?:async\s*)?\(/g)].map((match) => match[1]),
-  ];
-}

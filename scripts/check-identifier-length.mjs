@@ -1,6 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import ts from 'typescript';
+import { productionRustSource } from './architecture/shared/rust-source.mjs';
 
 const maxIdentifierLength = 35;
 const ignoredDirs = new Set(['.git', 'dist', 'node_modules', 'release', 'target']);
@@ -91,8 +92,7 @@ function checkBindingName(rel, name, kind, output) {
 }
 
 function checkRustFile(rel, text, output) {
-  const production = stripRustTestBlocks(text);
-  const clean = stripCommentsAndStrings(production);
+  const clean = productionRustSource(text);
   for (const match of clean.matchAll(/\bfn\s+([A-Za-z_][A-Za-z0-9_]*)/g)) {
     checkIdentifier(rel, match[1], 'function', output);
   }
@@ -102,41 +102,6 @@ function checkRustFile(rel, text, output) {
   for (const params of rustFunctionParamLists(clean)) {
     for (const name of rustParamIdentifiers(params)) checkIdentifier(rel, name, 'variable', output);
   }
-}
-
-function stripRustTestBlocks(text) {
-  let output = text;
-  const marker = '#[cfg(test)]';
-  let index = output.indexOf(marker);
-  while (index !== -1) {
-    const blockStart = output.indexOf('{', index);
-    if (blockStart === -1) break;
-    let depth = 0;
-    let end = blockStart;
-    for (; end < output.length; end += 1) {
-      const char = output[end];
-      if (char === '{') depth += 1;
-      if (char === '}') {
-        depth -= 1;
-        if (depth === 0) {
-          end += 1;
-          break;
-        }
-      }
-    }
-    output = `${output.slice(0, index)}${output.slice(end)}`;
-    index = output.indexOf(marker);
-  }
-  return output;
-}
-
-function stripCommentsAndStrings(text) {
-  return text
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/\/\/[^\n\r]*/g, ' ')
-    .replace(/r#*"[\s\S]*?"#*/g, '""')
-    .replace(/"([^"\\]|\\.)*"/g, '""')
-    .replace(/'([^'\\]|\\.)*'/g, "''");
 }
 
 function rustPatternIdentifiers(pattern) {

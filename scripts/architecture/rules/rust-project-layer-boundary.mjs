@@ -1,5 +1,6 @@
 import { rustFile } from '../shared/files.mjs';
 import { cratePaths } from '../shared/rust-crate-paths.mjs';
+import { productionRustSource } from '../shared/rust-source.mjs';
 
 export const rustProjectLayerBoundaryRule = {
   name: 'rust-project-layer-boundary',
@@ -8,7 +9,7 @@ export const rustProjectLayerBoundaryRule = {
     for (const file of files) {
       if (!rustFile(file.rel)) continue;
       if (testOnlyRustFile(file.text)) continue;
-      const productionText = stripCfgTestBlocks(file.text);
+      const productionText = productionRustSource(file.text);
       const from = rustLayer(file.rel);
       for (const parts of cratePaths(productionText)) {
         const reference = `crate::${parts.join('::')}`;
@@ -61,32 +62,6 @@ function rustLayer(path) {
 function testOnlyRustFile(text) {
   const trimmed = text.trimStart();
   return trimmed.startsWith('#[cfg(test)]') || trimmed.startsWith('#![cfg(test)]');
-}
-
-function stripCfgTestBlocks(text) {
-  let output = text;
-  const marker = '#[cfg(test)]';
-  let index = output.indexOf(marker);
-  while (index !== -1) {
-    const blockStart = output.indexOf('{', index);
-    if (blockStart === -1) break;
-    let depth = 0;
-    let end = blockStart;
-    for (; end < output.length; end += 1) {
-      const char = output[end];
-      if (char === '{') depth += 1;
-      if (char === '}') {
-        depth -= 1;
-        if (depth === 0) {
-          end += 1;
-          break;
-        }
-      }
-    }
-    output = `${output.slice(0, index)}${output.slice(end)}`;
-    index = output.indexOf(marker);
-  }
-  return output;
 }
 
 function rustLayerFromCratePath(path) {

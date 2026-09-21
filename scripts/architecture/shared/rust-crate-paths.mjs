@@ -9,27 +9,6 @@ export function cratePaths(text) {
   return paths.filter((path) => path.length > 0);
 }
 
-export function rustLayerForPath(rel) {
-  if (rel.startsWith('src-tauri/src/commands/')) return 'commands';
-  if (rel.startsWith('src-tauri/src/services/')) return 'services';
-  if (rel.startsWith('src-tauri/src/domain/')) return 'domain';
-  if (rel.startsWith('src-tauri/src/io/')) return 'io';
-  if (rel.startsWith('src-tauri/src/parsers/')) return 'parsers';
-  if (rel.startsWith('src-tauri/src/models/')) return 'models';
-  return 'other';
-}
-
-export function rustLayerForCratePath(path) {
-  const root = path[0] ?? '';
-  if (root === 'commands') return 'commands';
-  if (root === 'services') return 'services';
-  if (root === 'domain') return 'domain';
-  if (root === 'io') return 'io';
-  if (root === 'parsers') return 'parsers';
-  if (root === 'models') return 'models';
-  return 'other';
-}
-
 function expandUseTree(source) {
   return splitTopLevel(source).flatMap((item) => expandUseItem(item.trim(), []));
 }

@@ -21,31 +21,38 @@ const projectRootOpeningNames = [
 ];
 const oldFrontendNames = ['scanWorkspaceOverview', 'detectWorkspaceDirectory'];
 
+// Anchored per-file name lists: rel path -> names that must stay out of that
+// file, expressed as a plain data table instead of per-file path predicates.
+const moduleAnchors = {
+  'src-tauri/src/commands/project.rs': {
+    words: openingCommandNames,
+    message: 'Directory Opening commands must live in commands/directory_opening.rs',
+  },
+  'src-tauri/src/services/project/root.rs': {
+    words: projectRootOpeningNames,
+    message: 'directory detection and overview logic must live in services/directory_opening',
+  },
+  'src-tauri/src/models/project.rs': {
+    typeDefs: openingModelTypeDefs,
+    message: 'Directory Opening wire models must live in models/directory_opening.rs',
+  },
+};
+
 export const directoryOpeningBoundaryRule = {
   name: 'directory-opening-boundary',
   check(files) {
     const failures = [];
     for (const file of files) {
-      if (isProjectCommandModule(file.rel)) {
-        for (const name of openingCommandNames) {
+      const anchor = moduleAnchors[file.rel];
+      if (anchor) {
+        for (const name of anchor.words ?? []) {
           if (new RegExp(`\\b${name}\\s*\\(`).test(file.text)) {
-            failures.push(`${file.rel}: Directory Opening commands must live in commands/directory_opening.rs`);
+            failures.push(`${file.rel}: ${anchor.message}`);
           }
         }
-      }
-
-      if (isProjectRootModule(file.rel)) {
-        for (const name of projectRootOpeningNames) {
-          if (new RegExp(`\\b${name}\\b`).test(file.text)) {
-            failures.push(`${file.rel}: directory detection and overview logic must live in services/directory_opening`);
-          }
-        }
-      }
-
-      if (isProjectWireModel(file.rel)) {
-        for (const typeDef of openingModelTypeDefs) {
+        for (const typeDef of anchor.typeDefs ?? []) {
           if (file.text.includes(typeDef)) {
-            failures.push(`${file.rel}: Directory Opening wire models must live in models/directory_opening.rs`);
+            failures.push(`${file.rel}: ${anchor.message}`);
           }
         }
       }
@@ -61,15 +68,3 @@ export const directoryOpeningBoundaryRule = {
     return failures;
   },
 };
-
-function isProjectCommandModule(path) {
-  return /^src-tauri\/src\/commands\/project\.rs$/.test(path);
-}
-
-function isProjectRootModule(path) {
-  return /^src-tauri\/src\/services\/project\/root\.rs$/.test(path);
-}
-
-function isProjectWireModel(path) {
-  return /^src-tauri\/src\/models\/project\.rs$/.test(path);
-}

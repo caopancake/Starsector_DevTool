@@ -27,6 +27,9 @@ export const architectureRulesSelfBoundaryRule = {
       if (usesContentIdentityBoundary(file.text)) {
         failures.push(`${file.rel}: architecture rules must not authorize by component or file identity strings in text matching`);
       }
+      if (usesBarePathRegexIdentity(file.text)) {
+        failures.push(`${file.rel}: architecture rules must not match raw source paths with single-file regex identity`);
+      }
     }
 
     return failures;
@@ -85,4 +88,11 @@ function usesDirectoryPrefixAuthorization(text) {
 
 function usesContentIdentityBoundary(text) {
   return /\.text\.includes\(\s*['"][A-Za-z0-9_./-]*(?:App|View|Editor|Window|Content|\.vue)[A-Za-z0-9_./-]*['"]\s*\)/.test(text);
+}
+
+// `/^src-tauri\/src\/...\/x\.rs$/.test(path)` is raw single-file path identity
+// escaped into a regex so the equality checks above cannot see it; same fragile
+// anchor, same ban.
+function usesBarePathRegexIdentity(text) {
+  return /\^\s*src(?:-tauri)?\\\/(?:[^/\n]*\\\/)*[^/\n]*\.rs\$\/\s*\.test\(\s*(?:path|rel|resolved)\s*\)/.test(text);
 }

@@ -1,7 +1,6 @@
-import { frontendFile } from '../shared/files.mjs';
+import { frontendFile, singleFileByRel } from '../shared/files.mjs';
 
 const storePath = 'src/stores/workspace.store.ts';
-const workspaceDocPath = '.zcode/modules/workspace.md';
 const oldWorkspaceNames = ['modList', 'modCount', 'hasAnyMod', 'setGameWorkspace', 'restoreFrom'];
 const directWorkspaceWrites = [
   { name: 'activeModRoot', pattern: /\bworkspace\.activeModRoot\s*=(?!=)/ },
@@ -27,9 +26,10 @@ export const workspaceModuleBoundaryRule = {
       if (frontendFile(file.rel)) {
         checkFrontendWorkspaceBoundary(file, failures);
       }
-      if (file.rel === workspaceDocPath) {
-        checkWorkspaceDocumentBoundary(file, failures);
-      }
+    }
+    const workspaceDoc = singleFileByRel(files, '.zcode/modules/workspace.md');
+    if (workspaceDoc) {
+      checkWorkspaceDocumentBoundary(workspaceDoc, failures);
     }
     return failures;
   },

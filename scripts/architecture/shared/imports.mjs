@@ -52,10 +52,6 @@ export function importedProjectPaths(file) {
   }));
 }
 
-export function withTsExtension(path) {
-  return path.endsWith('.ts') || path.endsWith('.vue') ? path : `${path}.ts`;
-}
-
 export function exportedFunctionNames(text) {
   return [
     ...[...text.matchAll(/export\s+(?:async\s+)?function\s+([A-Za-z0-9_]+)/g)].map((match) => match[1]),

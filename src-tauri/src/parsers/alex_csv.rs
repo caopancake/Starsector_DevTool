@@ -235,7 +235,7 @@ fn quote_closes_field(byte: Option<u8>) -> bool {
 
 fn read_csv_text_char(path_label: &str, bytes: &[u8], index: &mut usize) -> AppResult<char> {
     let byte = bytes[*index];
-    if let Some(ch) = crate::io::known_cp1252_char(byte) {
+    if let Some(ch) = crate::models::known_cp1252_char(byte) {
         *index += 1;
         return Ok(ch);
     }
