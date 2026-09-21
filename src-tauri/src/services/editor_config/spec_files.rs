@@ -11,7 +11,6 @@ use crate::{
 };
 use serde_json::Value;
 use std::path::{Path, PathBuf};
-use walkdir::WalkDir;
 
 pub fn save_editor_spec(
     mod_root: &str,
@@ -19,7 +18,7 @@ pub fn save_editor_spec(
     id: &str,
     data: Value,
 ) -> AppResult<WriteResult> {
-    let id = validate_config_id(id, editor_spec_definition(kind).invalid_id_message)?;
+    let id = validate_config_id(id, editor_spec_definition(kind)?.invalid_id_message)?;
     let target = find_editor_spec_target(Path::new(mod_root), kind, id)?;
     let clean = strip_internal_fields(&data);
     let text = serde_json::to_string_pretty(&clean)?;
@@ -34,12 +33,12 @@ pub fn save_editor_spec(
 
 pub fn load_imported_editor_spec_file(kind: EditorSpecKind, path: String) -> AppResult<Value> {
     let path = Path::new(&path);
-    validate_imported_editor_spec_path(editor_spec_definition(kind), path)?;
+    validate_imported_editor_spec_path(editor_spec_definition(kind)?, path)?;
     read_json_file(path)
 }
 
 fn find_editor_spec_target(mod_root: &Path, kind: EditorSpecKind, id: &str) -> AppResult<PathBuf> {
-    let definition = editor_spec_definition(kind);
+    let definition = editor_spec_definition(kind)?;
     find_json_target(
         mod_root,
         definition.dir,
@@ -64,20 +63,9 @@ fn find_json_target(
                 dir.display()
             )));
         }
-        for entry in WalkDir::new(&dir) {
-            let entry = entry.map_err(|error| {
-                AppError::message(format!(
-                    "walk editor spec directory failed ({}): {error}",
-                    dir.display()
-                ))
-            })?;
-            validate_walk_entry(entry.path(), "editor spec directory")?;
-            if entry.path().extension().and_then(|s| s.to_str()) != Some(ext) {
-                continue;
-            }
-            let value = read_json_file(entry.path())?;
+        for (path, value) in crate::io::walk_json_dir(&dir, ext, "editor spec")? {
             if value.get(id_key).and_then(Value::as_str) == Some(id) {
-                return Ok(entry.path().to_path_buf());
+                return Ok(path);
             }
         }
     }

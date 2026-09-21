@@ -235,19 +235,11 @@ fn quote_closes_field(byte: Option<u8>) -> bool {
 
 fn read_csv_text_char(path_label: &str, bytes: &[u8], index: &mut usize) -> AppResult<char> {
     let byte = bytes[*index];
+    if let Some(ch) = crate::io::known_cp1252_char(byte) {
+        *index += 1;
+        return Ok(ch);
+    }
     match byte {
-        0x91 | 0x92 => {
-            *index += 1;
-            Ok('\'')
-        }
-        0x93 | 0x94 => {
-            *index += 1;
-            Ok('"')
-        }
-        0x96 => {
-            *index += 1;
-            Ok('-')
-        }
         0x00..=0x7f => {
             *index += 1;
             Ok(byte as char)

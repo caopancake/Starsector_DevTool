@@ -4,7 +4,10 @@ use crate::{
     parsers::parse_starsector_json,
 };
 use serde_json::{Map, Value};
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 use walkdir::WalkDir;
 
 pub fn read_json_file(path: &Path) -> AppResult<Value> {
@@ -20,7 +23,7 @@ pub fn load_json_dir_by_id(
     id_key: &str,
 ) -> AppResult<BTreeMap<String, Value>> {
     let mut result = BTreeMap::new();
-    for value in load_json_dir(dir, ext)? {
+    for (_, value) in walk_json_dir(dir, ext, "JSON")? {
         if let Some(id) = value.get(id_key).and_then(Value::as_str) {
             result.insert(id.to_string(), value);
         }
@@ -29,23 +32,35 @@ pub fn load_json_dir_by_id(
 }
 
 pub fn load_json_dir(dir: &Path, ext: &str) -> AppResult<Vec<Value>> {
+    Ok(walk_json_dir(dir, ext, "JSON")?
+        .into_iter()
+        .map(|(_, value)| value)
+        .collect())
+}
+
+/// The single directory-walk entry for loose spec JSON: every JSON directory
+/// scan shares this error context, link validation and exact-match extension
+/// filter (case-sensitive, no dot).
+pub fn walk_json_dir(dir: &Path, ext: &str, label: &str) -> AppResult<Vec<(PathBuf, Value)>> {
     if !dir.exists() {
         return Ok(vec![]);
     }
-    let mut values = Vec::new();
+    let mut files = Vec::new();
     for entry in WalkDir::new(dir).into_iter() {
         let entry = entry.map_err(|error| {
             AppError::context(
-                format!("遍历 JSON 目录失败 ({})", dir.display()),
+                format!("遍历 {label} 目录失败 ({})", dir.display()),
                 AppError::message(error.to_string()),
             )
         })?;
-        validate_walk_entry(entry.path(), "JSON directory")?;
-        if entry.path().extension().and_then(|s| s.to_str()) == Some(ext) {
-            values.push(read_json_file(entry.path())?);
+        validate_walk_entry(entry.path(), &format!("{label} directory"))?;
+        if entry.path().extension().and_then(|s| s.to_str()) != Some(ext) {
+            continue;
         }
+        let path = entry.path().to_path_buf();
+        files.push((path.clone(), read_json_file(&path)?));
     }
-    Ok(values)
+    Ok(files)
 }
 
 pub fn strip_internal_fields(value: &Value) -> Value {

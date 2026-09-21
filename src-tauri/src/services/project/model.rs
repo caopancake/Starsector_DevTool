@@ -101,10 +101,3 @@ pub(super) fn is_comment_row(row: &Map<String, Value>) -> bool {
         .find(|value| !value.trim().is_empty())
         .is_some_and(|value| value.trim_start().starts_with('#'))
 }
-
-pub(super) fn normalize_rel_path(root: &std::path::Path, path: &std::path::Path) -> String {
-    path.strip_prefix(root)
-        .unwrap_or(path)
-        .to_string_lossy()
-        .replace('\\', "/")
-}

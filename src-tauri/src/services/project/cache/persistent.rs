@@ -1,6 +1,9 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::{read_text_bytes_no_bom, read_utf8_no_bom, validate_walk_entry, write_utf8_no_bom},
+    io::{
+        forward_slash_path, read_text_bytes_no_bom, read_utf8_no_bom, validate_walk_entry,
+        write_utf8_no_bom,
+    },
     models::CsvTableKey,
     parsers::parse_persisted_json,
 };
@@ -286,7 +289,7 @@ fn collect_extension_files(
                 path.display()
             ))
         })?;
-        files.push((normalize_rel_path(rel_path), path.to_path_buf()));
+        files.push((forward_slash_path(rel_path), path.to_path_buf()));
     }
     Ok(())
 }
@@ -346,10 +349,6 @@ fn stable_hash(bytes: &[u8]) -> u64 {
     bytes.iter().fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
         (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3)
     })
-}
-
-fn normalize_rel_path(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/")
 }
 
 #[cfg(test)]

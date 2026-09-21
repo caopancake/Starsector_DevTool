@@ -10,7 +10,7 @@ use crate::{
 pub fn query_entity(session_id: &str, kind: EntityKind, id: &str) -> AppResult<Option<EntityData>> {
     let handle = session_handle(session_id)?;
     let mut session = lock_session(&handle)?;
-    let definition = entity_definition(kind);
+    let definition = entity_definition(kind)?;
     (definition.prepare)(&mut session)?;
     let data = (definition.detail)(&mut session, id)?;
     let Some(data) = data else {
@@ -28,7 +28,7 @@ pub fn query_entity(session_id: &str, kind: EntityKind, id: &str) -> AppResult<O
 pub fn query_entity_list(session_id: &str, kind: EntityKind) -> AppResult<Vec<EntityData>> {
     let handle = session_handle(session_id)?;
     let mut session = lock_session(&handle)?;
-    let definition = entity_definition(kind);
+    let definition = entity_definition(kind)?;
     (definition.prepare)(&mut session)?;
     (definition.list)(&mut session)
 }

@@ -1,7 +1,7 @@
-use super::model::normalize_rel_path;
 use crate::{
     domain::config::{build_skin_file, build_variant_file},
     errors::{AppError, AppResult},
+    io::forward_slash_relative_path,
     models::{GameScanWarning, SkinFile, VariantFile},
 };
 use std::path::Path;
@@ -10,26 +10,11 @@ pub(super) fn load_variant_files(
     mod_root: &Path,
 ) -> AppResult<(Vec<VariantFile>, Vec<GameScanWarning>)> {
     let dir = mod_root.join("data/variants");
-    if !dir.exists() {
-        return Ok((vec![], vec![]));
-    }
     let mut seen = std::collections::HashMap::new();
     let mut files = Vec::new();
     let mut warnings = Vec::new();
-    for entry in walkdir::WalkDir::new(&dir).into_iter() {
-        let entry = entry.map_err(|error| {
-            AppError::context(
-                format!("遍历 variant 目录失败 ({})", dir.display()),
-                AppError::message(error.to_string()),
-            )
-        })?;
-        crate::io::validate_walk_entry(entry.path(), "variant directory")?;
-        if entry.path().extension().and_then(|s| s.to_str()) != Some("variant") {
-            continue;
-        }
-        let path = entry.path();
-        let data = crate::io::read_json_file(path)?;
-        let rel_path = normalize_rel_path(mod_root, path);
+    for (path, data) in crate::io::walk_json_dir(&dir, "variant", "variant")? {
+        let rel_path = forward_slash_relative_path(mod_root, &path);
         let file = build_variant_file(mod_root, &rel_path, &data)
             .map_err(|error| AppError::context(path.display().to_string(), error))?;
         if let Some(previous) =
@@ -57,26 +42,11 @@ pub(super) fn load_variant_files(
 
 pub(super) fn load_skin_files(mod_root: &Path) -> AppResult<(Vec<SkinFile>, Vec<GameScanWarning>)> {
     let dir = mod_root.join("data/hulls/skins");
-    if !dir.exists() {
-        return Ok((vec![], vec![]));
-    }
     let mut seen = std::collections::HashMap::new();
     let mut files = Vec::new();
     let mut warnings = Vec::new();
-    for entry in walkdir::WalkDir::new(&dir).into_iter() {
-        let entry = entry.map_err(|error| {
-            AppError::context(
-                format!("遍历 skin 目录失败 ({})", dir.display()),
-                AppError::message(error.to_string()),
-            )
-        })?;
-        crate::io::validate_walk_entry(entry.path(), "skin directory")?;
-        if entry.path().extension().and_then(|s| s.to_str()) != Some("skin") {
-            continue;
-        }
-        let path = entry.path();
-        let data = crate::io::read_json_file(path)?;
-        let rel_path = normalize_rel_path(mod_root, path);
+    for (path, data) in crate::io::walk_json_dir(&dir, "skin", "skin")? {
+        let rel_path = forward_slash_relative_path(mod_root, &path);
         let file = build_skin_file(mod_root, &rel_path, &data)
             .map_err(|error| AppError::context(path.display().to_string(), error))?;
         if let Some(previous) = seen.insert(

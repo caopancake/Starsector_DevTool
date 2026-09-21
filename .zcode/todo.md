@@ -29,17 +29,17 @@ Owner 原则：`PROJECT_SESSIONS` 注册表锁只保护 `sessionId -> Arc<Mutex<
 
 Owner 原则：每个通用机制只有一个正式实现与一个 owner 模块；镜像成对的实体文件合并为参数化单一实现。
 
-- [ ] `path_is_or_in_dir` / `path_affects_target` 收敛为 `io/paths.rs` 单一实现；`domain/editor_config_definitions.rs`、`services/project/entity_definitions.rs`、`cache/invalidation.rs` 删除各自私有副本。
-- [ ] `normalize_rel_path`（`model.rs`、`persistent.rs`）与 `relative_path_key`（`io/paths.rs`）合并为 `io/paths.rs` 单一实现。
-- [ ] JSON 目录扫描统一：`io/json_files.rs` 提供唯一 walkdir 扫描入口（含统一错误上下文与校验）；`services/project/spec_files.rs` 的 variant/skin 两段扫描与 `editor_config/spec_files.rs` 的目标查找改为复用，错误消息措辞统一。
-- [ ] `editor_config/variants.rs` 与 `skins.rs` 合并为参数化单一实现（由 entity definition 提供 ID 字段、目录、校验与文案），成对镜像的测试同步合并为参数化测试。
-- [ ] CP1252 智能引号归一化收敛到 `io/text.rs` 单一映射表，`parsers/alex_csv.rs` 复用；"读入即归一化"行为写入模块契约。
-- [ ] `editor_config/indexed_entities.rs` 与 mission 链路以 `serde_json::json!` 手拼的 refreshed entity 改为 models 层类型化 wire 模型。
-- [ ] `commands/editor_config.rs` 中重复的 session 守卫下沉为统一入口（extractor 或单一守卫函数）。
-- [ ] 生产代码中守卫后 `unwrap()` 改写为 `if let Some(...)`；静态注册表查找的 `expect()` 统一改为返回 `Result` 的查找函数。
-- [ ] `session_id` 生成改为进程内单调计数器；为 session 注册表补显式上限或孤儿回收兜底。
-- [ ] `model.rs` 的 `WEAPON_SPRITE_FIELDS` 测试副本改为引用生产常量。
-- [ ] 跑 Rust 三件套检查。
+- [x] `path_is_or_in_dir` / `path_affects_target` 收敛为 `domain/config.rs` 单一 pub 实现（落点修正：domain 现为纯层，收敛到 io 会新增 domain→io 依赖；该谓词与 `validate_config_file_rel_path` 同属纯 rel-path 逻辑）；`domain/editor_config_definitions.rs`、`services/project/entity_definitions.rs`、`cache/invalidation.rs` 各自私有副本删除。
+- [x] `normalize_rel_path`（`model.rs`、`persistent.rs`）与 `relative_path_key`（`io/paths.rs`）合并为 `io/paths.rs` 的 `forward_slash_path` / `forward_slash_relative_path`。
+- [x] JSON 目录扫描统一：`io/json_files.rs::walk_json_dir` 为唯一 walkdir 扫描入口（统一"遍历 {label} 目录失败"错误上下文与链接校验）；`load_json_dir` 变为其投影，`project/spec_files.rs` variant/skin 扫描与 `editor_config/spec_files.rs::find_json_target` 全部复用。
+- [x] `editor_config/variants.rs` 与 `skins.rs` 合并为 `spec_entities.rs`（`save/create/delete_spec_entity` 按 `EntityKind` 参数化，`EntitySpecDefinition` 新增 `display_name` 驱动全部文案）；命令层 wire 函数名与 payload 类型不变；两套镜像测试合并为参数化运行器（10 个用例保留）。
+- [x] CP1252 智能引号归一化收敛到 `io/text.rs::known_cp1252_char` 单一映射表，`parsers/alex_csv.rs` 复用；"读入即归一化、随保存写盘不可逆"契约写入 `rust-file-io-changeset.md`。
+- [x] indexed config 链路 refreshed entity 改为 models 层 `IndexedEntityRefresh` 类型化 wire 模型（camelCase 序列化与原 json! 键完全一致）。
+- [x] `commands/editor_config.rs` 十处重复 session 守卫下沉：payload 实现 `SessionModScope` trait，统一 `ensure_session_mod_scope` 校验。
+- [x] 守卫后 `unwrap()` 全部改写为 `if let Some`/`filter`；`entity_definition`、`editor_spec_definition`、`indexed_config_definition` 改为返回 `AppResult` 的查找（调用点 `?` 传播）；`csv_table_definition` 因键为封闭枚举改为穷举 `match` 实现（编译期全量性，表项拆为具名常量，零调用方级联）；faction 的 expect-shim 直接改用 `FACTION_SPEC_DEFINITION` 常量；`lib.rs` 启动 expect 与 `alex_json` 正则常量 expect 非注册表查找，保留。
+- [x] `session_id` 生成改为 `AtomicU64` 单调计数器（20 位零填充保持字典序=创建序）；session 注册表加 32 上限，超限驱逐最旧并清其 sprite 媒体缓存。
+- [x] `sprites.rs` 测试内联贴图字段数组改为引用 `model::WEAPON_SPRITE_FIELDS` 生产常量。
+- [x] 跑 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test`（263 通过）。
 
 ### Phase 1.4: 静态规则引擎修复
 

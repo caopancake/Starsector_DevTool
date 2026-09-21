@@ -1,9 +1,9 @@
-use crate::domain::editor_config_definitions::entity_spec_definition;
+use crate::domain::editor_config_definitions::FACTION_SPEC_DEFINITION;
 use crate::{
     domain::config::validate_config_id,
     errors::{AppError, AppResult},
     io::{FileChangeSetBuilder, read_csv_data, strip_internal_fields},
-    models::{EntityKind, IndexedConfigKind, WriteResult},
+    models::{IndexedConfigKind, IndexedEntityRefresh, WriteResult},
     parsers::render_csv_text,
 };
 use serde_json::{Map, Value};
@@ -26,7 +26,7 @@ pub fn save_indexed_config_entity(
         .filter(|value| !value.trim().is_empty())
         .map(|value| validate_config_id(value, kind.invalid_id_message()).map(str::to_string))
         .transpose()?;
-    let definition = indexed_config_definition(kind);
+    let definition = indexed_config_definition(kind)?;
     let mod_root = Path::new(mod_root);
     let index_path = mod_root.join(definition.index_rel_path());
     let (mut header, mut rows) = read_index_table(&index_path, definition.default_header())?;
@@ -57,40 +57,42 @@ pub fn save_indexed_config_entity(
     upsert_index_row(&mut header, &mut rows, definition, index_row, &next_id);
 
     let mut builder = FileChangeSetBuilder::new(mod_root)?;
-    if definition.rename_strategy == RenameStrategy::CopyDirectoryBeforeWrite
-        && delete_previous_target
-        && previous_id
-            .as_deref()
-            .is_some_and(|previous| previous != next_id)
+    if delete_previous_target
+        && definition.rename_strategy == RenameStrategy::CopyDirectoryBeforeWrite
     {
-        let previous = previous_id.as_deref().unwrap();
-        builder.copy_directory(
-            definition.target_rel_path(previous),
-            definition.target_rel_path(&next_id),
-        )?;
+        if let Some(previous) = previous_id
+            .as_deref()
+            .filter(|previous| *previous != next_id)
+        {
+            builder.copy_directory(
+                definition.target_rel_path(previous),
+                definition.target_rel_path(&next_id),
+            )?;
+        }
     }
     builder.root_text_file(
         definition.index_rel_path(),
         Some(render_csv_text(&header, &rows)?),
     )?;
     definition.add_save_changes(&mut builder, &next_id, &entity_data)?;
-    if delete_previous_target
-        && previous_id
+    if delete_previous_target {
+        if let Some(previous) = previous_id
             .as_deref()
-            .is_some_and(|previous| previous != next_id)
-    {
-        definition.add_delete_target_change(&mut builder, previous_id.as_deref().unwrap())?;
+            .filter(|previous| *previous != next_id)
+        {
+            definition.add_delete_target_change(&mut builder, previous)?;
+        }
     }
     let changes = builder.apply()?;
     Ok(WriteResult::from_refreshed_entity(
         changes,
-        serde_json::json!({
-            "entityId": next_id,
-            "indexPath": definition.index_rel_path(),
-            "indexHeader": header,
-            "indexRows": rows,
-            "entityData": entity_data,
-        }),
+        serde_json::to_value(IndexedEntityRefresh {
+            entity_id: next_id,
+            index_path: definition.index_rel_path().to_string(),
+            index_header: header,
+            index_rows: rows,
+            entity_data,
+        })?,
     ))
 }
 
@@ -111,7 +113,7 @@ pub fn delete_indexed_config_entity(
     delete_target: bool,
 ) -> AppResult<WriteResult<Value>> {
     let id = validate_config_id(id, kind.invalid_id_message())?.to_string();
-    let definition = indexed_config_definition(kind);
+    let definition = indexed_config_definition(kind)?;
     let mod_root = Path::new(mod_root);
     let index_path = mod_root.join(definition.index_rel_path());
     let (header, mut rows) = read_index_table(&index_path, definition.default_header())?;
@@ -133,19 +135,22 @@ pub fn delete_indexed_config_entity(
     let changes = builder.apply()?;
     Ok(WriteResult::from_refreshed_entity(
         changes,
-        serde_json::json!({
-            "entityId": id,
-            "indexPath": definition.index_rel_path(),
-            "indexHeader": header,
-            "indexRows": rows,
-            "entityData": Value::Null,
-        }),
+        serde_json::to_value(IndexedEntityRefresh {
+            entity_id: id,
+            index_path: definition.index_rel_path().to_string(),
+            index_header: header,
+            index_rows: rows,
+            entity_data: Value::Null,
+        })?,
     ))
 }
 
 impl IndexedConfigKind {
     fn invalid_id_message(self) -> &'static str {
-        (indexed_config_definition(self).invalid_id_message)()
+        match self {
+            IndexedConfigKind::Faction => FACTION_SPEC_DEFINITION.invalid_id_message,
+            IndexedConfigKind::Mission => "无效战役 ID",
+        }
     }
 }
 
@@ -157,7 +162,6 @@ enum RenameStrategy {
 
 struct IndexedConfigDefinition {
     kind: IndexedConfigKind,
-    invalid_id_message: fn() -> &'static str,
     display_name: &'static str,
     index_rel_path: &'static str,
     default_header: &'static [&'static str],
@@ -172,11 +176,13 @@ struct IndexedConfigDefinition {
     rename_strategy: RenameStrategy,
 }
 
-fn indexed_config_definition(kind: IndexedConfigKind) -> &'static IndexedConfigDefinition {
+fn indexed_config_definition(
+    kind: IndexedConfigKind,
+) -> AppResult<&'static IndexedConfigDefinition> {
     INDEXED_CONFIG_DEFINITIONS
         .iter()
         .find(|definition| definition.kind == kind)
-        .expect("registered indexed config kind")
+        .ok_or_else(|| AppError::message(format!("未注册的 indexed config 种类: {kind:?}")))
 }
 
 impl IndexedConfigDefinition {
@@ -245,7 +251,6 @@ impl IndexedConfigDefinition {
 const INDEXED_CONFIG_DEFINITIONS: [IndexedConfigDefinition; 2] = [
     IndexedConfigDefinition {
         kind: IndexedConfigKind::Faction,
-        invalid_id_message: faction_invalid_id_message,
         display_name: "势力",
         index_rel_path: "data/world/factions/factions.csv",
         default_header: &["id", "file"],
@@ -259,7 +264,6 @@ const INDEXED_CONFIG_DEFINITIONS: [IndexedConfigDefinition; 2] = [
     },
     IndexedConfigDefinition {
         kind: IndexedConfigKind::Mission,
-        invalid_id_message: mission_invalid_id_message,
         display_name: "战役",
         index_rel_path: "data/missions/mission_list.csv",
         default_header: &["mission"],
@@ -353,20 +357,8 @@ fn file_stem(value: &str) -> String {
         .to_string()
 }
 
-fn faction_invalid_id_message() -> &'static str {
-    entity_spec_definition(EntityKind::Faction)
-        .expect("registered faction spec definition")
-        .invalid_id_message
-}
-
-fn mission_invalid_id_message() -> &'static str {
-    "无效战役 ID"
-}
-
 fn faction_target_rel_path(id: &str) -> String {
-    entity_spec_definition(EntityKind::Faction)
-        .expect("registered faction spec definition")
-        .default_rel_path(id)
+    FACTION_SPEC_DEFINITION.default_rel_path(id)
 }
 
 fn mission_target_rel_path(id: &str) -> String {

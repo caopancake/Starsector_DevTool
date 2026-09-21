@@ -207,6 +207,68 @@ pub struct DeleteSkinEntityPayload {
     pub rel_path: String,
 }
 
+/// Payloads carrying a project-session scope: `session_id` and `mod_root` are
+/// validated together so a command can never pair one session with another
+/// mod's root.
+pub trait SessionModScope {
+    fn session_id(&self) -> &ProjectSessionId;
+    fn mod_root(&self) -> &str;
+}
+
+impl SessionModScope for SaveEditorSpecPayload {
+    fn session_id(&self) -> &ProjectSessionId {
+        &self.session_id
+    }
+    fn mod_root(&self) -> &str {
+        &self.mod_root
+    }
+}
+
+impl SessionModScope for IndexedConfigEntityPayload {
+    fn session_id(&self) -> &ProjectSessionId {
+        &self.session_id
+    }
+    fn mod_root(&self) -> &str {
+        &self.mod_root
+    }
+}
+
+impl SessionModScope for DeleteIndexedConfigEntityPayload {
+    fn session_id(&self) -> &ProjectSessionId {
+        &self.session_id
+    }
+    fn mod_root(&self) -> &str {
+        &self.mod_root
+    }
+}
+
+impl SessionModScope for ConfigFileEntityPayload {
+    fn session_id(&self) -> &ProjectSessionId {
+        &self.session_id
+    }
+    fn mod_root(&self) -> &str {
+        &self.mod_root
+    }
+}
+
+impl SessionModScope for DeleteVariantEntityPayload {
+    fn session_id(&self) -> &ProjectSessionId {
+        &self.session_id
+    }
+    fn mod_root(&self) -> &str {
+        &self.mod_root
+    }
+}
+
+impl SessionModScope for DeleteSkinEntityPayload {
+    fn session_id(&self) -> &ProjectSessionId {
+        &self.session_id
+    }
+    fn mod_root(&self) -> &str {
+        &self.mod_root
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveTextFilePayload {

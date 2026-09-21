@@ -1,5 +1,6 @@
 use crate::{
-    errors::AppResult,
+    domain::config::{path_affects_target, path_is_or_in_dir},
+    errors::{AppError, AppResult},
     models::{CsvTableKey, EditorSpecKind, EntityKind},
 };
 
@@ -11,6 +12,7 @@ pub struct EntitySpecDefinition {
     pub dir: &'static str,
     pub extension: &'static str,
     pub id_field: &'static str,
+    pub display_name: &'static str,
     pub invalid_id_message: &'static str,
 }
 
@@ -45,6 +47,7 @@ pub const SHIP_SPEC_DEFINITION: EntitySpecDefinition = EntitySpecDefinition {
     dir: "data/hulls",
     extension: ".ship",
     id_field: "hullId",
+    display_name: "舰船",
     invalid_id_message: "无效舰船 ID",
 };
 
@@ -55,6 +58,7 @@ pub const WEAPON_SPEC_DEFINITION: EntitySpecDefinition = EntitySpecDefinition {
     dir: "data/weapons",
     extension: ".wpn",
     id_field: "id",
+    display_name: "武器",
     invalid_id_message: "无效武器 ID",
 };
 
@@ -65,6 +69,7 @@ pub const PROJECTILE_SPEC_DEFINITION: EntitySpecDefinition = EntitySpecDefinitio
     dir: "data/weapons/proj",
     extension: ".proj",
     id_field: "id",
+    display_name: "弹体",
     invalid_id_message: "无效弹体 ID",
 };
 
@@ -75,6 +80,7 @@ pub const SYSTEM_SPEC_DEFINITION: EntitySpecDefinition = EntitySpecDefinition {
     dir: "data/shipsystems",
     extension: ".system",
     id_field: "id",
+    display_name: "战术系统",
     invalid_id_message: "无效战术系统 ID",
 };
 
@@ -85,6 +91,7 @@ pub const SKILL_SPEC_DEFINITION: EntitySpecDefinition = EntitySpecDefinition {
     dir: "data/characters/skills",
     extension: ".skill",
     id_field: "id",
+    display_name: "技能",
     invalid_id_message: "无效技能 ID",
 };
 
@@ -95,6 +102,7 @@ pub const FACTION_SPEC_DEFINITION: EntitySpecDefinition = EntitySpecDefinition {
     dir: "data/world/factions",
     extension: ".faction",
     id_field: "id",
+    display_name: "势力",
     invalid_id_message: "无效势力 ID",
 };
 
@@ -105,6 +113,7 @@ pub const VARIANT_SPEC_DEFINITION: EntitySpecDefinition = EntitySpecDefinition {
     dir: "data/variants",
     extension: ".variant",
     id_field: "variantId",
+    display_name: "装配",
     invalid_id_message: "无效装配 ID",
 };
 
@@ -115,6 +124,7 @@ pub const SKIN_SPEC_DEFINITION: EntitySpecDefinition = EntitySpecDefinition {
     dir: "data/hulls/skins",
     extension: ".skin",
     id_field: "skinHullId",
+    display_name: "舰船皮肤",
     invalid_id_message: "无效舰船皮肤 ID",
 };
 
@@ -135,11 +145,11 @@ pub fn entity_spec_definition(kind: EntityKind) -> Option<&'static EntitySpecDef
         .find(|definition| definition.entity_kind == kind)
 }
 
-pub fn editor_spec_definition(kind: EditorSpecKind) -> &'static EntitySpecDefinition {
+pub fn editor_spec_definition(kind: EditorSpecKind) -> AppResult<&'static EntitySpecDefinition> {
     ENTITY_SPEC_DEFINITIONS
         .iter()
         .find(|definition| definition.editor_kind == Some(kind))
-        .expect("registered editor spec kind")
+        .ok_or_else(|| AppError::message(format!("未注册的编辑器 spec 种类: {kind:?}")))
 }
 
 pub fn associated_spec_definition(table: CsvTableKey) -> Option<&'static EntitySpecDefinition> {
@@ -153,12 +163,4 @@ pub fn associated_spec_tables() -> Vec<CsvTableKey> {
         .iter()
         .filter_map(|definition| definition.csv_table)
         .collect()
-}
-
-fn path_is_or_in_dir(path: &str, dir: &str) -> bool {
-    path == dir || path.starts_with(&format!("{dir}/"))
-}
-
-fn path_affects_target(path: &str, target: &str) -> bool {
-    path.is_empty() || path == target || target.starts_with(&format!("{path}/"))
 }

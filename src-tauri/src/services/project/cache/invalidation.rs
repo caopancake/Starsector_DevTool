@@ -1,4 +1,5 @@
 use crate::{
+    domain::config::path_affects_target,
     errors::AppResult,
     io::{FsRootBoundary, parse_csv_text},
     models::{
@@ -36,7 +37,7 @@ pub(crate) fn invalidate_session_changes(
         affected_kinds.extend(impact.target.affected_entities.iter().copied());
         push_unique_all(
             &mut entities,
-            invalidated_entities_for_file(&impact.target, &impact.file),
+            invalidated_entities_for_file(&impact.target, &impact.file)?,
         );
     }
     if affected_kinds.contains(&EntityKind::Faction) {
@@ -53,7 +54,7 @@ pub(crate) fn invalidate_session_changes(
         session.manifest.mod_info = root::read_mod_info(&mod_root)?;
     }
     for kind in affected_kinds {
-        let definition = entity_definitions::entity_definition(kind);
+        let definition = entity_definitions::entity_definition(kind)?;
         (definition.refresh)(session)?;
         if let Some(table) = definition.csv_table {
             refresh_table_entity_summary(session, table.as_str())?;
@@ -72,7 +73,7 @@ pub(crate) fn invalidate_session_changes(
             .iter()
             .map(|impact| impact.file.path.clone())
             .collect(),
-        query_scopes: query_scopes_for_invalidation(&tables, &entities, &resources),
+        query_scopes: query_scopes_for_invalidation(&tables, &entities, &resources)?,
         tables,
         entities,
         resources,
@@ -220,12 +221,11 @@ fn push_changed_project_file(
 fn invalidated_entities_for_file(
     target: &ChangedProjectPath,
     file: &ChangedProjectFile,
-) -> Vec<InvalidatedEntityRef> {
-    let mut entities = target
-        .affected_entities
-        .iter()
-        .flat_map(|kind| entity_ids_from_file(*kind, file))
-        .collect::<Vec<_>>();
+) -> AppResult<Vec<InvalidatedEntityRef>> {
+    let mut entities = Vec::new();
+    for kind in &target.affected_entities {
+        entities.append(&mut entity_ids_from_file(*kind, file)?);
+    }
     for table in &target.csv_tables {
         for definition in entity_definitions::entity_definitions()
             .iter()
@@ -234,26 +234,30 @@ fn invalidated_entities_for_file(
             push_unique_all(&mut entities, csv_entity_ids(definition.kind, *table, file));
         }
     }
-    entities
+    Ok(entities)
 }
 
-fn entity_ids_from_file(kind: EntityKind, file: &ChangedProjectFile) -> Vec<InvalidatedEntityRef> {
+fn entity_ids_from_file(
+    kind: EntityKind,
+    file: &ChangedProjectFile,
+) -> AppResult<Vec<InvalidatedEntityRef>> {
     if kind == EntityKind::Mission {
-        return mission_entity_ids(file);
+        return Ok(mission_entity_ids(file));
     }
-    let definition = entity_definitions::entity_definition(kind);
+    let definition = entity_definitions::entity_definition(kind)?;
     let Some(spec) = definition.spec else {
-        return vec![invalidated_entity(kind, None)];
+        return Ok(vec![invalidated_entity(kind, None)]);
     };
     if !is_exact_spec_path(file.path.as_str(), spec.dir, spec.extension) {
-        return vec![invalidated_entity(kind, None)];
+        return Ok(vec![invalidated_entity(kind, None)]);
     }
     let Some(ids) = snapshot_json_ids(file, spec.id_field) else {
-        return vec![invalidated_entity(kind, None)];
+        return Ok(vec![invalidated_entity(kind, None)]);
     };
-    ids.into_iter()
+    Ok(ids
+        .into_iter()
         .map(|id| invalidated_entity(kind, Some(id)))
-        .collect()
+        .collect())
 }
 
 fn mission_entity_ids(file: &ChangedProjectFile) -> Vec<InvalidatedEntityRef> {
@@ -366,7 +370,7 @@ fn query_scopes_for_invalidation(
     tables: &[CsvTableKey],
     entities: &[InvalidatedEntityRef],
     resources: &[InvalidatedResourceScope],
-) -> Vec<InvalidatedQueryScope> {
+) -> AppResult<Vec<InvalidatedQueryScope>> {
     let mut scopes = Vec::new();
     for table in tables {
         push_query_scope(
@@ -411,7 +415,7 @@ fn query_scopes_for_invalidation(
             InvalidatedQueryKind::EntityList,
             entity.clone(),
         );
-        let definition = entity_definitions::entity_definition(entity.kind);
+        let definition = entity_definitions::entity_definition(entity.kind)?;
         for source in entity_definitions::source_option_origin_scopes(definition) {
             push_source_option_query_scope(&mut scopes, source);
         }
@@ -440,7 +444,7 @@ fn query_scopes_for_invalidation(
             },
         );
     }
-    scopes
+    Ok(scopes)
 }
 
 fn push_source_option_query_scope(scopes: &mut Vec<InvalidatedQueryScope>, source: String) {
@@ -486,10 +490,6 @@ fn affected_csv_tables(path: &str) -> Vec<CsvTableKey> {
             path_affects_target(path, definition.rel_path).then_some(definition.key)
         })
         .collect()
-}
-
-fn path_affects_target(path: &str, target: &str) -> bool {
-    path.is_empty() || path == target || target.starts_with(&format!("{path}/"))
 }
 
 fn refresh_table_entity_summary(session: &mut ProjectSession, table_key: &str) -> AppResult<()> {
@@ -739,7 +739,8 @@ mod tests {
                         before_text: None,
                         path: path.clone(),
                     },
-                ),
+                )
+                .unwrap(),
                 vec![invalidated_entity(definition.kind, Some("new".to_string()))]
             );
             assert_eq!(
@@ -750,7 +751,8 @@ mod tests {
                         before_text: Some(old.clone()),
                         path: path.clone(),
                     },
-                ),
+                )
+                .unwrap(),
                 vec![invalidated_entity(definition.kind, Some("old".to_string()))]
             );
             assert_eq!(
@@ -761,7 +763,8 @@ mod tests {
                         before_text: Some(old),
                         path,
                     },
-                ),
+                )
+                .unwrap(),
                 vec![
                     invalidated_entity(definition.kind, Some("new".to_string())),
                     invalidated_entity(definition.kind, Some("old".to_string())),
@@ -792,7 +795,8 @@ mod tests {
                         before_text: None,
                         path: path.to_string(),
                     },
-                ),
+                )
+                .unwrap(),
                 vec![invalidated_entity(definition.kind, Some("new".to_string()))]
             );
             assert_eq!(
@@ -803,7 +807,8 @@ mod tests {
                         before_text: Some(delete),
                         path: path.to_string(),
                     },
-                ),
+                )
+                .unwrap(),
                 vec![invalidated_entity(definition.kind, Some("old".to_string()))]
             );
             assert_eq!(
@@ -814,7 +819,8 @@ mod tests {
                         before_text: Some(rename_before),
                         path: path.to_string(),
                     },
-                ),
+                )
+                .unwrap(),
                 vec![
                     invalidated_entity(definition.kind, Some("new".to_string())),
                     invalidated_entity(definition.kind, Some("old".to_string())),
@@ -838,7 +844,8 @@ mod tests {
                     before_text: Some(before.to_string()),
                     path: path.to_string(),
                 },
-            ),
+            )
+            .unwrap(),
             vec![invalidated_entity(
                 EntityKind::Weapon,
                 Some("demo_weapon".to_string()),

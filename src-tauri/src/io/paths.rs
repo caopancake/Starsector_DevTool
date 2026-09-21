@@ -57,7 +57,7 @@ impl FsRootBoundary {
         let rel_path = validate_safe_relative_path(path, label)?;
         let target = self.root.join(rel_path);
         self.validate_target_path(&target, label)?;
-        Ok(Some(relative_path_key(rel_path)))
+        Ok(Some(forward_slash_path(rel_path)))
     }
 
     fn resolve_absolute_change_to_relative(
@@ -97,7 +97,7 @@ impl FsRootBoundary {
                 path.display()
             ))
         })?;
-        Ok(Some(relative_path_key(rel)))
+        Ok(Some(forward_slash_path(rel)))
     }
 
     fn validate_target_path(&self, path: &Path, label: &str) -> AppResult<()> {
@@ -165,8 +165,16 @@ pub fn path_belongs_to_root(path: &Path, root: &Path) -> bool {
     path == root || path.starts_with(root)
 }
 
-fn relative_path_key(path: &Path) -> String {
+/// Normalize a path to a forward-slash string key, independent of platform
+/// separator; all persisted and wire path strings flow through this form.
+pub fn forward_slash_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
+}
+
+/// `forward_slash_path` after stripping `root`, falling back to the full path
+/// when it is not underneath `root`.
+pub fn forward_slash_relative_path(root: &Path, path: &Path) -> String {
+    forward_slash_path(path.strip_prefix(root).unwrap_or(path))
 }
 
 fn nearest_existing_path(path: &Path) -> Option<PathBuf> {

@@ -130,6 +130,19 @@ pub struct WriteResult<T = ()> {
     pub warnings: Vec<String>,
 }
 
+/// Refreshed-entity payload of the indexed config chains (faction, mission):
+/// the changed index table plus the entity content, returned as the typed
+/// `refreshedEntity` of a `WriteResult`.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexedEntityRefresh {
+    pub entity_id: String,
+    pub index_path: String,
+    pub index_header: Vec<String>,
+    pub index_rows: Vec<Map<String, Value>>,
+    pub entity_data: Value,
+}
+
 impl<T> WriteResult<T> {
     pub fn new(
         changes: Vec<FileChangeRecord>,

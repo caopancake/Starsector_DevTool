@@ -57,16 +57,7 @@ pub(super) fn load_weapon_sprite_data(
     let mut sprites = BTreeMap::new();
     for (id, value) in weapon_specs {
         let mut weapon_sprites = BTreeMap::new();
-        for field in [
-            "turretUnderSprite",
-            "turretSprite",
-            "turretGunSprite",
-            "turretGlowSprite",
-            "hardpointUnderSprite",
-            "hardpointSprite",
-            "hardpointGunSprite",
-            "hardpointGlowSprite",
-        ] {
+        for field in super::super::model::WEAPON_SPRITE_FIELDS {
             if let Some(sprite) = value.get(field).and_then(Value::as_str) {
                 if let Ok(Some(data_url)) = load_sprite_data_url(mod_root, core_dir, sprite) {
                     weapon_sprites.insert(field.to_string(), data_url);

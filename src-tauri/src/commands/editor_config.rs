@@ -1,14 +1,18 @@
 use crate::{
-    errors::AppError,
-    models::WriteResult,
+    errors::{AppError, AppResult},
     models::command_payloads::{
         DeleteIndexedConfigEntityPayload, DeleteSkinEntityPayload, DeleteVariantEntityPayload,
         IndexedConfigEntityPayload, LoadImportedEditorSpecPayload, SaveEditorSpecPayload,
-        SkinEntityPayload, VariantEntityPayload,
+        SessionModScope, SkinEntityPayload, VariantEntityPayload,
     },
+    models::{EntityKind, WriteResult},
     services,
 };
 use serde_json::Value;
+
+fn ensure_session_mod_scope<T: SessionModScope>(payload: &T) -> AppResult<()> {
+    services::project::ensure_project_session_mod_root(payload.session_id(), payload.mod_root())
+}
 
 #[tauri::command(async)]
 pub fn load_imported_editor_spec_file(
@@ -19,7 +23,7 @@ pub fn load_imported_editor_spec_file(
 
 #[tauri::command(async)]
 pub fn save_editor_spec(payload: SaveEditorSpecPayload) -> Result<WriteResult, AppError> {
-    services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)?;
+    ensure_session_mod_scope(&payload)?;
     services::editor_config::save_editor_spec(
         &payload.mod_root,
         payload.kind,
@@ -32,7 +36,7 @@ pub fn save_editor_spec(payload: SaveEditorSpecPayload) -> Result<WriteResult, A
 pub fn save_indexed_config_entity(
     payload: IndexedConfigEntityPayload,
 ) -> Result<WriteResult<Value>, AppError> {
-    services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)?;
+    ensure_session_mod_scope(&payload)?;
     services::editor_config::save_indexed_config_entity(
         &payload.mod_root,
         payload.kind,
@@ -48,7 +52,7 @@ pub fn save_indexed_config_entity(
 pub fn create_indexed_config_entity(
     payload: IndexedConfigEntityPayload,
 ) -> Result<WriteResult<Value>, AppError> {
-    services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)?;
+    ensure_session_mod_scope(&payload)?;
     services::editor_config::create_indexed_config_entity(
         &payload.mod_root,
         payload.kind,
@@ -62,7 +66,7 @@ pub fn create_indexed_config_entity(
 pub fn delete_indexed_config_entity(
     payload: DeleteIndexedConfigEntityPayload,
 ) -> Result<WriteResult<Value>, AppError> {
-    services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)?;
+    ensure_session_mod_scope(&payload)?;
     services::editor_config::delete_indexed_config_entity(
         &payload.mod_root,
         payload.kind,
@@ -73,9 +77,10 @@ pub fn delete_indexed_config_entity(
 
 #[tauri::command(async)]
 pub fn save_variant_entity(payload: VariantEntityPayload) -> Result<WriteResult<Value>, AppError> {
-    services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)?;
-    services::editor_config::save_variant_entity(
+    ensure_session_mod_scope(&payload)?;
+    services::editor_config::save_spec_entity(
         &payload.mod_root,
+        EntityKind::Variant,
         payload.previous_id.as_deref(),
         &payload.next_id,
         payload.data,
@@ -86,9 +91,10 @@ pub fn save_variant_entity(payload: VariantEntityPayload) -> Result<WriteResult<
 pub fn create_variant_entity(
     payload: VariantEntityPayload,
 ) -> Result<WriteResult<Value>, AppError> {
-    services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)?;
-    services::editor_config::create_variant_entity(
+    ensure_session_mod_scope(&payload)?;
+    services::editor_config::create_spec_entity(
         &payload.mod_root,
+        EntityKind::Variant,
         &payload.next_id,
         payload.data,
     )
@@ -96,9 +102,10 @@ pub fn create_variant_entity(
 
 #[tauri::command(async)]
 pub fn delete_variant_entity(payload: DeleteVariantEntityPayload) -> Result<WriteResult, AppError> {
-    services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)?;
-    services::editor_config::delete_variant_entity(
+    ensure_session_mod_scope(&payload)?;
+    services::editor_config::delete_spec_entity(
         &payload.mod_root,
+        EntityKind::Variant,
         &payload.variant_id,
         &payload.rel_path,
     )
@@ -106,9 +113,10 @@ pub fn delete_variant_entity(payload: DeleteVariantEntityPayload) -> Result<Writ
 
 #[tauri::command(async)]
 pub fn save_skin_entity(payload: SkinEntityPayload) -> Result<WriteResult<Value>, AppError> {
-    services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)?;
-    services::editor_config::save_skin_entity(
+    ensure_session_mod_scope(&payload)?;
+    services::editor_config::save_spec_entity(
         &payload.mod_root,
+        EntityKind::Skin,
         payload.previous_id.as_deref(),
         &payload.next_id,
         payload.data,
@@ -117,15 +125,21 @@ pub fn save_skin_entity(payload: SkinEntityPayload) -> Result<WriteResult<Value>
 
 #[tauri::command(async)]
 pub fn create_skin_entity(payload: SkinEntityPayload) -> Result<WriteResult<Value>, AppError> {
-    services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)?;
-    services::editor_config::create_skin_entity(&payload.mod_root, &payload.next_id, payload.data)
+    ensure_session_mod_scope(&payload)?;
+    services::editor_config::create_spec_entity(
+        &payload.mod_root,
+        EntityKind::Skin,
+        &payload.next_id,
+        payload.data,
+    )
 }
 
 #[tauri::command(async)]
 pub fn delete_skin_entity(payload: DeleteSkinEntityPayload) -> Result<WriteResult, AppError> {
-    services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)?;
-    services::editor_config::delete_skin_entity(
+    ensure_session_mod_scope(&payload)?;
+    services::editor_config::delete_spec_entity(
         &payload.mod_root,
+        EntityKind::Skin,
         &payload.skin_hull_id,
         &payload.rel_path,
     )

@@ -17,6 +17,7 @@ use super::{
     table_definitions::csv_table_icon_resource_ref,
 };
 use crate::{
+    domain::config::{path_affects_target, path_is_or_in_dir},
     domain::editor_config_definitions::{
         EntitySpecDefinition, FACTION_SPEC_DEFINITION, PROJECTILE_SPEC_DEFINITION,
         SHIP_SPEC_DEFINITION, SKILL_SPEC_DEFINITION, SKIN_SPEC_DEFINITION, SYSTEM_SPEC_DEFINITION,
@@ -48,11 +49,11 @@ pub(super) struct ProjectEntityDefinition {
     pub refresh: fn(&mut ProjectSession) -> AppResult<()>,
 }
 
-pub(super) fn entity_definition(kind: EntityKind) -> &'static ProjectEntityDefinition {
+pub(super) fn entity_definition(kind: EntityKind) -> AppResult<&'static ProjectEntityDefinition> {
     PROJECT_ENTITY_DEFINITIONS
         .iter()
         .find(|definition| definition.kind == kind)
-        .expect("registered entity kind")
+        .ok_or_else(|| AppError::message(format!("未注册的实体种类: {kind:?}")))
 }
 
 pub(super) fn entity_definitions() -> &'static [ProjectEntityDefinition] {
@@ -269,10 +270,10 @@ fn ship_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
         .iter()
         .map(|(id, data)| (id.clone(), data.clone()))
         .collect();
-    Ok(entries
+    entries
         .into_iter()
         .map(|(id, data)| plain_entity(session, EntityKind::Ship, &id, data))
-        .collect())
+        .collect()
 }
 
 fn weapon_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
@@ -288,10 +289,10 @@ fn projectile_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
         .iter()
         .map(|(id, data)| (id.clone(), data.clone()))
         .collect();
-    Ok(entries
+    entries
         .into_iter()
         .map(|(id, data)| plain_entity(session, EntityKind::Projectile, &id, data))
-        .collect())
+        .collect()
 }
 
 fn system_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
@@ -300,10 +301,10 @@ fn system_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
         .iter()
         .map(|(id, data)| (id.clone(), data.clone()))
         .collect();
-    Ok(entries
+    entries
         .into_iter()
         .map(|(id, data)| plain_entity(session, EntityKind::System, &id, data))
-        .collect())
+        .collect()
 }
 
 fn skill_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
@@ -319,10 +320,10 @@ fn faction_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
         .iter()
         .map(|(id, data)| (id.clone(), data.clone()))
         .collect();
-    Ok(entries
+    entries
         .into_iter()
         .map(|(id, data)| plain_entity(session, EntityKind::Faction, &id, data))
-        .collect())
+        .collect()
 }
 
 fn mission_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
@@ -348,14 +349,19 @@ fn skin_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
         .collect()
 }
 
-fn plain_entity(session: &ProjectSession, kind: EntityKind, id: &str, data: Value) -> EntityData {
-    let definition = entity_definition(kind);
-    EntityData {
+fn plain_entity(
+    session: &ProjectSession,
+    kind: EntityKind,
+    id: &str,
+    data: Value,
+) -> AppResult<EntityData> {
+    let definition = entity_definition(kind)?;
+    Ok(EntityData {
         kind,
         id: id.to_string(),
         resource_refs: (definition.resources)(session, id, &data),
         data,
-    }
+    })
 }
 
 fn weapon_entity_resources(
@@ -778,14 +784,6 @@ fn refresh_skin(session: &mut ProjectSession) -> AppResult<()> {
     Ok(())
 }
 
-fn path_is_or_in_dir(path: &str, dir: &str) -> bool {
-    path == dir || path.starts_with(&format!("{dir}/"))
-}
-
-fn path_affects_target(path: &str, target: &str) -> bool {
-    path.is_empty() || path == target || target.starts_with(&format!("{path}/"))
-}
-
 pub(super) fn source_option_origin_scopes(
     definition: &ProjectEntityDefinition,
 ) -> impl Iterator<Item = String> + '_ {
@@ -801,7 +799,7 @@ mod tests {
 
     #[test]
     fn faction_source_option_scopes_include_fighter_tags() {
-        let definition = entity_definition(EntityKind::Faction);
+        let definition = entity_definition(EntityKind::Faction).unwrap();
         let scopes = source_option_origin_scopes(definition).collect::<Vec<_>>();
 
         assert!(scopes.contains(&"wings.tags".to_string()));

@@ -17,8 +17,8 @@ use crate::{
 use std::{
     collections::BTreeMap,
     path::Path,
+    sync::atomic::{AtomicU64, Ordering},
     sync::{Arc, Mutex},
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 pub fn close_project_session(session_id: String) -> AppResult<()> {
@@ -61,6 +61,11 @@ pub fn invalidate_core_cache(starsector_root: &str) -> AppResult<()> {
     cache::invalidate_core_cache(starsector_root)
 }
 
+/// Upper bound on live sessions; the registry is keyed by monotonic id so the
+/// oldest entry is evicted first, bounding orphaned sessions if a frontend
+/// disappears without closing them.
+const MAX_OPEN_SESSIONS: usize = 32;
+
 pub(crate) fn open_project_session_traced(
     mod_root: &Path,
     starsector_root_override: Option<&Path>,
@@ -68,10 +73,17 @@ pub(crate) fn open_project_session_traced(
 ) -> AppResult<ProjectManifest> {
     let session = build_project_session(mod_root, starsector_root_override, trace)?;
     let manifest = session.manifest.clone();
-    sessions()
+    let mut guard = sessions()
         .lock()
-        .map_err(|_| AppError::message("project session lock poisoned"))?
-        .insert(manifest.session_id.clone(), Arc::new(Mutex::new(session)));
+        .map_err(|_| AppError::message("project session lock poisoned"))?;
+    while guard.len() >= MAX_OPEN_SESSIONS {
+        let Some(oldest) = guard.keys().next().cloned() else {
+            break;
+        };
+        guard.remove(&oldest);
+        super::resources::clear_sprite_media_cache_for_session(&oldest);
+    }
+    guard.insert(manifest.session_id.clone(), Arc::new(Mutex::new(session)));
     Ok(manifest)
 }
 
@@ -304,12 +316,12 @@ pub(super) fn count_valid_csv_entities(
         .count())
 }
 
+/// Zero-padded so registry key order equals creation order, which is what
+/// makes oldest-first eviction possible.
 pub(super) fn new_session_id() -> String {
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_nanos())
-        .unwrap_or_default();
-    format!("session-{stamp}")
+    static SESSION_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    let sequence = SESSION_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    format!("session-{sequence:020}")
 }
 
 pub(super) fn load_spec_bundle(
