@@ -1,20 +1,25 @@
-export type FieldType =
-  | 'string'
-  | 'text'
-  | 'integer'
-  | 'float'
-  | 'boolean'
-  | 'enum'
-  | 'color-rgb'
-  | 'color-rgba'
-  | 'path-image'
-  | 'path'
-  | 'string-array'
-  | 'tag-select'
-  | 'object'
-  | 'array'
-  | 'array-of-object'
-  | 'key-value';
+export const FIELD_TYPES = [
+  'string',
+  'text',
+  'integer',
+  'float',
+  'boolean',
+  'enum',
+  'color-rgb',
+  'color-rgba',
+  'path-image',
+  'path',
+  'string-array',
+  'tag-select',
+  'object',
+  'array',
+  'array-of-object',
+  'key-value',
+] as const;
+
+export type FieldType = (typeof FIELD_TYPES)[number];
+
+export const FIELD_TYPE_SET: ReadonlySet<string> = new Set(FIELD_TYPES);
 
 export interface FieldSchema {
   key: string;
@@ -45,7 +50,11 @@ export interface SectionSchema {
   fields: FieldSchema[];
 }
 
-export type SchemaSourceType = 'csv-row' | 'json-file' | 'text-file';
+export const SCHEMA_SOURCE_TYPES = ['csv-row', 'json-file', 'text-file'] as const;
+
+export type SchemaSourceType = (typeof SCHEMA_SOURCE_TYPES)[number];
+
+export const SCHEMA_SOURCE_TYPE_SET: ReadonlySet<string> = new Set(SCHEMA_SOURCE_TYPES);
 
 export interface SchemaSource {
   id: string;
@@ -65,8 +74,26 @@ export interface FileSchema {
   gameVersion?: string;
   sources?: SchemaSource[];
   sections?: SectionSchema[];
-  /** Flat field list — used by bundled schemas that have no sections */
-  fields?: FieldSchema[];
+}
+
+export const CSV_COLUMN_CONTROLS = ['text', 'number', 'boolean', 'enum', 'reference', 'tags', 'multi', 'path-image', 'color'] as const;
+
+export type CsvColumnControl = (typeof CSV_COLUMN_CONTROLS)[number];
+
+export const CSV_COLUMN_CONTROL_SET: ReadonlySet<string> = new Set(CSV_COLUMN_CONTROLS);
+
+export interface CsvColumnSchema {
+  key: string;
+  label?: string;
+  control: CsvColumnControl;
+  source?: string;
+  options?: string[];
+  default?: string;
+  readonly?: boolean;
+  min?: number;
+  max?: number;
+  step?: number;
+  priority?: number;
 }
 
 export type { DiscoveredField } from '@/shared/types';

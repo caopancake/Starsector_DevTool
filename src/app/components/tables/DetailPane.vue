@@ -78,8 +78,8 @@ import {
   csvColumnSchemasForTable,
   isCsvListControl,
   isCsvReferenceControl,
-  type CsvColumnSchema,
 } from '@/domain/tables/csv-column-schema';
+import type { CsvColumnSchema } from '@/domain/schema/schema.types';
 import { sourceValue, type CsvSourceIndex } from '@/domain/tables/csv-source-options';
 import type { SelectOption } from '@/domain/schema/schema-options';
 import type { CsvRowPreviewTarget, RowData, TableKey } from '@/shared/types';

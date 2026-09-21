@@ -3,7 +3,7 @@ import { parseCsvSource } from '@/domain/tables/csv-source-options';
 import type { FieldSchema, FileSchema } from '@/domain/schema/schema.types';
 
 export function validateSchemaCsvSources(schema: FileSchema): void {
-  const fields = [...(schema.fields ?? []), ...(schema.sections ?? []).flatMap((section) => section.fields)];
+  const fields = (schema.sections ?? []).flatMap((section) => section.fields);
   validateSchemaFieldCsvSources(fields, 'file');
 }
 

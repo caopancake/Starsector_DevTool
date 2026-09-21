@@ -1,4 +1,5 @@
 import { getSchema } from '@/domain/schema/schema-registry';
+import { getSchemaSections } from '@/domain/schema/schema-sections';
 import type { NewModTemplate } from '@/shared/types';
 
 const MOD_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
@@ -29,7 +30,12 @@ export function validateNewModTemplate(template: NewModTemplate): string | null 
 }
 
 function requiredModInfoStringDefault(key: string): string {
-  const field = getSchema('mod-info')?.fields?.find((candidate) => candidate.key === key);
+  const schema = getSchema('mod-info');
+  const field = schema
+    ? getSchemaSections(schema)
+        .flatMap((section) => section.fields)
+        .find((candidate) => candidate.key === key)
+    : undefined;
   if (typeof field?.default !== 'string' || !field.default.trim()) {
     throw new Error(`mod-info schema 缺少 ${key} 的字符串默认值`);
   }

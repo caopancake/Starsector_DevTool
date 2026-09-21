@@ -7,6 +7,7 @@
 ## Owner 与链路
 
 - domain/schema runtime 拥有字段语义、source、normalization 与纯转换；Schema 组件只渲染/提交字段事件；ViewModel 提供上下文与 Draft Session。
+- `schema-registry.ts` 是全仓 schema 资产唯一加载入口（spec 5 个 + csv 列 14 个，均 `*.schema.json`），在唯一入口做逐属性运行时形状校验（`$schema` 版本、字段/控件闭合枚举、source 类型）并产出类型化对象；严禁在资产外二次 `as` 强转。资产正式形态统一为 `field-schema/v1` + `sections`（可选 `sources`），扁平 fields 结构已迁移。
 - `csv:` source 目录必须只由 `(sessionId, source)` 标识。目录必须完整返回当前 Mod 非注释唯一值与原版补集，来源内必须保持 CSV 原始行顺序。
 - 引用 source 必须经统一 query/service 返回选项元数据与 ResourceRef。缩略图必须由下拉展开与已选值变化触发通用媒体服务按需合批解析。
 - 已选值必须在客户端按逐字符身份与目录比较。目录外的非空值必须以原始文本同时作为标签和值，首尾空白必须完整保留；空字符串必须表示未选择。

@@ -1,4 +1,5 @@
 {
+  "$schema": "starsector-devtool/field-schema/v1",
   "id": "skin",
   "fileType": "skin",
   "displayName": "舰船皮肤",

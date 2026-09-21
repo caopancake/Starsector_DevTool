@@ -1,4 +1,5 @@
 {
+  "$schema": "starsector-devtool/field-schema/v1",
   "id": "variant",
   "fileType": "variant",
   "displayName": "装配",

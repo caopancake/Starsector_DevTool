@@ -150,11 +150,11 @@ Owner 原则：同构实体族（列表 + 草稿编辑器 + 新建/删除确认�
 
 ### Phase 2.8: schema 资产归一
 
-- [ ] `schemas/*.schema.json` 三种结构统一到 field-schema/v1 单一正式形态（扁平 fields、sections、sources 聚合三选一为基准，其余迁移）。
-- [ ] CSV 列 schema（`schemas/csv/*.columns.json`）与 spec schema 统一目录与后缀命名约定。
-- [ ] `schema-registry.ts` 与 `csv-column-schema.ts` 合并为单一加载路径；散落的 `as` 强转收敛为唯一入口处的运行时形状校验。
-- [ ] schema 消费端（SchemaFormRenderer/SchemaFieldRenderer）只依赖统一加载器的输出类型。
-- [ ] 跑前端全套检查 + 手工验收四类配置实体与 CSV 富控件渲染。
+- [x] `schemas/*.schema.json` 三种结构统一到 field-schema/v1 单一正式形态（基准：mission 形态 `$schema` + `sections` + 可选 `sources`）：mod-info/faction 扁平 fields 包进 `__all` 单节（与原回退产物逐字段一致，渲染零变化），variant/skin 补 `$schema`；`FileSchema` 类型删除 `fields`，getSchemaSections 回退分支删除，schema-sources/new-mod-template 改走 sections。
+- [x] CSV 列 schema 与 spec schema 统一命名约定：14 个 `schemas/csv/*.columns.json` 重命名为 `*.schema.json`（git mv 保留历史），全仓 schema 资产单一后缀、spec/csv 按目录区分。
+- [x] `schema-registry.ts` 合并为单一加载路径：5 个 spec + 14 个 csv 列资产全部经唯一入口 import + 逐属性运行时形状校验（`$schema` 版本、字段类型/CSV 控件闭合枚举、source 类型、递归 nested/item/valueSchema）产出类型化对象，15 处盲 `as` 强转清零；`CsvColumnSchema`/`CsvColumnControl` 类型迁入 `schema.types.ts`（附闭合枚举常量），csv-column-schema.ts 保留 tables 域 API、数据改从 registry 取；schema-module-boundary 规则同步为双访问器契约（getSchema/getCsvColumnSchemas）。
+- [x] schema 消费端依赖核查：SchemaFormRenderer/SchemaFieldRenderer 仅依赖 `schema.types` 统一输出类型（FieldSchema/SectionSchema/FileSchema），无 raw asset 引用或 schema 级 `as` 强转；6 个 tables 消费文件的类型 import 改指 schema.types。
+- [x] 跑前端全套检查全绿（typecheck、lint、架构三脚本、encoding、71 测试、build；format 仅剩 HEAD 既有 write.service.ts 问题）；手工验收清单：四类配置实体表单渲染与保存（mod-info/faction/mission/skin/variant）、CSV 表富控件（enum/reference/tags/布尔/图片路径列）、faction core 字段合并区、新建 Mod 模板默认值、表格富控件列筛选。
 
 ### Phase 2.9: 错误语义、命名与一致性收尾
 

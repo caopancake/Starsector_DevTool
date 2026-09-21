@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 import { useTemplateRef } from 'vue';
-import type { CsvColumnControl } from '@/domain/tables/csv-column-schema';
+import type { CsvColumnControl } from '@/domain/schema/schema.types';
 
 defineProps<{
   active: boolean;

@@ -3,13 +3,7 @@ import { stableStringify } from '@/shared/lib/stable-compare';
 import type { FileSchema, SectionSchema } from '@/domain/schema/schema.types';
 
 export function getSchemaSections(schema: FileSchema): SectionSchema[] {
-  if (schema.sections && schema.sections.length > 0) {
-    return schema.sections;
-  }
-  if (schema.fields && schema.fields.length > 0) {
-    return [{ id: '__all', label: schema.displayName ?? '所有字段', fields: schema.fields }];
-  }
-  return [];
+  return schema.sections ?? [];
 }
 
 export function getSchemaFieldKeys(schema: FileSchema): string[] {

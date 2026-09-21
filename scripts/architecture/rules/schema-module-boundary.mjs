@@ -31,8 +31,10 @@ export const schemaModuleBoundaryRule = {
       }
       if (isSchemaAssetRegistry(file.text, current)) {
         for (const name of exportedNames(file.text)) {
-          if (name !== 'getSchema') {
-            failures.push(`${file.rel}: schema registry must only export registry entry getSchema, found ${name}`);
+          if (name !== 'getSchema' && name !== 'getCsvColumnSchemas') {
+            failures.push(
+              `${file.rel}: schema registry must only export registry entries getSchema and getCsvColumnSchemas, found ${name}`,
+            );
           }
         }
       }

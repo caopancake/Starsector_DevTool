@@ -1,6 +1,7 @@
 import type { CsvGridRowSlot, CsvLoadedRowSlot, CsvTableRows, RowData, TableKey } from '@/shared/types';
 import { cell } from '@/shared/lib/starsector';
-import { csvColumnSchemaFor, csvListValues, type CsvColumnSchema } from '@/domain/tables/csv-column-schema';
+import { csvColumnSchemaFor, csvListValues } from '@/domain/tables/csv-column-schema';
+import type { CsvColumnSchema } from '@/domain/schema/schema.types';
 import { createCsvSourceIndex, sourceOptions, type CsvSourceIndex } from '@/domain/tables/csv-source-options';
 import { flattenSelectOptions, type SelectOption } from '@/domain/schema/schema-options';
 
