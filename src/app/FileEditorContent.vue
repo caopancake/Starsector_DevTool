@@ -56,7 +56,7 @@ import { useDirtyWindowCloseGuard } from '@/app/composables/use-dirty-window-clo
 import { useFileEditorViewModel } from '@/app/composables/use-file-editor-view-model';
 import { useShortcutDispatch } from '@/app/composables/use-shortcut-dispatch';
 import { useSettingsStore } from '@/stores/settings.store';
-import { closeCurrentWebviewWindow } from '@/windows/current.window';
+import { closeCurrentWindow } from '@/windows/current.window';
 import { pathBasename, pathBelongsToRoot, relativePathFromRoot } from '@/shared/lib/paths';
 
 const params = new window.URLSearchParams(window.location.search);
@@ -171,7 +171,7 @@ function loadExternalText() {
 }
 
 async function closeEditorWindow() {
-  await closeCurrentWebviewWindow();
+  await closeCurrentWindow();
 }
 
 // 文本编辑面：撤销/重做必须在 textarea 内生效，因此开启 undoRedoInEditable。

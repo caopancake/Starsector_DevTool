@@ -222,15 +222,17 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   }
 
   function openRequestedFileEditor(request: FileEditorRequest) {
-    void openFileEditorWindow({ ...request, settings: settings.settingsSnapshot() });
+    openFileEditorWindow({ ...request, settings: settings.settingsSnapshot() }).catch((error) =>
+      feedback.error(error, '打开文件编辑器失败'),
+    );
   }
 
   function openGameWarningFile(warning: GameScanWarning) {
-    void openGameWarningFileEditor(warning, settings.settingsSnapshot());
+    openGameWarningFileEditor(warning, settings.settingsSnapshot())?.catch((error) => feedback.error(error, '打开警告文件失败'));
   }
 
   function openModOpeningFailureFile(failure: ModOpeningFailure) {
-    void openModOpeningFailureFileEditor(failure, settings.settingsSnapshot());
+    openModOpeningFailureFileEditor(failure, settings.settingsSnapshot())?.catch((error) => feedback.error(error, '打开错误文件失败'));
   }
 
   function handleDirectoryOpeningOutcome(outcome: DirectoryOpeningOutcome) {
@@ -294,14 +296,14 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   }
 
   function openRequestedEditorWindow(action: Extract<TableDetailAction, { type: 'editor-window' }>) {
-    void openEditorWindow({
+    openEditorWindow({
       kind: action.kind,
       modRoot: action.modRoot,
       id: action.id,
       sessionId: action.sessionId,
       settings: settings.settingsSnapshot(),
       starsectorRoot: action.starsectorRoot,
-    });
+    }).catch((error) => feedback.error(error, '打开编辑器窗口失败'));
   }
 
   return {

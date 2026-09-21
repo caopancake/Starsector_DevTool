@@ -1,5 +1,5 @@
 import type { GlobalThemeOverrides } from 'naive-ui/es/config-provider';
-import type { ThemeColorTokens } from '@/stores/settings.store';
+import type { ThemeColorTokens } from '@/domain/settings/theme';
 
 export function buildThemeOverrides(colors: ThemeColorTokens): GlobalThemeOverrides {
   const {

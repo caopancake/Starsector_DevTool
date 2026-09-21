@@ -29,7 +29,7 @@ import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { createSchemaRuntimeContext } from '@/app/composables/use-schema-runtime-context';
 import type { FileSchema } from '@/domain/schema/schema.types';
 import { useConfigMissionEditorViewModel } from '@/app/composables/use-config-mission-editor-view-model';
-import { registerActiveSaveHandler, unregisterActiveSaveHandler } from '@/shared/lib/save-command-registry';
+import { useSaveCommandStore } from '@/stores/save-command.store';
 
 const props = defineProps<{
   missionId: string;
@@ -102,6 +102,7 @@ async function deleteMissionTarget(deleteSessionId: string, deleteModRoot: strin
   return true;
 }
 
-onMounted(() => registerActiveSaveHandler(save));
-onUnmounted(() => unregisterActiveSaveHandler(save));
+const saveCommand = useSaveCommandStore();
+onMounted(() => saveCommand.registerActiveSaveHandler(save));
+onUnmounted(() => saveCommand.unregisterActiveSaveHandler(save));
 </script>

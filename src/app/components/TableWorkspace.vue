@@ -47,8 +47,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import DataTable from '@/app/DataTable.vue';
-import DetailPane from '@/app/DetailPane.vue';
+import DataTable from '@/app/components/tables/DataTable.vue';
+import DetailPane from '@/app/components/tables/DetailPane.vue';
 import { useCsvTableViewModel } from '@/app/composables/use-csv-table-view-model';
 import { useTablesStore } from '@/stores/tables.store';
 import { useProjectStore } from '@/stores/project.store';

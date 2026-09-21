@@ -100,6 +100,7 @@ import ProjectileEditor from '@/app/components/editors/ProjectileEditor.vue';
 import WeaponFirePreview from '@/app/components/editors/WeaponFirePreview.vue';
 import SystemEditor from '@/app/components/editors/SystemEditor.vue';
 import { useDirtyWindowCloseGuard } from '@/app/composables/use-dirty-window-close-guard';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useShortcutDispatch } from '@/app/composables/use-shortcut-dispatch';
 import { openProjectileEditorWindow, openWeaponPreviewWindow } from '@/windows/editor.window';
 import { useSettingsStore } from '@/stores/settings.store';
@@ -116,6 +117,7 @@ const id = params.get('id');
 const starsectorRoot = params.get('starsectorRoot');
 const draftSnapshot = ref<RowData | null>(parseDraftSnapshot(params.get('draftSnapshot')));
 const settings = useSettingsStore();
+const feedback = useAppFeedback();
 const target = computed(() => (sessionId && modRoot && id ? { sessionId, modRoot, id } : null));
 
 const {
@@ -167,25 +169,25 @@ function closeWindow() {
 
 function openProjectile(projectileId: string) {
   if (!projectileId || !target.value) return;
-  void openProjectileEditorWindow({
+  openProjectileEditorWindow({
     modRoot: target.value.modRoot,
     id: projectileId,
     sessionId: target.value.sessionId,
     settings: settings.settingsSnapshot(),
     starsectorRoot,
-  });
+  }).catch((error) => feedback.error(error, '打开弹体编辑器失败'));
 }
 
 function openPreview(weaponId: string) {
   if (!weaponId || !target.value) return;
-  void openWeaponPreviewWindow({
+  openWeaponPreviewWindow({
     modRoot: target.value.modRoot,
     id: weaponId,
     sessionId: target.value.sessionId,
     settings: settings.settingsSnapshot(),
     starsectorRoot,
     draftSnapshot: kind.value === 'weapon' ? draftValue.value : undefined,
-  });
+  }).catch((error) => feedback.error(error, '打开发射预览失败'));
 }
 
 function resolveEditableKind(): EditorSpecKind | null {

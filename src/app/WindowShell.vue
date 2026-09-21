@@ -2,7 +2,8 @@
   <n-config-provider :theme="settings.naiveTheme" :theme-overrides="themeOverrides">
     <n-message-provider>
       <n-dialog-provider>
-        <slot />
+        <AppContent v-if="mode === 'main'" />
+        <slot v-else />
       </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
@@ -10,11 +11,19 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import AppContent from '@/app/AppContent.vue';
 import { useSettingsStore } from '@/stores/settings.store';
 import { buildThemeOverrides } from '@/app/theme-overrides';
-import { useSettingsMirror } from '@/app/composables/use-settings-persistence';
+import { useThemeDomEffect } from '@/app/composables/use-theme-dom-effect';
+import { useSettingsPersistence, useSettingsMirror } from '@/app/composables/use-settings-persistence';
+
+const props = withDefaults(defineProps<{ mode?: 'main' | 'child' }>(), {
+  mode: 'child',
+});
 
 const settings = useSettingsStore();
-useSettingsMirror();
+if (props.mode === 'main') useSettingsPersistence();
+else useSettingsMirror();
+useThemeDomEffect();
 const themeOverrides = computed(() => buildThemeOverrides(settings.themeColors));
 </script>

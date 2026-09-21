@@ -5,7 +5,6 @@ import { loadSettings } from '@/services/app-settings.service';
 import { initializeSettingsStore } from '@/stores/settings.store';
 import { showCurrentWindow } from '@/windows/current.window';
 import './styles/index.css';
-import './styles/file-editor.css';
 
 const params = new window.URLSearchParams(window.location.search);
 const windowKind = params.get('window');

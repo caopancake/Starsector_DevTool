@@ -75,7 +75,7 @@ function showError(message: MessageApiInjection, error: unknown, contextMessage?
                 type: 'error',
                 secondary: true,
                 onClick: () =>
-                  void openFileEditorWindow({
+                  openFileEditorWindow({
                     modRoot,
                     path: reference.path,
                     sessionId,
@@ -85,6 +85,8 @@ function showError(message: MessageApiInjection, error: unknown, contextMessage?
                     contextLabel: '错误',
                     contextSeverity: 'error',
                     message: reference.message,
+                  }).catch((error) => {
+                    recordLogBestEffort({ level: 'error', message: `打开错误文件失败：${formatError(error)}`, path: null, line: null });
                   }),
               },
               { default: () => '打开错误文件' },

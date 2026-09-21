@@ -7,6 +7,7 @@ const oldDispatcherImport = /@\/orchestrators\/main-undo-redo\.orchestrator\b/;
 const keyEventDetails = /\bevent\.(?:ctrlKey|metaKey|key)\b|\bclosest\s*\(\s*['"][^'"]*(?:input|textarea|select|contenteditable)/;
 const domEventTypes = /\bKeyboardEvent\b|\bEventTarget\b|\bHTMLElement\b/;
 const vueLifecycle = /\b(?:onMounted|onUnmounted)\b/;
+const historyStoreImport = /\/stores\/(?:file-history|tables-edit-history|tables)\.store/;
 
 export const mainHistoryCommandBoundaryRule = {
   name: 'main-history-command-boundary',
@@ -46,11 +47,7 @@ export const mainHistoryCommandBoundaryRule = {
 
       if (isMainShortcutComposable(file.text, current)) {
         for (const imported of importedProjectPaths(file)) {
-          if (
-            imported.resolved.includes('/stores/') ||
-            imported.resolved.includes('/file-history') ||
-            imported.resolved.includes('/csv-edit-history')
-          ) {
+          if (historyStoreImport.test(imported.resolved)) {
             failures.push(`${file.rel}: main shortcut composable must call the dispatcher, not history stores directly`);
           }
         }

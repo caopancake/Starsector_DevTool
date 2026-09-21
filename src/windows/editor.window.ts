@@ -1,7 +1,10 @@
 import { openManagedWindow } from '@/windows/managed.window';
 import type { AppSettings, EditorWindowKind, ProjectSessionId, RowData } from '@/shared/types';
 import { editorWindowDefinition, editorWindowTitle } from '@/domain/editors/editor-definitions';
-export type { EditorSpecSavedEvent } from '@/windows/window.events';
+
+// draftSnapshot 走 URL query 的独立上限：超限去掉该参数优雅降级，
+// 预览窗口回退到已保存 bundle，不阻断开窗。
+const DRAFT_SNAPSHOT_QUERY_LIMIT = 8000;
 
 export interface EditorWindowRequest {
   kind: EditorWindowKind;
@@ -28,10 +31,16 @@ export async function openEditorWindow(request: EditorWindowRequest): Promise<vo
       id: request.id,
       settings: JSON.stringify(request.settings),
       starsectorRoot: request.starsectorRoot,
-      draftSnapshot: request.draftSnapshot ? JSON.stringify(request.draftSnapshot) : undefined,
+      draftSnapshot: draftSnapshotParam(request.draftSnapshot),
     },
     size: definition.size,
   });
+}
+
+function draftSnapshotParam(draftSnapshot: RowData | undefined): string | undefined {
+  if (!draftSnapshot) return undefined;
+  const serialized = JSON.stringify(draftSnapshot);
+  return serialized.length <= DRAFT_SNAPSHOT_QUERY_LIMIT ? serialized : undefined;
 }
 
 export function openProjectileEditorWindow(request: Omit<EditorWindowRequest, 'kind'>): Promise<void> {

@@ -49,7 +49,7 @@ import { useWorkspaceShellActions } from '@/app/composables/use-workspace-shell-
 import { useMainWindowShortcuts } from '@/app/composables/use-main-window-shortcuts';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useDirtyWindowCloseGuard } from '@/app/composables/use-dirty-window-close-guard';
-import { registerActiveSaveHandler, unregisterActiveSaveHandler } from '@/shared/lib/save-command-registry';
+import { useSaveCommandStore } from '@/stores/save-command.store';
 import { useDraftSessionsStore } from '@/stores/draft-sessions.store';
 
 const OverviewPage = defineAsyncComponent(() => import('@/app/components/OverviewPage.vue'));
@@ -64,6 +64,7 @@ const workspace = useWorkspaceStore();
 const draftSessions = useDraftSessionsStore();
 const feedback = useAppFeedback();
 const actions = useWorkspaceShellActions(feedback);
+const saveCommand = useSaveCommandStore();
 useMainWindowShortcuts(feedback);
 const hasUnsavedMainWindowChanges = computed(() => workspace.loadedModList.some((mod) => draftSessions.hasUnsavedWorkForMod(mod.modRoot)));
 const closeGuard = useDirtyWindowCloseGuard({
@@ -76,20 +77,20 @@ let currentSaveHandler: (() => void | Promise<void>) | null = null;
 
 watchEffect(() => {
   if (currentSaveHandler) {
-    unregisterActiveSaveHandler(currentSaveHandler);
+    saveCommand.unregisterActiveSaveHandler(currentSaveHandler);
     currentSaveHandler = null;
   }
 
   if (workspace.currentView === 'table' && project.activeManifest) {
     currentSaveHandler = actions.saveChanges;
-    registerActiveSaveHandler(currentSaveHandler);
+    saveCommand.registerActiveSaveHandler(currentSaveHandler);
   }
 });
 
 onUnmounted(() => {
   closeGuard.dispose();
   if (currentSaveHandler) {
-    unregisterActiveSaveHandler(currentSaveHandler);
+    saveCommand.unregisterActiveSaveHandler(currentSaveHandler);
     currentSaveHandler = null;
   }
 });

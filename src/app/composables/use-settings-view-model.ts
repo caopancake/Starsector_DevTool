@@ -2,7 +2,7 @@ import { computed, ref } from 'vue';
 import { pickDirectoryDialog } from '@/shared/runtime/dialog.runtime';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { clearConfig, clearLog, loadLogStatus, openConfigFolder, openLogFile } from '@/services/app-feedback-log.service';
-import { reloadCurrentWebviewWindow } from '@/windows/current.window';
+import { reloadCurrentWindow } from '@/windows/current.window';
 import { useSettingsStore } from '@/stores/settings.store';
 import { saveLogDirectory } from '@/orchestrators/settings-persistence.orchestrator';
 
@@ -80,7 +80,7 @@ export function useSettingsViewModel() {
           await clearConfig();
           await refreshLogStatus();
           feedback.success('配置文件已清空');
-          await reloadCurrentWebviewWindow();
+          await reloadCurrentWindow();
         } catch (error) {
           feedback.error(error, '清空配置文件失败');
         }

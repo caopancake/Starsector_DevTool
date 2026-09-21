@@ -28,12 +28,23 @@ export function captureWorkspaceCloseTarget(): WorkspaceCloseTarget {
   };
 }
 
-export async function removeLoadedModRuntime(modRoot: string) {
+// 关闭 Mod 的 5-store 清理序列唯一用例：workspace/tables/fileHistory/csvEditHistory/project。
+// 缓存失效、Rust session 关闭与视图回退等差异行为由各调用方在用例之外自行组合。
+export function removeModRuntimeState(modRoot: string) {
   const workspace = useWorkspaceStore();
   const project = useProjectStore();
   const tables = useTablesStore();
   const fileHistory = useFileHistoryStore();
   const csvEditHistory = useTablesEditHistoryStore();
+  workspace.removeLoadedModEntry(modRoot);
+  tables.removeModState(modRoot);
+  fileHistory.removeModState(modRoot);
+  csvEditHistory.clearForMod(modRoot);
+  project.removeProjectManifest(modRoot);
+}
+
+export async function removeLoadedModRuntime(modRoot: string) {
+  const project = useProjectStore();
   const sessionId = project.getSessionId(modRoot);
 
   if (sessionId) {
@@ -41,11 +52,7 @@ export async function removeLoadedModRuntime(modRoot: string) {
     invalidateResourceCacheForSession(sessionId);
   }
 
-  workspace.removeLoadedModEntry(modRoot);
-  tables.removeModState(modRoot);
-  fileHistory.removeModState(modRoot);
-  csvEditHistory.clearForMod(modRoot);
-  project.removeProjectManifest(modRoot);
+  removeModRuntimeState(modRoot);
 
   if (sessionId) await closeProject(sessionId);
 }

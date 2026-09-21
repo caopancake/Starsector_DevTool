@@ -1,4 +1,3 @@
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow, type CloseRequestedEvent } from '@tauri-apps/api/window';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 
@@ -32,11 +31,7 @@ export async function startCurrentWindowDrag(): Promise<void> {
   await appWindow.startDragging();
 }
 
-export async function closeCurrentWebviewWindow(): Promise<void> {
-  await getCurrentWebviewWindow().close();
-}
-
-export async function reloadCurrentWebviewWindow(): Promise<void> {
+export async function reloadCurrentWindow(): Promise<void> {
   window.location.reload();
 }
 

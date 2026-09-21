@@ -137,15 +137,16 @@ Owner 原则：同构实体族（列表 + 草稿编辑器 + 新建/删除确认�
 
 ### Phase 2.7: settings、主题与窗口层归位
 
-- [ ] `settings.store.ts` 拆分：色彩数学下沉 `src/domain` 纯函数；写 DOM 的主题副作用上移 app 层 effect；store 只持状态，输入校验规则下沉 domain。
-- [ ] `App.vue` 与 `WindowShell.vue` 复制的 Provider 栈与 settings 持久化/镜像双入口合并为单一 shell 实现（以模式参数区分主窗口/子窗口）。
-- [ ] `current.window.ts` 关窗 API 统一为单一 owner；`reloadCurrentWebviewWindow` 命名与实现对齐。
-- [ ] `managed.window.ts` 子窗口创建补错误监听与失败反馈；draft/settings 大 JSON 走 URL query 增加长度守卫或改走结构化事件传递。
-- [ ] `window-save.orchestrator.ts` 的事件类型 import 统一从 `window.events` 取。
-- [ ] `shared/lib/save-command-registry.ts` 迁为正式 store（owner 归 stores/），消除 `m_` 前缀特例。
-- [ ] 关闭 Mod 的 5-store 清理序列抽为单一用例函数，`directory-opening.orchestrator.ts` 与 `workspace-lifecycle.orchestrator.ts` 复用。
-- [ ] `file-editor.css` 并入 `index.css` 聚合，`main.ts` 恢复单一样式入口。
-- [ ] 评估 `DataTable.vue`/`DetailPane.vue` 根层组件归位到 components/ 对应子目录。
+- [x] `settings.store.ts` 拆分（461 行 → 约 120 行状态 store）：色彩数学、accent 预设与主题令牌下沉 `domain/settings/theme.ts`（纯函数）；输入校验/归一化下沉 `domain/settings/rules.ts`（readTheme/readHistoryLimit 等）；写 DOM 的主题副作用上移 `app/composables/use-theme-dom-effect.ts`（由唯一 WindowShell 挂载）；store 只持状态、setter 与派生值，snapshot/replace 契约不变。消费方（SettingsPage/theme-overrides）改从 domain 取。
+- [x] `WindowShell.vue` 合并为单一 shell：`mode: 'main' | 'child'` 参数区分设置持久化（落盘+广播）与设置镜像（监听替换），Provider 栈只写一份；`App.vue` 变为 `<WindowShell mode="main" />` 薄壳，EditorWindowApp/FileEditorApp 零改动。
+- [x] `current.window.ts` 关窗 API 统一：删除 `closeCurrentWebviewWindow`（唯一调用方 FileEditorContent 改用 `closeCurrentWindow`）；`reloadCurrentWebviewWindow` 改名 `reloadCurrentWindow` 与 location.reload 实现对齐。
+- [x] `managed.window.ts`：创建改 Promise 化并监听 `tauri://created`/`tauri://error`；新增 URL query 总长度守卫（超限 reject）；`openEditorWindow` 对 draftSnapshot 设独立上限、超限去掉参数优雅降级（预览回退已保存 bundle）；失败反馈接线至 4 个调用点（EditorWindowContent/use-workspace-shell-actions 三处 feedback.error、app-feedback 内部点记日志）。
+- [x] `window-save.orchestrator.ts` 与 `use-editor-window-view-model.ts` 的 `EditorSpecSavedEvent` 统一从 `window.events` 取；editor.window.ts 零消费 re-export 删除。
+- [x] `save-command-registry.ts` 迁为 `stores/save-command.store.ts`（register/unregister/dispatch），消除 `m_` 前缀特例；AppContent、4 个 config 编辑器、use-main-window-shortcuts 改为消费 store。
+- [x] 关闭 Mod 的 5-store 清理序列抽为 `workspace-lifecycle.orchestrator.removeModRuntimeState` 唯一用例；`removeLoadedModRuntime` = 缓存失效 + 用例 + closeProject；`directory-opening.rollbackFailedModOpening` 复用用例 + showOverview。
+- [x] `file-editor.css` 并入 `index.css` 聚合，`main.ts` 恢复单一样式入口。
+- [x] `DataTable.vue`/`DetailPane.vue` 归位评估结论：移入 `components/tables/`（仅 TableWorkspace 消费且属表格域）。
+- [x] 跑前端全套检查全绿（typecheck、lint、架构三脚本、encoding、71 测试、build；format 仅剩 HEAD 既有 write.service.ts 问题）；手工验收清单：主题切换/自定义强调色三窗口生效、子窗口设置镜像、设置页清空配置后重载、编辑器/预览/文件窗口打开失败反馈、大草稿预览降级、各表面 Ctrl+S、Mod 移除/打开失败回滚后残留状态、文件编辑器样式。
 
 ### Phase 2.8: schema 资产归一
 

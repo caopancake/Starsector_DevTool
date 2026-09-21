@@ -28,7 +28,7 @@ import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { getSchema } from '@/domain/schema/schema-registry';
 import { createSchemaRuntimeContext } from '@/app/composables/use-schema-runtime-context';
 import { useConfigFamilyEditorViewModel } from '@/app/composables/use-config-family-editor-view-model';
-import { registerActiveSaveHandler, unregisterActiveSaveHandler } from '@/shared/lib/save-command-registry';
+import { useSaveCommandStore } from '@/stores/save-command.store';
 import type { ConfigEntityFamilyDefinition, ConfigFamilyFile } from '@/domain/config/config-entity-families';
 import { familyFileId } from '@/domain/config/config-entity-families';
 
@@ -96,6 +96,7 @@ async function deleteEntityTarget(deleteSessionId: string, deleteModRoot: string
   return true;
 }
 
-onMounted(() => registerActiveSaveHandler(save));
-onUnmounted(() => unregisterActiveSaveHandler(save));
+const saveCommand = useSaveCommandStore();
+onMounted(() => saveCommand.registerActiveSaveHandler(save));
+onUnmounted(() => saveCommand.unregisterActiveSaveHandler(save));
 </script>

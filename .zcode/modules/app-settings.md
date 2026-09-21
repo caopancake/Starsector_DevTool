@@ -6,7 +6,8 @@
 
 ## Owner 与链路
 
-- Rust `app_settings` service 是 `settings.json` 的 UTF-8 strict JSON owner，并在保存 `logDirectory` 时返回规范化的完整 `AppSettings`；`settings.store` 是运行态、枚举/范围校验、token/snapshot owner。
+- Rust `app_settings` service 是 `settings.json` 的 UTF-8 strict JSON owner，并在保存 `logDirectory` 时返回规范化的完整 `AppSettings`；`settings.store` 只持运行态状态与 setter。输入校验规则（枚举/范围/hex/归一化）唯一归属 `domain/settings/rules.ts`；色彩数学、accent 预设与主题令牌唯一归属 `domain/settings/theme.ts`。
+- 主题 DOM 副作用唯一归属 `app/composables/use-theme-dom-effect.ts`：watch 主题令牌并写 root dataset 与 CSS 变量；由唯一 WindowShell 调用，store 内不得写 DOM。
 - 主窗口普通设置为 `load -> initialize store -> watcher -> save -> 成功后广播同一 snapshot`；子窗口只能从 URL snapshot 初始化并监听完整 snapshot 事件。
 - `historyLimit` 由 persistence 同步到两种 history store。日志目录由 Settings ViewModel 通过 `saveLogDirectory` 保存：Rust 成功后才替换为返回 snapshot，并跳过这一次 watcher 回写。
 

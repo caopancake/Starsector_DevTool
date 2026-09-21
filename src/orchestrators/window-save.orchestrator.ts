@@ -1,6 +1,5 @@
 import { handleEditorSpecSaved, handleFileEditorSaved } from '@/orchestrators/file-save.orchestrator';
-import type { EditorSpecSavedEvent } from '@/windows/editor.window';
-import { WINDOW_EVENTS, type FileEditorSavedEvent } from '@/windows/window.events';
+import { WINDOW_EVENTS, type EditorSpecSavedEvent, type FileEditorSavedEvent } from '@/windows/window.events';
 import { listenWindowEvent, type UnlistenFn, type WindowEventHandler } from '@/windows/tauri.events';
 import { recordWindowEventHandlerError } from '@/orchestrators/window-event-errors.orchestrator';
 

@@ -38,7 +38,7 @@ import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { useCoreSchema } from '@/app/composables/use-core-schema';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useConfigFactionEditorViewModel } from '@/app/composables/use-config-faction-editor-view-model';
-import { registerActiveSaveHandler, unregisterActiveSaveHandler } from '@/shared/lib/save-command-registry';
+import { useSaveCommandStore } from '@/stores/save-command.store';
 
 const props = defineProps<{
   factionId: string;
@@ -99,6 +99,7 @@ async function deleteFactionTarget(deleteSessionId: string, deleteModRoot: strin
   return true;
 }
 
-onMounted(() => registerActiveSaveHandler(save));
-onUnmounted(() => unregisterActiveSaveHandler(save));
+const saveCommand = useSaveCommandStore();
+onMounted(() => saveCommand.registerActiveSaveHandler(save));
+onUnmounted(() => saveCommand.unregisterActiveSaveHandler(save));
 </script>

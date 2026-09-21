@@ -19,6 +19,9 @@ export interface ManagedWindowRequest {
   size: ManagedWindowSize;
 }
 
+// URL query 携带 settings/draftSnapshot 等大字段的总长度守卫：超限拒绝创建并给出明确错误。
+export const MANAGED_WINDOW_QUERY_MAX_LENGTH = 12000;
+
 export function normalizeWindowKey(value: string): string {
   return value.replace(/\//g, '\\').replace(/\\+/g, '\\').toLocaleLowerCase();
 }
@@ -45,11 +48,23 @@ export async function openManagedWindow(request: ManagedWindowRequest): Promise<
   for (const [key, value] of Object.entries(request.urlParams)) {
     if (value !== null && value !== undefined) query.set(key, String(value));
   }
+  const queryString = query.toString();
+  if (queryString.length > MANAGED_WINDOW_QUERY_MAX_LENGTH) {
+    throw new Error(`窗口「${request.title}」参数超出长度限制（${queryString.length} > ${MANAGED_WINDOW_QUERY_MAX_LENGTH}），已取消打开`);
+  }
 
-  new WebviewWindow(label, {
-    url: `/?${query.toString()}`,
-    title: request.title,
-    visible: false,
-    ...request.size,
+  await new Promise<void>((resolve, reject) => {
+    const webview = new WebviewWindow(label, {
+      url: `/?${queryString}`,
+      title: request.title,
+      visible: false,
+      ...request.size,
+    });
+    webview.once('tauri://created', () => resolve());
+    webview.once('tauri://error', (event) => {
+      const payload = (event as { payload?: unknown }).payload;
+      const detail = typeof payload === 'string' && payload ? payload : '未知错误';
+      reject(new Error(`窗口「${request.title}」创建失败：${detail}`));
+    });
   });
 }

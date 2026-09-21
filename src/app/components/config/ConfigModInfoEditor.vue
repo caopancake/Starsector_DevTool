@@ -20,7 +20,7 @@ import { computed, onMounted, onUnmounted } from 'vue';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { useCoreSchema } from '@/app/composables/use-core-schema';
 import { useConfigModInfoViewModel } from '@/app/composables/use-config-mod-info-view-model';
-import { registerActiveSaveHandler, unregisterActiveSaveHandler } from '@/shared/lib/save-command-registry';
+import { useSaveCommandStore } from '@/stores/save-command.store';
 
 const { getMergedSchema, loadCoreFields } = useCoreSchema();
 void loadCoreFields();
@@ -40,6 +40,7 @@ async function save() {
   await saveModInfo(schema.value);
 }
 
-onMounted(() => registerActiveSaveHandler(save));
-onUnmounted(() => unregisterActiveSaveHandler(save));
+const saveCommand = useSaveCommandStore();
+onMounted(() => saveCommand.registerActiveSaveHandler(save));
+onUnmounted(() => saveCommand.unregisterActiveSaveHandler(save));
 </script>

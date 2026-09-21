@@ -6,7 +6,8 @@
 
 ## Owner 与链路
 
-- managed window 拥有 label hash、hidden 创建、显示聚焦与 URL 序列化；业务 window 提供结构化 singleton key、尺寸和参数。
+- managed window 拥有 label hash、hidden 创建、显示聚焦与 URL 序列化；业务 window 提供结构化 singleton key、尺寸和参数。创建过程监听 `tauri://created`/`tauri://error` 并以 Promise 结果上抛；URL query 设总长度守卫，draftSnapshot 另设独立上限、超限去掉该参数优雅降级；创建失败由 app 层调用点给出反馈。当前窗口关窗/重载 API 由 `current.window.ts` 单一提供（`closeCurrentWindow`/`reloadCurrentWindow`）。
+- 主窗口与子窗口共用唯一 WindowShell：Provider 栈单份，`mode='main'` 跑设置持久化，子窗口跑设置镜像；主题 DOM effect 由 shell 统一挂载。
 - event definitions 拥有事件名/payload；主窗口监听保存事件，交 save/history/refresh 编排；子窗口只发已完成写盘事件并消费同步。
 
 ## 不变量

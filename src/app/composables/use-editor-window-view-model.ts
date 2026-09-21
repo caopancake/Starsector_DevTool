@@ -1,5 +1,4 @@
 import { computed, ref } from 'vue';
-import type { EditorSpecSavedEvent } from '@/windows/editor.window';
 import type { UnlistenFn } from '@/windows/tauri.events';
 import {
   queryEditorEntityBundle,
@@ -24,7 +23,7 @@ import { pickEditorSpecFile } from '@/shared/runtime/dialog.runtime';
 import { closeCurrentWindow } from '@/windows/current.window';
 import type { QueryCacheInvalidationEvent } from '@/services/query-cache.service';
 import type { ResourceCacheInvalidationEvent } from '@/services/resource-cache.service';
-import type { ProjectSessionInvalidatedEvent } from '@/windows/window.events';
+import type { EditorSpecSavedEvent, ProjectSessionInvalidatedEvent } from '@/windows/window.events';
 
 interface EditorWindowTarget {
   id: string;

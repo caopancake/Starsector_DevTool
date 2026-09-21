@@ -108,7 +108,9 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue';
 import type { JsonValue } from '@/shared/types';
-import { ACCENT_PRESETS, MAX_HISTORY_LIMIT, useSettingsStore } from '@/stores/settings.store';
+import { useSettingsStore } from '@/stores/settings.store';
+import { MAX_HISTORY_LIMIT } from '@/domain/settings/rules';
+import { ACCENT_PRESETS } from '@/domain/settings/theme';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import { useSettingsViewModel } from '@/app/composables/use-settings-view-model';
 

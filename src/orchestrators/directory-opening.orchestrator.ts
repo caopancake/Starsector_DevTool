@@ -3,13 +3,13 @@ import { cell, formatModVersion } from '@/shared/lib/starsector';
 import { pathBasename } from '@/shared/lib/paths';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import { useProjectStore } from '@/stores/project.store';
-import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { useTablesStore } from '@/stores/tables.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { detectDirectoryTarget, openProject, scanDirectoryGameOverview } from '@/services/session.service';
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
 import { measurePerformance } from '@/shared/runtime/performance';
 import { navigateToModOverview } from '@/orchestrators/workspace-navigation.orchestrator';
+import { removeModRuntimeState } from '@/orchestrators/workspace-lifecycle.orchestrator';
 import { buildModOpeningFailure } from '@/shared/lib/errors';
 
 export type DirectoryOpeningOutcome =
@@ -143,15 +143,7 @@ function updateLoadedEntry(modRoot: string, loaded: ProjectManifest): string {
 
 function rollbackFailedModOpening(modRoot: string) {
   const workspace = useWorkspaceStore();
-  const tables = useTablesStore();
-  const fileHistory = useFileHistoryStore();
-  const csvEditHistory = useTablesEditHistoryStore();
-  const project = useProjectStore();
-  workspace.removeLoadedModEntry(modRoot);
-  tables.removeModState(modRoot);
-  fileHistory.removeModState(modRoot);
-  csvEditHistory.clearForMod(modRoot);
-  project.removeProjectManifest(modRoot);
+  removeModRuntimeState(modRoot);
   workspace.showOverview();
 }
 
