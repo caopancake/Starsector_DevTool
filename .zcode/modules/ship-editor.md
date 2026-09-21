@@ -7,6 +7,8 @@
 ## Owner 与链路
 
 - ViewModel query ship bundle、资源与引用，维护目标 Draft Session；组件拥有画布交互/局部 UI；窗口服务拥有单例身份。
+- 画布骨架（命中检测、选区同步、镜像轴/光标/hover 预览绘制、undo、window resize/keydown/keyup、resize 与 inspector 联动）由 `use-canvas-editor` 统一承载；viewport 与选中/镜像/预览状态经 `createCanvasEditorState`/`useCanvasViewport` 在组件侧先行创建后注入。
+- Draft 提交为显式模型：全部 draft 变更路径显式 commit（`draft-changed` -> Draft Session setDraft），画布拖拽在动作边界（onUp/onLeave）提交一次，检查器输入逐事件提交；不存在深度 watch 同步。
 - 保存走 editor write -> changeset/File History -> ProjectSession refresh/事件；贴图浏览只解析 Mod 内相对路径写入引用字段，不写任何文件。
 
 ## 不变量

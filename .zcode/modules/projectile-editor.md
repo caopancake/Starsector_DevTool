@@ -7,6 +7,7 @@
 ## Owner 与链路
 
 - 窗口/URL 以 `kind + modRoot + id` 单例；ViewModel query bundle、维护目标 Draft Session 和资源缓存。
+- Draft 提交为显式模型：全部表单变更路径（字段输入、颜色、引擎槽增删、JSON 文本应用）显式 commit `draft-changed` -> Draft Session setDraft；不存在深度 watch 同步。
 - 保存经 editor service/orchestrator -> Rust spec write -> File History Session -> ProjectSession refresh/窗口事件。
 
 ## 不变量

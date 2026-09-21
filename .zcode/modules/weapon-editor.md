@@ -7,6 +7,9 @@
 ## Owner 与链路
 
 - ViewModel query bundle/source options/资源，维护 Draft Session；组件管理表单/画布局部 UI；预览由专用窗口读取已保存 ProjectSession bundle。
+- 画布骨架（命中检测、选区同步、镜像轴/光标/hover 预览绘制、undo、window 事件、resize 与 inspector 联动）由 `use-canvas-editor` 统一承载；发射点目标 kind 为 `barrel`。
+- Draft 提交为显式模型：全部 draft 变更路径显式 commit（`draft-changed` -> Draft Session setDraft），发射点拖拽在动作边界提交一次，检查器输入逐事件提交；不存在深度 watch 同步。
+- 发射点 offsets/angles 键映射、贴图 origin 比例与 sprite 层绘制与发射预览同源（`domain/editors/lib/weapon-sprite-fields` + `canvas-visuals.drawWeaponSpriteLayer`）。
 - 保存经 Rust spec write、File History、refresh/窗口事件；弹体编辑器按 `projectileSpecId` 打开。
 
 ## 不变量

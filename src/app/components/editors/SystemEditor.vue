@@ -14,45 +14,96 @@
             <div class="form-grid">
               <label>系统 ID</label><n-input :value="systemId" disabled /> <label>系统类型</label
               ><n-select :value="systemType" :options="toOptions([...SYSTEM_TYPES])" @update:value="onTypeChange" />
-              <label>AI 行为类型</label><n-select v-model:value="localSystem.aiType" :options="toOptions([...AI_TYPES])" filterable tag />
-              <label>效果脚本</label><n-input v-model:value="localSystem.statsScript" />
-              <template v-if="aiType === 'CUSTOM'"> <label>AI 脚本</label><n-input v-model:value="localSystem.aiScript" /> </template>
+              <label>AI 行为类型</label
+              ><n-select
+                :value="localSystem.aiType"
+                :options="toOptions([...AI_TYPES])"
+                filterable
+                tag
+                @update:value="setField('aiType', $event)"
+              />
+              <label>效果脚本</label><n-input :value="localSystem.statsScript" @update:value="setField('statsScript', $event)" />
+              <template v-if="aiType === 'CUSTOM'">
+                <label>AI 脚本</label><n-input :value="localSystem.aiScript" @update:value="setField('aiScript', $event)" />
+              </template>
             </div>
           </n-collapse-item>
 
           <n-collapse-item title="行为标志" name="behavior">
             <div class="form-grid">
-              <label>暂停时运行脚本</label><n-switch v-model:value="localSystem.runScriptWhilePaused" /> <label>闲置时运行脚本</label
-              ><n-switch v-model:value="localSystem.runScriptWhileIdle" /> <label>充能降低时阻止动作</label
-              ><n-switch v-model:value="localSystem.blockActionsWhileChargingDown" /> <label>不会导致过载</label
-              ><n-switch v-model:value="localSystem.canNotCauseOverload" /> <label>右键系统开启时可用</label
-              ><n-switch v-model:value="localSystem.canUseWhileRightClickSystemOn" /> <label>效果后限制转向</label
-              ><n-switch v-model:value="localSystem.clampTurnRateAfter" /> <label>效果后限制速度</label
-              ><n-switch v-model:value="localSystem.clampMaxSpeedAfter" /> <label>持续加速</label
-              ><n-switch v-model:value="localSystem.alwaysAccelerate" /> <label>撞击失控概率</label
-              ><n-input-number v-model:value="localSystem.flameoutOnImpactChance" :step="0.1" /> <label>充能降低时淡出音效</label
-              ><n-switch v-model:value="localSystem.fadeActivationSoundOnChargedown" /> <label>开盾时取消系统</label
-              ><n-switch v-model:value="localSystem.activatingShieldsCancels" />
+              <label>暂停时运行脚本</label
+              ><n-switch :value="localSystem.runScriptWhilePaused" @update:value="setField('runScriptWhilePaused', $event)" />
+              <label>闲置时运行脚本</label
+              ><n-switch :value="localSystem.runScriptWhileIdle" @update:value="setField('runScriptWhileIdle', $event)" />
+              <label>充能降低时阻止动作</label
+              ><n-switch
+                :value="localSystem.blockActionsWhileChargingDown"
+                @update:value="setField('blockActionsWhileChargingDown', $event)"
+              />
+              <label>不会导致过载</label
+              ><n-switch :value="localSystem.canNotCauseOverload" @update:value="setField('canNotCauseOverload', $event)" />
+              <label>右键系统开启时可用</label
+              ><n-switch
+                :value="localSystem.canUseWhileRightClickSystemOn"
+                @update:value="setField('canUseWhileRightClickSystemOn', $event)"
+              />
+              <label>效果后限制转向</label
+              ><n-switch :value="localSystem.clampTurnRateAfter" @update:value="setField('clampTurnRateAfter', $event)" />
+              <label>效果后限制速度</label
+              ><n-switch :value="localSystem.clampMaxSpeedAfter" @update:value="setField('clampMaxSpeedAfter', $event)" />
+              <label>持续加速</label><n-switch :value="localSystem.alwaysAccelerate" @update:value="setField('alwaysAccelerate', $event)" />
+              <label>撞击失控概率</label
+              ><n-input-number
+                :value="localSystem.flameoutOnImpactChance"
+                :step="0.1"
+                @update:value="setField('flameoutOnImpactChance', $event)"
+              />
+              <label>充能降低时淡出音效</label
+              ><n-switch
+                :value="localSystem.fadeActivationSoundOnChargedown"
+                @update:value="setField('fadeActivationSoundOnChargedown', $event)"
+              />
+              <label>开盾时取消系统</label
+              ><n-switch :value="localSystem.activatingShieldsCancels" @update:value="setField('activatingShieldsCancels', $event)" />
             </div>
           </n-collapse-item>
 
           <n-collapse-item title="音效" name="sound">
             <div class="form-grid">
-              <label>激活音效</label><n-input v-model:value="localSystem.useSound" /> <label>循环音效</label
-              ><n-input v-model:value="localSystem.loopSound" /> <label>关闭音效</label
-              ><n-input v-model:value="localSystem.deactivateSound" /> <label>用尽音效</label
-              ><n-input v-model:value="localSystem.outOfUsesSound" /> <label>滤波类型</label
-              ><n-select v-model:value="localSystem.soundFilterType" :options="toOptions(['LOWPASS'])" clearable /> <label>滤波增益</label
-              ><n-input-number v-model:value="localSystem.soundFilterGain" :step="0.05" /> <label>高频滤波增益</label
-              ><n-input-number v-model:value="localSystem.soundFilterGainHF" :step="0.05" />
+              <label>激活音效</label><n-input :value="localSystem.useSound" @update:value="setField('useSound', $event)" />
+              <label>循环音效</label><n-input :value="localSystem.loopSound" @update:value="setField('loopSound', $event)" />
+              <label>关闭音效</label><n-input :value="localSystem.deactivateSound" @update:value="setField('deactivateSound', $event)" />
+              <label>用尽音效</label><n-input :value="localSystem.outOfUsesSound" @update:value="setField('outOfUsesSound', $event)" />
+              <label>滤波类型</label
+              ><n-select
+                :value="localSystem.soundFilterType"
+                :options="toOptions(['LOWPASS'])"
+                clearable
+                @update:value="setField('soundFilterType', $event)"
+              />
+              <label>滤波增益</label
+              ><n-input-number :value="localSystem.soundFilterGain" :step="0.05" @update:value="setField('soundFilterGain', $event)" />
+              <label>高频滤波增益</label
+              ><n-input-number :value="localSystem.soundFilterGainHF" :step="0.05" @update:value="setField('soundFilterGainHF', $event)" />
             </div>
           </n-collapse-item>
 
           <n-collapse-item v-if="showEngineSection" title="引擎视觉" name="engine">
             <div class="form-grid">
-              <label>光柱长度倍率</label><n-input-number v-model:value="localSystem.engineGlowLengthMult" :step="0.1" />
-              <label>光柱宽度倍率</label><n-input-number v-model:value="localSystem.engineGlowWidthMult" :step="0.1" />
-              <label>辉光强度倍率</label><n-input-number v-model:value="localSystem.engineGlowGlowMult" :step="0.1" />
+              <label>光柱长度倍率</label
+              ><n-input-number
+                :value="localSystem.engineGlowLengthMult"
+                :step="0.1"
+                @update:value="setField('engineGlowLengthMult', $event)"
+              />
+              <label>光柱宽度倍率</label
+              ><n-input-number
+                :value="localSystem.engineGlowWidthMult"
+                :step="0.1"
+                @update:value="setField('engineGlowWidthMult', $event)"
+              />
+              <label>辉光强度倍率</label
+              ><n-input-number :value="localSystem.engineGlowGlowMult" :step="0.1" @update:value="setField('engineGlowGlowMult', $event)" />
             </div>
             <ColorPicker label="引擎发光颜色" v-model="engineGlowColor" />
             <ColorPicker label="引擎尾迹颜色" v-model="engineGlowContrailColor" />
@@ -63,9 +114,10 @@
             <div class="form-grid">
               <label>受影响武器类型</label
               ><n-select
-                v-model:value="localSystem.weaponTypes"
+                :value="localSystem.weaponTypes"
                 :options="toOptions(['ENERGY', 'BALLISTIC', 'MISSILE', 'SYSTEM'])"
                 multiple
+                @update:value="setField('weaponTypes', $event)"
               />
             </div>
           </n-collapse-item>
@@ -73,17 +125,31 @@
           <n-collapse-item title="抖动效果" name="jitter">
             <ColorPicker label="抖动颜色" v-model="jitterColor" />
             <div class="form-grid">
-              <label>抖动副本数</label><n-input-number v-model:value="localSystem.jitterCopies" /> <label>最小范围</label
-              ><n-input-number v-model:value="localSystem.jitterMinRange" /> <label>抖动范围</label
-              ><n-input-number v-model:value="localSystem.jitterRange" /> <label>范围半径比例</label
-              ><n-input-number v-model:value="localSystem.jitterRangeRadiusFraction" :step="0.1" />
+              <label>抖动副本数</label><n-input-number :value="localSystem.jitterCopies" @update:value="setField('jitterCopies', $event)" />
+              <label>最小范围</label
+              ><n-input-number :value="localSystem.jitterMinRange" @update:value="setField('jitterMinRange', $event)" />
+              <label>抖动范围</label><n-input-number :value="localSystem.jitterRange" @update:value="setField('jitterRange', $event)" />
+              <label>范围半径比例</label
+              ><n-input-number
+                :value="localSystem.jitterRangeRadiusFraction"
+                :step="0.1"
+                @update:value="setField('jitterRangeRadiusFraction', $event)"
+              />
             </div>
             <ColorPicker label="底层抖动颜色" v-model="jitterUnderColor" />
             <div class="form-grid">
-              <label>底层副本数</label><n-input-number v-model:value="localSystem.jitterUnderCopies" /> <label>底层最小范围</label
-              ><n-input-number v-model:value="localSystem.jitterUnderMinRange" /> <label>底层抖动范围</label
-              ><n-input-number v-model:value="localSystem.jitterUnderRange" /> <label>底层范围半径比例</label
-              ><n-input-number v-model:value="localSystem.jitterUnderRangeRadiusFraction" :step="0.1" />
+              <label>底层副本数</label
+              ><n-input-number :value="localSystem.jitterUnderCopies" @update:value="setField('jitterUnderCopies', $event)" />
+              <label>底层最小范围</label
+              ><n-input-number :value="localSystem.jitterUnderMinRange" @update:value="setField('jitterUnderMinRange', $event)" />
+              <label>底层抖动范围</label
+              ><n-input-number :value="localSystem.jitterUnderRange" @update:value="setField('jitterUnderRange', $event)" />
+              <label>底层范围半径比例</label
+              ><n-input-number
+                :value="localSystem.jitterUnderRangeRadiusFraction"
+                :step="0.1"
+                @update:value="setField('jitterUnderRangeRadiusFraction', $event)"
+              />
             </div>
           </n-collapse-item>
 
@@ -91,9 +157,10 @@
             <ColorPicker label="效果颜色 1" v-model="effectColor1" />
             <ColorPicker label="效果颜色 2" v-model="effectColor2" />
             <div class="form-grid">
-              <label>高光贴图后缀</label><n-input v-model:value="localSystem.phaseHighlight" /> <label>漫射贴图后缀</label
-              ><n-input v-model:value="localSystem.phaseDiffuse" /> <label>舰船透明度</label
-              ><n-input-number v-model:value="localSystem.shipAlpha" :step="0.05" />
+              <label>高光贴图后缀</label><n-input :value="localSystem.phaseHighlight" @update:value="setField('phaseHighlight', $event)" />
+              <label>漫射贴图后缀</label><n-input :value="localSystem.phaseDiffuse" @update:value="setField('phaseDiffuse', $event)" />
+              <label>舰船透明度</label
+              ><n-input-number :value="localSystem.shipAlpha" :step="0.05" @update:value="setField('shipAlpha', $event)" />
             </div>
           </n-collapse-item>
 
@@ -101,30 +168,44 @@
             <ColorPicker label="护盾环颜色" v-model="shieldRingColor" />
             <ColorPicker label="护盾内部颜色" v-model="shieldInnerColor" />
             <div class="form-grid">
-              <label>护盾厚度倍率</label><n-input-number v-model:value="localSystem.shieldThicknessMult" :step="0.1" />
-              <label>护盾波动倍率</label><n-input-number v-model:value="localSystem.shieldFluctuationMult" :step="0.1" />
+              <label>护盾厚度倍率</label
+              ><n-input-number
+                :value="localSystem.shieldThicknessMult"
+                :step="0.1"
+                @update:value="setField('shieldThicknessMult', $event)"
+              />
+              <label>护盾波动倍率</label
+              ><n-input-number
+                :value="localSystem.shieldFluctuationMult"
+                :step="0.1"
+                @update:value="setField('shieldFluctuationMult', $event)"
+              />
             </div>
           </n-collapse-item>
 
           <n-collapse-item v-if="showDisplacerSection" title="位移器参数" name="displacer">
             <div class="form-grid">
-              <label>位移距离</label><n-input-number v-model:value="localSystem.range" /> <label>随机偏移</label
-              ><n-input-number v-model:value="localSystem.randomRange" /> <label>传送时渲染副本</label
-              ><n-switch v-model:value="localSystem.renderCopyDuringTeleport" />
+              <label>位移距离</label><n-input-number :value="localSystem.range" @update:value="setField('range', $event)" />
+              <label>随机偏移</label><n-input-number :value="localSystem.randomRange" @update:value="setField('randomRange', $event)" />
+              <label>传送时渲染副本</label
+              ><n-switch :value="localSystem.renderCopyDuringTeleport" @update:value="setField('renderCopyDuringTeleport', $event)" />
             </div>
           </n-collapse-item>
 
           <n-collapse-item v-if="showWeaponSection" title="武器系统" name="weaponSystem">
-            <div class="form-grid"><label>关联武器 ID</label><n-input v-model:value="localSystem.weaponDataId" /></div>
+            <div class="form-grid">
+              <label>关联武器 ID</label><n-input :value="localSystem.weaponDataId" @update:value="setField('weaponDataId', $event)" />
+            </div>
           </n-collapse-item>
 
           <n-collapse-item v-if="showDroneSection" title="无人机参数" name="drone">
             <div class="form-grid">
-              <label>无人机装配 ID</label><n-input v-model:value="localSystem.droneVariant" /> <label>允许自由漫游</label
-              ><n-switch v-model:value="localSystem.allowFreeRoam" /> <label>发射速度</label
-              ><n-input-number v-model:value="localSystem.launchSpeed" /> <label>发射延迟</label
-              ><n-input-number v-model:value="localSystem.launchDelay" :step="0.1" /> <label>最大无人机数</label
-              ><n-input-number v-model:value="localSystem.maxDrones" />
+              <label>无人机装配 ID</label><n-input :value="localSystem.droneVariant" @update:value="setField('droneVariant', $event)" />
+              <label>允许自由漫游</label><n-switch :value="localSystem.allowFreeRoam" @update:value="setField('allowFreeRoam', $event)" />
+              <label>发射速度</label><n-input-number :value="localSystem.launchSpeed" @update:value="setField('launchSpeed', $event)" />
+              <label>发射延迟</label
+              ><n-input-number :value="localSystem.launchDelay" :step="0.1" @update:value="setField('launchDelay', $event)" />
+              <label>最大无人机数</label><n-input-number :value="localSystem.maxDrones" @update:value="setField('maxDrones', $event)" />
             </div>
             <h4 style="margin: 8px 0 4px">无人机行为定义</h4>
             <textarea
@@ -136,12 +217,14 @@
 
           <n-collapse-item title="伤害（AI 理解用）" name="damage">
             <div class="form-grid">
-              <label>EMP 伤害</label><n-input-number v-model:value="localSystem.empDamage" /> <label>伤害值</label
-              ><n-input-number v-model:value="localSystem.damage" /> <label>伤害类型</label
+              <label>EMP 伤害</label><n-input-number :value="localSystem.empDamage" @update:value="setField('empDamage', $event)" />
+              <label>伤害值</label><n-input-number :value="localSystem.damage" @update:value="setField('damage', $event)" />
+              <label>伤害类型</label
               ><n-select
-                v-model:value="localSystem.damageType"
+                :value="localSystem.damageType"
                 :options="toOptions(['ENERGY', 'KINETIC', 'HIGH_EXPLOSIVE', 'FRAGMENTATION'])"
                 clearable
+                @update:value="setField('damageType', $event)"
               />
             </div>
           </n-collapse-item>
@@ -195,7 +278,7 @@ const emit = defineEmits<{ close: []; 'save-requested': []; 'draft-changed': [sy
 
 const localSystem = ref<RowData>(normalizeSystemSpec(props.system || { id: props.systemId, type: 'STAT_MOD' }));
 const expandedSections = ref(['basic']);
-const { bindObjectField } = useObjectField(localSystem);
+const { bindObjectField } = useObjectField(localSystem, { onCommit: commitDraft });
 
 const SYSTEM_TYPES = ['STAT_MOD', 'ENGINE_MOD', 'SHIELD_MOD', 'PHASE_CLOAK', 'DISPLACER', 'WEAPON', 'DRONE_LAUNCHER'] as const;
 
@@ -248,47 +331,56 @@ const showDroneSection = computed(() => systemType.value === 'DRONE_LAUNCHER');
 
 const engineGlowColor = computed({
   get: () => arr(localSystem.value.engineGlowColor, [255, 175, 125, 255]),
-  set: (v) => (localSystem.value.engineGlowColor = v),
+  set: (v) => setField('engineGlowColor', v),
 });
 const engineGlowContrailColor = computed({
   get: () => arr(localSystem.value.engineGlowContrailColor, [255, 175, 125, 255]),
-  set: (v) => (localSystem.value.engineGlowContrailColor = v),
+  set: (v) => setField('engineGlowContrailColor', v),
 });
 const weaponGlowColor = computed({
   get: () => arr(localSystem.value.weaponGlowColor, [255, 255, 255, 255]),
-  set: (v) => (localSystem.value.weaponGlowColor = v),
+  set: (v) => setField('weaponGlowColor', v),
 });
 const jitterColor = computed({
   get: () => arr(localSystem.value.jitterColor, [255, 255, 255, 255]),
-  set: (v) => (localSystem.value.jitterColor = v),
+  set: (v) => setField('jitterColor', v),
 });
 const jitterUnderColor = computed({
   get: () => arr(localSystem.value.jitterUnderColor, [255, 255, 255, 255]),
-  set: (v) => (localSystem.value.jitterUnderColor = v),
+  set: (v) => setField('jitterUnderColor', v),
 });
 const effectColor1 = computed({
   get: () => arr(localSystem.value.effectColor1, [100, 50, 200, 255]),
-  set: (v) => (localSystem.value.effectColor1 = v),
+  set: (v) => setField('effectColor1', v),
 });
 const effectColor2 = computed({
   get: () => arr(localSystem.value.effectColor2, [150, 75, 255, 255]),
-  set: (v) => (localSystem.value.effectColor2 = v),
+  set: (v) => setField('effectColor2', v),
 });
 const shieldRingColor = computed({
   get: () => arr(localSystem.value.shieldRingColor, [100, 200, 255, 255]),
-  set: (v) => (localSystem.value.shieldRingColor = v),
+  set: (v) => setField('shieldRingColor', v),
 });
 const shieldInnerColor = computed({
   get: () => arr(localSystem.value.shieldInnerColor, [100, 200, 255, 75]),
-  set: (v) => (localSystem.value.shieldInnerColor = v),
+  set: (v) => setField('shieldInnerColor', v),
 });
 
 const aiHintsJson = bindObjectField('aiHints');
 const droneBehaviorJson = computed(() => JSON.stringify(localSystem.value.droneBehavior ?? [], null, 2));
 
+function commitDraft() {
+  emit('draft-changed', localSystem.value);
+}
+function setField(key: string, value: RowData[string]) {
+  localSystem.value[key] = value;
+  commitDraft();
+}
+
 function applyDroneBehavior(value: string) {
   try {
     localSystem.value.droneBehavior = JSON.parse(value);
+    commitDraft();
   } catch {
     // ignore invalid JSON during editing
   }
@@ -382,6 +474,7 @@ function onTypeChange(newType: string) {
     }
   }
   localSystem.value.type = newType;
+  commitDraft();
 }
 
 function applyExtra() {
@@ -393,6 +486,7 @@ function applyExtra() {
       }
     }
     Object.assign(localSystem.value, parsed);
+    commitDraft();
   } catch {
     // ignore invalid JSON
   }
@@ -404,12 +498,5 @@ watch(
     localSystem.value = normalizeSystemSpec(props.system || { id: props.systemId, type: 'STAT_MOD' });
     extraJson.value = JSON.stringify(extraFields.value, null, 2);
   },
-);
-watch(
-  localSystem,
-  (system) => {
-    emit('draft-changed', system);
-  },
-  { deep: true, flush: 'sync' },
 );
 </script>

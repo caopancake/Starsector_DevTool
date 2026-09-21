@@ -7,6 +7,7 @@
 ## Owner 与链路
 
 - `weapon-preview + modRoot + id` 定位窗口；ViewModel query preview bundle 和资源，组件拥有 canvas、时间与播放控制。
+- 发射点 offsets/angles 读取、贴图 origin 比例与 sprite 层绘制与武器编辑器同源（`domain/editors/lib/weapon-sprite-fields` + `canvas-visuals.drawWeaponSpriteLayer`），预览侧为只读投影。
 - ProjectSession invalidation 按当前 bundle 实际依赖细粒度刷新；窗口不发保存事件。
 
 ## 不变量

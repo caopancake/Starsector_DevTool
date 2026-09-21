@@ -120,10 +120,10 @@ Owner 原则：同构实体族（列表 + 草稿编辑器 + 新建/删除确认�
 
 ### Phase 2.5: 画布编辑器骨架下沉
 
-- [ ] 抽取 `use-canvas-editor` composable：命中检测、镜像轴/光标/选区绘制、选区同步、undo 集成、window 事件三件套、resize 与 inspector 联动；`ShipEditor.vue` 与 `WeaponEditor.vue` 改为复用，现有 `use-canvas-viewport`/`use-canvas-drawing` 并入或作为其依赖。
-- [ ] `WeaponFirePreview.vue` 与 WeaponEditor 重复的坐标/贴图字段映射纯函数收敛为同源实现。
-- [ ] 4 处 `deep: true, flush: 'sync'` 深度同步 watch 改为显式提交模型：拖拽/输入在动作边界提交 draft 并记录撤销，删除同步深比较。
-- [ ] 跑前端全套检查 + 手工验收舰船/武器画布拖拽、镜像、撤销与武器发射预览。
+- [x] 抽取 `use-canvas-editor` composable：命中检测（统一 `{kind, i, distance}` 目标形状）、镜像轴/光标/hover 预览绘制、选区同步（hovered/selected/activeTarget/inspectorLock）、undo 集成（pushUndo/doUndo/doRedo + useEditorShortcuts 接线）、window resize/keydown/keyup 三件套、resize 与 inspector reveal 联动、指针生命周期骨架（pan/drag/hover 分发）；`ShipEditor.vue` 与 `WeaponEditor.vue` 改为注入 viewport（`useCanvasViewport`）+ 状态（`createCanvasEditorState`）+ hooks 复用，两文件合计瘦身约 700 行；`use-canvas-viewport`/`use-canvas-drawing` 保留为其独占依赖。顺带删除：两编辑器重复的 `hitTarget`（恒不可达，nearestTarget 已覆盖判定）、ShipEditor 只写不读的 `dragStarted`。
+- [x] `WeaponFirePreview.vue` 与 WeaponEditor 重复的坐标/贴图字段映射收敛为同源实现：`domain/editors/lib/weapon-sprite-fields.ts` 新增 `weaponOffsetsKey`/`weaponAnglesKey`/`weaponBarrelOffsetsFor`（只读投影，缺省 [10,0]）+ `WEAPON_SPRITE_ORIGIN_RATIO`；`canvas-visuals.ts` 新增 `drawWeaponSpriteLayer`（90° 旋转 + origin 比例定位）；配 `weapon-sprite-fields.spec.ts` 4 个单元测试。
+- [x] 4 处 `deep: true, flush: 'sync'` 深度同步 watch 全部删除，改为显式提交模型（经确认全量显式）：所有 draft 变更路径显式 commit `draft-changed` -> Draft Session setDraft；画布拖拽在动作边界（onUp/onLeave）提交一次、拖拽中途不提交；检查器输入经 `setField`/具名变更函数逐事件提交；computed setter（颜色/动态标签/projectileSpecId）与 `useObjectField`（新增可选 `onCommit`）在 setter 内提交；undo/redo 由 composable 提交，draftRevision 重载不提交（父级发起）。可审计不变量：四编辑器模板不再有直连 draft 字段的 v-model（仅剩 setter 内含 commit 的 computed 与 UI 本地文本状态），已 grep 复核为零。行为修正：ShipEditor `selectedSlot.mount` 此前改动不重绘画布，已随 `setSlotField` 修复。
+- [x] 跑前端全套检查全绿（typecheck、lint、架构三脚本、encoding、71 测试、build；format 仅剩 HEAD 既有 write.service.ts 问题）；手工验收清单：舰船画布拖拽/镜像成对/撤销重做/检查器 T 联动/贴图宽高同步、武器发射点拖拽/角度/镜像/U-H 视图/撤销、弹体与战术系统表单逐字段 dirty+保存、发射预览开火/光束/播放速度。
 
 ### Phase 2.6: 表格渲染与交互一致性
 

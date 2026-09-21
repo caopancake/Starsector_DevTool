@@ -61,3 +61,5 @@ export function useCanvasViewport(canvasRef: Readonly<ShallowRef<HTMLCanvasEleme
     zoom,
   };
 }
+
+export type CanvasViewport = ReturnType<typeof useCanvasViewport>;

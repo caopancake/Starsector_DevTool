@@ -323,6 +323,25 @@ export function drawEngineVisual(ctx: CanvasRenderingContext2D, options: EngineV
   drawControlPoint(ctx, options.point, options.selected, options.hovered, selected ? 7 : 5);
 }
 
+export function drawWeaponSpriteLayer(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  originRatio: { x: number; y: number },
+  scale: number,
+  centerX: number,
+  centerY: number,
+) {
+  if (!image.width) return;
+  const drawWidth = image.width * scale;
+  const drawHeight = image.height * scale;
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.rotate(Math.PI / 2);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(image, -drawWidth * originRatio.x, -drawHeight * originRatio.y, drawWidth, drawHeight);
+  ctx.restore();
+}
+
 export function drawBarrelVisual(ctx: CanvasRenderingContext2D, options: BarrelVisualOptions) {
   const color = '#f1f5f9';
   const length = 36;

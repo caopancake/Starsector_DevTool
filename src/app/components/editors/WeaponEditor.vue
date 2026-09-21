@@ -42,9 +42,14 @@
             <n-collapse-item title="基础属性" name="basic">
               <div class="form-grid">
                 <label>id</label><n-input :value="weaponId" disabled /> <label>specClass</label
-                ><n-select v-model:value="localWeapon.specClass" :options="toOptions(['projectile', 'beam'])" /> <label>type</label
                 ><n-select
-                  v-model:value="localWeapon.type"
+                  :value="localWeapon.specClass"
+                  :options="toOptions(['projectile', 'beam'])"
+                  @update:value="setField('specClass', $event)"
+                />
+                <label>type</label
+                ><n-select
+                  :value="localWeapon.type"
                   :options="
                     toOptions([
                       'BALLISTIC',
@@ -59,8 +64,14 @@
                       'BUILT_IN',
                     ])
                   "
+                  @update:value="setField('type', $event)"
                 />
-                <label>size</label><n-select v-model:value="localWeapon.size" :options="toOptions(['SMALL', 'MEDIUM', 'LARGE'])" />
+                <label>size</label
+                ><n-select
+                  :value="localWeapon.size"
+                  :options="toOptions(['SMALL', 'MEDIUM', 'LARGE'])"
+                  @update:value="setField('size', $event)"
+                />
               </div>
             </n-collapse-item>
             <n-collapse-item title="炮塔贴图" name="turretSprites">
@@ -68,7 +79,7 @@
                 <template v-for="field in turretSpriteFields" :key="field">
                   <label>{{ field }}</label>
                   <div class="sprite-field-row">
-                    <n-input v-model:value="localWeapon[field]" @change="loadSpriteField(field)" />
+                    <n-input :value="localWeapon[field]" @update:value="setField(field, $event)" @change="loadSpriteField(field)" />
                     <n-button
                       class="sprite-icon-button"
                       tertiary
@@ -90,7 +101,7 @@
                 <template v-for="field in hardpointSpriteFields" :key="field">
                   <label>{{ field }}</label>
                   <div class="sprite-field-row">
-                    <n-input v-model:value="localWeapon[field]" @change="loadSpriteField(field)" />
+                    <n-input :value="localWeapon[field]" @update:value="setField(field, $event)" @change="loadSpriteField(field)" />
                     <n-button
                       class="sprite-icon-button"
                       tertiary
@@ -158,17 +169,24 @@
             </n-collapse-item>
             <n-collapse-item title="发射模式" name="barrelMode">
               <div class="form-grid">
-                <label>barrelMode</label><n-select v-model:value="localWeapon.barrelMode" :options="toOptions(['ALTERNATING', 'LINKED'])" />
+                <label>barrelMode</label
+                ><n-select
+                  :value="localWeapon.barrelMode"
+                  :options="toOptions(['ALTERNATING', 'LINKED'])"
+                  @update:value="setField('barrelMode', $event)"
+                />
               </div>
             </n-collapse-item>
             <n-collapse-item v-if="localWeapon.specClass === 'projectile'" title="动画" name="anim">
               <div class="form-grid">
                 <label>animationType</label
                 ><n-select
-                  v-model:value="localWeapon.animationType"
+                  :value="localWeapon.animationType"
                   :options="toOptions(['NONE', 'MUZZLE_FLASH', 'SMOKE', 'GLOW_AND_FLASH', 'GLOW'])"
+                  @update:value="setField('animationType', $event)"
                 />
-                <label>visualRecoil</label><n-input-number v-model:value="localWeapon.visualRecoil" />
+                <label>visualRecoil</label
+                ><n-input-number :value="localWeapon.visualRecoil" @update:value="setField('visualRecoil', $event)" />
               </div>
               <ObjectEditor v-model="muzzleFlashSpec" title="muzzleFlashSpec" />
               <ObjectEditor v-model="smokeSpec" title="smokeSpec" />
@@ -188,19 +206,27 @@
               <ColorPicker label="coreColor" v-model="coreColor" />
               <ColorPicker label="glowColor" v-model="glowColor" />
               <div class="form-grid">
-                <label>width</label><n-input-number v-model:value="localWeapon.width" /> <label>textureType</label
-                ><n-select :options="toOptions(['ROUGH', 'SMOOTH', 'NONE'])" v-model:value="localWeapon.textureType" />
-                <label>textureScrollSpeed</label><n-input-number v-model:value="localWeapon.textureScrollSpeed" />
-                <label>pixelsPerTexel</label><n-input-number v-model:value="localWeapon.pixelsPerTexel" /> <label>convergeOnPoint</label
-                ><n-checkbox v-model:checked="localWeapon.convergeOnPoint" /> <label>darkCore</label
-                ><n-checkbox v-model:checked="localWeapon.darkCore" />
+                <label>width</label><n-input-number :value="localWeapon.width" @update:value="setField('width', $event)" />
+                <label>textureType</label
+                ><n-select
+                  :options="toOptions(['ROUGH', 'SMOOTH', 'NONE'])"
+                  :value="localWeapon.textureType"
+                  @update:value="setField('textureType', $event)"
+                />
+                <label>textureScrollSpeed</label
+                ><n-input-number :value="localWeapon.textureScrollSpeed" @update:value="setField('textureScrollSpeed', $event)" />
+                <label>pixelsPerTexel</label
+                ><n-input-number :value="localWeapon.pixelsPerTexel" @update:value="setField('pixelsPerTexel', $event)" />
+                <label>convergeOnPoint</label
+                ><n-checkbox :checked="localWeapon.convergeOnPoint" @update:checked="setField('convergeOnPoint', $event)" />
+                <label>darkCore</label><n-checkbox :checked="localWeapon.darkCore" @update:checked="setField('darkCore', $event)" />
               </div>
               <n-button tertiary @click="$emit('preview', weaponId)">预览光束</n-button>
             </n-collapse-item>
             <n-collapse-item title="音效" name="sound">
               <div class="form-grid">
-                <label>fireSoundOne</label><n-input v-model:value="localWeapon.fireSoundOne" /> <label>fireSoundTwo</label
-                ><n-input v-model:value="localWeapon.fireSoundTwo" />
+                <label>fireSoundOne</label><n-input :value="localWeapon.fireSoundOne" @update:value="setField('fireSoundOne', $event)" />
+                <label>fireSoundTwo</label><n-input :value="localWeapon.fireSoundTwo" @update:value="setField('fireSoundTwo', $event)" />
               </div>
             </n-collapse-item>
           </n-collapse>
@@ -217,7 +243,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
+import { computed, ref, useTemplateRef, watch } from 'vue';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
@@ -226,26 +252,32 @@ import ObjectEditor from '@/app/components/editors/common/ObjectEditor.vue';
 import type { RowData } from '@/shared/types';
 import { arr, str } from '@/shared/lib/starsector';
 import { normalizeWeaponSpec } from '@/domain/editors/lib/normalize';
-import { useCanvasDrawing } from '@/app/composables/use-canvas-drawing';
+import {
+  useCanvasEditor,
+  createCanvasEditorState,
+  type CanvasInspectorReveal,
+  type CanvasModifiers,
+  type CanvasPick,
+  type CanvasTarget,
+} from '@/app/composables/use-canvas-editor';
 import { useCanvasViewport } from '@/app/composables/use-canvas-viewport';
-import { useHistory } from '@/app/composables/use-history';
-import { useEditorShortcuts } from '@/app/composables/use-editor-shortcuts';
 import { useObjectField } from '@/app/composables/use-object-field';
 import { useResourceReference } from '@/app/composables/use-resource-reference';
 import { editorCollapseTheme, snapToStep, toOptions } from '@/domain/editors/lib/editor-constants';
-import { drawBarrelVisual, drawCrossMarker } from '@/domain/editors/lib/canvas-visuals';
-import { findMirrorBarrelIndex, mirrorAngleDeg, mirrorLateral, MIRROR_EPSILON } from '@/domain/editors/lib/mirror';
+import { drawBarrelVisual, drawCrossMarker, drawWeaponSpriteLayer } from '@/domain/editors/lib/canvas-visuals';
+import { findMirrorBarrelIndex, mirrorLateral, mirrorAngleDeg, MIRROR_EPSILON } from '@/domain/editors/lib/mirror';
 import {
   HARDPOINT_WEAPON_SPRITE_FIELDS,
   TURRET_WEAPON_SPRITE_FIELDS,
   WEAPON_SPRITE_DRAW_ORDER,
   WEAPON_SPRITE_FIELDS,
+  WEAPON_SPRITE_ORIGIN_RATIO,
+  weaponAnglesKey,
+  weaponOffsetsKey,
   type WeaponSpriteField,
   type WeaponViewMode,
 } from '@/domain/editors/lib/weapon-sprite-fields';
 
-type InspectorSection =
-  'basic' | 'turretSprites' | 'hardpointSprites' | 'turretBarrels' | 'hardpointBarrels' | 'barrelMode' | 'anim' | 'proj' | 'beam' | 'sound';
 type BarrelPreview = { kind: 'add'; coord: { x: number; y: number } } | { kind: 'angle'; angle: number } | null;
 
 const props = defineProps<{
@@ -275,34 +307,68 @@ const stageRef = useTemplateRef<HTMLElement>('stageRef');
 const canvasRef = useTemplateRef<HTMLCanvasElement>('canvasRef');
 const localWeapon = ref<RowData>(normalizeWeaponSpec(props.weapon));
 const viewMode = ref<WeaponViewMode>('turret');
-const selected = ref<number | null>(null);
-const expandedSections = ref<InspectorSection[]>(['basic']);
-const viewport = useCanvasViewport(canvasRef, 2, 20);
-const { scale } = viewport;
-const dragging = ref(false);
-const angleDragging = ref(false);
-const hovered = ref<number | null>(null);
-const activeBarrel = ref<number | null>(null);
-const inspectorLock = ref<number | null>(null);
-const inspectorRevealInProgress = ref(false);
-const hoverPreview = ref<BarrelPreview>(null);
-const panning = ref(false);
-const pointerInside = ref(false);
-const mirrorMode = ref(false);
-const mirrorPair = ref<number | null>(null);
+const expandedSections = ref<string[]>(['basic']);
 const localSpriteData = ref<Record<string, string>>({ ...(props.spriteData || {}) });
 const spriteImages = new Map<string, InstanceType<typeof Image>>();
-let last = { x: 0, y: 0 };
-const history = useHistory<RowData>();
-const drawing = useCanvasDrawing();
-const { bindObjectField } = useObjectField(localWeapon);
+const viewport = useCanvasViewport(canvasRef, 2, 20);
+const { scale } = viewport;
+const editorState = createCanvasEditorState<BarrelPreview>();
+const { activeTarget, clearPreview, hoverPreview, hovered, inspectorLock, mirrorMode, mirrorPair, selected, setPreview } = editorState;
+const canvas = useCanvasEditor({
+  stageRef,
+  windowRef: editorWindowRef,
+  expandedSections,
+  viewport,
+  state: editorState,
+  hooks: {
+    value: localWeapon,
+    onDraftMutated: (value) => emit('draft-changed', value),
+    normalize: normalizeWeaponSpec,
+    deleteSelected: deleteSelectedBarrel,
+    shortcutKeys: {
+      u: () => setView('turret'),
+      h: () => setView('hardpoint'),
+    },
+    inspectorReveal: (): CanvasInspectorReveal | null => ({
+      section: currentBarrelSection(),
+      selector: selected.value === null ? '' : `[data-inspector-target="${viewMode.value}-barrel-${selected.value}"]`,
+      lock: activeTarget.value ? { ...activeTarget.value } : null,
+    }),
+    selectableTargets,
+    hitRadius: () => 26,
+    actionDown,
+    selectForDown,
+    resolveDragKind,
+    applyDrag: updateInteraction,
+    applyMirrorDrag: applyMirrorDrag,
+    captureMirrorPair,
+    previewTakesOver: (e) => e.shiftKey || e.ctrlKey,
+    computePreview,
+    drawPreview,
+    cursorMarker,
+    mirrorAxisCanvasY: () => toCanvas(0, 0).y,
+    onReady: () => loadAllSpriteImages(),
+    draw,
+  },
+});
+const {
+  commitDraft,
+  drawBase,
+  drawCursorPosition,
+  drawHoverPreview,
+  drawMirrorAxis,
+  onDown,
+  onExpandedSectionsUpdate,
+  onLeave,
+  onMove,
+  onUp,
+  onWheel,
+  pushUndo,
+} = canvas;
+const { bindObjectField } = useObjectField(localWeapon, { onCommit: () => commitDraft() });
 const { pickModImageReference } = useResourceReference();
 const turretSpriteFields = TURRET_WEAPON_SPRITE_FIELDS;
 const hardpointSpriteFields = HARDPOINT_WEAPON_SPRITE_FIELDS;
-const spriteOriginRatio: Record<WeaponViewMode, { x: number; y: number }> = {
-  turret: { x: 0.5, y: 0.5 },
-  hardpoint: { x: 0.5, y: 0.75 },
-};
 const modeFooterNotes: Record<WeaponViewMode, string> = {
   turret: '左键 拖动发射点 | Shift+左键 添加发射点 | Ctrl+左键 设置角度 | 退格 删除发射点 | T 打开炮塔发射点',
   hardpoint: '左键 拖动发射点 | Shift+左键 添加发射点 | Ctrl+左键 设置角度 | 退格 删除发射点 | T 打开固定发射点',
@@ -319,96 +385,55 @@ const angles = computed<number[]>(() => anglesFor(viewMode.value));
 const barrelCount = computed(() => barrelCountFor(viewMode.value));
 const projectileSpecId = computed({
   get: () => str(localWeapon.value.projectileSpecId),
-  set: (v) => (localWeapon.value.projectileSpecId = v),
+  set: (v) => {
+    localWeapon.value.projectileSpecId = v;
+    commitDraft();
+  },
 });
 const projectileOptions = computed(() => props.projectileOptions);
 const fringeColor = computed({
   get: () => arr(localWeapon.value.fringeColor, [255, 255, 255, 255]),
-  set: (v) => (localWeapon.value.fringeColor = v),
+  set: (v) => {
+    localWeapon.value.fringeColor = v;
+    commitDraft();
+  },
 });
 const coreColor = computed({
   get: () => arr(localWeapon.value.coreColor, [255, 255, 255, 255]),
-  set: (v) => (localWeapon.value.coreColor = v),
+  set: (v) => {
+    localWeapon.value.coreColor = v;
+    commitDraft();
+  },
 });
 const glowColor = computed({
   get: () => arr(localWeapon.value.glowColor, [255, 255, 255, 255]),
-  set: (v) => (localWeapon.value.glowColor = v),
+  set: (v) => {
+    localWeapon.value.glowColor = v;
+    commitDraft();
+  },
 });
 const muzzleFlashSpec = bindObjectField('muzzleFlashSpec');
 const smokeSpec = bindObjectField('smokeSpec');
 
-function pushUndo() {
-  history.push(localWeapon.value);
-}
-function doUndo() {
-  const previous = history.undo(localWeapon.value);
-  if (!previous) return;
-  localWeapon.value = normalizeWeaponSpec(previous);
-  selected.value = null;
-  hovered.value = null;
-  activeBarrel.value = null;
-  inspectorLock.value = null;
-  draw();
-}
-function doRedo() {
-  const next = history.redo(localWeapon.value);
-  if (!next) return;
-  localWeapon.value = normalizeWeaponSpec(next);
-  selected.value = null;
-  hovered.value = null;
-  activeBarrel.value = null;
-  inspectorLock.value = null;
-  draw();
-}
-useEditorShortcuts({ onKeyDown: handleEditorShortcut, redo: doRedo, scope: editorWindowRef, undo: doUndo });
-function toggleMirrorMode() {
-  mirrorMode.value = !mirrorMode.value;
-  mirrorPair.value = null;
-  clearHoverPreview();
-  draw();
-}
-function handleEditorShortcut(event: KeyboardEvent) {
-  if (event.code === 'Space') {
-    event.preventDefault();
-    toggleMirrorMode();
-    return;
-  }
-  const key = event.key.toLowerCase();
-  if (key === 'u') {
-    event.preventDefault();
-    setView('turret');
-    return;
-  }
-  if (key === 'h') {
-    event.preventDefault();
-    setView('hardpoint');
-    return;
-  }
-  if (key === 't') {
-    event.preventDefault();
-    void revealCurrentBarrelSection();
-    return;
-  }
-  if (key === 'backspace') {
-    event.preventDefault();
-    deleteSelectedBarrel();
-  }
-}
 function setView(v: WeaponViewMode) {
   viewMode.value = v;
   selected.value = null;
   hovered.value = null;
-  activeBarrel.value = null;
+  activeTarget.value = null;
   inspectorLock.value = null;
   mirrorPair.value = null;
   draw();
 }
+function setField(key: string, value: RowData[string]) {
+  localWeapon.value[key] = value;
+  commitDraft();
+}
 function selectBarrel(mode: WeaponViewMode, index: number) {
   viewMode.value = mode;
   selected.value = index;
-  hovered.value = index;
-  activeBarrel.value = index;
-  inspectorLock.value = index;
+  hovered.value = { kind: 'barrel', i: index };
+  activeTarget.value = { kind: 'barrel', i: index };
+  inspectorLock.value = { kind: 'barrel', i: index };
   draw();
 }
 function center() {
@@ -424,47 +449,21 @@ function toWeapon(px: number, py: number) {
 function rawToWeapon(px: number, py: number) {
   return viewport.fromCanvas('ship', px, py);
 }
-function resizeCanvas() {
-  const rect = stageRef.value?.getBoundingClientRect();
-  if (viewport.resize(rect?.width, rect?.height)) draw();
-}
-function offsetsKeyFor(mode: WeaponViewMode) {
-  return mode === 'turret' ? 'turretOffsets' : 'hardpointOffsets';
-}
-function anglesKeyFor(mode: WeaponViewMode) {
-  return mode === 'turret' ? 'turretAngleOffsets' : 'hardpointAngleOffsets';
-}
 function offsetsFor(mode: WeaponViewMode) {
-  const key = offsetsKeyFor(mode);
+  const key = weaponOffsetsKey(mode);
   if (!Array.isArray(localWeapon.value[key])) localWeapon.value[key] = [];
   return localWeapon.value[key] as number[];
 }
 function anglesFor(mode: WeaponViewMode) {
-  const key = anglesKeyFor(mode);
+  const key = weaponAnglesKey(mode);
   if (!Array.isArray(localWeapon.value[key])) localWeapon.value[key] = [];
   return localWeapon.value[key] as number[];
 }
 function barrelCountFor(mode: WeaponViewMode) {
   return Math.floor(offsetsFor(mode).length / 2);
 }
-function currentBarrelSection(): InspectorSection {
+function currentBarrelSection(): string {
   return viewMode.value === 'turret' ? 'turretBarrels' : 'hardpointBarrels';
-}
-async function revealCurrentBarrelSection() {
-  const section = currentBarrelSection();
-  if (activeBarrel.value !== null) inspectorLock.value = activeBarrel.value;
-  inspectorRevealInProgress.value = true;
-  expandedSections.value = [section];
-  await nextTick();
-  inspectorRevealInProgress.value = false;
-  if (selected.value === null) return;
-  editorWindowRef.value
-    ?.querySelector<HTMLElement>(`[data-inspector-target="${viewMode.value}-barrel-${selected.value}"]`)
-    ?.scrollIntoView({ block: 'nearest' });
-}
-function onExpandedSectionsUpdate() {
-  if (inspectorRevealInProgress.value) return;
-  inspectorLock.value = null;
 }
 function spriteDataFor(field: WeaponSpriteField) {
   return localSpriteData.value[field] || '';
@@ -487,44 +486,6 @@ function loadSpriteField(field: WeaponSpriteField) {
   setSpriteImage(field, spriteDataFor(field));
   draw();
 }
-function drawSpriteLayer(ctx: CanvasRenderingContext2D, image: InstanceType<typeof Image>) {
-  if (!image.width) return;
-  const origin = spriteOriginRatio[viewMode.value];
-  const drawWidth = image.width * scale.value;
-  const drawHeight = image.height * scale.value;
-  ctx.save();
-  ctx.translate(center().x, center().y);
-  ctx.rotate(Math.PI / 2);
-  drawing.drawPixelImage(ctx, image, -drawWidth * origin.x, -drawHeight * origin.y, drawWidth, drawHeight);
-  ctx.restore();
-}
-function drawCursorPosition(ctx: CanvasRenderingContext2D) {
-  if (!pointerInside.value) return;
-  const coord = toWeapon(last.x, last.y);
-  const point = toCanvas(coord.x, coord.y);
-  const label = cursorLabel(coord);
-  ctx.save();
-  ctx.strokeStyle = '#f8fafc';
-  ctx.fillStyle = '#f8fafc';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(point.x - 6, point.y);
-  ctx.lineTo(point.x + 6, point.y);
-  ctx.moveTo(point.x, point.y - 6);
-  ctx.lineTo(point.x, point.y + 6);
-  ctx.stroke();
-  ctx.font = '11px sans-serif';
-  ctx.textBaseline = 'top';
-  ctx.strokeStyle = '#020617';
-  ctx.lineWidth = 3;
-  ctx.strokeText(label, point.x + 12, point.y + 12);
-  ctx.fillText(label, point.x + 12, point.y + 12);
-  ctx.restore();
-}
-function cursorLabel(coord: { x: number; y: number }) {
-  if (hoverPreview.value?.kind === 'angle') return `${hoverPreview.value.angle}°`;
-  return `${coord.x.toFixed(1)}, ${coord.y.toFixed(1)}`;
-}
 function pointAngle(origin: { x: number; y: number }, point: { x: number; y: number }) {
   const angle = (Math.atan2(point.y - origin.y, point.x - origin.x) * 180) / Math.PI;
   const rounded = Math.round(angle) % 360;
@@ -535,23 +496,16 @@ function previewAngle(mx: number, my: number) {
   const origin = { x: offsets.value[selected.value * 2] || 0, y: offsets.value[selected.value * 2 + 1] || 0 };
   return pointAngle(origin, rawToWeapon(mx, my));
 }
-function updateHoverPreview(mx: number, my: number, modifiers: Pick<MouseEvent | KeyboardEvent, 'ctrlKey' | 'shiftKey'>) {
+function computePreview(mx: number, my: number, modifiers: CanvasModifiers): BarrelPreview {
   if (modifiers.shiftKey) {
-    hoverPreview.value = { kind: 'add', coord: toWeapon(mx, my) };
-    return;
+    return { kind: 'add', coord: toWeapon(mx, my) };
   }
   if (modifiers.ctrlKey && selected.value !== null) {
-    hoverPreview.value = { kind: 'angle', angle: previewAngle(mx, my) };
-    return;
+    return { kind: 'angle', angle: previewAngle(mx, my) };
   }
-  hoverPreview.value = null;
+  return null;
 }
-function clearHoverPreview() {
-  hoverPreview.value = null;
-}
-function drawHoverPreview(ctx: CanvasRenderingContext2D) {
-  const preview = hoverPreview.value;
-  if (!preview) return;
+function drawPreview(ctx: CanvasRenderingContext2D, preview: NonNullable<BarrelPreview>) {
   ctx.save();
   ctx.globalAlpha = 0.65;
   if (preview.kind === 'add') {
@@ -583,30 +537,19 @@ function drawHoverPreview(ctx: CanvasRenderingContext2D) {
   }
   ctx.restore();
 }
-function drawMirrorAxis(ctx: CanvasRenderingContext2D) {
-  const axisY = toCanvas(0, 0).y;
-  ctx.save();
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
-  ctx.fillStyle = 'rgba(56, 189, 248, 0.95)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([6, 6]);
-  ctx.beginPath();
-  ctx.moveTo(0, axisY);
-  ctx.lineTo(ctx.canvas.width, axisY);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.font = '11px sans-serif';
-  ctx.textBaseline = 'bottom';
-  ctx.fillText('镜像中轴', 8, axisY - 4);
-  ctx.restore();
+function cursorLabel(coord: { x: number; y: number }): string {
+  if (hoverPreview.value?.kind === 'angle') return `${hoverPreview.value.angle}°`;
+  return `${coord.x.toFixed(1)}, ${coord.y.toFixed(1)}`;
+}
+function cursorMarker(mx: number, my: number) {
+  const coord = toWeapon(mx, my);
+  return { point: toCanvas(coord.x, coord.y), label: cursorLabel(coord) };
 }
 function draw() {
   const c = canvasRef.value;
   if (!c) return;
   const ctx = c.getContext('2d')!;
-  const cc = center();
-  drawing.clear(ctx, c.width, c.height);
-  drawing.drawGrid(ctx, { center: cc, height: c.height, scale: scale.value, width: c.width });
+  drawBase(ctx);
   if (mirrorMode.value) drawMirrorAxis(ctx);
   ctx.globalAlpha = 0.72;
   for (const field of WEAPON_SPRITE_DRAW_ORDER[viewMode.value]) {
@@ -614,11 +557,11 @@ function draw() {
     if (image) drawSpriteLayer(ctx, image);
   }
   ctx.globalAlpha = 1;
-  drawCrossMarker(ctx, cc, true);
+  drawCrossMarker(ctx, center(), true);
   for (let i = 0; i < barrelCount.value; i++) {
     drawBarrelVisual(ctx, {
       angle: angles.value[i] || 0,
-      hovered: hovered.value === i,
+      hovered: hovered.value?.kind === 'barrel' && hovered.value.i === i,
       index: i,
       point: toCanvas(offsets.value[i * 2] || 0, offsets.value[i * 2 + 1] || 0),
       selected: selected.value === i,
@@ -627,199 +570,76 @@ function draw() {
   drawHoverPreview(ctx);
   drawCursorPosition(ctx);
 }
-function barrelHitRadius() {
-  return 26;
+function drawSpriteLayer(ctx: CanvasRenderingContext2D, image: InstanceType<typeof Image>) {
+  drawWeaponSpriteLayer(ctx, image, WEAPON_SPRITE_ORIGIN_RATIO[viewMode.value], scale.value, center().x, center().y);
 }
-function selectableTargets(mx: number, my: number) {
-  const targets: { i: number; distance: number }[] = [];
+function selectableTargets(mx: number, my: number): CanvasTarget[] {
+  const targets: CanvasTarget[] = [];
   for (let i = barrelCount.value - 1; i >= 0; i -= 1) {
     const p = toCanvas(offsets.value[i * 2] || 0, offsets.value[i * 2 + 1] || 0);
-    targets.push({ i, distance: Math.hypot(mx - p.x, my - p.y) });
+    targets.push({ kind: 'barrel', i, distance: Math.hypot(mx - p.x, my - p.y) });
   }
   return targets;
 }
-function nearestTarget(mx: number, my: number) {
-  const targets = selectableTargets(mx, my);
-  const locked = targets.find((target) => target.i === inspectorLock.value) ?? null;
-  const nearby = targets
-    .filter((target) => target.i !== inspectorLock.value && target.distance <= barrelHitRadius())
-    .sort((a, b) => a.distance - b.distance)[0];
-  if (nearby) return nearby;
-  if (locked) return locked;
-  if (inspectorLock.value === null) return targets.sort((a, b) => a.distance - b.distance)[0] ?? null;
-  return null;
+function selectForDown(e: MouseEvent, mx: number, my: number, pick: CanvasPick): CanvasTarget | null {
+  if (e.ctrlKey && selected.value !== null)
+    return pick.byIdentity(inspectorLock.value) ?? pick.byIdentity(activeTarget.value) ?? pick.byPointer(mx, my);
+  return pick.byIdentity(activeTarget.value) ?? pick.byPointer(mx, my);
 }
-function hitTarget(mx: number, my: number) {
-  const target = nearestTarget(mx, my);
-  if (!target) return null;
-  if (target.i === inspectorLock.value) return target;
-  return target.distance <= barrelHitRadius() ? target : null;
+function resolveDragKind(e: MouseEvent, _mx: number, _my: number, _target: CanvasTarget, selectedAtDown: number | null) {
+  if (e.ctrlKey && selectedAtDown !== null) return 'angle';
+  return 'offset';
 }
-function syncSelection(target: { i: number; distance: number } | null) {
-  if (!target) return false;
-  const changed = hovered.value !== target.i || selected.value !== target.i || activeBarrel.value !== target.i;
-  hovered.value = target.i;
-  selected.value = target.i;
-  activeBarrel.value = target.i;
-  return changed;
-}
-function clearCanvasSelection() {
-  const changed = hovered.value !== null || selected.value !== null || activeBarrel.value !== null;
-  hovered.value = null;
-  selected.value = null;
-  activeBarrel.value = null;
-  return changed;
-}
-function selectIdentityTarget(index: number | null) {
-  if (index === null || index < 0 || index >= barrelCount.value) return null;
-  const point = toCanvas(offsets.value[index * 2] || 0, offsets.value[index * 2 + 1] || 0);
-  const target = { i: index, distance: Math.hypot(last.x - point.x, last.y - point.y) };
-  syncSelection(target);
-  return target;
-}
-function selectForPointer(mx: number, my: number) {
-  const target = nearestTarget(mx, my) ?? hitTarget(mx, my);
-  if (target) {
-    syncSelection(target);
-    return target;
-  }
-  clearCanvasSelection();
-  return null;
-}
-function onDown(e: MouseEvent) {
-  last = { x: e.offsetX, y: e.offsetY };
-  if (e.button === 2) {
-    panning.value = true;
-    return;
-  }
-  if (e.button !== 0) return;
-  if (e.shiftKey) {
-    pushUndo();
-    addBarrelAt(viewMode.value, toWeapon(last.x, last.y));
-    dragging.value = true;
-    clearHoverPreview();
-    draw();
-    return;
-  }
-  if (e.ctrlKey && selected.value !== null) {
-    selectIdentityTarget(inspectorLock.value) ?? selectIdentityTarget(activeBarrel.value) ?? selectForPointer(last.x, last.y);
-    if (selected.value === null) return;
-    pushUndo();
-    captureMirrorPair();
-    angleDragging.value = true;
-    angles.value[selected.value] = previewAngle(last.x, last.y);
-    applyMirrorAngle();
-    updateHoverPreview(last.x, last.y, e);
-    draw();
-    return;
-  }
-  const target = selectIdentityTarget(activeBarrel.value) ?? selectForPointer(last.x, last.y);
-  if (target) {
-    pushUndo();
-    captureMirrorPair();
-    dragging.value = true;
-  }
-  draw();
-}
-function onMove(e: MouseEvent) {
-  const mx = e.offsetX;
-  const my = e.offsetY;
-  pointerInside.value = true;
-  const dx = mx - last.x;
-  const dy = my - last.y;
-  last = { x: mx, y: my };
-  if (panning.value) {
-    viewport.panBy(dx, dy);
-    draw();
-    return;
-  }
-  if (angleDragging.value && selected.value !== null) {
+function updateInteraction(kind: string, mx: number, my: number) {
+  if (kind === 'angle' && selected.value !== null) {
     angles.value[selected.value] = previewAngle(mx, my);
-    applyMirrorAngle();
-    updateHoverPreview(mx, my, e);
-    draw();
+    setPreview({ kind: 'angle', angle: angles.value[selected.value] });
     return;
   }
-  if (!dragging.value || selected.value === null) {
-    if (e.shiftKey || e.ctrlKey) {
-      updateHoverPreview(mx, my, e);
-      draw();
-      return;
-    }
-    if (hoverPreview.value) clearHoverPreview();
-    const target = nearestTarget(mx, my);
-    if (target) syncSelection(target);
-    else clearCanvasSelection();
-    draw();
-    return;
+  if (kind === 'offset' && selected.value !== null) {
+    const coord = toWeapon(mx, my);
+    offsets.value[selected.value * 2] = coord.x;
+    offsets.value[selected.value * 2 + 1] = coord.y;
   }
-  const coord = toWeapon(mx, my);
-  offsets.value[selected.value * 2] = coord.x;
-  offsets.value[selected.value * 2 + 1] = coord.y;
-  if (mirrorMode.value && mirrorPair.value !== null) {
-    offsets.value[mirrorPair.value * 2] = mirrorLateral(coord.x);
-    offsets.value[mirrorPair.value * 2 + 1] = coord.y;
-  }
-  draw();
 }
 function captureMirrorPair() {
   mirrorPair.value = null;
   if (!mirrorMode.value || selected.value === null) return;
   const index = findMirrorBarrelIndex(offsets.value, selected.value);
-  if (index !== null) mirrorPair.value = index;
+  if (index !== null) mirrorPair.value = { kind: 'barrel', i: index };
+}
+function applyMirrorDrag(kind: string) {
+  if (kind === 'angle') {
+    applyMirrorAngle();
+    return;
+  }
+  if (kind === 'offset' && mirrorMode.value && mirrorPair.value !== null && selected.value !== null) {
+    const x = offsets.value[selected.value * 2] || 0;
+    const y = offsets.value[selected.value * 2 + 1] || 0;
+    offsets.value[mirrorPair.value.i * 2] = mirrorLateral(x);
+    offsets.value[mirrorPair.value.i * 2 + 1] = y;
+  }
 }
 function applyMirrorAngle() {
   if (!mirrorMode.value || mirrorPair.value === null || selected.value === null) return;
-  angles.value[mirrorPair.value] = mirrorAngleDeg(angles.value[selected.value] || 0);
-}
-function onUp() {
-  dragging.value = false;
-  angleDragging.value = false;
-  panning.value = false;
-  mirrorPair.value = null;
-  clearHoverPreview();
-  draw();
-}
-function onKeyUp(event: KeyboardEvent) {
-  if (event.key !== 'Shift' && event.key !== 'Control') return;
-  if (!hoverPreview.value) return;
-  updateHoverPreview(last.x, last.y, event);
-  if (!hoverPreview.value) draw();
-}
-function onKeyDown(event: KeyboardEvent) {
-  if (event.key !== 'Shift' && event.key !== 'Control') return;
-  if (!pointerInside.value || dragging.value || angleDragging.value || panning.value) return;
-  updateHoverPreview(last.x, last.y, event);
-  if (hoverPreview.value) draw();
-}
-function onLeave() {
-  dragging.value = false;
-  angleDragging.value = false;
-  panning.value = false;
-  pointerInside.value = false;
-  hovered.value = null;
-  activeBarrel.value = null;
-  mirrorPair.value = null;
-  clearHoverPreview();
-  draw();
-}
-function onWheel(e: WheelEvent) {
-  viewport.zoom(e.deltaY);
-  draw();
+  angles.value[mirrorPair.value.i] = mirrorAngleDeg(angles.value[selected.value] || 0);
 }
 function setOffset(axis: 0 | 1, value: number | null) {
   if (selected.value === null) return;
   offsets.value[selected.value * 2 + axis] = value || 0;
   draw();
+  commitDraft();
 }
 function setAngle(value: number | null) {
   if (selected.value === null) return;
   angles.value[selected.value] = value || 0;
   draw();
+  commitDraft();
 }
 function addBarrelFor(mode: WeaponViewMode) {
   pushUndo();
   addBarrelAt(mode, { x: 0, y: 0 });
+  commitDraft();
   draw();
 }
 function addBarrelAt(mode: WeaponViewMode, coord: { x: number; y: number }) {
@@ -831,27 +651,30 @@ function addBarrelAt(mode: WeaponViewMode, coord: { x: number; y: number }) {
   if (mirrorMode.value && Math.abs(coord.x) > MIRROR_EPSILON) {
     nextOffsets.push(mirrorLateral(coord.x), coord.y);
     nextAngles.push(0);
-    mirrorPair.value = sourceIndex + 1;
+    mirrorPair.value = { kind: 'barrel', i: sourceIndex + 1 };
   } else {
     mirrorPair.value = null;
   }
   viewMode.value = mode;
   selected.value = sourceIndex;
-  hovered.value = selected.value;
-  activeBarrel.value = selected.value;
+  hovered.value = { kind: 'barrel', i: selected.value };
+  activeTarget.value = { kind: 'barrel', i: selected.value };
   inspectorLock.value = null;
 }
 function deleteBarrelFor(mode: WeaponViewMode) {
   if (viewMode.value !== mode || selected.value === null) return;
   pushUndo();
   deleteSelectedBarrelData(mode);
+  commitDraft();
   draw();
 }
-function deleteSelectedBarrel() {
-  if (selected.value === null) return;
+function deleteSelectedBarrel(): boolean {
+  if (selected.value === null) return false;
   pushUndo();
   deleteSelectedBarrelData(viewMode.value);
+  commitDraft();
   draw();
+  return true;
 }
 function deleteSelectedBarrelData(mode: WeaponViewMode) {
   if (selected.value === null) return;
@@ -865,13 +688,20 @@ function deleteSelectedBarrelData(mode: WeaponViewMode) {
   mirrorPair.value = null;
   selected.value = null;
   hovered.value = null;
-  activeBarrel.value = null;
+  activeTarget.value = null;
   inspectorLock.value = null;
+}
+function actionDown(e: MouseEvent, mx: number, my: number) {
+  if (!e.shiftKey) return null;
+  pushUndo();
+  addBarrelAt(viewMode.value, toWeapon(mx, my));
+  return 'offset';
 }
 async function pickWeaponSprite(field: WeaponSpriteField) {
   const relative = await pickModImageReference({ sessionId: props.sessionId, modRoot: props.modRoot, title: '选择武器贴图' });
   if (!relative) return;
   localWeapon.value[field] = relative;
+  commitDraft();
   setSpriteImage(field, '');
 }
 function save() {
@@ -883,9 +713,9 @@ watch(
     localWeapon.value = normalizeWeaponSpec(props.weapon);
     selected.value = null;
     hovered.value = null;
-    activeBarrel.value = null;
+    activeTarget.value = null;
     inspectorLock.value = null;
-    hoverPreview.value = null;
+    clearPreview();
   },
 );
 watch(
@@ -896,27 +726,4 @@ watch(
   },
   { deep: true },
 );
-watch(
-  localWeapon,
-  (weapon) => {
-    emit('draft-changed', weapon);
-    draw();
-  },
-  { deep: true, flush: 'sync' },
-);
-onMounted(() => {
-  window.addEventListener('resize', resizeCanvas);
-  window.addEventListener('keydown', onKeyDown);
-  window.addEventListener('keyup', onKeyUp);
-  nextTick(() => {
-    editorWindowRef.value?.focus({ preventScroll: true });
-    resizeCanvas();
-    loadAllSpriteImages();
-  });
-});
-onUnmounted(() => {
-  window.removeEventListener('resize', resizeCanvas);
-  window.removeEventListener('keydown', onKeyDown);
-  window.removeEventListener('keyup', onKeyUp);
-});
 </script>

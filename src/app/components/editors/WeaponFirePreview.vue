@@ -63,7 +63,15 @@ import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import EditorInspector from '@/app/components/editors/common/EditorInspector.vue';
 import type { RowData } from '@/shared/types';
 import { num, rgba, str } from '@/shared/lib/starsector';
-import { WEAPON_SPRITE_DRAW_ORDER, type WeaponSpriteField, type WeaponViewMode } from '@/domain/editors/lib/weapon-sprite-fields';
+import { drawWeaponSpriteLayer } from '@/domain/editors/lib/canvas-visuals';
+import {
+  WEAPON_SPRITE_DRAW_ORDER,
+  WEAPON_SPRITE_ORIGIN_RATIO,
+  weaponAnglesKey,
+  weaponBarrelOffsetsFor,
+  type WeaponSpriteField,
+  type WeaponViewMode,
+} from '@/domain/editors/lib/weapon-sprite-fields';
 
 const props = defineProps<{
   weaponId: string;
@@ -162,22 +170,12 @@ const barrelCount = computed(() => Math.max(1, Math.floor(params.value.offsets.l
 const isBurstBeam = computed(
   () => params.value.specClass === 'beam' && params.value.hasBurstSize && params.value.hasBurstDelay && params.value.burstDelay > 0,
 );
-const spriteOriginRatio: Record<WeaponViewMode, { x: number; y: number }> = {
-  turret: { x: 0.5, y: 0.5 },
-  hardpoint: { x: 0.5, y: 0.75 },
-};
-function offsetsKeyFor(mode: WeaponViewMode) {
-  return mode === 'turret' ? 'turretOffsets' : 'hardpointOffsets';
-}
-function anglesKeyFor(mode: WeaponViewMode) {
-  return mode === 'turret' ? 'turretAngleOffsets' : 'hardpointAngleOffsets';
-}
+const spriteOriginRatio = WEAPON_SPRITE_ORIGIN_RATIO;
 function offsetsFor(mode: WeaponViewMode) {
-  const values = wpn.value[offsetsKeyFor(mode)];
-  return Array.isArray(values) && values.length >= 2 ? (values as number[]) : [10, 0];
+  return weaponBarrelOffsetsFor(wpn.value, mode);
 }
 function anglesFor(mode: WeaponViewMode) {
-  const values = wpn.value[anglesKeyFor(mode)];
+  const values = wpn.value[weaponAnglesKey(mode)];
   return Array.isArray(values) ? (values as number[]) : [];
 }
 function setView(mode: WeaponViewMode) {
@@ -377,18 +375,7 @@ function updateProjectiles(dt: number) {
   projectiles = projectiles.filter((o) => o.age < 8 && (!o.exploding || o.explosionAge < 0.5));
 }
 function drawSpriteLayer(ctx: CanvasRenderingContext2D, image: InstanceType<typeof Image>) {
-  if (!image.width) return;
-  const origin = spriteOriginRatio[viewMode.value];
-  const scale = scalePx();
-  const drawWidth = image.width * scale;
-  const drawHeight = image.height * scale;
-  const point = weaponOrigin();
-  ctx.save();
-  ctx.translate(point.x, point.y);
-  ctx.rotate(Math.PI / 2);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(image, -drawWidth * origin.x, -drawHeight * origin.y, drawWidth, drawHeight);
-  ctx.restore();
+  drawWeaponSpriteLayer(ctx, image, spriteOriginRatio[viewMode.value], scalePx(), weaponOrigin().x, weaponOrigin().y);
 }
 function drawWeapon(ctx: CanvasRenderingContext2D) {
   const origin = weaponOrigin();

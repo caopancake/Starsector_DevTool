@@ -13,19 +13,30 @@
           <n-collapse-item title="基础属性" name="basic">
             <div class="form-grid">
               <label>id</label><n-input :value="projectileId" disabled /> <label>specClass</label
-              ><n-select v-model:value="localProjectile.specClass" :options="toOptions(['projectile', 'missile'])" />
+              ><n-select
+                :value="localProjectile.specClass"
+                :options="toOptions(['projectile', 'missile'])"
+                @update:value="setField('specClass', $event)"
+              />
             </div>
           </n-collapse-item>
           <template v-if="specClass === 'projectile'">
             <n-collapse-item title="弹体外观" name="visual">
               <div class="form-grid">
                 <label>spawnType</label
-                ><n-select :options="toOptions(['BALLISTIC', 'BALLISTIC_AS_BEAM', 'ENERGY'])" v-model:value="localProjectile.spawnType" />
-                <label>bulletSprite</label><n-input v-model:value="localProjectile.bulletSprite" /> <label>length</label
-                ><n-input-number v-model:value="localProjectile.length" /> <label>width</label
-                ><n-input-number v-model:value="localProjectile.width" /> <label>textureScrollSpeed</label
-                ><n-input-number v-model:value="localProjectile.textureScrollSpeed" /> <label>pixelsPerTexel</label
-                ><n-input-number v-model:value="localProjectile.pixelsPerTexel" />
+                ><n-select
+                  :options="toOptions(['BALLISTIC', 'BALLISTIC_AS_BEAM', 'ENERGY'])"
+                  :value="localProjectile.spawnType"
+                  @update:value="setField('spawnType', $event)"
+                />
+                <label>bulletSprite</label
+                ><n-input :value="localProjectile.bulletSprite" @update:value="setField('bulletSprite', $event)" /> <label>length</label
+                ><n-input-number :value="localProjectile.length" @update:value="setField('length', $event)" /> <label>width</label
+                ><n-input-number :value="localProjectile.width" @update:value="setField('width', $event)" />
+                <label>textureScrollSpeed</label
+                ><n-input-number :value="localProjectile.textureScrollSpeed" @update:value="setField('textureScrollSpeed', $event)" />
+                <label>pixelsPerTexel</label
+                ><n-input-number :value="localProjectile.pixelsPerTexel" @update:value="setField('pixelsPerTexel', $event)" />
               </div>
               <ColorPicker label="fringeColor" v-model="fringeColor" />
               <ColorPicker label="coreColor" v-model="coreColor" />
@@ -48,11 +59,14 @@
                       'NONE',
                     ])
                   "
-                  v-model:value="localProjectile.collisionClass"
+                  :value="localProjectile.collisionClass"
+                  @update:value="setField('collisionClass', $event)"
                 />
-                <label>collisionClassByFighter</label><n-input v-model:value="localProjectile.collisionClassByFighter" />
-                <label>fadeTime</label><n-input-number v-model:value="localProjectile.fadeTime" /> <label>hitGlowRadius</label
-                ><n-input-number v-model:value="localProjectile.hitGlowRadius" />
+                <label>collisionClassByFighter</label
+                ><n-input :value="localProjectile.collisionClassByFighter" @update:value="setField('collisionClassByFighter', $event)" />
+                <label>fadeTime</label><n-input-number :value="localProjectile.fadeTime" @update:value="setField('fadeTime', $event)" />
+                <label>hitGlowRadius</label
+                ><n-input-number :value="localProjectile.hitGlowRadius" @update:value="setField('hitGlowRadius', $event)" />
               </div>
             </n-collapse-item>
           </template>
@@ -60,13 +74,17 @@
             <n-collapse-item title="导弹外观" name="missileVisual">
               <div class="form-grid">
                 <label>missileType</label
-                ><n-select v-model:value="localProjectile.missileType" :options="toOptions(['MISSILE', 'ROCKET', 'MIRV', 'PHASE'])" />
-                <label>sprite</label><n-input v-model:value="localProjectile.sprite" /> <label>size W</label
-                ><n-input-number :value="size[0]" @update:value="setArray('size', 0, $event)" /> <label>size H</label
+                ><n-select
+                  :value="localProjectile.missileType"
+                  :options="toOptions(['MISSILE', 'ROCKET', 'MIRV', 'PHASE'])"
+                  @update:value="setField('missileType', $event)"
+                />
+                <label>sprite</label><n-input :value="localProjectile.sprite" @update:value="setField('sprite', $event)" />
+                <label>size W</label><n-input-number :value="size[0]" @update:value="setArray('size', 0, $event)" /> <label>size H</label
                 ><n-input-number :value="size[1]" @update:value="setArray('size', 1, $event)" /> <label>center X</label
                 ><n-input-number :value="center[0]" @update:value="setArray('center', 0, $event)" /> <label>center Y</label
                 ><n-input-number :value="center[1]" @update:value="setArray('center', 1, $event)" /> <label>collisionRadius</label
-                ><n-input-number v-model:value="localProjectile.collisionRadius" />
+                ><n-input-number :value="localProjectile.collisionRadius" @update:value="setField('collisionRadius', $event)" />
               </div>
               <ColorPicker label="explosionColor" v-model="explosionColor" />
               <n-button size="small" tertiary @click="pickProjectileSprite('sprite')">浏览贴图（引用 Mod 内文件）</n-button>
@@ -80,17 +98,20 @@
                   <span>{{ i }}</span>
                   <n-input-number :value="slotLoc(slot)[0]" @update:value="setSlotLoc(i, 0, $event)" />
                   <n-input-number :value="slotLoc(slot)[1]" @update:value="setSlotLoc(i, 1, $event)" />
-                  <n-button size="tiny" type="error" ghost @click="engineSlots.splice(i, 1)">删除</n-button>
+                  <n-button size="tiny" type="error" ghost @click="removeEngineSlot(i)">删除</n-button>
                 </div>
               </div>
-              <n-button @click="engineSlots.push({ loc: [0, 0], angle: 180, width: 8, length: 20, style: 'CUSTOM' })">添加引擎槽</n-button>
+              <n-button @click="addEngineSlot">添加引擎槽</n-button>
             </n-collapse-item>
             <n-collapse-item title="爆炸与时间" name="explosion">
               <div class="form-grid">
-                <label>explosionRadius</label><n-input-number v-model:value="localProjectile.explosionRadius" /> <label>flameoutTime</label
-                ><n-input-number v-model:value="localProjectile.flameoutTime" /> <label>armingTime</label
-                ><n-input-number v-model:value="localProjectile.armingTime" /> <label>fadeTime</label
-                ><n-input-number v-model:value="localProjectile.fadeTime" />
+                <label>explosionRadius</label
+                ><n-input-number :value="localProjectile.explosionRadius" @update:value="setField('explosionRadius', $event)" />
+                <label>flameoutTime</label
+                ><n-input-number :value="localProjectile.flameoutTime" @update:value="setField('flameoutTime', $event)" />
+                <label>armingTime</label
+                ><n-input-number :value="localProjectile.armingTime" @update:value="setField('armingTime', $event)" />
+                <label>fadeTime</label><n-input-number :value="localProjectile.fadeTime" @update:value="setField('fadeTime', $event)" />
               </div>
               <ObjectEditor v-model="explosionSpec" />
             </n-collapse-item>
@@ -144,7 +165,7 @@ const emit = defineEmits<{
 const feedback = useAppFeedback();
 const localProjectile = ref<RowData>(normalizeProjectileSpec(props.projectile || { id: props.projectileId, specClass: 'projectile' }));
 const expandedSections = ref(['basic']);
-const { bindObjectField } = useObjectField(localProjectile);
+const { bindObjectField } = useObjectField(localProjectile, { onCommit: commitDraft });
 const { pickModImageReference } = useResourceReference();
 const specClass = computed(() => str(localProjectile.value.specClass, 'projectile'));
 const size = computed(() => arr(localProjectile.value.size, [0, 0]));
@@ -155,23 +176,31 @@ const engineSlots = computed<RowData[]>(() =>
 const genericJson = ref(JSON.stringify(localProjectile.value, null, 2));
 const fringeColor = computed({
   get: () => arr(localProjectile.value.fringeColor, [255, 255, 255, 255]),
-  set: (v) => (localProjectile.value.fringeColor = v),
+  set: (v) => setField('fringeColor', v),
 });
 const coreColor = computed({
   get: () => arr(localProjectile.value.coreColor, [255, 255, 255, 255]),
-  set: (v) => (localProjectile.value.coreColor = v),
+  set: (v) => setField('coreColor', v),
 });
 const explosionColor = computed({
   get: () => arr(localProjectile.value.explosionColor, [255, 200, 50, 255]),
-  set: (v) => (localProjectile.value.explosionColor = v),
+  set: (v) => setField('explosionColor', v),
 });
 const engineSpec = bindObjectField('engineSpec');
 const explosionSpec = bindObjectField('explosionSpec');
 
+function commitDraft() {
+  emit('draft-changed', localProjectile.value);
+}
+function setField(key: string, value: RowData[string]) {
+  localProjectile.value[key] = value;
+  commitDraft();
+}
 function setArray(key: string, idx: number, value: number | null) {
   const v = arr(localProjectile.value[key], [0, 0]);
   v[idx] = value || 0;
   localProjectile.value[key] = v;
+  commitDraft();
 }
 function slotLoc(slot: RowData) {
   return arr(slot.loc, [0, 0]);
@@ -180,10 +209,20 @@ function setSlotLoc(i: number, axis: number, value: number | null) {
   const loc = slotLoc(engineSlots.value[i]);
   loc[axis] = value || 0;
   engineSlots.value[i].loc = loc;
+  commitDraft();
+}
+function addEngineSlot() {
+  engineSlots.value.push({ loc: [0, 0], angle: 180, width: 8, length: 20, style: 'CUSTOM' });
+  commitDraft();
+}
+function removeEngineSlot(i: number) {
+  engineSlots.value.splice(i, 1);
+  commitDraft();
 }
 function applyGeneric() {
   try {
     localProjectile.value = normalizeProjectileSpec(JSON.parse(genericJson.value));
+    commitDraft();
   } catch {
     feedback.error('JSON 无效');
   }
@@ -191,7 +230,7 @@ function applyGeneric() {
 async function pickProjectileSprite(field: 'bulletSprite' | 'sprite') {
   const relative = await pickModImageReference({ sessionId: props.sessionId, modRoot: props.modRoot, title: '选择弹体贴图' });
   if (!relative) return;
-  localProjectile.value[field] = relative;
+  setField(field, relative);
 }
 watch(
   () => props.draftRevision,
@@ -199,12 +238,5 @@ watch(
     localProjectile.value = normalizeProjectileSpec(props.projectile || { id: props.projectileId, specClass: 'projectile' });
     genericJson.value = JSON.stringify(localProjectile.value, null, 2);
   },
-);
-watch(
-  localProjectile,
-  (projectile) => {
-    emit('draft-changed', projectile);
-  },
-  { deep: true, flush: 'sync' },
 );
 </script>

@@ -1,7 +1,7 @@
 import { computed, type Ref } from 'vue';
 import type { RowData } from '@/shared/types';
 
-export function useObjectField(target: Ref<RowData>) {
+export function useObjectField(target: Ref<RowData>, options: { onCommit?: () => void } = {}) {
   function objectField(key: string): RowData {
     const value = target.value[key];
     return value && typeof value === 'object' && !Array.isArray(value) ? (value as RowData) : {};
@@ -12,6 +12,7 @@ export function useObjectField(target: Ref<RowData>) {
       get: () => objectField(key),
       set: (value) => {
         target.value[key] = value;
+        options.onCommit?.();
       },
     });
   }

@@ -38,28 +38,30 @@
           >
             <n-collapse-item title="船体属性" name="basic">
               <div class="form-grid">
-                <label>hullId</label><n-input v-model:value="localShip.hullId" /> <label>hullName</label
-                ><n-input v-model:value="localShip.hullName" /> <label>hullSize</label
+                <label>hullId</label><n-input :value="localShip.hullId" @update:value="setField('hullId', $event)" /> <label>hullName</label
+                ><n-input :value="localShip.hullName" @update:value="setField('hullName', $event)" /> <label>hullSize</label
                 ><n-select
-                  v-model:value="localShip.hullSize"
+                  :value="localShip.hullSize"
                   :options="toOptions(['FRIGATE', 'DESTROYER', 'CRUISER', 'CAPITAL_SHIP', 'FIGHTER'])"
+                  @update:value="setField('hullSize', $event)"
                 />
                 <label>style</label
                 ><n-select
-                  v-model:value="localShip.style"
+                  :value="localShip.style"
                   filterable
                   tag
                   :options="toOptions(['LOW_TECH', 'MIDLINE', 'HIGH_TECH', 'OMEGA', 'CUSTOM'])"
+                  @update:value="setField('style', $event)"
                 />
-                <label>width</label><n-input-number v-model:value="localShip.width" @update:value="draw" /> <label>height</label
-                ><n-input-number v-model:value="localShip.height" @update:value="draw" />
+                <label>width</label><n-input-number :value="localShip.width" @update:value="setVisualField('width', $event)" />
+                <label>height</label><n-input-number :value="localShip.height" @update:value="setVisualField('height', $event)" />
               </div>
             </n-collapse-item>
             <n-collapse-item title="贴图" name="sprite">
               <div class="form-grid">
                 <label>spriteName</label>
                 <div class="sprite-field-row">
-                  <n-input v-model:value="localShip.spriteName" @change="loadSprite" />
+                  <n-input :value="localShip.spriteName" @update:value="setField('spriteName', $event)" @change="loadSprite" />
                   <n-button
                     class="sprite-icon-button"
                     tertiary
@@ -86,12 +88,12 @@
                 ><n-input-number :value="center[0]" @update:value="setArray('center', 0, $event)" />
                 <label data-inspector-field="center-y">center Y</label
                 ><n-input-number :value="center[1]" @update:value="setArray('center', 1, $event)" /> <label>collisionRadius</label
-                ><n-input-number v-model:value="localShip.collisionRadius" @update:value="draw" />
+                ><n-input-number :value="localShip.collisionRadius" @update:value="setVisualField('collisionRadius', $event)" />
                 <label data-inspector-field="shield-x">shield X</label
                 ><n-input-number :value="shieldCenter[0]" @update:value="setArray('shieldCenter', 0, $event)" />
                 <label data-inspector-field="shield-y">shield Y</label
                 ><n-input-number :value="shieldCenter[1]" @update:value="setArray('shieldCenter', 1, $event)" /> <label>shieldRadius</label
-                ><n-input-number v-model:value="localShip.shieldRadius" @update:value="draw" />
+                ><n-input-number :value="localShip.shieldRadius" @update:value="setVisualField('shieldRadius', $event)" />
               </div>
             </n-collapse-item>
             <n-collapse-item title="武器槽" name="weapons">
@@ -107,11 +109,15 @@
                 </button>
               </div>
               <div v-if="mode === 'weapon' && selectedSlot" class="form-grid">
-                <label>id</label><n-input v-model:value="selectedSlot.id" /> <label>size</label
-                ><n-select v-model:value="selectedSlot.size" :options="toOptions(['SMALL', 'MEDIUM', 'LARGE'])" @update:value="draw" />
+                <label>id</label><n-input :value="selectedSlot.id" @update:value="setSlotField('id', $event)" /> <label>size</label
+                ><n-select
+                  :value="selectedSlot.size"
+                  :options="toOptions(['SMALL', 'MEDIUM', 'LARGE'])"
+                  @update:value="setSlotField('size', $event)"
+                />
                 <label>type</label
                 ><n-select
-                  v-model:value="selectedSlot.type"
+                  :value="selectedSlot.type"
                   :options="
                     toOptions([
                       'BALLISTIC',
@@ -127,12 +133,17 @@
                       'STATION_MODULE',
                     ])
                   "
-                  @update:value="draw"
+                  @update:value="setSlotField('type', $event)"
                 />
-                <label>mount</label><n-select v-model:value="selectedSlot.mount" :options="toOptions(['TURRET', 'HARDPOINT', 'HIDDEN'])" />
-                <label>angle</label><n-input-number v-model:value="selectedSlot.angle" @update:value="draw" /> <label>arc</label
-                ><n-input-number v-model:value="selectedSlot.arc" @update:value="draw" /> <label>loc X</label
-                ><n-input-number :value="slotLoc[0]" @update:value="setSlotLoc(0, $event)" /> <label>loc Y</label
+                <label>mount</label
+                ><n-select
+                  :value="selectedSlot.mount"
+                  :options="toOptions(['TURRET', 'HARDPOINT', 'HIDDEN'])"
+                  @update:value="setSlotField('mount', $event)"
+                />
+                <label>angle</label><n-input-number :value="selectedSlot.angle" @update:value="setSlotField('angle', $event)" />
+                <label>arc</label><n-input-number :value="selectedSlot.arc" @update:value="setSlotField('arc', $event)" />
+                <label>loc X</label><n-input-number :value="slotLoc[0]" @update:value="setSlotLoc(0, $event)" /> <label>loc Y</label
                 ><n-input-number :value="slotLoc[1]" @update:value="setSlotLoc(1, $event)" />
               </div>
               <div class="action-row button-row">
@@ -152,7 +163,7 @@
                 </button>
               </div>
               <div v-if="mode === 'launchBay' && selectedSlot" class="form-grid">
-                <label>id</label><n-input v-model:value="selectedSlot.id" /> <label>loc X</label
+                <label>id</label><n-input :value="selectedSlot.id" @update:value="setSlotField('id', $event)" /> <label>loc X</label
                 ><n-input-number :value="slotLoc[0]" @update:value="setSlotLoc(0, $event)" /> <label>loc Y</label
                 ><n-input-number :value="slotLoc[1]" @update:value="setSlotLoc(1, $event)" />
               </div>
@@ -173,15 +184,18 @@
                 </button>
               </div>
               <div v-if="mode === 'engine' && selectedEngine" class="form-grid">
-                <label>angle</label><n-input-number v-model:value="selectedEngine.angle" @update:value="draw" /> <label>width</label
-                ><n-input-number v-model:value="selectedEngine.width" @update:value="draw" /> <label>length</label
-                ><n-input-number v-model:value="selectedEngine.length" @update:value="draw" /> <label>contrailSize</label
-                ><n-input-number v-model:value="selectedEngine.contrailSize" /> <label>style</label
+                <label>angle</label><n-input-number :value="selectedEngine.angle" @update:value="setEngineField('angle', $event)" />
+                <label>width</label><n-input-number :value="selectedEngine.width" @update:value="setEngineField('width', $event)" />
+                <label>length</label><n-input-number :value="selectedEngine.length" @update:value="setEngineField('length', $event)" />
+                <label>contrailSize</label
+                ><n-input-number :value="selectedEngine.contrailSize" @update:value="setEngineField('contrailSize', $event)" />
+                <label>style</label
                 ><n-select
-                  v-model:value="selectedEngine.style"
+                  :value="selectedEngine.style"
                   filterable
                   tag
                   :options="toOptions(['LOW_TECH', 'MIDLINE', 'HIGH_TECH', 'OMEGA', 'CUSTOM'])"
+                  @update:value="setEngineField('style', $event)"
                 />
                 <label>loc X</label><n-input-number :value="engineLoc[0]" @update:value="setEngineLoc(0, $event)" /> <label>loc Y</label
                 ><n-input-number :value="engineLoc[1]" @update:value="setEngineLoc(1, $event)" />
@@ -210,9 +224,14 @@
             </n-collapse-item>
             <n-collapse-item title="高级属性" name="advanced">
               <div class="form-grid">
-                <label>viewOffset</label><n-input-number v-model:value="localShip.viewOffset" /> <label>coversColor</label
-                ><n-input v-model:value="localShip.coversColor" placeholder="R,G,B,A (如 255,255,255,255)" /> <label>moduleAnchor X</label
-                ><n-input-number :value="moduleAnchor[0]" @update:value="setArray('moduleAnchor', 0, $event)" />
+                <label>viewOffset</label><n-input :value="localShip.viewOffset" @update:value="setField('viewOffset', $event)" />
+                <label>coversColor</label
+                ><n-input
+                  :value="localShip.coversColor"
+                  placeholder="R,G,B,A (如 255,255,255,255)"
+                  @update:value="setField('coversColor', $event)"
+                />
+                <label>moduleAnchor X</label><n-input-number :value="moduleAnchor[0]" @update:value="setArray('moduleAnchor', 0, $event)" />
                 <label>moduleAnchor Y</label><n-input-number :value="moduleAnchor[1]" @update:value="setArray('moduleAnchor', 1, $event)" />
               </div>
             </n-collapse-item>
@@ -235,7 +254,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
+import { computed, ref, useTemplateRef, watch } from 'vue';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
@@ -243,10 +262,15 @@ import EditorInspector from '@/app/components/editors/common/EditorInspector.vue
 import type { RowData } from '@/shared/types';
 import { arr, deepClone, num, str } from '@/shared/lib/starsector';
 import { normalizeShipSpec } from '@/domain/editors/lib/normalize';
-import { useHistory } from '@/app/composables/use-history';
-import { useCanvasDrawing } from '@/app/composables/use-canvas-drawing';
+import {
+  createCanvasEditorState,
+  useCanvasEditor,
+  type CanvasInspectorReveal,
+  type CanvasModifiers,
+  type CanvasPick,
+  type CanvasTarget,
+} from '@/app/composables/use-canvas-editor';
 import { useCanvasViewport } from '@/app/composables/use-canvas-viewport';
-import { useEditorShortcuts } from '@/app/composables/use-editor-shortcuts';
 import { useResourceReference } from '@/app/composables/use-resource-reference';
 import { editorCollapseTheme, snapToStep, toOptions } from '@/domain/editors/lib/editor-constants';
 import { drawBoundsVisual, drawEngineVisual, drawRadiusField, drawWeaponSlotVisual } from '@/domain/editors/lib/canvas-visuals';
@@ -276,45 +300,15 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ close: []; 'save-requested': []; 'draft-changed': [ship: RowData]; 'load-external': [] }>();
 const feedback = useAppFeedback();
+const { pickModImageReference } = useResourceReference();
 const editorWindowRef = useTemplateRef<HTMLElement>('editorWindowRef');
 const stageRef = useTemplateRef<HTMLElement>('stageRef');
 const canvasRef = useTemplateRef<HTMLCanvasElement>('canvasRef');
 const localShip = ref<RowData>(normalizeShipSpec(props.ship));
 const mode = ref<'overview' | 'ranges' | 'bounds' | 'weapon' | 'launchBay' | 'engine'>('overview');
-const selected = ref<number | null>(null);
 const expandedSections = ref(['basic']);
-const viewport = useCanvasViewport(canvasRef, 1, 10);
-const { scale } = viewport;
 const img = new Image();
 const spriteSize = ref({ width: 0, height: 0 });
-const dragging = ref<ShipDragKind | null>(null);
-const hovered = ref<ShipCanvasTargetIdentity | null>(null);
-const activeTarget = ref<ShipCanvasTargetIdentity | null>(null);
-const inspectorLock = ref<ShipCanvasTargetIdentity | null>(null);
-const panning = ref(false);
-const dragStarted = ref(false);
-const pointerInside = ref(false);
-const inspectorRevealInProgress = ref(false);
-const mirrorMode = ref(false);
-const mirrorPair = ref<{ kind: ShipCanvasTarget['kind']; index: number } | null>(null);
-let last = { x: 0, y: 0 };
-const history = useHistory<RowData>();
-const drawing = useCanvasDrawing();
-const { pickModImageReference } = useResourceReference();
-const modes = [
-  { shortcut: 'P', value: 'overview', label: '总览' },
-  { shortcut: 'C', value: 'ranges', label: '范围' },
-  { shortcut: 'B', value: 'bounds', label: '边界' },
-  { shortcut: 'W', value: 'weapon', label: '武器' },
-  { shortcut: 'L', value: 'launchBay', label: '甲板' },
-  { shortcut: 'E', value: 'engine', label: '引擎' },
-] as const;
-type ShipCanvasTarget = { kind: 'weapon' | 'engine' | 'bound' | 'center' | 'shield'; i: number; distance: number };
-type ShipCanvasTargetIdentity = Pick<ShipCanvasTarget, 'kind' | 'i'>;
-type ShipDragKind =
-  ShipCanvasTarget['kind'] | 'collisionRadius' | 'shieldRadius' | 'weaponAngle' | 'weaponArc' | 'engineAngle' | 'engineSize';
-type InspectorSection = 'basic' | 'sprite' | 'props' | 'weapons' | 'launchBays' | 'engines' | 'bounds' | 'advanced' | 'builtins';
-type ModifierState = Pick<MouseEvent | KeyboardEvent, 'altKey' | 'ctrlKey' | 'shiftKey'>;
 type HoverPreview =
   | { kind: 'collisionRadius'; radius: number }
   | { kind: 'shieldRadius'; radius: number }
@@ -328,7 +322,78 @@ type HoverPreview =
   | { kind: 'engineMove'; coord: number[]; engine: RowData }
   | { kind: 'engineSize'; length: number; width: number }
   | null;
-const hoverPreview = ref<HoverPreview>(null);
+const viewport = useCanvasViewport(canvasRef, 1, 10);
+const { scale } = viewport;
+const editorState = createCanvasEditorState<HoverPreview>();
+const { activeTarget, clearPreview, dragKind, hoverPreview, hovered, inspectorLock, mirrorMode, mirrorPair, selected } = editorState;
+const canvas = useCanvasEditor({
+  stageRef,
+  windowRef: editorWindowRef,
+  expandedSections,
+  viewport,
+  state: editorState,
+  hooks: {
+    value: localShip,
+    onDraftMutated: (value) => emit('draft-changed', value),
+    normalize: normalizeShipSpec,
+    deleteSelected,
+    shortcutKeys: {
+      p: () => setMode('overview'),
+      c: () => setMode('ranges'),
+      b: () => setMode('bounds'),
+      w: () => setMode('weapon'),
+      l: () => setMode('launchBay'),
+      e: () => setMode('engine'),
+    },
+    inspectorReveal: (): CanvasInspectorReveal | null => {
+      const section = modeToSection[mode.value];
+      const selector = currentInspectorTargetSelector();
+      if (!section || !selector) return null;
+      return { section, selector, lock: activeTarget.value ? { ...activeTarget.value } : null };
+    },
+    selectableTargets,
+    hitRadius: targetHitRadius,
+    actionDown,
+    selectForDown,
+    resolveDragKind,
+    captureMirrorPair,
+    applyDrag: updateInteraction,
+    applyMirrorDrag: applyMirrorInteraction,
+    previewTakesOver: shouldPauseAutoSnap,
+    computePreview,
+    drawPreview,
+    cursorMarker,
+    mirrorAxisCanvasY: () => shipCenterPoint().y,
+    onReady: () => {
+      if (props.spriteData) loadSprite();
+    },
+    draw,
+  },
+});
+const {
+  commitDraft,
+  drawBase,
+  drawCursorPosition,
+  drawHoverPreview,
+  drawMirrorAxis,
+  drawPixelImage,
+  onDown,
+  onExpandedSectionsUpdate,
+  onLeave,
+  onMove,
+  onUp,
+  onWheel,
+  pushUndo,
+} = canvas;
+const modes = [
+  { shortcut: 'P', value: 'overview', label: '总览' },
+  { shortcut: 'C', value: 'ranges', label: '范围' },
+  { shortcut: 'B', value: 'bounds', label: '边界' },
+  { shortcut: 'W', value: 'weapon', label: '武器' },
+  { shortcut: 'L', value: 'launchBay', label: '甲板' },
+  { shortcut: 'E', value: 'engine', label: '引擎' },
+] as const;
+type InspectorSection = 'basic' | 'sprite' | 'props' | 'weapons' | 'launchBays' | 'engines' | 'bounds' | 'advanced' | 'builtins';
 const modeToSection: Record<typeof mode.value, InspectorSection | null> = {
   overview: null,
   ranges: 'props',
@@ -374,45 +439,27 @@ const slotLoc = computed(() => arr(selectedSlot.value?.locations, [0, 0]));
 const engineLoc = computed(() => arr(selectedEngine.value?.location, [0, 0]));
 const builtInMods = computed({
   get: () => (Array.isArray(localShip.value.builtInMods) ? (localShip.value.builtInMods as string[]) : []),
-  set: (v) => (localShip.value.builtInMods = v),
+  set: (v) => {
+    localShip.value.builtInMods = v;
+    commitDraft();
+  },
 });
 const builtInWings = computed({
   get: () => (Array.isArray(localShip.value.builtInWings) ? (localShip.value.builtInWings as string[]) : []),
-  set: (v) => (localShip.value.builtInWings = v),
+  set: (v) => {
+    localShip.value.builtInWings = v;
+    commitDraft();
+  },
 });
 const builtInWeaponsText = ref(JSON.stringify(localShip.value.builtInWeapons || {}, null, 2));
 
-function pushUndo() {
-  history.push(localShip.value);
-}
-function doUndo() {
-  const previous = history.undo(localShip.value);
-  if (!previous) return;
-  localShip.value = normalizeShipSpec(previous);
-  selected.value = null;
-  activeTarget.value = null;
-  inspectorLock.value = null;
-  clearHoverPreview();
-  draw();
-}
-function doRedo() {
-  const next = history.redo(localShip.value);
-  if (!next) return;
-  localShip.value = normalizeShipSpec(next);
-  selected.value = null;
-  activeTarget.value = null;
-  inspectorLock.value = null;
-  clearHoverPreview();
-  draw();
-}
-useEditorShortcuts({ onKeyDown: handleEditorShortcut, redo: doRedo, scope: editorWindowRef, undo: doUndo });
 function setMode(value: typeof mode.value) {
   mode.value = value;
   selected.value = null;
   hovered.value = null;
   activeTarget.value = null;
   inspectorLock.value = null;
-  clearHoverPreview();
+  clearPreview();
   draw();
 }
 function canvasCenter() {
@@ -469,17 +516,13 @@ function pointArc(origin: number[], point: number[], angle: number) {
 function angleDelta(a: number, b: number) {
   return Math.abs(((((a - b + 540) % 360) + 360) % 360) - 180);
 }
-function targetKindAt(mx: number, my: number) {
+function targetKindAt(mx: number, my: number): string | null {
   if (mode.value !== 'ranges') return activeTarget.value?.kind || null;
   const raw = rawCanvasToShip(mx, my);
   const shieldDistance = distance(raw, relativeToAbsolute(shieldCenter.value));
   const centerDistance = distance(raw, center.value);
   if (distance([0, 0], shieldCenter.value) === 0 && shieldDistance === centerDistance) return 'shield';
   return shieldDistance < centerDistance ? 'shield' : 'center';
-}
-function resizeCanvas() {
-  const rect = stageRef.value?.getBoundingClientRect();
-  if (viewport.resize(rect?.width, rect?.height)) draw();
 }
 function updateSpriteSize() {
   spriteSize.value = { width: img.naturalWidth || img.width || 0, height: img.naturalHeight || img.height || 0 };
@@ -501,34 +544,34 @@ function syncSpriteSize() {
   pushUndo();
   localShip.value.width = spriteSize.value.width;
   localShip.value.height = spriteSize.value.height;
+  commitDraft();
   draw();
 }
 
-function setInspectorSection(section: InspectorSection) {
-  expandedSections.value = [section];
+function currentInspectorTargetSelector(): string {
+  if (mode.value === 'weapon') return selected.value !== null ? `[data-inspector-target="weapon-${selected.value}"]` : '';
+  if (mode.value === 'launchBay') return selected.value !== null ? `[data-inspector-target="launchBay-${selected.value}"]` : '';
+  if (mode.value === 'engine') return selected.value !== null ? `[data-inspector-target="engine-${selected.value}"]` : '';
+  if (mode.value === 'bounds') return selected.value !== null ? `[data-inspector-target="bound-${selected.value}"]` : '';
+  if (mode.value === 'ranges') {
+    if (activeTarget.value?.kind === 'center') return '[data-inspector-field="center-x"]';
+    if (activeTarget.value?.kind === 'shield') return '[data-inspector-field="shield-x"]';
+  }
+  return '';
 }
-function onExpandedSectionsUpdate() {
-  if (inspectorRevealInProgress.value) return;
-  inspectorLock.value = null;
-}
-function clearHoverPreview() {
-  hoverPreview.value = null;
-}
-function targetMatches(target: ShipCanvasTargetIdentity | null, identity: ShipCanvasTargetIdentity | null) {
-  return Boolean(target && identity && target.kind === identity.kind && target.i === identity.i);
-}
-function currentRangePreview(coord: number[], modifiers: ModifierState) {
+
+function currentRangePreview(coord: number[], modifiers: CanvasModifiers) {
   if (modifiers.shiftKey) return { kind: 'collisionRadius' as const, radius: Math.max(0, Math.round(distance(coord, center.value))) };
   if (modifiers.ctrlKey)
     return { kind: 'shieldRadius' as const, radius: Math.max(0, Math.round(distance(coord, relativeToAbsolute(shieldCenter.value)))) };
   return null;
 }
-function previewWeaponState(coord: number[], modifiers: ModifierState) {
+function previewWeaponState(coord: number[], modifiers: CanvasModifiers, mx: number, my: number) {
   const relativeCoord = absoluteToRelative(coord);
   if (modifiers.altKey && selectedSlot.value) {
     return {
       kind: 'weaponArc' as const,
-      arc: pointArc(relativeToAbsolute(slotLoc.value), rawCanvasToShip(last.x, last.y), num(selectedSlot.value.angle, 0)),
+      arc: pointArc(relativeToAbsolute(slotLoc.value), rawCanvasToShip(mx, my), num(selectedSlot.value.angle, 0)),
     };
   }
   if (modifiers.shiftKey) {
@@ -553,7 +596,7 @@ function previewWeaponState(coord: number[], modifiers: ModifierState) {
   }
   return null;
 }
-function previewLaunchBayState(coord: number[], modifiers: ModifierState) {
+function previewLaunchBayState(coord: number[], modifiers: CanvasModifiers) {
   if (!modifiers.shiftKey) return null;
   const relativeCoord = absoluteToRelative(coord);
   const source = selectedSlot.value ? deepClone(selectedSlot.value) : {};
@@ -572,10 +615,10 @@ function previewLaunchBayState(coord: number[], modifiers: ModifierState) {
     },
   };
 }
-function previewEngineState(coord: number[], modifiers: ModifierState) {
+function previewEngineState(coord: number[], modifiers: CanvasModifiers, mx: number, my: number) {
   const relativeCoord = absoluteToRelative(coord);
   if (modifiers.altKey && selectedEngine.value) {
-    const { length, width } = engineSizeFromPointer(last.x, last.y);
+    const { length, width } = engineSizeFromPointer(mx, my);
     return { kind: 'engineSize' as const, length, width };
   }
   if (modifiers.shiftKey) {
@@ -599,38 +642,23 @@ function previewEngineState(coord: number[], modifiers: ModifierState) {
   }
   return null;
 }
-function previewBoundsState(coord: number[], modifiers: ModifierState) {
+function previewBoundsState(coord: number[], modifiers: CanvasModifiers) {
   const relativeCoord = absoluteToRelative(coord);
   if (modifiers.shiftKey) return { kind: 'boundAppend' as const, coord: relativeCoord };
   if (modifiers.ctrlKey)
     return { kind: 'boundInsert' as const, coord: relativeCoord, insertAfter: nearestBoundsSegmentIndex(relativeCoord) };
   return null;
 }
-function updateHoverPreview(mx: number, my: number, modifiers: ModifierState) {
+function computePreview(mx: number, my: number, modifiers: CanvasModifiers): HoverPreview {
   const coord = canvasToShip(mx, my);
-  if (mode.value === 'ranges') {
-    hoverPreview.value = currentRangePreview(coord, modifiers);
-    return;
-  }
-  if (mode.value === 'bounds') {
-    hoverPreview.value = previewBoundsState(coord, modifiers);
-    return;
-  }
-  if (mode.value === 'weapon') {
-    hoverPreview.value = previewWeaponState(coord, modifiers);
-    return;
-  }
-  if (mode.value === 'launchBay') {
-    hoverPreview.value = previewLaunchBayState(coord, modifiers);
-    return;
-  }
-  if (mode.value === 'engine') {
-    hoverPreview.value = previewEngineState(coord, modifiers);
-    return;
-  }
-  hoverPreview.value = null;
+  if (mode.value === 'ranges') return currentRangePreview(coord, modifiers);
+  if (mode.value === 'bounds') return previewBoundsState(coord, modifiers);
+  if (mode.value === 'weapon') return previewWeaponState(coord, modifiers, mx, my);
+  if (mode.value === 'launchBay') return previewLaunchBayState(coord, modifiers);
+  if (mode.value === 'engine') return previewEngineState(coord, modifiers, mx, my);
+  return null;
 }
-function shouldPauseAutoSnap(modifiers: ModifierState) {
+function shouldPauseAutoSnap(modifiers: CanvasModifiers) {
   if (mode.value === 'ranges') return modifiers.shiftKey || modifiers.ctrlKey;
   if (mode.value === 'bounds') return modifiers.shiftKey || modifiers.ctrlKey;
   if (mode.value === 'weapon') return modifiers.altKey || modifiers.ctrlKey || modifiers.shiftKey;
@@ -639,86 +667,8 @@ function shouldPauseAutoSnap(modifiers: ModifierState) {
   return false;
 }
 
-function currentInspectorTargetSelector() {
-  if (mode.value === 'weapon') return selected.value !== null ? `[data-inspector-target="weapon-${selected.value}"]` : '';
-  if (mode.value === 'launchBay') return selected.value !== null ? `[data-inspector-target="launchBay-${selected.value}"]` : '';
-  if (mode.value === 'engine') return selected.value !== null ? `[data-inspector-target="engine-${selected.value}"]` : '';
-  if (mode.value === 'bounds') return selected.value !== null ? `[data-inspector-target="bound-${selected.value}"]` : '';
-  if (mode.value === 'ranges') {
-    if (activeTarget.value?.kind === 'center') return '[data-inspector-field="center-x"]';
-    if (activeTarget.value?.kind === 'shield') return '[data-inspector-field="shield-x"]';
-  }
-  return '';
-}
-
-async function revealCurrentInspectorTarget() {
-  const section = modeToSection[mode.value];
-  const selector = currentInspectorTargetSelector();
-  if (!section || !selector) return;
-  if (activeTarget.value) inspectorLock.value = { kind: activeTarget.value.kind, i: activeTarget.value.i };
-  inspectorRevealInProgress.value = true;
-  setInspectorSection(section);
-  await nextTick();
-  inspectorRevealInProgress.value = false;
-  editorWindowRef.value?.querySelector<HTMLElement>(selector)?.scrollIntoView({ block: 'nearest' });
-}
-
-function toggleMirrorMode() {
-  mirrorMode.value = !mirrorMode.value;
-  mirrorPair.value = null;
-  clearHoverPreview();
-  draw();
-}
-function handleEditorShortcut(event: KeyboardEvent) {
-  if (event.code === 'Space') {
-    event.preventDefault();
-    toggleMirrorMode();
-    return;
-  }
-  const key = event.key.toLowerCase();
-  if (key === 'backspace') {
-    if (deleteSelected()) event.preventDefault();
-    return;
-  }
-  if (key === 't') {
-    event.preventDefault();
-    void revealCurrentInspectorTarget();
-    return;
-  }
-  if (key === 'p') {
-    event.preventDefault();
-    setMode('overview');
-    return;
-  }
-  if (key === 'c') {
-    event.preventDefault();
-    setMode('ranges');
-    return;
-  }
-  if (key === 'b') {
-    event.preventDefault();
-    setMode('bounds');
-    return;
-  }
-  if (key === 'w') {
-    event.preventDefault();
-    setMode('weapon');
-    return;
-  }
-  if (key === 'l') {
-    event.preventDefault();
-    setMode('launchBay');
-    return;
-  }
-  if (key === 'e') {
-    event.preventDefault();
-    setMode('engine');
-  }
-}
-
-function drawPreviewBounds(ctx: CanvasRenderingContext2D) {
-  const preview = hoverPreview.value;
-  if (!preview || (preview.kind !== 'boundAppend' && preview.kind !== 'boundInsert')) return;
+function drawPreviewBounds(ctx: CanvasRenderingContext2D, preview: NonNullable<HoverPreview>) {
+  if (preview.kind !== 'boundAppend' && preview.kind !== 'boundInsert') return;
   const points = [];
   for (let i = 0; i < bounds.value.length; i += 2) points.push([bounds.value[i], bounds.value[i + 1]]);
   if (preview.kind === 'boundAppend') {
@@ -735,9 +685,7 @@ function drawPreviewBounds(ctx: CanvasRenderingContext2D) {
   drawBoundsVisual(ctx, points.map(relativeToCanvas), points.length - 1, points.length - 1);
   ctx.restore();
 }
-function drawHoverPreview(ctx: CanvasRenderingContext2D) {
-  const preview = hoverPreview.value;
-  if (!preview) return;
+function drawPreview(ctx: CanvasRenderingContext2D, preview: NonNullable<HoverPreview>) {
   ctx.save();
   ctx.globalAlpha = 0.55;
   if (preview.kind === 'collisionRadius') {
@@ -838,71 +786,33 @@ function drawHoverPreview(ctx: CanvasRenderingContext2D) {
     });
   }
   ctx.restore();
-  drawPreviewBounds(ctx);
-}
-function drawCursorPosition(ctx: CanvasRenderingContext2D) {
-  if (!pointerInside.value) return;
-  const coord = canvasToShip(last.x, last.y);
-  const point = shipToCanvas(coord);
-  const label = cursorLabel(coord);
-  ctx.save();
-  ctx.strokeStyle = '#f8fafc';
-  ctx.fillStyle = '#f8fafc';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(point.x - 6, point.y);
-  ctx.lineTo(point.x + 6, point.y);
-  ctx.moveTo(point.x, point.y - 6);
-  ctx.lineTo(point.x, point.y + 6);
-  ctx.stroke();
-  ctx.font = '11px sans-serif';
-  ctx.textBaseline = 'top';
-  ctx.strokeStyle = '#020617';
-  ctx.lineWidth = 3;
-  ctx.strokeText(label, point.x + 12, point.y + 12);
-  ctx.fillText(label, point.x + 12, point.y + 12);
-  ctx.restore();
+  drawPreviewBounds(ctx, preview);
 }
 function formatCoord(coord: number[]) {
   return `${coord[0].toFixed(1)}, ${coord[1].toFixed(1)}`;
 }
-function cursorLabel(coord: number[]) {
-  if (dragging.value === 'weaponAngle' && selectedSlot.value) return `${Math.round(num(selectedSlot.value.angle, 0))}°`;
-  if (dragging.value === 'weaponArc' && selectedSlot.value) return `${Math.round(num(selectedSlot.value.arc, 0))}°`;
+function cursorLabel(coord: number[]): string {
+  if (dragKind.value === 'weaponAngle' && selectedSlot.value) return `${Math.round(num(selectedSlot.value.angle, 0))}°`;
+  if (dragKind.value === 'weaponArc' && selectedSlot.value) return `${Math.round(num(selectedSlot.value.arc, 0))}°`;
   if (hoverPreview.value?.kind === 'weaponArc') return `${Math.round(hoverPreview.value.arc)}°`;
-  if (dragging.value === 'engineAngle' && selectedEngine.value) return `${Math.round(num(selectedEngine.value.angle, 0))}°`;
-  if (dragging.value === 'engineSize' && selectedEngine.value)
+  if (dragKind.value === 'engineAngle' && selectedEngine.value) return `${Math.round(num(selectedEngine.value.angle, 0))}°`;
+  if (dragKind.value === 'engineSize' && selectedEngine.value)
     return `${Math.round(num(selectedEngine.value.length, 0))} x ${Math.round(num(selectedEngine.value.width, 0))}`;
   if (hoverPreview.value?.kind === 'engineSize')
     return `${Math.round(hoverPreview.value.length)} x ${Math.round(hoverPreview.value.width)}`;
   if (mode.value === 'overview' || mode.value === 'ranges') return formatCoord(coord);
   return formatCoord(absoluteToRelative(coord));
 }
-
-function drawMirrorAxis(ctx: CanvasRenderingContext2D) {
-  const axisY = shipCenterPoint().y;
-  ctx.save();
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
-  ctx.fillStyle = 'rgba(56, 189, 248, 0.95)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([6, 6]);
-  ctx.beginPath();
-  ctx.moveTo(0, axisY);
-  ctx.lineTo(ctx.canvas.width, axisY);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.font = '11px sans-serif';
-  ctx.textBaseline = 'bottom';
-  ctx.fillText('镜像中轴', 8, axisY - 4);
-  ctx.restore();
+function cursorMarker(mx: number, my: number) {
+  const coord = canvasToShip(mx, my);
+  return { point: shipToCanvas(coord), label: cursorLabel(coord) };
 }
+
 function draw() {
   const c = canvasRef.value;
   if (!c) return;
   const ctx = c.getContext('2d')!;
-  const cc = canvasCenter();
-  drawing.clear(ctx, c.width, c.height);
-  drawing.drawGrid(ctx, { center: cc, height: c.height, scale: scale.value, width: c.width });
+  drawBase(ctx);
   if (mirrorMode.value && (mode.value === 'weapon' || mode.value === 'launchBay' || mode.value === 'engine' || mode.value === 'bounds'))
     drawMirrorAxis(ctx);
   if (img.width) {
@@ -912,7 +822,7 @@ function draw() {
     ctx.save();
     ctx.translate(bottomLeft.x + drawWidth, bottomLeft.y);
     ctx.rotate(Math.PI / 2);
-    drawing.drawPixelImage(ctx, img, 0, 0, img.width * scale.value, img.height * scale.value);
+    drawPixelImage(ctx, img, 0, 0, img.width * scale.value, img.height * scale.value);
     ctx.restore();
     ctx.globalAlpha = 1;
   }
@@ -934,7 +844,7 @@ function draw() {
       cp,
       num(localShip.value.collisionRadius, 0) * scale.value,
       'rgba(118, 106, 57, 0.34)',
-      dragging.value === 'center',
+      dragKind.value === 'center',
       hovered.value?.kind === 'center',
     );
     drawRadiusField(
@@ -942,7 +852,7 @@ function draw() {
       sp,
       num(localShip.value.shieldRadius, 0) * scale.value,
       'rgba(95, 118, 126, 0.34)',
-      dragging.value === 'shield',
+      dragKind.value === 'shield',
       hovered.value?.kind === 'shield',
       'x',
     );
@@ -981,11 +891,13 @@ function draw() {
   drawHoverPreview(ctx);
   drawCursorPosition(ctx);
 }
-function targetIndex(target: ShipCanvasTarget | null) {
-  return target?.kind === 'center' || target?.kind === 'shield' ? 0 : (target?.i ?? -1);
+function targetHitRadius(target: CanvasTarget) {
+  if (target.kind === 'engine') return 28;
+  if (target.kind === 'center' || target.kind === 'shield') return 30;
+  return 26;
 }
-function selectableTargets(mx: number, my: number): ShipCanvasTarget[] {
-  const targets: ShipCanvasTarget[] = [];
+function selectableTargets(mx: number, my: number): CanvasTarget[] {
+  const targets: CanvasTarget[] = [];
   if (mode.value === 'overview') return targets;
   if (mode.value === 'weapon' || mode.value === 'launchBay') {
     for (let i = weaponSlots.value.length - 1; i >= 0; i--) {
@@ -1016,72 +928,23 @@ function selectableTargets(mx: number, my: number): ShipCanvasTarget[] {
   }
   return targets;
 }
-function targetHitRadius(target: ShipCanvasTarget) {
-  if (target.kind === 'engine') return 28;
-  if (target.kind === 'center' || target.kind === 'shield') return 30;
-  return 26;
+function selectForDown(e: MouseEvent, mx: number, my: number, pick: CanvasPick): CanvasTarget | null {
+  if ((mode.value === 'weapon' || mode.value === 'engine') && (e.altKey || e.ctrlKey))
+    return pick.byIdentity(inspectorLock.value ?? activeTarget.value) ?? pick.byPointer(mx, my);
+  if (mode.value === 'ranges' && (e.shiftKey || e.ctrlKey)) return pick.byIdentity(activeTarget.value) ?? pick.byPointer(mx, my);
+  return pick.byPointer(mx, my);
 }
-function nearestTarget(mx: number, my: number) {
-  const targets = selectableTargets(mx, my);
-  const locked = targets.find((target) => targetMatches(target, inspectorLock.value)) ?? null;
-  const nearby = targets
-    .filter((target) => !targetMatches(target, inspectorLock.value) && target.distance <= targetHitRadius(target))
-    .sort((a, b) => a.distance - b.distance)[0];
-  if (nearby) return nearby;
-  if (locked) return locked;
-  if (!inspectorLock.value) return targets.sort((a, b) => a.distance - b.distance)[0] ?? null;
-  return null;
-}
-function hitTarget(mx: number, my: number) {
-  const target = nearestTarget(mx, my);
-  if (!target) return null;
-  if (targetMatches(target, inspectorLock.value)) return target;
-  return target.distance < targetHitRadius(target) ? target : null;
-}
-function syncSelection(target: ShipCanvasTarget | null) {
-  if (!target) return false;
-  const nextSelected = targetIndex(target);
-  const changed = hovered.value?.kind !== target.kind || hovered.value?.i !== target.i || selected.value !== nextSelected;
-  hovered.value = { kind: target.kind, i: target.i };
-  selected.value = nextSelected;
-  activeTarget.value = { kind: target.kind, i: target.i };
-  return changed;
-}
-function clearCanvasSelection() {
-  const changed = hovered.value !== null || selected.value !== null;
-  hovered.value = null;
-  selected.value = null;
-  activeTarget.value = null;
-  return changed;
-}
-function dragKindForTarget(target: ShipCanvasTarget) {
+function resolveDragKind(e: MouseEvent, mx: number, my: number, target: CanvasTarget) {
+  if (mode.value === 'weapon' && e.altKey) return 'weaponArc';
+  if (mode.value === 'weapon' && e.ctrlKey) return 'weapon';
+  if (mode.value === 'weapon') return 'weaponAngle';
+  if (mode.value === 'engine' && e.altKey) return 'engineSize';
+  if (mode.value === 'engine' && e.ctrlKey) return 'engine';
+  if (mode.value === 'engine') return 'engineAngle';
+  if (mode.value === 'ranges' && e.shiftKey) return 'collisionRadius';
+  if (mode.value === 'ranges' && e.ctrlKey) return 'shieldRadius';
+  if (mode.value === 'ranges') return targetKindAt(mx, my) || target.kind;
   return target.kind;
-}
-function selectForPointer(mx: number, my: number) {
-  const target = nearestTarget(mx, my) ?? hitTarget(mx, my);
-  if (target) {
-    syncSelection(target);
-    return target;
-  }
-  clearCanvasSelection();
-  return null;
-}
-function lockedOrActiveTarget() {
-  return inspectorLock.value ?? activeTarget.value;
-}
-function selectIdentityTarget(identity: ShipCanvasTargetIdentity | null) {
-  if (!identity) return null;
-  const target = selectableTargets(last.x, last.y).find((item) => targetMatches(item, identity)) ?? null;
-  if (target) syncSelection(target);
-  return target;
-}
-function selectForModifierOperation(e: MouseEvent) {
-  if ((mode.value === 'weapon' || mode.value === 'engine') && (e.altKey || e.ctrlKey)) {
-    return selectIdentityTarget(lockedOrActiveTarget()) ?? selectForPointer(last.x, last.y);
-  }
-  if (mode.value === 'ranges' && (e.shiftKey || e.ctrlKey))
-    return selectIdentityTarget(activeTarget.value) ?? selectForPointer(last.x, last.y);
-  return selectForPointer(last.x, last.y);
 }
 function nearestBoundsSegmentIndex(point: number[]) {
   const count = Math.floor(bounds.value.length / 2);
@@ -1145,7 +1008,7 @@ function copyWeaponSlotAt(coord: number[]) {
   });
   if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
     weaponSlots.value.push({ ...mirrorWeaponSlotForAdd(weaponSlots.value[sourceIndex]), id: nextWeaponSlotId() });
-    mirrorPair.value = { kind: 'weapon', index: sourceIndex + 1 };
+    mirrorPair.value = { kind: 'weapon', i: sourceIndex + 1 };
   } else {
     mirrorPair.value = null;
   }
@@ -1167,7 +1030,7 @@ function addLaunchBayAt(coord: number[]) {
   });
   if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
     weaponSlots.value.push({ ...mirrorWeaponSlotForAdd(weaponSlots.value[sourceIndex]), id: nextLaunchBayId() });
-    mirrorPair.value = { kind: 'weapon', index: sourceIndex + 1 };
+    mirrorPair.value = { kind: 'weapon', i: sourceIndex + 1 };
   } else {
     mirrorPair.value = null;
   }
@@ -1190,7 +1053,7 @@ function copyEngineAt(coord: number[]) {
   });
   if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
     engineSlots.value.push(mirrorEngineForAdd(engineSlots.value[sourceIndex]));
-    mirrorPair.value = { kind: 'engine', index: sourceIndex + 1 };
+    mirrorPair.value = { kind: 'engine', i: sourceIndex + 1 };
   } else {
     mirrorPair.value = null;
   }
@@ -1198,94 +1061,93 @@ function copyEngineAt(coord: number[]) {
   hovered.value = { kind: 'engine', i: selected.value };
   activeTarget.value = { kind: 'engine', i: selected.value };
 }
-function updateInteraction(mx: number, my: number) {
+function updateInteraction(kind: string, mx: number, my: number) {
   const coord = canvasToShip(mx, my);
   const rawCoord = rawCanvasToShip(mx, my);
   const relativeCoord = canvasToRelative(mx, my);
-  if (dragging.value === 'weapon' && selectedSlot.value) selectedSlot.value.locations = relativeCoord;
-  if (dragging.value === 'engine' && selectedEngine.value) selectedEngine.value.location = relativeCoord;
-  if (dragging.value === 'bound' && selected.value !== null) {
+  if (kind === 'weapon' && selectedSlot.value) selectedSlot.value.locations = relativeCoord;
+  if (kind === 'engine' && selectedEngine.value) selectedEngine.value.location = relativeCoord;
+  if (kind === 'bound' && selected.value !== null) {
     bounds.value[selected.value * 2] = relativeCoord[0];
     bounds.value[selected.value * 2 + 1] = relativeCoord[1];
   }
-  if (dragging.value === 'shield') localShip.value.shieldCenter = relativeCoord;
-  if (dragging.value === 'center') {
+  if (kind === 'shield') localShip.value.shieldCenter = relativeCoord;
+  if (kind === 'center') {
     const previous = center.value;
     localShip.value.center = coord;
     offsetRelativeFields((coord[0] || 0) - (previous[0] || 0), (coord[1] || 0) - (previous[1] || 0));
   }
-  if (dragging.value === 'collisionRadius') localShip.value.collisionRadius = Math.max(0, Math.round(distance(rawCoord, center.value)));
-  if (dragging.value === 'shieldRadius')
+  if (kind === 'collisionRadius') localShip.value.collisionRadius = Math.max(0, Math.round(distance(rawCoord, center.value)));
+  if (kind === 'shieldRadius')
     localShip.value.shieldRadius = Math.max(0, Math.round(distance(rawCoord, relativeToAbsolute(shieldCenter.value))));
-  if (dragging.value === 'weaponAngle' && selectedSlot.value) {
+  if (kind === 'weaponAngle' && selectedSlot.value) {
     selectedSlot.value.angle = pointAngle(relativeToAbsolute(slotLoc.value), rawCoord);
   }
-  if (dragging.value === 'weaponArc' && selectedSlot.value) {
+  if (kind === 'weaponArc' && selectedSlot.value) {
     selectedSlot.value.arc = pointArc(relativeToAbsolute(slotLoc.value), rawCoord, num(selectedSlot.value.angle, 0));
   }
-  if (dragging.value === 'engineAngle' && selectedEngine.value) {
+  if (kind === 'engineAngle' && selectedEngine.value) {
     selectedEngine.value.angle = pointAngle(relativeToAbsolute(engineLoc.value), rawCoord);
   }
-  if (dragging.value === 'engineSize') applyEngineSizeFromPointer(mx, my);
-  applyMirrorInteraction();
+  if (kind === 'engineSize') applyEngineSizeFromPointer(mx, my);
 }
 function captureMirrorPair() {
   mirrorPair.value = null;
   if (!mirrorMode.value || selected.value === null) return;
   if (mode.value === 'weapon' || mode.value === 'launchBay') {
     const index = findMirrorWeaponSlotIndex(weaponSlots.value, selected.value);
-    if (index !== null) mirrorPair.value = { kind: 'weapon', index };
+    if (index !== null) mirrorPair.value = { kind: 'weapon', i: index };
     return;
   }
   if (mode.value === 'engine') {
     const index = findMirrorEngineIndex(engineSlots.value, selected.value);
-    if (index !== null) mirrorPair.value = { kind: 'engine', index };
+    if (index !== null) mirrorPair.value = { kind: 'engine', i: index };
     return;
   }
   if (mode.value === 'bounds') {
     const index = findMirrorBoundIndex(bounds.value, selected.value);
-    if (index !== null) mirrorPair.value = { kind: 'bound', index };
+    if (index !== null) mirrorPair.value = { kind: 'bound', i: index };
   }
 }
-function applyMirrorInteraction() {
-  if (!mirrorMode.value || !mirrorPair.value || !dragging.value) return;
+function applyMirrorInteraction(kind: string) {
+  if (!mirrorMode.value || !mirrorPair.value) return;
   const pair = mirrorPair.value;
-  if (dragging.value === 'weapon' && pair.kind === 'weapon') {
-    const pairSlot = weaponSlots.value[pair.index];
+  if (kind === 'weapon' && pair.kind === 'weapon') {
+    const pairSlot = weaponSlots.value[pair.i];
     if (pairSlot) pairSlot.locations = mirrorOffsetPoint(arr(selectedSlot.value?.locations, [0, 0]));
     return;
   }
-  if (dragging.value === 'weaponAngle' && pair.kind === 'weapon') {
-    const pairSlot = weaponSlots.value[pair.index];
+  if (kind === 'weaponAngle' && pair.kind === 'weapon') {
+    const pairSlot = weaponSlots.value[pair.i];
     if (pairSlot) pairSlot.angle = mirrorAngleDeg(num(selectedSlot.value?.angle, 0));
     return;
   }
-  if (dragging.value === 'weaponArc' && pair.kind === 'weapon') {
-    const pairSlot = weaponSlots.value[pair.index];
+  if (kind === 'weaponArc' && pair.kind === 'weapon') {
+    const pairSlot = weaponSlots.value[pair.i];
     if (pairSlot) pairSlot.arc = num(selectedSlot.value?.arc, 0);
     return;
   }
-  if (dragging.value === 'engine' && pair.kind === 'engine') {
-    const pairEngine = engineSlots.value[pair.index];
+  if (kind === 'engine' && pair.kind === 'engine') {
+    const pairEngine = engineSlots.value[pair.i];
     if (pairEngine) pairEngine.location = mirrorOffsetPoint(arr(selectedEngine.value?.location, [0, 0]));
     return;
   }
-  if (dragging.value === 'engineAngle' && pair.kind === 'engine') {
-    const pairEngine = engineSlots.value[pair.index];
+  if (kind === 'engineAngle' && pair.kind === 'engine') {
+    const pairEngine = engineSlots.value[pair.i];
     if (pairEngine) pairEngine.angle = mirrorAngleDeg(num(selectedEngine.value?.angle, 0));
     return;
   }
-  if (dragging.value === 'engineSize' && pair.kind === 'engine') {
-    const pairEngine = engineSlots.value[pair.index];
+  if (kind === 'engineSize' && pair.kind === 'engine') {
+    const pairEngine = engineSlots.value[pair.i];
     if (pairEngine) {
       pairEngine.length = num(selectedEngine.value?.length, 0);
       pairEngine.width = num(selectedEngine.value?.width, 0);
     }
     return;
   }
-  if (dragging.value === 'bound' && pair.kind === 'bound' && selected.value !== null) {
-    bounds.value[pair.index * 2] = bounds.value[selected.value * 2] || 0;
-    bounds.value[pair.index * 2 + 1] = mirrorLateral(bounds.value[selected.value * 2 + 1] || 0);
+  if (kind === 'bound' && pair.kind === 'bound' && selected.value !== null) {
+    bounds.value[pair.i * 2] = bounds.value[selected.value * 2] || 0;
+    bounds.value[pair.i * 2 + 1] = mirrorLateral(bounds.value[selected.value * 2 + 1] || 0);
   }
 }
 function startBoundsInsert(coord: number[], insertAfter: number) {
@@ -1293,14 +1155,13 @@ function startBoundsInsert(coord: number[], insertAfter: number) {
   bounds.value.splice(at, 0, coord[0], coord[1]);
   if (mirrorMode.value && Math.abs(coord[1] || 0) > MIRROR_EPSILON) {
     bounds.value.splice(at + 2, 0, coord[0], mirrorLateral(coord[1]));
-    mirrorPair.value = { kind: 'bound', index: at / 2 + 1 };
+    mirrorPair.value = { kind: 'bound', i: at / 2 + 1 };
   } else {
     mirrorPair.value = null;
   }
   selected.value = at / 2;
   hovered.value = { kind: 'bound', i: selected.value };
   activeTarget.value = { kind: 'bound', i: selected.value };
-  dragging.value = 'bound';
 }
 function applyEngineSizeFromPointer(mx: number, my: number) {
   if (!selectedEngine.value) return;
@@ -1321,141 +1182,66 @@ function engineSizeFromPointer(mx: number, my: number) {
     width: Math.max(4, Math.round(Math.abs(across) * 2) || num(selectedEngine.value?.width, 10)),
   };
 }
-function onDown(e: MouseEvent) {
-  last = { x: e.offsetX, y: e.offsetY };
-  if (e.button === 2) {
-    panning.value = true;
-    return;
-  }
-  if (e.button !== 0) return;
-  const coord = canvasToShip(last.x, last.y);
-  const relativeCoord = canvasToRelative(last.x, last.y);
-  dragStarted.value = true;
+function actionDown(e: MouseEvent, mx: number, my: number) {
+  const coord = canvasToShip(mx, my);
+  const relativeCoord = canvasToRelative(mx, my);
   if (mode.value === 'bounds' && e.shiftKey) {
     pushUndo();
     bounds.value.push(relativeCoord[0], relativeCoord[1]);
     const sourceIndex = bounds.value.length / 2 - 1;
     if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
       bounds.value.push(relativeCoord[0], mirrorLateral(relativeCoord[1]));
-      mirrorPair.value = { kind: 'bound', index: sourceIndex + 1 };
+      mirrorPair.value = { kind: 'bound', i: sourceIndex + 1 };
     } else {
       mirrorPair.value = null;
     }
     selected.value = sourceIndex;
     hovered.value = { kind: 'bound', i: selected.value };
     activeTarget.value = { kind: 'bound', i: selected.value };
-    dragging.value = 'bound';
-    draw();
-    return;
+    return 'bound';
   }
   if (mode.value === 'bounds' && e.ctrlKey) {
     pushUndo();
     startBoundsInsert(relativeCoord, nearestBoundsSegmentIndex(relativeCoord));
-    draw();
-    return;
+    return 'bound';
   }
   if (mode.value === 'launchBay' && e.shiftKey) {
     pushUndo();
     addLaunchBayAt(coord);
-    dragging.value = 'weapon';
-    draw();
-    return;
+    return 'weapon';
   }
   if (mode.value === 'weapon' && e.shiftKey) {
     pushUndo();
     copyWeaponSlotAt(coord);
-    dragging.value = 'weapon';
-    clearHoverPreview();
-    draw();
-    return;
+    return 'weapon';
   }
   if (mode.value === 'engine' && e.shiftKey) {
     pushUndo();
     copyEngineAt(coord);
-    dragging.value = 'engine';
-    clearHoverPreview();
-    draw();
-    return;
+    return 'engine';
   }
-  const h = selectForModifierOperation(e);
-  if (!h) {
-    dragStarted.value = false;
-    draw();
-    return;
-  }
-  if (mode.value === 'weapon' && e.altKey) dragging.value = 'weaponArc';
-  else if (mode.value === 'weapon' && e.ctrlKey) dragging.value = 'weapon';
-  else if (mode.value === 'weapon') dragging.value = 'weaponAngle';
-  else if (mode.value === 'engine' && e.altKey) dragging.value = 'engineSize';
-  else if (mode.value === 'engine' && e.ctrlKey) dragging.value = 'engine';
-  else if (mode.value === 'engine') dragging.value = 'engineAngle';
-  else if (mode.value === 'ranges' && e.shiftKey) dragging.value = 'collisionRadius';
-  else if (mode.value === 'ranges' && e.ctrlKey) dragging.value = 'shieldRadius';
-  else if (mode.value === 'ranges') dragging.value = targetKindAt(last.x, last.y) || dragKindForTarget(h);
-  else dragging.value = dragKindForTarget(h);
-  pushUndo();
-  clearHoverPreview();
-  captureMirrorPair();
-  updateInteraction(last.x, last.y);
+  return null;
+}
+function setField(key: string, value: RowData[string]) {
+  localShip.value[key] = value;
+  commitDraft();
+}
+function setVisualField(key: string, value: RowData[string]) {
+  localShip.value[key] = value;
   draw();
+  commitDraft();
 }
-function onMove(e: MouseEvent) {
-  const mx = e.offsetX;
-  const my = e.offsetY;
-  pointerInside.value = true;
-  last = { x: mx, y: my };
-  if (panning.value) {
-    viewport.panBy(e.movementX, e.movementY);
-    draw();
-    return;
-  }
-  if (!dragging.value) {
-    if (shouldPauseAutoSnap(e)) {
-      updateHoverPreview(mx, my, e);
-      draw();
-      return;
-    }
-    const target = nearestTarget(mx, my);
-    const changed = target ? syncSelection(target) : false;
-    updateHoverPreview(mx, my, e);
-    if (changed || hoverPreview.value) draw();
-    else draw();
-    return;
-  }
-  updateInteraction(mx, my);
+function setSlotField(key: string, value: RowData[string]) {
+  if (!selectedSlot.value) return;
+  selectedSlot.value[key] = value;
   draw();
+  commitDraft();
 }
-function onUp() {
-  dragging.value = null;
-  panning.value = false;
-  dragStarted.value = false;
-  mirrorPair.value = null;
-}
-function onKeyUp(event: KeyboardEvent) {
-  if (event.key !== 'Shift' && event.key !== 'Control' && event.key !== 'Alt') return;
-  if (!hoverPreview.value) return;
-  updateHoverPreview(last.x, last.y, event);
-  if (!hoverPreview.value) draw();
-}
-function onKeyDown(event: KeyboardEvent) {
-  if (event.key !== 'Shift' && event.key !== 'Control' && event.key !== 'Alt') return;
-  if (!pointerInside.value || dragging.value || panning.value) return;
-  updateHoverPreview(last.x, last.y, event);
-  if (hoverPreview.value) draw();
-}
-function onLeave() {
-  dragging.value = null;
-  panning.value = false;
-  dragStarted.value = false;
-  pointerInside.value = false;
-  hovered.value = null;
-  mirrorPair.value = null;
-  clearHoverPreview();
+function setEngineField(key: string, value: RowData[string]) {
+  if (!selectedEngine.value) return;
+  selectedEngine.value[key] = value;
   draw();
-}
-function onWheel(e: WheelEvent) {
-  viewport.zoom(e.deltaY);
-  draw();
+  commitDraft();
 }
 function setArray(key: string, idx: number, value: number | null) {
   pushUndo();
@@ -1463,6 +1249,7 @@ function setArray(key: string, idx: number, value: number | null) {
   v[idx] = value || 0;
   localShip.value[key] = v;
   draw();
+  commitDraft();
 }
 function setSlotLoc(idx: number, value: number | null) {
   if (!selectedSlot.value) return;
@@ -1470,6 +1257,7 @@ function setSlotLoc(idx: number, value: number | null) {
   loc[idx] = value || 0;
   selectedSlot.value.locations = loc;
   draw();
+  commitDraft();
 }
 function setEngineLoc(idx: number, value: number | null) {
   if (!selectedEngine.value) return;
@@ -1477,14 +1265,16 @@ function setEngineLoc(idx: number, value: number | null) {
   loc[idx] = value || 0;
   selectedEngine.value.location = loc;
   draw();
+  commitDraft();
 }
 function setBound(idx: number, value: number | null) {
   const b = bounds.value;
   b[idx] = value || 0;
   localShip.value.bounds = b;
   draw();
+  commitDraft();
 }
-function selectInspectorItem(nextMode: typeof mode.value, index: number, kind: ShipCanvasTarget['kind']) {
+function selectInspectorItem(nextMode: typeof mode.value, index: number, kind: string) {
   mode.value = nextMode;
   selected.value = index;
   hovered.value = { kind, i: index };
@@ -1529,6 +1319,7 @@ function addWeaponSlot() {
   });
   mode.value = 'weapon';
   selected.value = weaponSlots.value.length - 1;
+  commitDraft();
   draw();
 }
 function addLaunchBay() {
@@ -1544,6 +1335,7 @@ function addLaunchBay() {
   });
   mode.value = 'launchBay';
   selected.value = weaponSlots.value.length - 1;
+  commitDraft();
   draw();
 }
 function addEngine() {
@@ -1553,12 +1345,13 @@ function addEngine() {
   const engineLocation = arr(engineSlots.value[sourceIndex]?.location, [0, 0]);
   if (mirrorMode.value && Math.abs(engineLocation[1] || 0) > MIRROR_EPSILON) {
     engineSlots.value.push(mirrorEngineForAdd(engineSlots.value[sourceIndex]));
-    mirrorPair.value = { kind: 'engine', index: sourceIndex + 1 };
+    mirrorPair.value = { kind: 'engine', i: sourceIndex + 1 };
   } else {
     mirrorPair.value = null;
   }
   mode.value = 'engine';
   selected.value = sourceIndex;
+  commitDraft();
   draw();
 }
 function addBound() {
@@ -1566,6 +1359,7 @@ function addBound() {
   bounds.value.push(0, 0);
   mode.value = 'bounds';
   selected.value = bounds.value.length / 2 - 1;
+  commitDraft();
   draw();
 }
 function deleteSelected() {
@@ -1599,12 +1393,14 @@ function deleteSelected() {
   hovered.value = null;
   activeTarget.value = null;
   inspectorLock.value = null;
+  commitDraft();
   draw();
   return true;
 }
 function applyBuiltInWeapons() {
   try {
     localShip.value.builtInWeapons = JSON.parse(builtInWeaponsText.value);
+    commitDraft();
   } catch {
     feedback.error('builtInWeapons JSON 无效');
   }
@@ -1613,6 +1409,7 @@ async function pickShipSprite() {
   const relative = await pickModImageReference({ sessionId: props.sessionId, modRoot: props.modRoot, title: '选择舰船贴图' });
   if (!relative) return;
   localShip.value.spriteName = relative;
+  commitDraft();
   loadSprite();
 }
 function save() {
@@ -1626,31 +1423,8 @@ watch(
     selected.value = null;
     activeTarget.value = null;
     inspectorLock.value = null;
-    clearHoverPreview();
+    clearPreview();
   },
-);
-watch(
-  localShip,
-  (ship) => {
-    emit('draft-changed', ship);
-    draw();
-  },
-  { deep: true, flush: 'sync' },
 );
 watch(() => props.spriteData, loadSprite);
-onMounted(() => {
-  window.addEventListener('resize', resizeCanvas);
-  window.addEventListener('keydown', onKeyDown);
-  window.addEventListener('keyup', onKeyUp);
-  nextTick(() => {
-    editorWindowRef.value?.focus({ preventScroll: true });
-    resizeCanvas();
-    if (props.spriteData) loadSprite();
-  });
-});
-onUnmounted(() => {
-  window.removeEventListener('resize', resizeCanvas);
-  window.removeEventListener('keydown', onKeyDown);
-  window.removeEventListener('keyup', onKeyUp);
-});
 </script>
