@@ -5,7 +5,7 @@ import {
   subscribeResourceInvalidations,
   type ResourceCacheInvalidationEvent,
 } from '@/services/resource-cache.service';
-import { recordPerformance } from '@/services/performance.service';
+import { recordPerformance } from '@/shared/runtime/performance';
 import type { ProjectSessionId, ResourceRef } from '@/shared/types';
 
 export const RESOURCE_MEDIA_CACHE_CAPACITY = 512;

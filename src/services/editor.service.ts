@@ -2,10 +2,10 @@ import { querySessionEntity, querySessionEntityList } from '@/services/query.ser
 import { AppError, withCause } from '@/shared/lib/errors';
 import { queryResourceDataUrls } from '@/services/resource-cache.service';
 import { writeEditorSpec } from '@/services/write.service';
+import { loadImportedEditorSpecFile } from '@/services/files.service';
 import { WEAPON_SPRITE_FIELDS } from '@/domain/editors/lib/weapon-sprite-fields';
 import { defaultEditorSpec } from '@/domain/editors/editor-definitions';
 import { requireRowData } from '@/shared/lib/row-data';
-import { loadImportedEditorSpecFile } from '@/shared/api/files-api';
 import type { EditorSpecKind, EditorWindowKind, EntityData, ProjectSessionId, ResourceRef, RowData, WriteResult } from '@/shared/types';
 
 type EditorSelectOption = { label: string; value: string };

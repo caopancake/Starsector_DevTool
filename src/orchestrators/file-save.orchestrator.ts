@@ -1,7 +1,7 @@
 import { pathBasename } from '@/shared/lib/paths';
 import type { EditorSpecSavedEvent, FileEditorSavedEvent } from '@/windows/window.events';
 import { useProjectStore } from '@/stores/project.store';
-import { completeSavedWrite } from '@/orchestrators/file-history-session.orchestrator';
+import { completeSavedWrite } from '@/orchestrators/file-history-write.orchestrator';
 
 export async function handleEditorSpecSaved(event: EditorSpecSavedEvent) {
   if (event.writeResult.changes.length) {

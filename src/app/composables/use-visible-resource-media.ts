@@ -4,7 +4,7 @@ import { ensureResourceMedia, resourceMediaDataUrl, subscribeResourceMediaInvali
 import { resourceCacheKey } from '@/services/resource-cache.service';
 import { sameResourceRef } from '@/shared/lib/resource-ref';
 import type { ResourceRef } from '@/shared/types';
-import { recordPerformance } from '@/services/performance.service';
+import { recordPerformance } from '@/shared/runtime/performance';
 
 interface RegisteredMedia {
   element: Element | null;

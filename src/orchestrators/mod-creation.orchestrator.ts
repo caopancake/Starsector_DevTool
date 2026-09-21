@@ -1,6 +1,6 @@
 import { openCreatedModTarget, type DirectoryOpeningOutcome } from '@/orchestrators/directory-opening.orchestrator';
 import { createNewModProject } from '@/services/mod-creation.service';
-import { measurePerformanceAsync } from '@/services/performance.service';
+import { measurePerformanceAsync } from '@/shared/runtime/performance';
 import type { CreatedMod, CreateModRequest } from '@/shared/types';
 
 export interface CreatedModProject {

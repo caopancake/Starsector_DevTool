@@ -18,7 +18,7 @@ vi.mock('@/services/resource-cache.service', () => ({
   },
 }));
 
-vi.mock('@/services/performance.service', () => ({ recordPerformance: mocks.recordPerformance }));
+vi.mock('@/shared/runtime/performance', () => ({ recordPerformance: mocks.recordPerformance }));
 
 describe('resource media service', () => {
   beforeEach(() => {

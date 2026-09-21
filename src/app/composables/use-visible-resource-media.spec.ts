@@ -30,7 +30,7 @@ vi.mock('@/services/resource-cache.service', () => ({
   resourceCacheKey: (sessionId: string, resource: ResourceRef) => JSON.stringify([sessionId, resource.source, resource.relPath]),
 }));
 
-vi.mock('@/services/performance.service', () => ({ recordPerformance: vi.fn() }));
+vi.mock('@/shared/runtime/performance', () => ({ recordPerformance: vi.fn() }));
 
 class TestIntersectionObserver {
   static instances: TestIntersectionObserver[] = [];

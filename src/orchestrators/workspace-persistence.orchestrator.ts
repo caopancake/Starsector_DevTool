@@ -5,7 +5,7 @@ import type { PersistedMod, ProjectManifest } from '@/shared/types';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
 import { hydrateOpenedModRuntime, openModProjectManifest } from '@/orchestrators/directory-opening.orchestrator';
-import { measurePerformance } from '@/services/performance.service';
+import { measurePerformance } from '@/shared/runtime/performance';
 import { recordLogBestEffort } from '@/services/app-feedback-log.service';
 import { scanDirectoryGameOverview } from '@/services/session.service';
 import { loadPersistedWorkspace, savePersistedWorkspace } from '@/services/workspace-state.service';

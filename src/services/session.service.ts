@@ -14,7 +14,7 @@ import type {
   ProjectManifest,
   ProjectSessionInvalidationResult,
 } from '@/shared/types';
-import { recordPerformance } from '@/services/performance.service';
+import { recordPerformance } from '@/shared/runtime/performance';
 
 export async function pickDirectory(): Promise<string | null> {
   return pickDirectoryDialog('选择 Starsector 游戏目录或 Mod 目录');

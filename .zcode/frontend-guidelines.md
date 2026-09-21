@@ -6,6 +6,7 @@
 
 - `app` 只允许拥有窗口根、provider、页面、组件和 ViewModel/composable；组件必须使用 PascalCase。
 - `domain` 只允许拥有纯规则和转换；`services` 只允许包装单一后端能力；`orchestrators` 只允许编排跨模块用户动作。
+- service 之间默认禁止依赖；仅白名单内的基础设施边（缓存宿主、投影订阅、文件写底座）例外，白名单由架构规则显式维护。
 - `stores` 只允许保存内存运行态；`windows` 只允许管理窗口身份、生命周期和事件；`shared` 只允许保存跨模块 API、runtime、类型和纯工具。
 - service、store、orchestrator 与 window 文件必须分别使用 `.service.ts`、`.store.ts`、`.orchestrator.ts` 与 `.window.ts` 或 `.events.ts` 后缀；共享业务类型必须位于 `shared/types` 或 domain。
 - 项目内导入必须使用 `@/`；共享类型 owner 文件必须直接导入具体类型文件，严禁反向导入 shared types barrel。
@@ -13,7 +14,7 @@
 ## 依赖方向
 
 - `shared` 只允许依赖 `shared`；`domain` 只允许依赖 `domain` 与 `shared`。
-- `services` 只允许依赖 service、domain 与 shared；store 只允许依赖 store、domain 与 shared。
+- `services` 只允许依赖 service、domain 与 shared；service 之间的依赖必须命中架构规则中的基础设施白名单，orchestrator 之间的依赖必须单向无环；store 只允许依赖 store、domain 与 shared。
 - orchestrator 允许协调 service、store、domain、window 与 shared；window 允许依赖 window、orchestrator、service、domain 与 shared。
 - 组件必须通过 ViewModel/composable 消费状态和动作，严禁直接调用 service、orchestrator 或 wire API。
 - ViewModel/composable 严禁直接调用 `shared/api`；跨进程业务能力必须先由 service 包装。

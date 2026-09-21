@@ -65,7 +65,7 @@ vi.mock('@/services/session.service', () => ({
   scanDirectoryGameOverview: vi.fn(),
 }));
 vi.mock('@/domain/project/load-warnings', () => ({ formatLoadWarnings: () => [] }));
-vi.mock('@/services/performance.service', () => ({
+vi.mock('@/shared/runtime/performance', () => ({
   measurePerformance: (_name: string, _detail: unknown, action: () => unknown) => action(),
 }));
 vi.mock('@/orchestrators/workspace-navigation.orchestrator', () => ({ navigateToModOverview: vi.fn() }));

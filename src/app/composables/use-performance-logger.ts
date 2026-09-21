@@ -1,4 +1,4 @@
-import { measurePerformance, type PerformanceFields } from '@/services/performance.service';
+import { measurePerformance, type PerformanceFields } from '@/shared/runtime/performance';
 
 export function usePerformanceLogger() {
   return {

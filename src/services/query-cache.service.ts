@@ -1,4 +1,4 @@
-import { recordPerformance } from '@/services/performance.service';
+import { recordPerformance } from '@/shared/runtime/performance';
 import { createRuntimeCache, type RuntimeCache } from '@/shared/runtime/cache';
 import { stableStringify } from '@/shared/lib/stable-compare';
 import type { EntityKind, InvalidatedQueryScope, ProjectInvalidation } from '@/shared/types';

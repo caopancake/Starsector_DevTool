@@ -3,14 +3,14 @@ import type { ProjectManifest, TableKey } from '@/shared/types';
 import type { ModTableState } from '@/shared/types/workspace.types';
 import { getAssociatedSpecCandidates } from '@/domain/tables/associated-spec-candidates';
 import { isCsvDeletedRow } from '@/domain/tables/csv-dirty';
-import { saveTablePatch } from '@/services/csv-table.service';
+import { writeCsvPatch } from '@/services/write.service';
 import { useTablesStore } from '@/stores/tables.store';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
 import { useProjectStore } from '@/stores/project.store';
 import { resolveTableRowKey, TABLE_ROW_KEY_FIELD } from '@/domain/tables/table-row-key';
 import { isLoadedCsvTableRow } from '@/domain/tables/csv-table-rows';
 import type { AssociatedSpecCandidate } from '@/domain/tables/associated-spec-candidates';
-import { completeSavedWrite } from '@/orchestrators/file-history-session.orchestrator';
+import { completeSavedWrite } from '@/orchestrators/file-history-write.orchestrator';
 
 export type TableSaveResult = 'saved' | 'noop';
 
@@ -50,7 +50,7 @@ export async function saveCapturedTableChanges(
 
     const csvEditHistory = useTablesEditHistoryStore();
     const patches = buildCurrentTablePatches(state, table);
-    const result = await saveTablePatch(manifest.sessionId, modRoot, table, patches, associatedSpecs);
+    const result = await writeCsvPatch(manifest.sessionId, modRoot, table, patches, associatedSpecs);
     if (!isTableSaveTargetCurrent(target)) return 'saved';
     if (result.changes.length > 0) {
       await completeSavedWrite({ modRoot, result, label: `保存 ${table} CSV`, sessionId: manifest.sessionId }, useProjectStore());

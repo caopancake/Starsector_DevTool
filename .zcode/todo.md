@@ -100,12 +100,12 @@ Owner 原则：通用缓存机制（key 版本、pending 去重、容量淘汰�
 
 Owner 原则：service 只包装单一后端能力并与 `shared/api` 一一映射；跨能力组合、媒体水合与遥测埋点属 orchestrator 或横切设施，不属于任何 service。
 
-- [ ] 重声明并执行 service 依赖规则：service 禁止 import 其它 service，基础设施例外必须显式白名单入规则；`frontend-layer-boundary.mjs` 同步改写。
-- [ ] `performance.service` 的遥测改为 `shared/runtime` 横切设施，摘除所有 service 对它的直接依赖（埋点上移 api 包装层或 orchestrator）。
-- [ ] 拆解聚合型 service：`config-entity.service.ts`、`editor.service.ts`、`csv-table.service.ts` 的读聚合与保存编排上移至对应 orchestrator（config-save、table-save、编辑器保存编排），service 退回单一能力包装。
-- [ ] `editor.service.ts` 对 `shared/api/files-api` 的直接消费并入 `files.service`，恢复 api 与 service 的一一映射。
-- [ ] orchestrator 层组合规则成文：允许高层编排低层用例、必须单向无环；评估 `file-history-session` 的"写入完成登记"与"重放执行"是否拆分为两个 owner。
-- [ ] 更新 `.zcode/overview.md` 与 `frontend-guidelines.md` 的 service 契约描述。
+- [x] 重声明并执行 service 依赖规则：service 之间默认禁止 import，基础设施边以白名单显式维护（query→query-cache、resource-media→resource-cache、config-entity→config-resource/query、config-resource→query/resource-cache、csv-table→query/resource-cache/write、files→write、editor→files/query/resource-cache/write）；`frontend-layer-boundary.mjs` 已同步改写并实证拦截白名单外的边。
+- [x] `performance.service` 删除，遥测迁为 `shared/runtime/performance` 横切设施（格式化 + 可注入日志 sink）；`app-feedback-log.service` 模块加载时注册 sink，全仓 14 个消费文件仅改 import 路径。
+- [x] 聚合 service 拆解（按既有 resource-boundary/query-boundary 契约校正落点）：`csv-table.service` 保留为 CSV 查询 owner（源目录埋点归位，行预览+资源水合组合保留），写透传删除（table-save 直用 write.service）；`config-entity.service` 瘦身为配置实体读 service（-254 行：写直通别名删除，整形/解析迁 `domain/config/config-records.ts`）；`editor.service` 保留在 services 层（bundle 读组合必须触 resource-cache，resource-boundary 契约要求），`loadImportedSpecFile` 改经 `files.service` 恢复 api↔service 一一映射。
+- [x] `shared/api/files-api` 的直接消费并入 `files.service`，api 与 service 一一映射恢复。
+- [x] orchestrator 层组合规则成文：frontend-layer-boundary 新增 orchestrators import 图无环检测（DFS）；`file-history-session` 拆分为 `file-history-write.orchestrator`（写入完成登记）与 `file-history-replay.orchestrator`（回放计划/执行，含确认 UI），规则豁免集同步。
+- [x] 更新 `.zcode/overview.md` 与 `frontend-guidelines.md` 的 service 契约描述。
 
 ### Phase 2.4: 配置实体组件族参数化
 

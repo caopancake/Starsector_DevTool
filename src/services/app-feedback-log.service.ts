@@ -7,6 +7,7 @@ import {
   openConfigDir,
 } from '@/shared/api/app-feedback-log-api';
 import type { AppLogEntry, AppLogStatus } from '@/shared/types/app-log.types';
+import { setPerformanceLogSink } from '@/shared/runtime/performance';
 
 function recordLog(entry: AppLogEntry): Promise<void> {
   return appendAppLog(entry);
@@ -15,6 +16,9 @@ function recordLog(entry: AppLogEntry): Promise<void> {
 export function recordLogBestEffort(entry: AppLogEntry): void {
   void recordLog(entry).catch(ignoreAppLogWriteFailure);
 }
+
+// 性能遥测经由此服务的落盘能力写出；注入点在 shared/runtime，避免反向依赖。
+setPerformanceLogSink((entry) => recordLogBestEffort(entry));
 
 function ignoreAppLogWriteFailure(): void {
   return;

@@ -1,6 +1,6 @@
 import { querySessionHullReferences } from '@/services/query.service';
 import { queryResourceDataUrls } from '@/services/resource-cache.service';
-import { measurePerformanceAsync } from '@/services/performance.service';
+import { measurePerformanceAsync } from '@/shared/runtime/performance';
 import { isResourceRef } from '@/shared/lib/resource-ref';
 import type { EntityData, ProjectSessionId, ResourceRef } from '@/shared/types';
 import type { SelectOption } from '@/domain/schema/schema-options';

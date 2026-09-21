@@ -1,7 +1,25 @@
-import { recordLogBestEffort } from '@/services/app-feedback-log.service';
+/**
+ * 前端性能遥测横切设施。日志落盘能力通过 setPerformanceLogSink 由
+ * app-feedback-log 服务在模块加载时注入；本模块不依赖任何 service。
+ */
 
 export interface PerformanceFields {
   [key: string]: number | string | boolean | null | undefined;
+}
+
+export interface PerformanceLogEntry {
+  level: 'info';
+  message: string;
+  path: null;
+  line: null;
+}
+
+type PerformanceLogSink = (entry: PerformanceLogEntry) => void;
+
+let logSink: PerformanceLogSink = () => {};
+
+export function setPerformanceLogSink(sink: PerformanceLogSink): void {
+  logSink = sink;
 }
 
 export function measurePerformance<T>(name: string, fields: PerformanceFields, action: () => T): T {
@@ -27,7 +45,7 @@ export function recordPerformance(name: string, ms: number, fields: PerformanceF
     .filter(([, value]) => value !== undefined && value !== null)
     .map(([key, value]) => `${key}=${sanitizePerformanceValue(String(value))}`)
     .join(' ');
-  recordLogBestEffort({
+  logSink({
     level: 'info',
     message: `PERF ${name} ms=${Math.round(ms)}${suffix ? ` ${suffix}` : ''}`,
     path: null,

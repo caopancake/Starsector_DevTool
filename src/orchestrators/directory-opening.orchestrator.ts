@@ -8,7 +8,7 @@ import { useTablesStore } from '@/stores/tables.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { detectDirectoryTarget, openProject, scanDirectoryGameOverview } from '@/services/session.service';
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
-import { measurePerformance } from '@/services/performance.service';
+import { measurePerformance } from '@/shared/runtime/performance';
 import { navigateToModOverview } from '@/orchestrators/workspace-navigation.orchestrator';
 import { buildModOpeningFailure } from '@/shared/lib/errors';
 

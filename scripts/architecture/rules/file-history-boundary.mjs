@@ -8,7 +8,8 @@ export const fileHistoryBoundaryRule = {
     for (const file of files) {
       if (!frontendFile(file.rel)) continue;
       const current = classifyFrontendPath(file.rel);
-      const isFileHistorySession = current.layer === 'orchestrators' && current.domain === 'file-history-session';
+      const isFileHistoryWrite = current.layer === 'orchestrators' && current.domain === 'file-history-write';
+      const isFileHistoryReplay = current.layer === 'orchestrators' && current.domain === 'file-history-replay';
       const isFileHistoryStore = current.layer === 'stores' && current.domain === 'file-history';
       const isTableSave = current.layer === 'orchestrators' && current.domain === 'table-save';
 
@@ -16,20 +17,20 @@ export const fileHistoryBoundaryRule = {
         failures.push(`${file.rel}: file history changesets must come from write results, not ad hoc empty arrays`);
       }
 
-      if (/\bpushSavedWriteEntry\s*\(/.test(file.text) && !isFileHistorySession && !isFileHistoryStore) {
-        failures.push(`${file.rel}: saved write completion must enter file history through File History Session`);
+      if (/\bpushSavedWriteEntry\s*\(/.test(file.text) && !isFileHistoryWrite && !isFileHistoryStore) {
+        failures.push(`${file.rel}: saved write completion must enter file history through File History Write`);
       }
 
-      if (/\bcommitReplay(?:Undo|Redo)\s*\(/.test(file.text) && !isFileHistorySession && !isFileHistoryStore) {
-        failures.push(`${file.rel}: file history replay commits must be owned by File History Session`);
+      if (/\bcommitReplay(?:Undo|Redo)\s*\(/.test(file.text) && !isFileHistoryReplay && !isFileHistoryStore) {
+        failures.push(`${file.rel}: file history replay commits must be owned by File History Replay`);
       }
 
-      if (/(?<!function\s)\breplayFileChangeSet\s*\(/.test(file.text) && !isFileHistorySession) {
-        failures.push(`${file.rel}: file history changeset replay must be owned by File History Session`);
+      if (/(?<!function\s)\breplayFileChangeSet\s*\(/.test(file.text) && !isFileHistoryReplay) {
+        failures.push(`${file.rel}: file history changeset replay must be owned by File History Replay`);
       }
 
-      if (/\bemitWindowEvent\s*\(\s*WINDOW_EVENTS\.fileEditorTextApplied/.test(file.text) && !isFileHistorySession) {
-        failures.push(`${file.rel}: file editor replay sync must be emitted by File History Session`);
+      if (/\bemitWindowEvent\s*\(\s*WINDOW_EVENTS\.fileEditorTextApplied/.test(file.text) && !isFileHistoryReplay) {
+        failures.push(`${file.rel}: file editor replay sync must be emitted by File History Replay`);
       }
 
       if (

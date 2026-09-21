@@ -15,6 +15,13 @@ export const frontendLayerBoundaryRule = {
         if (!validFrontendDependency(current.layer, target.layer)) {
           failures.push(`${file.rel}: ${current.layer} must not import ${target.layer} (${imported.specifier})`);
         }
+        if (!imported.typeOnly && current.layer === 'services' && target.layer === 'services') {
+          if (!allowedServiceEdge(current, target)) {
+            failures.push(
+              `${file.rel}: services must wrap one backend capability; cross-service composition belongs to orchestrators (${imported.specifier})`,
+            );
+          }
+        }
         if (!imported.typeOnly && target.role === 'api' && current.layer !== 'services') {
           failures.push(`${file.rel}: shared/api is a wire boundary; frontend business code must go through services`);
         }
@@ -48,9 +55,68 @@ export const frontendLayerBoundaryRule = {
         failures.push(`${file.rel}: browser storage is forbidden; persist app state through app config services`);
       }
     }
+    failures.push(...orchestratorCycleFailures(files));
     return failures;
   },
 };
+
+// 基础设施白名单：缓存宿主/投影订阅/文件写底座允许被其它 service 依赖，
+// 除此之外 services 之间禁止任何 import。
+const allowedServiceEdges = new Set([
+  'query -> query-cache',
+  'resource-media -> resource-cache',
+  'config-entity -> config-resource',
+  'config-entity -> query',
+  'config-resource -> query',
+  'config-resource -> resource-cache',
+  'csv-table -> query',
+  'csv-table -> resource-cache',
+  'csv-table -> write',
+  'files -> write',
+  'editor -> files',
+  'editor -> query',
+  'editor -> resource-cache',
+  'editor -> write',
+]);
+
+function allowedServiceEdge(current, target) {
+  return allowedServiceEdges.has(`${normalizeServiceDomain(current)} -> ${normalizeServiceDomain(target)}`);
+}
+
+function normalizeServiceDomain(file) {
+  return (file.domain ?? '').replace(/\.service$/, '');
+}
+
+function orchestratorCycleFailures(files) {
+  const failures = [];
+  const orchestratorFiles = files.filter(
+    (file) => file.rel.startsWith('src/orchestrators/') && file.rel.endsWith('.ts') && !file.rel.endsWith('.spec.ts'),
+  );
+  const graph = new Map();
+  for (const file of orchestratorFiles) {
+    const targets = [];
+    for (const imported of importedProjectPaths(file)) {
+      const target = classifyFrontendPath(imported.resolved);
+      if (target.layer === 'orchestrators') targets.push(imported.resolved);
+    }
+    graph.set(file.rel, targets);
+  }
+  const visiting = new Set();
+  const visited = new Set();
+  function visit(rel, trail) {
+    if (visiting.has(rel)) {
+      failures.push(`src/orchestrators: orchestrator dependency cycle detected: ${[...trail, rel].join(' -> ')}`);
+      return;
+    }
+    if (visited.has(rel)) return;
+    visiting.add(rel);
+    for (const next of graph.get(rel) ?? []) visit(next, [...trail, next]);
+    visiting.delete(rel);
+    visited.add(rel);
+  }
+  for (const rel of graph.keys()) visit(rel, [rel]);
+  return failures;
+}
 
 function tauriRuntimeBoundary(current) {
   return current.role === 'api' || (current.layer === 'shared' && current.domain === 'runtime') || current.layer === 'windows';

@@ -17,7 +17,7 @@
 ## 顶层职责
 
 - `src/app/` 保存窗口根、页面、组件和 ViewModel/composable；组件负责渲染、输入和局部 UI 状态。
-- `src/domain/` 保存纯规则和转换；`src/services/` 包装单一后端能力；`src/orchestrators/` 编排跨模块用户动作。
+- `src/domain/` 保存纯规则和转换；`src/services/` 包装单一后端能力，service 之间默认禁止依赖，仅白名单内的基础设施边（缓存宿主、投影订阅、文件写底座）例外；`src/orchestrators/` 编排跨模块用户动作且依赖图必须单向无环。
 - `src/stores/` 保存内存运行态；`src/windows/` 管理窗口身份、生命周期和事件；`src/shared/` 保存跨模块 API、runtime、类型和纯工具。
 - `src/styles/` 保存全局主题、应用框架和业务样式；`schemas/` 保存配置字段与 CSV 列 schema。
 - `src-tauri/src/commands/` 处理 wire 参数、错误转换和 service 调用；`services/` 提供目录、ProjectSession、配置实体、文件、settings、日志、workspace 与资源能力。

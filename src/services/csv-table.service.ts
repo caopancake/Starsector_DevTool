@@ -1,20 +1,11 @@
 import { querySessionCsvRowPreview, querySessionSourceOptions, querySessionTableWindow } from '@/services/query.service';
 import { queryResourceDataUrls } from '@/services/resource-cache.service';
 import { writeCsvPatch } from '@/services/write.service';
-import { recordPerformance } from '@/services/performance.service';
-import type {
-  AssociatedSpecChange,
-  CsvFactionFilter,
-  CsvRowPatch,
-  CsvTableWindow,
-  ProjectSessionId,
-  SourceOptionGroup,
-  TableKey,
-  WriteResult,
-} from '@/shared/types';
+import { recordPerformance } from '@/shared/runtime/performance';
+import type { AssociatedSpecChange, CsvFactionFilter, CsvRowPatch, CsvTableWindow, TableKey, WriteResult } from '@/shared/types';
 
 export function queryTableWindow(
-  sessionId: ProjectSessionId,
+  sessionId: string,
   table: TableKey,
   start: number,
   count: number,
@@ -24,7 +15,7 @@ export function queryTableWindow(
   return querySessionTableWindow(sessionId, table, start, count, search, faction);
 }
 
-export async function querySourceOptionCatalog(sessionId: ProjectSessionId, source: string): Promise<SourceOptionGroup[]> {
+export async function querySourceOptionCatalog(sessionId: string, source: string) {
   const startedAt = performance.now();
   const groups = await querySessionSourceOptions(sessionId, source);
   recordPerformance('frontend.query.sourceCatalog', performance.now() - startedAt, {
@@ -35,18 +26,18 @@ export async function querySourceOptionCatalog(sessionId: ProjectSessionId, sour
   return groups;
 }
 
+export async function queryTableRowPreviewDataUrl(sessionId: string, table: TableKey, rowKey: string): Promise<string> {
+  const resource = (await querySessionCsvRowPreview(sessionId, table, rowKey)).resourceRef;
+  if (!resource) return '';
+  return (await queryResourceDataUrls(sessionId, [resource]))[0] ?? '';
+}
+
 export function saveTablePatch(
-  sessionId: ProjectSessionId,
+  sessionId: string,
   modRoot: string,
   table: TableKey,
   patches: CsvRowPatch[],
   associatedSpecs: AssociatedSpecChange[],
 ): Promise<WriteResult> {
   return writeCsvPatch(sessionId, modRoot, table, patches, associatedSpecs);
-}
-
-export async function queryTableRowPreviewDataUrl(sessionId: ProjectSessionId, table: TableKey, rowKey: string): Promise<string> {
-  const resource = (await querySessionCsvRowPreview(sessionId, table, rowKey)).resourceRef;
-  if (!resource) return '';
-  return (await queryResourceDataUrls(sessionId, [resource]))[0] ?? '';
 }
