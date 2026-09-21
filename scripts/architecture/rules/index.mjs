@@ -2,6 +2,7 @@ import { configModuleBoundaryRule } from './config-module-boundary.mjs';
 import { csvDraftBoundaryRule } from './csv-draft-boundary.mjs';
 import { csvModuleBoundaryRule } from './csv-module-boundary.mjs';
 import { directoryOpeningBoundaryRule } from './directory-opening-boundary.mjs';
+import { docsModuleMapRule } from './docs-module-map.mjs';
 import { draftSessionBoundaryRule } from './draft-session-boundary.mjs';
 import { editorConfigBackendBoundaryRule } from './editor-config-backend-boundary.mjs';
 import { editorModuleBoundaryRule } from './editor-module-boundary.mjs';
@@ -47,6 +48,7 @@ export const rules = [
   sharedTypesBoundaryRule,
   csvModuleBoundaryRule,
   csvDraftBoundaryRule,
+  docsModuleMapRule,
   draftSessionBoundaryRule,
   schemaModuleBoundaryRule,
   configModuleBoundaryRule,

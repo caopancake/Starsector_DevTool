@@ -1,45 +1,95 @@
 # Frontend Guidelines
 
-本文件维护 `src/` 的分层、依赖、状态、IPC、窗口与资源边界。通用调查和验证流程见 `.zcode/workflow.md`。
+本文档只记录 Vue 前端必须遵守的长期通用规则。模块级链路、具体页面行为和领域实现细节写入 `.zcode/modules/`；CSS 规范见 `.zcode/css-guidelines.md`。
 
-## 分层与命名
+## 架构设计
 
-- `app` 只允许拥有窗口根、provider、页面、组件和 ViewModel/composable；组件必须使用 PascalCase。
-- `domain` 只允许拥有纯规则和转换；`services` 只允许包装单一后端能力；`orchestrators` 只允许编排跨模块用户动作。
-- service 之间默认禁止依赖；仅白名单内的基础设施边（缓存宿主、投影订阅、文件写底座）例外，白名单由架构规则显式维护。
-- `stores` 只允许保存内存运行态；`windows` 只允许管理窗口身份、生命周期和事件；`shared` 只允许保存跨模块 API、runtime、类型和纯工具。
-- service、store、orchestrator 与 window 文件必须分别使用 `.service.ts`、`.store.ts`、`.orchestrator.ts` 与 `.window.ts` 或 `.events.ts` 后缀；共享业务类型必须位于 `shared/types` 或 domain。
-- 项目内导入必须使用 `@/`；`shared/types` 之外严禁直引成员文件，共享类型必须经 barrel（`@/shared/types`）导入；barrel 内 owner 文件必须直接导入具体类型文件，严禁反向导入 shared types barrel。
-- 错误语义边界：`domain` 允许以裸 `Error` 表达值语义校验失败；`services`/`orchestrators` 的失败必须抛出携带 `action` 的 `AppError`（或 `withCause`），由架构规则强制；反馈层用 `formatError` 呈现。
-- Pinia store id 必须为 kebab-case，与文件名 `.store.ts` 约定一致。
+本节记录前端结构的既定设计决策。目录职责速查见 overview，模块级归属见 module-map 与对应模块文档。
 
-## 依赖方向
+- 分层职责：`app` 组合装配与页面，`domain` 拥有纯规则与转换，`services` 包装单一后端能力，`orchestrators` 编排跨模块动作，`stores` 持有内存运行态，`windows` 管理窗口身份与事件，`shared` 承载 wire API、runtime、类型与纯工具。分层依据是交互、规则、后端能力、编排、运行态与窗口身份的变更节奏和验证方式各不相同，混在一层无法单点约束。
+- 依赖方向单向：`app -> orchestrators/stores/services/domain/shared`；orchestrator 之间必须单向无环；`stores -> stores/domain/shared`；`domain -> domain/shared`；`shared -> shared`。反向依赖会让下层规则与能力被上层语义污染。
+- service 之间默认禁止依赖；仅架构规则白名单内的基础设施边（缓存宿主、投影订阅、文件写底座）例外。白名单默认拒绝：新增依赖必须改授权表，依赖面增量才可审计。
+- 组件必须经 ViewModel/composable 消费状态与动作；ViewModel 严禁直连 `shared/api`。组件直连后端会让错误语义、失效与权限校验脱离编排边界。
+- draft 提交为显式模型：交互与输入在动作边界提交 draft 并记录撤销，严禁深度同步 watch 携带业务副作用。
+- 状态、缓存、历史与窗口上下文按 `modRoot` 隔离；跨窗口与外部更新必须携带完整 session、Mod 与目标身份。
+- 领域文件按业务域归位（`domain/editors`、`domain/tables`、`domain/schema`、`domain/config`、`domain/settings`、`domain/workspace`），不按技术角色分桶；改动半径必须与业务边界重合。
 
-- `shared` 只允许依赖 `shared`；`domain` 只允许依赖 `domain` 与 `shared`。
-- `services` 只允许依赖 service、domain 与 shared；service 之间的依赖必须命中架构规则中的基础设施白名单，orchestrator 之间的依赖必须单向无环；store 只允许依赖 store、domain 与 shared。
-- orchestrator 允许协调 service、store、domain、window 与 shared；window 允许依赖 window、orchestrator、service、domain 与 shared。
-- 组件必须通过 ViewModel/composable 消费状态和动作，严禁直接调用 service、orchestrator 或 wire API。
-- ViewModel/composable 严禁直接调用 `shared/api`；跨进程业务能力必须先由 service 包装。
+## 结构分工
 
-## IPC 与运行时
+- `src/app/`：窗口根、页面、组件、检查器与 ViewModel/composable；应用级装配在这里收口。
+- `src/domain/`：纯规则、原语与转换；严禁依赖 app、services、stores 或 windows。
+- `src/services/`：单一后端能力包装；跨进程业务能力必须先由 service 包装再被消费。
+- `src/orchestrators/`：跨模块用户动作编排；拥有失效顺序、确认与回滚语义。
+- `src/stores/`：内存运行态；每个 store 一个 `.store.ts` 文件。
+- `src/windows/`：窗口身份、生命周期、事件名与事件封装。
+- `src/shared/`：wire API（唯一 invoke 边界）、runtime、类型与纯工具。
+- `schemas/`：配置字段与 CSV 列 schema 资产，只能经统一加载入口消费。
 
-- `shared/api` 是唯一 `invoke` wire adapter；业务调用链必须为 service -> `shared/api` -> Rust command。
-- Tauri API 只允许出现在 `shared/api`、`shared/runtime` 与 `windows`；dialog、窗口和事件必须由各自 runtime 边界包装。
-- `shared/api` 只允许进行 payload 适配和结果返回，严禁定义业务可见类型或业务规则。
-- 前端严禁使用 `localStorage`、`sessionStorage` 或 `indexedDB`；持久化必须通过正式 app config、workspace 或 Mod 后端能力。
+## 硬性调用链
 
-## 状态与保存
+- 页面和组件不直接散写 `invoke()`；固定链路是 `Vue -> ViewModel/composable -> service -> shared/api -> Rust command`。
+- 保存链路固定为 `组件动作 -> orchestrator -> write service -> shared/api -> Rust write -> changeset -> 文件历史 -> ProjectSession refresh -> 界面同步`；链路外的写入路径一律禁止。
+- 撤销重做分派固定为快捷键命令、CSV 草稿历史优先、文件历史回放兜底；命令解析与分发归唯一 owner，严禁组件自建全局键盘监听。
+- 全局启动恢复只由窗口挂载入口协调；页面不得直接调用恢复动作。
+- 缓存失效与派生状态同步必须位于编排事务边界，不在页面局部手补。
+- 跨模块 payload 用 `null` 表示无值；表单内部可用空字符串，提交或 IPC 边界必须显式转换。
+- 语义 ID、路由目标与跨层提交 ID 必须在来源边界表达解析语义，不在业务链路直接 `String(id)`。
 
-- 所有按 Mod 归属的状态、缓存、草稿、选择与历史必须按 `modRoot` 隔离；游戏概览与 ProjectSession 必须保持独立身份。
-- Store 严禁拥有 IO、确认框或跨模块编排；Draft Session 必须拥有 base、draft、dirty、revision 与 pending external 状态。
-- 保存、删除、导入和 undo/redo 必须经过所属 orchestrator、write service、changeset 与 ProjectSession refresh。
-- 组件和 ViewModel 严禁构造磁盘路径、`ResourceRef` 或后端实体身份；已保存数据与 dirty draft 必须通过显式外部更新语义交接。
+## 代码习惯
 
-## 窗口与资源
+本章按理想标准书写；现有代码与本标准不一致时，以本标准为目标逐步收敛，不为现状放宽。
 
-- 常规窗口身份必须包含完整 session、`modRoot` 和业务目标；错误恢复文件窗口必须包含调用链提供的 `modRoot` 和错误文件路径，并使用 recovery 模式与常规 session 模式区分；子窗口严禁自行打开 ProjectSession 或读取 settings 文件。
-- 错误恢复文件入口只允许在错误文件属于调用链提供的 `modRoot` 时启用；恢复窗口保存只允许经过无 session 文件写入能力，严禁发送依赖 ProjectSession 的保存同步事件。
-- 主窗口拥有 settings 持久化权威；子窗口只允许接收完整 snapshot，并通过正式事件同步。
-- 资源只允许由后端 query 返回 `ResourceRef`，再由 resource-cache service 批量 hydrate data URL；严禁逐项 IPC 或前端构造 fallback。
-- 字段渲染必须遵守全局 edit mode；字符串真实换行必须使用 textarea 并完整保留。
-- UI 和布局必须遵守 `.zcode/css-guidelines.md`。
+### 命名与语言惯用法
+
+- Vue 组件文件 PascalCase；composable 前缀 `use*`；store 文件 `*.store.ts`；类型 PascalCase。
+- 名称表达领域语义；禁止 `data`、`item`、`value`、`result` 一类占位名。
+- 互斥状态用判别联合表达，不用多个布尔标志组合。
+- 不可信输入（IPC 返回、外部更新）声明为 `unknown` 并收窄；禁止 `any`。
+- 提交与 IPC 输入必须经归一化函数；解析禁止裸 `Number()` / `String()`，解析失败是显式分支，不产生 NaN 或空串。
+- 函数保持单一抽象层级，早返回；协议转换、业务判断与展示组装不得混排在同一函数。
+- 禁止 `as any`；类型断言不得替代输入校验。
+
+### 错误处理习惯
+
+- 预期错误（业务拒绝、写入失败、输入非法）由 service/orchestrator 抛出携带 `action` 的 `AppError`，这是架构规则强制的边界。
+- 一次用户动作只产生一条错误提示；action 内 toast 与 rethrow 不并存。
+- 错误呈现必须经 `formatError` 与统一反馈入口；禁止裸 `String(error)` 或 `error?.toString()`。
+- 禁止空 catch：任何 catch 分支必须提示、上报或恢复。
+
+### 组件、状态与模块拆分
+
+- 组件负责展示与局部交互；窗口与页面负责装配 ViewModel。
+- 状态归属按顺序选择：组件局部 state -> composable -> store；能放局部的不上收。
+- 拆分依据是状态与职责边界，不是行数或复用次数；跨视图共享的派生信息抽 composable。
+- 组件不得兼管缓存、失效或状态恢复；超出展示职责的复杂度移回编排或 ViewModel。
+
+### Store 形态
+
+- store 文件命名为 `<域>.store.ts`，用 `defineStore` setup 风格定义。
+- store id 用 kebab-case 并与文件名对齐（`file-history` 对应 `file-history.store.ts`）；禁止 camelCase 或与文件名脱节的 id。
+- store id 是 Pinia 内部标识符，禁止按 id 动态访问 store；store id 与持久化文件、事件名互不相干。
+- 从 store 解构响应式字段必须用 `storeToRefs`；一次性解构会静默丢失响应性。
+- store 严禁拥有 IO、确认框或跨模块编排；保存类动作经注册表分派。
+
+### 测试与验收习惯
+
+- 原语、解析、归一化、命令分派与保存编排的纯逻辑改动必须补 vitest 正反例。
+- 错误输入按规则失败是验收内容，不是可选项。
+- 测试断言行为与输出协议，不复制生产实现细节。
+
+## 交互约定
+
+- 用户可见错误、警告与确认统一走 `AppFeedback`；禁止 `String(error)` 后直接提示。
+- 前端日志只走应用日志链路；业务模块禁止遗留 `console.*`。
+- store 默认不直接 toast；用户反馈放在页面组合、编排或明确反馈边界。
+- `input`、`textarea`、`select`、`contenteditable` 保留原生输入与右键体验。
+- 画布与网格的快捷键、修饰键组合必须经统一分发器；组件内严禁自建全局键盘监听。
+- 危险操作必须使用确认能力并统一危险语气；一次操作只产生一条反馈。
+
+## 注释规范
+
+- 注释一律使用英文；现状与标准不一致时按本标准逐步收敛。
+- 尽可能少写注释：优先通过改名、拆函数、改类型让代码自解释。
+- 必须注释的场景：冻结的常量、算法或外部协议；顺序或事务敏感的边界；约束来源与看似多余但必需的步骤；workaround 及其移除条件。
+- 禁止注释的场景：复述代码行为、历史叙事、无追踪目标的 `TODO` / `FIXME`、注释掉的代码。
+- 格式约定：完整句或祈使句；单行优先，不写装饰性分隔注释块；JSDoc 只用于公开契约形状。

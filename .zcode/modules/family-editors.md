@@ -1,0 +1,71 @@
+# 配置实体族编辑器
+
+## 定义
+
+配置实体族编辑器系统以参数化定义驱动装配与皮肤两族的列表、新建、删除、草稿编辑与单文件保存。
+
+## 参考
+
+`src/domain/config/config-entity-families.ts`：族定义 owner，拥有装配与皮肤的标识字段、伴随字段、文案、图标路径与媒体面。
+`src/app/composables/use-config-family-view-model.ts`：族列表 ViewModel owner，拥有加载、新建、删除校验与资源引用。
+`src/app/composables/use-config-family-editor-view-model.ts`：族编辑 ViewModel owner，拥有目标 Draft Session 接线与保存。
+`src/app/components/config/ConfigEntityFamilyList.vue`：族列表组件。
+`src/app/components/config/ConfigEntityFamilyEditor.vue`：族编辑组件。
+`src/app/components/config/ConfigEntityFamilyView.vue`：族视图组合 owner。
+`src/orchestrators/config-save.orchestrator.ts`：族保存动作归属的保存编排。
+`src-tauri/src/services/editor_config/spec_entities.rs`：后端族实体 owner，按实体类型参数化保存、创建、删除与重命名。
+
+## 边界
+
+- 两族差异只允许存在于族定义数据；组件、ViewModel 与保存动作必须共用参数化实现，严禁为单族复制第二份实现。
+- 列表与编辑 ViewModel 分别拥有选择、资源引用与目标 Draft Session；组件只渲染与触发。
+- Rust 后端拥有文件目标、ID、扩展名、重命名、删除与 changeset；前端严禁推导磁盘路径或实体 ID。
+- 单文件保存只允许写当前族声明的目标文件；dirty 时外部版本只允许暂存。
+- 新建对话框的必填、ID 非法与冲突校验收敛在族 ViewModel，组件只触发。
+- 镜像模式与画布骨架语义不适用于本模块；族编辑是纯表单域。
+
+## 链路
+
+### 族列表加载
+
+1. 页面以族定义加载实体列表。
+2. 后端返回实体数据与资源引用。
+3. 列表按可视区渐进解析缩略图。
+4. 装配列表额外解析舰船名称并按两行展示。
+
+### 新建实体
+
+1. 用户在新建对话框输入伴随字段与 ID。
+2. 族 ViewModel 校验必填、ID 合法性与冲突。
+3. 创建动作经保存编排写入索引与实体文件并登记历史。
+4. 列表刷新并选中新实体。
+
+### 编辑与保存
+
+1. 选中实体加载目标草稿与表单。
+2. 编辑经显式提交模型更新草稿。
+3. 保存动作族写入当前族目标文件并登记历史。
+4. dirty 时外部更新只暂存并提示。
+
+### 删除实体
+
+1. 用户发起删除并经确认。
+2. 删除动作族移除实体文件与索引行并登记历史。
+3. 列表刷新并清理选择。
+
+## 规范
+
+- 装配列表首行必须显示 `ships.name · variant.displayName`，第二行显示 `variantId`；舰船名称必须由后端按当前 Mod `ship_data.csv` 优先、原版补集解析。
+- 无法解析舰船名称时必须显示 `hullId`，严禁改变装配引用或持久化数据。
+- 皮肤列表必须从实体列表保留缩略资源引用并按可视区渐进解析。
+- 新建动作才允许加载舰体引用目录；目录项严禁预取缩略图。
+- 重命名由后端验证并迁移目标文件与文件内容 ID，前端严禁拼接路径。
+- 路径与文件内容 ID 必须由后端验证；前端扫描或推导一律拒绝。
+
+## 陷阱
+
+- 为单一实体族复制整套列表与编辑实现会让族差异漂移成两套行为。
+- 在前端推导 `.variant` 或 `.skin` 文件路径会让保存目标脱离后端定义。
+- 舰船名称解析失败时回写 `hullId` 到装配数据会破坏引用。
+- 目录项预取缩略图会在打开新建对话框时产生资源风暴。
+- dirty 时用外部版本直接覆盖表单会丢失未保存编辑。

@@ -2,19 +2,70 @@
 
 ## 定义
 
-独立窗口以画布和表单编辑一个 `.ship` 规格。
+舰船编辑器系统在独立窗口以画布与表单编辑一个 `.ship` 规格。
 
-## Owner 与链路
+## 参考
 
-- ViewModel query ship bundle、资源与引用，维护目标 Draft Session；组件拥有画布交互/局部 UI；窗口服务拥有单例身份。
-- 画布骨架（命中检测、选区同步、镜像轴/光标/hover 预览绘制、undo、window resize/keydown/keyup、resize 与 inspector 联动）由 `use-canvas-editor` 统一承载；viewport 与选中/镜像/预览状态经 `createCanvasEditorState`/`useCanvasViewport` 在组件侧先行创建后注入。
-- Draft 提交为显式模型：全部 draft 变更路径显式 commit（`draft-changed` -> Draft Session setDraft），画布拖拽在动作边界（onUp/onLeave）提交一次，检查器输入逐事件提交；不存在深度 watch 同步。
-- 保存走 editor write -> changeset/File History -> ProjectSession refresh/事件；贴图浏览只解析 Mod 内相对路径写入引用字段，不写任何文件。
+`src/app/components/editors/ShipEditor.vue`：编辑器组件 owner，注入画布 hooks 并拥有实体语义、检查器表单与贴图。
+`src/app/composables/use-canvas-editor.ts` 同族：画布交互骨架（见画布骨架模块）。
+`src/domain/editors/lib/normalize.ts`：`.ship` 规格归一化 owner。
+`src/domain/editors/lib/mirror.ts`：镜像规则 owner。
+`src/domain/editors/normalize.ts` 与 `src/domain/editors/lib/canvas-visuals.ts`：实体视觉绘制 owner。
+`src/app/composables/use-editor-window-view-model.ts`：窗口 ViewModel owner，维护目标 Draft Session 与 bundle。
+`src/app/composables/use-resource-reference.ts`：贴图引用选择 owner。
+`scripts/architecture/rules/editor-module-boundary.mjs`：编辑器组件边界规则 owner。
 
-## 不变量
+## 边界
 
-- 只写 `.ship`，不直接改 ship CSV；几何、槽位、引擎和 shield 通过正式 spec/draft 规则更新。
-- 编辑器内部显示和编辑 `.ship` 的 `hullName`；编辑器外的舰船显示名称必须优先使用 `ship_data.csv` 的 `name`，只有该名称缺失或为空时才允许使用 `.ship` 的 `hullName`。
-- dirty 时外部更新不覆盖；画布不直读磁盘/IPC，不以数组下标或显示文本替代正式 ID。
-- 画布镜像模式按空格开关，覆盖武器槽（含甲板）、引擎与碰撞边界；配对只按几何条件实时计算（武器槽=位置对称+size+type 相同，引擎=位置对称+长宽相同，碰撞顶点=位置对称），禁止按下标或 ID 记忆；镜像新增/调整/删除成对生效，中轴元素退化为单件；center/shield/半径类标量与检查器数值输入不参与镜像联动。
-- 贴图选择为纯引用：浏览只接受 Mod 根内的 png，Mod 外拒绝；相对路径原样作为 `spriteName`，不做复制、改名或目录整理。
+- 窗口 ViewModel query 舰船 bundle、资源与引用并维护目标 Draft Session；组件拥有画布交互与检查器 UI；窗口服务拥有单例身份。
+- 画布命中检测、选区同步、镜像轴与提交引擎全部注入自画布骨架；编辑器只提供目标、命中表、镜像规则、预览与场景绘制。
+- 保存走编辑器写、changeset、文件历史与 session refresh；贴图浏览只解析 Mod 内相对路径写入引用字段，严禁写任何文件。
+- 只允许写 `.ship`，严禁直接改 ship CSV；几何、槽位、引擎与 shield 通过正式 spec/draft 规则更新。
+- dirty 时外部更新只暂存；画布严禁直读磁盘或 IPC，严禁以数组下标或显示文本替代正式 ID。
+- 检查器对实体字段的编辑必须经显式提交模型进入草稿并重绘画布。
+
+## 链路
+
+### 打开与画布就绪
+
+1. 窗口按 `.ship` 目标打开并加载 bundle。
+2. 编辑器以归一化规格建立本地草稿并注入画布 hooks。
+3. 骨架挂载窗口事件、resize 与快捷键分发。
+4. 贴图数据到达后加载并自适应缩放。
+
+### 画布编辑
+
+1. 用户在总览、范围、边界、武器、甲板或引擎模式间切换。
+2. 左键按模式拖动中心、护盾、半径、槽位、引擎或边界点。
+3. Shift/Ctrl/Alt 组合执行新增、复制、半径或角度调整。
+4. 空格开关镜像模式，配对元素成对生效。
+5. 释放指针在动作边界提交一次 draft。
+
+### 检查器编辑
+
+1. 检查器表单逐字段编辑实体属性。
+2. 每次输入提交 draft 并重绘受影响视觉。
+3. T 键展开并滚动到当前模式对应区块。
+
+### 保存
+
+1. 保存经窗口 ViewModel 进入编辑器写链路。
+2. changeset、文件历史与 session refresh 完成后提交 base。
+3. dirty 时外部版本暂存并提示。
+
+## 规范
+
+- 编辑器内部显示和编辑 `.ship` 的 `hullName`；编辑器外的舰船显示名称必须优先使用 `ship_data.csv` 的 `name`，仅在该名称缺失时才允许 `hullName`。
+- 镜像模式按空格开关，覆盖武器槽（含甲板）、引擎与碰撞边界；配对只按几何条件实时计算，禁止按下标或 ID 记忆。
+- 镜像新增、调整与删除成对生效；中轴元素退化为单件；center/shield/半径标量与检查器数值输入不参与镜像联动。
+- 贴图选择为纯引用：只接受 Mod 根内 png，相对路径原样作为 `spriteName`，不复制、不改名、不整理目录。
+- 贴图尺寸同步必须以实际加载贴图为准，且仅在用户显式触发时写回宽高。
+- 舰体引用、资源引用必须以后端 ResourceRef 或后端校验的相对路径表达。
+
+## 陷阱
+
+- 在编辑器内重建命中或选区会让画布语义偏离统一骨架。
+- 镜像配对按下标记忆会让删除后错配对侧元素。
+- 直接修改 ship CSV 行会让 CSV 权威与规格文件分叉。
+- 贴图浏览复制文件进 Mod 会破坏纯引用边界。
+- dirty 时应用外部版本会覆盖未保存画布编辑。

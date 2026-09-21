@@ -1,0 +1,67 @@
+# 武器、弹体与发射预览
+
+## 定义
+
+武器、弹体与发射预览系统在独立窗口编辑 `.wpn` 与其弹体引用，并提供只读发射预览窗口。
+
+## 参考
+
+`src/app/components/editors/WeaponEditor.vue`：武器编辑器组件 owner，拥有表单、发射点画布与弹体入口。
+`src/app/components/editors/ProjectileEditor.vue`：弹体编辑器组件 owner，拥有 projectile/missile 分支表单。
+`src/app/components/editors/WeaponFirePreview.vue`：发射预览组件 owner，拥有弹道模拟、光束与播放控制。
+`src/domain/editors/lib/weapon-sprite-fields.ts`：武器贴图字段、键映射与 origin 比例 owner。
+`src/app/composables/use-editor-window-view-model.ts`：窗口 ViewModel owner，维护目标 Draft Session、弹体 bundle 与资源。
+`src/windows/editor.window.ts`：编辑器窗口请求 owner，承载武器、弹体与预览三种窗口类型。
+`src-tauri/src/services/editor_config/spec_entities.rs` 同层的编辑器写链路：武器与弹体保存。
+`scripts/architecture/rules/editor-module-boundary.mjs`：编辑器组件边界规则 owner。
+
+## 边界
+
+- 武器编辑只允许写 `.wpn`，弹体编辑只允许写对应 `.proj`；严禁写 CSV 或互相改写目标文件。
+- `specClass` 决定正式字段分支；发射点 edits 只作用于当前视图（炮塔/固定）的数组，两套数组互不配对。
+- 弹体窗口按 `projectileSpecId` 打开，弹体保存的变更经失效刷新回到武器 bundle。
+- 发射预览是单例只读窗口：只消费已保存 bundle 或一次性草稿快照，严禁写盘、读取编辑器实时草稿或发送保存事件。
+- 预览的发射点与角度读取、贴图 origin 比例与 sprite 层绘制必须与武器编辑器同源。
+- 资源与引用只走统一 query/cache，严禁拼路径或构造 fallback 弹体。
+- dirty 时外部保存暂存，不能覆盖草稿；镜像配对只按坐标对称实时计算。
+
+## 链路
+
+### 武器编辑
+
+1. 窗口按 `.wpn` 目标打开并加载 bundle、弹体与资源。
+2. 基础属性、贴图与音效经表单显式提交进草稿。
+3. 画布编辑发射点：拖动位置、Shift 新增、Ctrl 设角度、退格删除。
+4. 空格开关镜像，成对生效；U/H 切换炮塔与固定视图。
+5. 保存经编辑器写链路完成 changeset、历史与刷新。
+
+### 弹体编辑
+
+1. 武器编辑器按 `projectileSpecId` 打开弹体窗口。
+2. 弹体编辑按 projectile 与 missile 分支编辑字段与引擎参数。
+3. 保存走弹体写链路并广播保存事件。
+4. 武器窗口接收弹体失效并刷新引用数据。
+
+### 发射预览
+
+1. 武器编辑器以当前草稿快照（或已保存 bundle）打开预览窗口。
+2. 预览按炮塔或固定视图构造发射点、模拟弹道与光束阶段。
+3. 播放控制支持开火、停火、暂停与倍速。
+4. 弹体缺失属于错误状态，严禁构造默认弹体。
+
+## 规范
+
+- 贴图字段为纯引用：浏览只接受 Mod 根内 png 并原样写入字段，Mod 外拒绝，不复制、不改名。
+- 画布镜像模式按空格开关，仅作用于当前视图的发射点数组；配对只按坐标对称实时计算，检查器数值输入不参与镜像联动。
+- 弹体引用变更必须经 `projectileSpecId` 正式字段，严禁按显示名或下标关联。
+- 预览窗口的轨道构造必须来自武器与弹体的正式字段，资源失效时按依赖刷新。
+- 发射点坐标必须使用吸附步长；角度偏移必须整数化。
+- 弹体编辑的引擎槽位只允许在 missile 分支编辑。
+
+## 陷阱
+
+- 让预览窗口读取编辑器实时草稿会绕过"只消费已保存数据"的窗口边界。
+- 弹体保存后不刷新武器 bundle 会让引用数据停留在旧值。
+- 两大视图的发射点数组互相配对会让炮塔与固定坐标互相污染。
+- 在预览窗口为缺失弹体构造默认值会掩盖引用错误。
+- 贴图浏览复制文件或改写路径会破坏纯引用边界。

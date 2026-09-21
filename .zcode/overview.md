@@ -1,50 +1,64 @@
 # Overview
 
-本文件维护项目架构、状态权威和关键链路的总契约。任务执行流程见 `.zcode/workflow.md`。
+Starsector_DevTool 是一个 Windows 桌面 Starsector Mod 配置工具，目标是把 Mod 的表格、spec、配置实体与文件编辑放进同一个受控产品里。
 
-## 定位
+## 项目目标
 
-- 本项目是 Windows 桌面 Starsector Mod 配置工具，运行栈为 Tauri 2、Rust、Vue 3、TypeScript、Pinia、Naive UI、Canvas 2D 与 Vite。
-- 游戏目录提供轻量概览与原版只读来源；成功建立 `ProjectSession` 的 Mod 提供实体 query、编辑和保存能力。
+- 统一管理已加载 Mod 的 CSV 表格、`.ship/.wpn/.proj/.system` 规格与配置实体编辑
+- 以 ProjectSession 驱动实体 query、受权写入与写后精确失效
+- 维护文件级与表格级两套草稿历史，支持撤销、重做与确认回放
+- 提供舰船/武器画布编辑器、弹体编辑窗口与只读发射预览
+- 统一资源引用、贴图批量解析与原版只读回退
+
+## 技术栈
+
+- Tauri 2
+- Rust
+- Vue 3 + TypeScript
+- Pinia
+- Naive UI
+- Canvas 2D
+- Vite
+
+## 路径与职责速查
+
+### 前端
+
+- `src/app/`：承载窗口根、页面、组件、检查器与 ViewModel/composable；应用级装配在这里收口，不承载领域规则与后端能力。
+- `src/domain/`：承载纯规则与转换（编辑会话原语、schema 加载、主题令牌、表格与画布规则）；严禁依赖 app、services 或 stores。
+- `src/services/`：包装单一后端能力；service 之间默认禁止依赖，仅架构规则白名单内的基础设施边例外。
+- `src/orchestrators/`：编排跨模块用户动作（保存、打开、历史、刷新）；依赖图必须单向无环。
+- `src/stores/`：保存内存运行态；严禁 IO、确认框或跨模块编排。
+- `src/windows/`：管理窗口身份、生命周期与事件。
+- `src/shared/`：承载 wire API、runtime、类型与纯工具；`shared/api` 是唯一 invoke 边界。
+- `schemas/`：保存配置字段与 CSV 列 schema 资产，经唯一加载入口消费。
+- `src/styles/`：承载全局主题、应用框架和业务样式。
+
+### Rust
+
+- `src-tauri/src/commands/`：处理 wire 参数、错误转换和 service 调用。
+- `src-tauri/src/services/`：提供目录、ProjectSession、配置实体、文件、settings、日志、workspace 与资源能力。
+- `src-tauri/src/services/project/`：按 root、session、query、write、resources、cache 与 model 分工；query 只读，write 返回 changeset 与结构化 invalidation。
+- `src-tauri/src/domain/`：保存纯业务规则。
+- `src-tauri/src/io/`：保存路径和文件边界。
+- `src-tauri/src/parsers/`：保存格式解析与渲染。
+- `src-tauri/src/models/`：保存 wire 和内部模型。
+
+### 跨层链路
+
+- 实体读取：`组件 -> ViewModel/composable -> service -> shared/api -> Rust command -> project query -> parser/IO/cache`，返回 manifest 与前端查询缓存。
+- 保存：`组件动作 -> orchestrator -> write service -> shared/api -> Rust write -> changeset -> File History -> ProjectSession refresh -> 结构化失效 -> 界面同步`。
+- 目录打开：`组件 -> directory-opening orchestrator -> 后端识别 -> 游戏概览或 ProjectSession -> workspace/project 运行态`。
+- 撤销重做：`快捷键命令 -> 主窗口历史分派 -> CSV 草稿历史优先 -> 文件历史回放 -> session refresh -> 编辑器同步`。
+- 资源读取：`后端 ResourceRef -> Mod/Core 解析 -> 批量 data URL -> 前端资源缓存 -> 组件`；上传进入二进制 changeset 与缓存失效。
+- 窗口同步：`完整窗口 identity -> managed window -> 结构化事件 -> 主窗口保存与 refresh -> dirty 外部版本交接`。
+
+## 边界速查
+
+- 模块级定义、边界、链路与规范写在 `.zcode/modules/` 并经 module-map 索引；overview 只维护项目级边界与整体规则。
 - 前端拥有交互、草稿和运行时投影；Rust 拥有磁盘路径、格式解析、写入、删除、changeset 构建与回放权威。
-
-## 运行入口
-
-- `src/main.ts` 按 URL 中的窗口类型加载主窗口、专用编辑器窗口或文件编辑器窗口，并在挂载前初始化 settings、Pinia 与 Naive UI。
-- Rust `src-tauri/src/lib.rs` 注册目录识别、ProjectSession、query、write、资源、workspace、settings、日志、配置实体与文件变更命令。
-- `src/app/WindowShell.vue` 是唯一窗口壳，以 main/child 模式区分设置持久化与设置镜像并统一挂载主题 DOM effect；`src/app/App.vue` 以 main 模式包装为主窗口入口，专用编辑器根与文件编辑器根分别挂载各自窗口所需的 ViewModel 和组件。
-
-## 顶层职责
-
-- `src/app/` 保存窗口根、页面、组件和 ViewModel/composable；组件负责渲染、输入和局部 UI 状态。
-- `src/domain/` 保存纯规则和转换；`src/services/` 包装单一后端能力，service 之间默认禁止依赖，仅白名单内的基础设施边（缓存宿主、投影订阅、文件写底座）例外；`src/orchestrators/` 编排跨模块用户动作且依赖图必须单向无环。
-- `src/stores/` 保存内存运行态；`src/windows/` 管理窗口身份、生命周期和事件；`src/shared/` 保存跨模块 API、runtime、类型和纯工具。
-- 跨模块单一 owner 原语：编辑会话与撤销栈在 `domain/edit-session`；画布交互骨架在 `use-canvas-editor`；快捷键命令映射与分发在 `domain/workspace/main-window-commands` 加 `use-shortcut-dispatch`；主题令牌与设置校验在 `domain/settings`；schema 资产由 `schema-registry` 单一入口加载并运行时校验。
-- `src/styles/` 保存全局主题、应用框架和业务样式；`schemas/` 保存配置字段与 CSV 列 schema。
-- `src-tauri/src/commands/` 处理 wire 参数、错误转换和 service 调用；`services/` 提供目录、ProjectSession、配置实体、文件、settings、日志、workspace 与资源能力。
-- `src-tauri/src/domain/` 保存纯业务规则；`io/` 保存路径和文件边界；`parsers/` 保存格式解析与渲染；`models/` 保存 wire 和内部模型。
-- `src-tauri/src/services/project/` 按 root、session、query、write、resources、cache 与 model 分工；query 负责只读查询，write 返回 changeset 与结构化 invalidation。
-
-## 核心状态与权威
-
-- 按 Mod 归属的 session、缓存、草稿、选择、历史和窗口身份按 `modRoot` 隔离；`sessionId + modRoot` 共同标识 ProjectSession 操作。
-- 前端持有 manifest、按需 query 缓存、草稿和界面状态；后端提供磁盘内容、实体身份和路径归属结果。
-- 保存、删除、导入和 undo/redo 经过所属模块的 changeset 链路，持久化目标由该模块的保存边界声明。
-- workspace、settings、日志和派生索引写入工具私有目录；Mod 内容与工具私有状态由独立 owner 管理。
-- 当前 Mod 数据优先于原版只读数据；资源 fallback、引用解析和 data URL hydration 经过后端 query 与前端批量资源缓存。
-- 字段编辑服从全局 edit mode；窗口复用、事件和外部更新携带完整 session、Mod 与目标身份。
-
-## 追踪路径
-
-- 目录打开从组件请求追到 directory-opening orchestrator、后端目录识别、游戏概览或 ProjectSession 建立，再进入 workspace/project 运行态。
-- 实体读取从组件追到 ViewModel/composable、service、`shared/api`、Rust command、project query、parser/IO 或 cache，再返回 manifest 与前端 query 缓存。
-- 保存从组件动作追到 ViewModel、orchestrator、write-facing service、`shared/api`、Rust write service、changeset、File History、ProjectSession refresh、结构化 invalidation 与界面同步。
-- 窗口同步从完整窗口 identity 追到 managed window、结构化事件、主窗口保存与 refresh，再进入 dirty draft 的外部版本交接。
-- 资源读取从后端 `ResourceRef` 追到 Mod/Core 解析、批量 hydrate、前端 resource cache 与最终组件；上传继续进入二进制 changeset 和缓存失效。
-- workspace 恢复从工具私有快照追到目录重识别、ProjectSession 重建、运行态注册与工作区总览；恢复期间自动保存处于暂停状态。
-
-## 文档入口
-
-- 调查、修改与验证流程见 `.zcode/workflow.md`。
-- 前端、后端和视觉约束分别见 `.zcode/frontend-guidelines.md`、`.zcode/backend-guidelines.md` 与 `.zcode/css-guidelines.md`。
-- 模块职责和调用链路由见 `.zcode/module-map.md`；产品术语见 `.zcode/terminology.md`。
+- session 由 `sessionId + modRoot` 身份约束；按 Mod 归属的缓存、草稿、历史与窗口状态按 `modRoot` 隔离。
+- 当前 Mod 数据优先于原版只读数据；资源 fallback、引用解析与 data URL hydration 经后端 query 与批量资源缓存。
+- workspace、settings、日志和派生索引只写工具私有目录；Mod 内容与工具私有状态由独立 owner 管理。
+- 保存、删除、导入和 undo/redo 必须经所属模块的 changeset 链路；字段编辑服从全局 edit mode。
+- 架构边界由 `scripts/architecture` 规则强制（`node scripts/check-architecture.mjs`）；可静态证明的边界不允许只写入文档。

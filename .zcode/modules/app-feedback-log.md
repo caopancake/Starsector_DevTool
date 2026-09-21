@@ -2,17 +2,68 @@
 
 ## 定义
 
-统一业务反馈、确认、错误文件入口、应用日志和工具私有配置维护。
+应用反馈与日志系统统一业务反馈、确认框、错误文件入口、应用日志和工具私有配置维护。
 
-## Owner 与链路
+## 参考
 
-- 组件经 `useAppFeedback()`；非组件接收 `AppFeedback`。它拥有 message/dialog/choose、warning/error 的 best-effort 日志和错误文件引用解析。
-- 反馈工厂（`app/app-feedback.ts` 的 `createAppFeedback`）与 hook（`use-app-feedback.ts`）是唯一入口组合：工厂只允许被该 hook 消费，由架构规则锚定。工厂内 showError 点击回调直取 settings/project store 与 `openFileEditorWindow` 的耦合经评估维持现状——该上下文仅在用户点击时才需要，上移只是搬运而非消除耦合。
-- `app-feedback-log.service -> shared/api -> command -> app_log/app_config service`；后端拥有固定 `starsector-devtool.log`、打开、清空、状态与工具私有目录维护。
-- 错误文件仅在 path 匹配已加载 `modRoot` 且有 `sessionId` 时打开文件编辑器；否则只提示。
+`src/app/app-feedback.ts`：反馈工厂 owner，拥有 message/dialog/choose、错误呈现、错误文件引用解析与打开错误文件动作。
+`src/app/composables/use-app-feedback.ts`：反馈 hook，唯一允许消费工厂的入口。
+`src/services/app-feedback-log.service.ts`：应用日志 service，拥有日志追加、状态查询、日志与配置文件动作，并注册性能日志 sink。
+`src/shared/api/app-feedback-log-api.ts`：应用日志 wire API，映射后端日志与配置命令。
+`src/shared/runtime/performance.ts`：性能日志 sink 注入口，由应用日志 service 注册。
+`src/app/composables/use-performance-logger.ts`：业务性能打点 hook。
+`src-tauri/src/services/app_log.rs`：后端日志 owner，固定日志文件名与目录解析。
+`src-tauri/src/services/app_config.rs`：工具私有配置维护 owner，拥有清空配置与清空日志。
+`src-tauri/src/commands/app_feedback_log.rs`：应用日志与配置维护 command。
 
-## 不变量
+## 边界
 
-- warning/error 记录日志，success/info 不记录；日志失败不改变主业务语义。确认必须走 AppFeedback。
-- 每次日志操作从已保存 settings 解析目录：默认 app data 可创建，自定义目录只能已存在且可写；切换不迁移旧日志，失效报错而不回退。system open 只接收后端确认的目标。
-- 清配置保留日志；清日志仅清空日志内容；两者绝不写 settings/workspace/Mod。
+- 组件只允许经反馈 hook 获取 `AppFeedback`；非组件代码只允许接收注入的 `AppFeedback` 或使用日志 service。
+- 反馈工厂只允许被反馈 hook 消费，由架构规则锚定；工厂内错误文件的 store 读取与窗口打开维持现状。
+- warning 与 error 记录应用日志，success 与 info 不记录；日志失败不改变主业务语义。
+- 错误文件入口只在路径命中已加载 `modRoot` 且有 `sessionId` 时启用；否则只提示不显示按钮。
+- 每次日志操作从已保存 settings 解析目录：默认 app data 可创建，自定义目录必须已存在且可写。
+- 清空配置保留日志；清空日志仅清空内容；两者严禁写 settings、workspace 或 Mod 目标。
+- 确认类交互必须走 `AppFeedback` 确认能力；业务代码严禁直接创建 message 或 dialog。
+
+## 链路
+
+### 错误呈现与错误文件入口
+
+1. 业务调用 `feedback.error(error, contextMessage)`。
+2. 工厂格式化错误并提取文件引用，同时记录错误日志。
+3. 无文件引用或路径不命中任何已加载 Mod 时只显示错误消息。
+4. 命中已加载 Mod 时在错误消息中附加"打开错误文件"按钮。
+5. 用户点击后按会话与路径打开文件编辑器错误恢复窗口。
+6. 打开失败记录错误日志。
+
+### 应用日志
+
+1. 业务或反馈边界调用日志 service 的 best-effort 记录。
+2. 日志 service 组装分级条目并经 wire API 追加到后端日志。
+3. 后端写入固定日志文件；失败只吞掉并记录辅助信息。
+
+### 设置页日志与配置维护
+
+1. 设置页 ViewModel 发起日志状态查询、日志清空或配置清空。
+2. service 经 wire API 调用后端对应命令。
+3. 后端按 settings 解析目录执行；目录缺失时报错且不重建。
+4. ViewModel 以确认能力先行确认危险动作，完成后刷新状态与提示。
+
+## 规范
+
+- 反馈工厂必须保持纯组装：message 与 dialog 实例由 hook 注入。
+- 错误呈现必须保留原始错误链，格式化时父子消息不得重复拼接。
+- warning/error 日志条目必须携带消息与可选的文件位置；success/info 严禁产生日志条目。
+- 日志写入失败严禁抛出到业务链路，也不得产生递归日志。
+- 日志与配置目录解析必须来自已保存 settings，禁止现场推断。
+- 日志名固定，严禁按时间或会话改名。
+- 敏感信息进入日志前必须脱敏；错误文件入口严禁在未授权路径上启用。
+
+## 陷阱
+
+- 在业务组件直接创建 message 或 dialog 会绕过统一日志与确认边界。
+- 把工厂引入多个入口会让反馈行为随消费点漂移。
+- 把日志失败向上抛会把可观测性问题变成业务失败。
+- 对未加载 Mod 的错误路径显示文件按钮会让恢复窗口写越权目标。
+- 清空配置时连日志一起清空会销毁排障证据。

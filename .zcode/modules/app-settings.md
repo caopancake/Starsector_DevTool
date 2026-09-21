@@ -2,17 +2,75 @@
 
 ## 定义
 
-管理 settings 运行态、app-data 持久化、主题/editMode 与子窗口完整镜像。
+应用设置与主题系统管理 settings 运行态、app-data 持久化、主题令牌与 editMode，并经唯一窗口壳向子窗口完整镜像。
 
-## Owner 与链路
+## 参考
 
-- Rust `app_settings` service 是 `settings.json` 的 UTF-8 strict JSON owner，并在保存 `logDirectory` 时返回规范化的完整 `AppSettings`；`settings.store` 只持运行态状态与 setter。输入校验规则（枚举/范围/hex/归一化）唯一归属 `domain/settings/rules.ts`；色彩数学、accent 预设与主题令牌唯一归属 `domain/settings/theme.ts`。
-- 主题 DOM 副作用唯一归属 `app/composables/use-theme-dom-effect.ts`：watch 主题令牌并写 root dataset 与 CSS 变量；由唯一 WindowShell 调用，store 内不得写 DOM。
-- 主窗口普通设置为 `load -> initialize store -> watcher -> save -> 成功后广播同一 snapshot`；子窗口只能从 URL snapshot 初始化并监听完整 snapshot 事件。
-- `historyLimit` 由 persistence 同步到两种 history store。日志目录由 Settings ViewModel 通过 `saveLogDirectory` 保存：Rust 成功后才替换为返回 snapshot，并跳过这一次 watcher 回写。
+`src/stores/settings.store.ts`：settings 运行态 owner，只持状态、setter 与派生值；初始快照经统一初始化入口注入。
+`src/domain/settings/theme.ts`：主题令牌与色彩数学 owner，拥有 accent 预设、light/dark 中性色与 `createThemeColors` 纯函数。
+`src/domain/settings/rules.ts`：设置校验 owner，拥有主题/accent/自定义色/历史上限/editMode/日志目录的读取校验与归一化。
+`src/app/composables/use-theme-dom-effect.ts`：主题 DOM 副作用 owner，watch 主题令牌并写 root dataset 与 CSS 变量。
+`src/app/WindowShell.vue`：唯一窗口壳，main 模式启动设置持久化、child 模式启动设置镜像并挂载主题 effect。
+`src/orchestrators/settings-persistence.orchestrator.ts`：设置持久化与镜像 owner，负责保存、广播、接收镜像与 historyLimit 同步。
+`src/services/app-settings.service.ts`：settings 读写 service，经 shared API 调用后端。
+`src/app/components/SettingsPage.vue`：设置页组件，消费 accent 预设与历史上限常量。
+`src/app/composables/use-settings-view-model.ts`：设置页 ViewModel，拥有日志目录保存与清空动作。
 
-## 不变量
+## 边界
 
-- settings 只写 app data，禁止 browser storage/workspace/Mod；子窗口不读写文件、不补默认值。
-- `theme/accent/editMode` 使用正式枚举；字段入口消费 editMode。主题只由 store、root token 和 provider 驱动：store 生成一份确定的主题色快照，root CSS token 与 Naive UI common/Input 同时消费该快照；provider 不得传入 `var(...)`，因为 Naive 会在运行时推导具体颜色，禁止读取 DOM 计算色值或保留独立的日/夜回退色；数值输入保留其正式增减操作区。
-- `starsectorRoot` 仅默认目录提示；`logDirectory=null` 表示 app data，空白字符串无效。Rust 只接受绝对目录（不是日志文件路径），在创建前后校验 canonical root、既有父链链接、app data、Mod 和已记录 workspace 边界，并确认可写；成功后保存/回传完整规范化 snapshot。自定义目录缺失时日志操作报错，不重建或回退；日志名固定。
+- settings 只写 app data，禁止 browser storage、workspace 或 Mod 目标；子窗口不读写文件、不补默认值。
+- 主题令牌计算归 domain 纯函数，输入校验归 domain 校验规则，store 只持状态；store 内严禁写 DOM。
+- 主题 DOM 副作用唯一归主题 effect，由唯一窗口壳挂载；主窗口与子窗口都经该 effect 生效。
+- 主窗口拥有设置持久化权威；子窗口只能从 URL snapshot 初始化并监听完整 snapshot 事件镜像。
+- `historyLimit` 由持久化编排同步到文件历史与表格草稿历史两个 store。
+- 日志目录保存由设置页 ViewModel 经持久化编排完成：后端成功返回规范化快照后才替换，并跳过当次回写。
+- Naive provider 只消费主题令牌派生的覆盖对象，禁止传入 `var(...)` 或读取 DOM 计算色值。
+
+## 链路
+
+### 主窗口设置保存
+
+1. 用户修改任一设置项，store 状态变化。
+2. 持久化编排侦听快照变化，同步 `historyLimit` 到两个 history store。
+3. 快照经 settings service 写入后端 `settings.json`。
+4. 保存成功后向全部窗口广播同一 snapshot。
+5. 保存失败只记录错误日志，不回滚内存状态。
+
+### 子窗口设置镜像
+
+1. 子窗口启动时以 URL snapshot 初始化 store。
+2. 子窗口唯一窗口壳启动设置镜像监听。
+3. 收到广播 snapshot 后经校验规则整体替换 store 状态。
+4. 同步 `historyLimit` 到子窗口的 history store。
+
+### 日志目录保存
+
+1. 设置页 ViewModel 调用持久化编排的日志目录保存。
+2. 快照写入后端；后端校验目录并返回规范化完整快照。
+3. 返回目录与内存不一致时跳过一次回写并替换 store 快照。
+4. 广播规范化快照给全部窗口。
+
+### 主题生效
+
+1. 主题或 accent 变化触发派生主题令牌重算。
+2. 主题 effect 把 root dataset 主题名与全部 CSS 变量写入 document。
+3. 唯一窗口壳的 Naive provider 消费同一份令牌派生的覆盖对象。
+
+## 规范
+
+- `theme/accent/editMode` 必须是正式枚举；非法值在初始化与替换时抛出。
+- 自定义 accent 必须是 `#rrggbb` 形式；非法输入只拒绝不修正。
+- `historyLimit` 取值必须在 1 到上限之间；设置页输入只允许触达统一上限常量。
+- `starsectorRoot` 仅作默认目录提示，不构成路径授权。
+- `logDirectory=null` 表示 app data；空白字符串无效。
+- 保存失败不得静默：必须记录错误日志且不广播。
+- 子窗口不得发送设置广播，镜像监听是单向接收。
+
+## 陷阱
+
+- 在 store 内直接写 document 会让主题副作用脱离唯一窗口壳的挂载时机。
+- 在子窗口直接读 `settings.json` 会与主窗口持久化权威分叉。
+- 用部分字段 patch 应用镜像 snapshot 会让未广播字段残留旧值。
+- 保存失败后继续广播会让其它窗口采纳未落盘状态。
+- 绕过校验规则直接写 store 内部字段会让非法枚举进入持久化链路。
+- 让 provider 消费 `var(...)` 会让 Naive 在运行时推导具体颜色并读取 DOM 计算值。

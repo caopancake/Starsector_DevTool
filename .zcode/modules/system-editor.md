@@ -2,15 +2,66 @@
 
 ## 定义
 
-独立窗口编辑战术系统 spec 的 schema 表单与 type 条件区段。
+战术系统编辑器系统在独立窗口以 schema 表单编辑 `.system` spec，并按 type 条件呈现字段。
 
-## Owner 与链路
+## 参考
 
-- ViewModel 拥有 entity bundle、Draft Session、外部更新与保存；schema runtime 解析 type 条件字段；Rust editor backend 拥有目标写入与 changeset。
-- 额外字段编辑复用 `shared/ui/JsonFieldEditor`（结构化键值行 + 增删），组件只保留结构化键表与合并回写；内联整对象 JSON textarea 已删除。
-- Draft 提交为显式模型：全部表单变更路径（字段输入、颜色、type 切换、无人机行为 JSON 应用、额外字段结构化编辑）显式 commit `draft-changed` -> Draft Session setDraft；不存在深度 watch 同步。
+`src/app/components/editors/SystemEditor.vue`：编辑器组件 owner，拥有表单、显式提交与条件区段。
+`src/domain/editors/lib/normalize.ts`：`.system` 规格归一化 owner。
+`src/app/composables/use-object-field.ts`：对象字段绑定 owner。
+`src/app/composables/use-editor-window-view-model.ts`：窗口 ViewModel owner，维护目标 Draft Session。
+`src/shared/ui/JsonFieldEditor.vue`：额外字段结构化编辑 owner。
+`src/domain/schema/schema.types.ts`：schema 输出类型 owner。
+`scripts/architecture/rules/editor-module-boundary.mjs`：编辑器组件边界规则 owner。
 
-## 不变量
+## 边界
 
-- 仅显示/保存当前 type 合法字段，未知内容按正式结构保留；只写目标 spec。
-- 不在组件猜 type、直连 IPC 或覆盖 dirty draft；写后必须走 File History/ProjectSession refresh。
+- 仅显示与保存当前 type 合法字段；type 切换时清理互斥字段并把未知内容按正式 JSON 边界保留。
+- 组件严禁猜测 type、直连 IPC 或用外部更新覆盖 dirty draft。
+- 保存必须经编辑器写链路完成 changeset、文件历史与 session refresh；写后必须触发 refresh。
+- draft 提交为显式模型：全部表单变更路径（字段输入、颜色、type 切换、无人机行为 JSON、额外字段结构化编辑）显式提交，严禁深度同步 watch。
+- 额外字段编辑复用统一结构化字段编辑器；组件只保留结构化键表与合并回写。
+- 无人机行为定义文本在提交边界解析，解析失败必须告警并保留输入。
+
+## 链路
+
+### 打开与表单渲染
+
+1. 窗口按 `.system` 目标打开并加载 bundle。
+2. 编辑器以归一化规格建立本地草稿。
+3. 按 type 条件渲染行为、音效、视觉与伤害区段。
+
+### 字段编辑
+
+1. 字段输入经设置函数写入草稿并显式提交。
+2. 颜色与枚举经计算属性 setter 提交。
+3. type 切换清理互斥字段后提交。
+4. 无人机行为 JSON 在提交边界解析并提交。
+
+### 额外字段
+
+1. 组件收集非结构化键组成额外字段模型。
+2. 结构化编辑器增删或修改额外字段。
+3. 合并回写保留结构化字段与内部字段后提交。
+
+### 保存
+
+1. 保存经窗口 ViewModel 进入编辑器写链路。
+2. changeset、文件历史与 session refresh 完成后提交 base。
+3. dirty 时外部更新暂存并提示。
+
+## 规范
+
+- 系统类型必须是正式枚举；切换类型时必须删除新类型不支持的互斥字段。
+- 颜色字段必须保持四通道数组形状；数值字段保留其步长语义。
+- 未知字段必须完整保留并进入额外字段编辑，严禁静默丢弃。
+- 内部字段严禁写入实体文件；保存只允许写当前 `.system` 目标。
+- 独立窗口的 query 与保存必须携带完整窗口身份。
+
+## 陷阱
+
+- 按字段名猜测 type 归属会让互斥字段残留在错误类型下。
+- 用整段 JSON 文本编辑额外字段会让合法字段被误删。
+- type 切换后保留旧字段会让后端加载未知键失败。
+- 在组件内直连 IPC 会绕过窗口 ViewModel 与保存链路。
+- 静默吞掉 JSON 解析失败会让用户误以为已保存。

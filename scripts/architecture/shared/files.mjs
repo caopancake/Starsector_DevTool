@@ -38,7 +38,8 @@ async function collectPaths(root, dir) {
     }
     const extension = entry.name.includes('.') ? entry.name.slice(entry.name.lastIndexOf('.')) : '';
     const isModuleDoc = extension === '.md' && rel.startsWith('.zcode/modules/');
-    if ((architectureExtensions.has(extension) && (extension !== '.json' || rel.startsWith('schemas/'))) || isModuleDoc) {
+    const isModuleMap = extension === '.md' && rel === '.zcode/module-map.md';
+    if ((architectureExtensions.has(extension) && (extension !== '.json' || rel.startsWith('schemas/'))) || isModuleDoc || isModuleMap) {
       files.push(path);
     }
   }

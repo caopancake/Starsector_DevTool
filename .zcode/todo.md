@@ -179,6 +179,13 @@ Owner 原则：同构实体族（列表 + 草稿编辑器 + 新建/删除确认�
   - 快捷键与窗口：三窗口 Ctrl+S、文本区 undo/redo、编辑器 Ctrl+Y、主题三窗口同步、子窗口设置镜像、开窗失败反馈、大草稿预览降级。
   - 配置：五类实体表单渲染与保存、faction core 字段合并区、新建 Mod 默认值与打开失败反馈、同表重复保存的排他写提示。
 
+## Phase 2.11: 模块文档体系迁移
+
+- [x] 重写 `.zcode/module-map.md` 规范段：六章节结构（定义/参考/边界/链路/规范/陷阱）、写前五表、行数纪律（定义≤1 行、参考≥3、边界/规范≥5、陷阱≥3、全文≤300）、字典序排序（仅写作约定，不进静态检查）、API 文档与实现文档分开条款。
+- [x] 模块重新划分（30 → 28 份）：合并 app-window-mounting+windowing→app-runtime/app-windowing、csv-parser+json-parser→text-parsers、skin-editor+variant-editor→family-editors、weapon-editor+projectile-editor+weapon-preview→weapon-editing；新拆 editor-canvas（画布骨架）与 static-checks（静态检查系统）两个独立域；其余按六章节格式重写。
+- [x] 新增 `docs-module-map` 契约规则并注册：索引与磁盘文档双向存在、六章节结构与顺序、定义≤1 行、参考/边界/规范/陷阱行数下限、全文≤300 行；字典序按指示不列入静态检查。合成样例验证触发（未索引文档、重复索引、缺章节均命中）。
+- [x] workflow.md 模块读取措辞同步为六章节章节名；全部 28 份文档通过契约与全套检查（lint、typecheck、103 测试、build、encoding、format 零例外）。
+
 ## Phase 3: 外置文本 JSON 支持
 
 - [ ] 读取 `data/strings/strings.json`，缺文件时返回空列表。
