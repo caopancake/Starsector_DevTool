@@ -11,7 +11,6 @@ pub(super) fn load_projectile_specs(
         &mut result,
         &mod_root.join("data/weapons/proj"),
         ResourceSource::Mod,
-        true,
     )?;
     if let Some(core_projectiles) = core_projectiles {
         for (id, value) in core_projectiles {
@@ -25,7 +24,6 @@ fn insert_projectiles(
     result: &mut BTreeMap<String, Value>,
     dir: &Path,
     source: ResourceSource,
-    overwrite: bool,
 ) -> AppResult<()> {
     for mut value in load_json_dir(dir, "proj")? {
         if let Some(id) = value
@@ -33,9 +31,6 @@ fn insert_projectiles(
             .and_then(Value::as_str)
             .map(ToString::to_string)
         {
-            if !overwrite && result.contains_key(&id) {
-                continue;
-            }
             if let Value::Object(obj) = &mut value {
                 obj.insert(
                     "_source".to_string(),

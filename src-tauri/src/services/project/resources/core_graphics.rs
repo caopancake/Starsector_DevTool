@@ -5,6 +5,8 @@ use crate::{
 use std::path::Path;
 use walkdir::WalkDir;
 
+use super::sprites::image_mime_type;
+
 pub fn scan_core_graphics(starsector_root: &str) -> AppResult<Vec<String>> {
     let starsector_root = FsRootBoundary::new(Path::new(starsector_root), "starsector root")?;
     let dir = starsector_root
@@ -23,12 +25,12 @@ pub fn scan_core_graphics(starsector_root: &str) -> AppResult<Vec<String>> {
         if !entry.file_type().is_file() {
             continue;
         }
-        let ext = entry
+        let extension = entry
             .path()
             .extension()
             .and_then(|s| s.to_str())
             .unwrap_or("");
-        if !matches!(ext, "png" | "jpg" | "jpeg" | "gif") {
+        if image_mime_type(extension).is_none() {
             continue;
         }
         let rel = entry.path().strip_prefix(&core_dir).map_err(|error| {
@@ -60,11 +62,28 @@ mod tests {
             [1, 2, 3],
         )
         .unwrap();
+        fs::write(
+            root.join("starsector-core/graphics/ships/demo.jpg"),
+            [4, 5, 6],
+        )
+        .unwrap();
+        fs::write(
+            root.join("starsector-core/graphics/ships/demo.bmp"),
+            [7, 8, 9],
+        )
+        .unwrap();
 
-        let paths = scan_core_graphics(&root.to_string_lossy()).unwrap();
+        let mut paths = scan_core_graphics(&root.to_string_lossy()).unwrap();
+        paths.sort();
 
         let _ = fs::remove_dir_all(root);
-        assert_eq!(paths, vec!["graphics/ships/demo.png".to_string()]);
+        assert_eq!(
+            paths,
+            vec![
+                "graphics/ships/demo.jpg".to_string(),
+                "graphics/ships/demo.png".to_string(),
+            ]
+        );
     }
 
     #[test]

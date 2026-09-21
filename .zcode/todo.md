@@ -18,12 +18,12 @@ Owner 原则：`PROJECT_SESSIONS` 注册表锁只保护 `sessionId -> Arc<Mutex<
 
 ### Phase 1.2: core 缓存指纹与外设正确性
 
-- [ ] core 指纹改为会话级缓存：ProjectSession 建立时计算一次、invalidate 时增量更新；各 `load_core_*` 加载器未命中不得再触发全目录重读加重哈希（`cache/core.rs` → `persistent::core_fingerprint`）。
-- [ ] `resources/sprites.rs` 的 data URL MIME 按扩展名判定（png/jpg/jpeg/gif），判定逻辑与 `core_graphics.rs` 扫描白名单同源为单一实现。
-- [ ] `services/system_open.rs` Windows 分支改为 `explorer.exe` 直接打开目标路径，移除 `cmd /C start` 的元字符解释面。
-- [ ] `services/project/projectiles.rs` 删除恒为 true 的 `overwrite` 参数与不可达分支。
-- [ ] `persistent.rs` 的 FNV-1a 内容指纹保留，但在实现处注明碰撞语义与持久化缓存兼容约束。
-- [ ] 跑 Rust 三件套检查。
+- [x] core 指纹改为进程级缓存（按 canonical 游戏根）：首次读取时计算一次，`load_core_cache` 校验与 `save_core_cache` 落盘共用同一指纹，消灭"每个加载器未命中即全量重读+重哈希"的放大；`invalidate_core_cache` 清内存核心缓存时同步丢弃指纹缓存，下次访问重新现算。
+- [x] `resources/sprites.rs` 的 data URL MIME 按扩展名判定（png/jpg/jpeg/gif），`image_mime_type` 为类型白名单与 MIME 的唯一来源，`core_graphics.rs` 扫描过滤复用同一函数；未知扩展保持既有宽容回退。
+- [x] `services/system_open.rs` Windows 分支改为 `explorer.exe`（目录直接打开、文件 `/select,` 定位），移除 `cmd /C start` 元字符解释面；explorer 退出码不可信，仅进程启动失败视为错误（文件不再用默认应用打开，为已确认的行为变化）。
+- [x] `services/project/projectiles.rs` 删除恒为 true 的 `overwrite` 参数与不可达分支。
+- [x] `persistent.rs` 的 FNV-1a 内容指纹保留，实现处已注明：非抗碰撞、仅防意外变更；换算法将一次性作废全部持久化缓存并由下次打开静默重建。
+- [x] 跑 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test`（263 通过）。
 
 ### Phase 1.3: Rust 单一实现收敛
 

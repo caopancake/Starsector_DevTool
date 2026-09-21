@@ -20,6 +20,17 @@ pub(super) struct SpriteBytes {
     pub(super) data_url: String,
 }
 
+/// The single source for the project's image type universe: core graphics
+/// scanning filters on it and sprite data URLs take their MIME from it.
+pub(super) fn image_mime_type(extension: &str) -> Option<&'static str> {
+    match extension.to_ascii_lowercase().as_str() {
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "gif" => Some("image/gif"),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 pub(super) fn load_ship_sprite_data(
     mod_root: &Path,
@@ -142,12 +153,17 @@ fn read_sprite_bytes(path: &Path) -> AppResult<Option<SpriteBytes>> {
             error.into(),
         )
     })?;
+    let mime = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .and_then(image_mime_type)
+        .unwrap_or("image/png");
     Ok(Some(SpriteBytes {
         resolved_path: path.to_path_buf(),
         modified: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
         length: metadata.len(),
         data_url: format!(
-            "data:image/png;base64,{}",
+            "data:{mime};base64,{}",
             general_purpose::STANDARD.encode(bytes)
         ),
     }))
@@ -191,6 +207,21 @@ mod tests {
 
         let _ = fs::remove_dir_all(root);
         assert!(loaded.is_empty());
+    }
+
+    #[test]
+    fn sprite_data_url_matches_file_type() {
+        let root = temp_dir("sprite_mime_type");
+        let sprite_dir = root.join("graphics/ships");
+        fs::create_dir_all(&sprite_dir).unwrap();
+        fs::write(sprite_dir.join("demo.jpg"), b"jpeg-bytes").unwrap();
+
+        let data_url = load_sprite_data_url(&root, None, "graphics/ships/demo.jpg")
+            .unwrap()
+            .unwrap();
+
+        let _ = fs::remove_dir_all(root);
+        assert!(data_url.starts_with("data:image/jpeg;base64,"));
     }
 
     #[test]

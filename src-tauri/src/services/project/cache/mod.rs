@@ -64,5 +64,5 @@ pub(super) fn invalidate_core_cache(starsector_root: &str) -> AppResult<()> {
         .lock()
         .map_err(|_| AppError::message("core cache lock poisoned"))?
         .remove(&cache_key);
-    Ok(())
+    persistent::invalidate_core_fingerprint(&cache_key)
 }

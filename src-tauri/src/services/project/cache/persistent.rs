@@ -26,6 +26,13 @@ const CORE_INDEX_DIRECTORY: &str = "core";
 
 static CACHE_ROOT: LazyLock<Mutex<Option<PathBuf>>> = LazyLock::new(|| Mutex::new(None));
 
+/// Core source fingerprints per normalized game root, shared by cache load and
+/// save within one process. Lifetime is bounded by the matching CORE_CACHES
+/// entry: `invalidate_core_fingerprint` must drop it whenever the in-memory
+/// core cache is dropped, or validation would compare against a stale state.
+static CORE_FINGERPRINT_CACHE: LazyLock<Mutex<BTreeMap<String, SourceFingerprint>>> =
+    LazyLock::new(|| Mutex::new(BTreeMap::new()));
+
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct ProjectIndex {
     pub mod_info: Value,
@@ -52,12 +59,12 @@ struct CachedCoreIndex {
     cache: CoreCache,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct SourceFingerprint {
     files: Vec<SourceFileFingerprint>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct SourceFileFingerprint {
     path: String,
     hash: String,
@@ -118,7 +125,7 @@ pub(super) fn load_core_cache(starsector_root: &str) -> AppResult<Option<CoreCac
     };
     let root = normalized_root(Path::new(starsector_root))?;
     let core_dir = Path::new(starsector_root).join("starsector-core");
-    let fingerprint = core_fingerprint(&core_dir)?;
+    let fingerprint = cached_core_fingerprint(&core_dir, &root)?;
     let path = cache_path(&cache_root, CORE_INDEX_DIRECTORY, &root);
     let Some(cached) = read_cache::<CachedCoreIndex>(&path) else {
         return Ok(None);
@@ -138,13 +145,38 @@ pub(super) fn save_core_cache(starsector_root: &str, cache: &CoreCache) -> AppRe
     let cached = CachedCoreIndex {
         version: CACHE_FORMAT_VERSION,
         root: root.clone(),
-        fingerprint: core_fingerprint(&core_dir)?,
+        fingerprint: cached_core_fingerprint(&core_dir, &root)?,
         cache: cache.clone(),
     };
     write_cache(
         &cache_path(&cache_root, CORE_INDEX_DIRECTORY, &root),
         &cached,
     )
+}
+
+pub(super) fn invalidate_core_fingerprint(root: &str) -> AppResult<()> {
+    CORE_FINGERPRINT_CACHE
+        .lock()
+        .map_err(|_| AppError::message("core fingerprint cache lock poisoned"))?
+        .remove(root);
+    Ok(())
+}
+
+fn cached_core_fingerprint(core_dir: &Path, root: &str) -> AppResult<SourceFingerprint> {
+    if let Some(fingerprint) = CORE_FINGERPRINT_CACHE
+        .lock()
+        .map_err(|_| AppError::message("core fingerprint cache lock poisoned"))?
+        .get(root)
+        .cloned()
+    {
+        return Ok(fingerprint);
+    }
+    let fingerprint = core_fingerprint(core_dir)?;
+    CORE_FINGERPRINT_CACHE
+        .lock()
+        .map_err(|_| AppError::message("core fingerprint cache lock poisoned"))?
+        .insert(root.to_string(), fingerprint.clone());
+    Ok(fingerprint)
 }
 
 fn configured_cache_root() -> AppResult<Option<PathBuf>> {
@@ -306,6 +338,10 @@ fn hash_bytes(bytes: &[u8]) -> String {
     format!("{:016x}", stable_hash(bytes))
 }
 
+/// FNV-1a content hash for fingerprint digests and cache shard filenames.
+/// Deliberately not collision-resistant: it only detects accidental source
+/// changes, never adversarial ones. Changing the algorithm invalidates every
+/// persisted cache file at once; the next open rebuilds them silently.
 fn stable_hash(bytes: &[u8]) -> u64 {
     bytes.iter().fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
         (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3)
@@ -319,10 +355,41 @@ fn normalize_rel_path(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testutil::temp_dir;
 
     #[test]
     fn stable_hash_is_content_sensitive_and_repeatable() {
         assert_eq!(stable_hash(b"same"), stable_hash(b"same"));
         assert_ne!(stable_hash(b"same"), stable_hash(b"changed"));
+    }
+
+    #[test]
+    fn core_fingerprint_cache_drops_on_invalidation() {
+        let root = temp_dir("core_fingerprint_cache_invalidation");
+        let root_key = normalized_root(&root).unwrap();
+
+        assert!(
+            !CORE_FINGERPRINT_CACHE
+                .lock()
+                .unwrap()
+                .contains_key(&root_key)
+        );
+        cached_core_fingerprint(&root, &root_key).unwrap();
+        assert!(
+            CORE_FINGERPRINT_CACHE
+                .lock()
+                .unwrap()
+                .contains_key(&root_key)
+        );
+
+        invalidate_core_fingerprint(&root_key).unwrap();
+
+        assert!(
+            !CORE_FINGERPRINT_CACHE
+                .lock()
+                .unwrap()
+                .contains_key(&root_key)
+        );
+        let _ = fs::remove_dir_all(root);
     }
 }
