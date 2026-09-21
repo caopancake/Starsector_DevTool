@@ -33,23 +33,6 @@ export function useCanvasDrawing() {
     }
   }
 
-  function drawDot(ctx: CanvasRenderingContext2D, point: Point, color: string, radius: number) {
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-  }
-
-  function drawCrosshair(ctx: CanvasRenderingContext2D, point: Point, radius = 12, color = '#ffffff55') {
-    ctx.strokeStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(point.x - radius, point.y);
-    ctx.lineTo(point.x + radius, point.y);
-    ctx.moveTo(point.x, point.y - radius);
-    ctx.lineTo(point.x, point.y + radius);
-    ctx.stroke();
-  }
-
   function drawPixelImage(ctx: CanvasRenderingContext2D, image: CanvasImageSource, x: number, y: number, width: number, height: number) {
     const smoothing = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
@@ -59,8 +42,6 @@ export function useCanvasDrawing() {
 
   return {
     clear,
-    drawCrosshair,
-    drawDot,
     drawGrid,
     drawPixelImage,
   };

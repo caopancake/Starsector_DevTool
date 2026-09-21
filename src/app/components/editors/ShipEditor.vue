@@ -298,7 +298,7 @@ const inspectorRevealInProgress = ref(false);
 const mirrorMode = ref(false);
 const mirrorPair = ref<{ kind: ShipCanvasTarget['kind']; index: number } | null>(null);
 let last = { x: 0, y: 0 };
-const history = useHistory(() => localShip.value);
+const history = useHistory<RowData>();
 const drawing = useCanvasDrawing();
 const { pickModImageReference } = useResourceReference();
 const modes = [

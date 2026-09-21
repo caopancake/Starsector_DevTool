@@ -130,7 +130,7 @@ export function useCsvTableViewModel() {
   }
 
   async function loadExternalTableUpdate() {
-    tables.loadExternalTableDraft(tables.currentTab);
+    tables.discardTableDraftForReload(tables.currentTab);
     await reloadCurrentTableWindow();
   }
 

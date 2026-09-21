@@ -52,14 +52,14 @@ Owner 原则：每个通用机制只有一个正式实现与一个 owner 模块�
 
 ### Phase 1.5: 前端死代码与残留清理
 
-- [ ] 删除零引用导出：`file-history.store.ts` 的 `canUndoFileSave`/`canRedoFileSave`/`activeUndoStack`/`activeRedoStack`/`activeHistoryCount`；`windows/editor.window.ts` 的 `openShipEditorWindow`/`openWeaponEditorWindow`/`openSystemEditorWindow`；`use-canvas-drawing.ts` 的 `drawDot`/`drawCrosshair`；`use-history.ts` 的 `reset`；`csv-faction-filter.ts` 的 `isFilterableTable`；`tables.store.ts` 末尾的 `MODULE_LABELS` 再导出。
-- [ ] `tables.store.ts`：`discardTableDraftForReload` 与 `loadExternalTableDraft` 同体异名合一，统一为一个语义化名称并同步全部调用方；`addNewRow`/`deleteSelected` 去除无 `await` 的 `async`。
-- [ ] `settings-persistence.orchestrator.ts` 的窗口监听补 unlisten 生命周期管理，与 `window-save.orchestrator.ts` 的清理约定一致。
-- [ ] `SystemEditor.vue` 删除未使用的 `modRoot` prop，父级同步移除传参。
-- [ ] `schema-select-media.service.ts` 薄壳删除，消费方直接使用 resource-media service。
-- [ ] `requireConfigRowData`/`requireEditorRowData` 无信息量包装删除，统一使用 `shared/lib/row-data` 的 `requireRowData`。
-- [ ] 移除零引用生产依赖 `@vue/devtools-api`。
-- [ ] 跑前端 format:check、encoding:check、lint、typecheck、test、build。
+- [x] 删除零引用导出：`file-history.store.ts` 的 `canUndoFileSave`/`canRedoFileSave`/`activeUndoStack`/`activeRedoStack`/`activeHistoryCount`（含失用的 `computed` 导入）；`windows/editor.window.ts` 的 `openShipEditorWindow`/`openWeaponEditorWindow`/`openSystemEditorWindow`（`openProjectileEditorWindow`/`openWeaponPreviewWindow` 保留，有消费方）；`use-canvas-drawing.ts` 的 `drawDot`/`drawCrosshair`；`use-history.ts` 的 `reset`（连带删除失去唯一使用者的 `initial` 参数，两个编辑器调用点改显式 `useHistory<RowData>()`）；`csv-faction-filter.ts` 的 `isFilterableTable`（连带失用的 `TableKey` 导入）；`tables.store.ts` 末尾的 `MODULE_LABELS` 再导出（连带失用的导入）。
+- [x] `tables.store.ts`：`discardTableDraftForReload` 与 `loadExternalTableDraft` 同体异名合一，保留语义准确的 `discardTableDraftForReload`，错名调用点 `use-csv-table-view-model.ts:133` 同步；`addNewRow`/`deleteSelected` 去除无 `await` 的 `async`（调用方包装器 `await void` 合法，try/catch 语义不变，未动）。
+- [x] `settings-persistence.orchestrator.ts` 的 `startSettingsMirror`/`startSettingsPersistence` 返回 dispose（unlisten 数组闭包 + `watch` stop，守卫已启动返回空函数）；`useSettingsMirror`/`useSettingsPersistence` 以 `onUnmounted` 挂接，与 `window-save.orchestrator` 清理约定一致。
+- [x] `SystemEditor.vue` 删除未使用的 `modRoot` prop，`EditorWindowContent.vue` 同步移除传参。
+- [x] `schema-select-media.service.ts` 薄壳删除；`use-schema-select-media.ts` 直接导入 `resource-media.service` 的 `resourceMediaDataUrl`/`ensureResourceMedia`（'schema-select' surface 参数不变），五个组件消费方经 composable 无感。
+- [x] `requireConfigRowData`/`requireEditorRowData` 无信息量包装删除，config-entity（13 处）/editor（8 处）就地统一为 `shared/lib/row-data` 的 `requireRowData`。
+- [x] 移除生产依赖 `@vue/devtools-api`（实为 pinia 4 的非可选 peer，npm 自动安装提供，从直接依赖删除后由 peer 机制继续供给，package.json/package-lock 已同步）。
+- [x] 跑前端 format:check、encoding:check、lint、typecheck、test、build 全绿（format:check 仅剩 HEAD 既有 `write.service.ts` 问题）。
 
 ### Phase 1.6: 工具链与配置硬化
 

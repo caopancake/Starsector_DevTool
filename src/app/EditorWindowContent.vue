@@ -64,7 +64,6 @@
     />
     <SystemEditor
       v-else-if="systemEditorData && target"
-      :mod-root="target.modRoot"
       :system-id="target.id"
       :system="systemEditorData.system"
       :draft-revision="draftRevision"

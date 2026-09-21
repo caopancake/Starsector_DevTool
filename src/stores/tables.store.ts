@@ -10,7 +10,7 @@ import {
   type RowData,
   type TableKey,
 } from '@/shared/types';
-import { getColumns, MODULE_LABELS } from '@/shared/lib/starsector';
+import { getColumns } from '@/shared/lib/starsector';
 import { isInternalJsonFieldKey } from '@/shared/lib/json-fields';
 import { getNextActiveKeyAfterRemoval } from '@/shared/lib/store-utils';
 import { csvDirtyCells } from '@/domain/tables/csv-dirty';
@@ -304,13 +304,13 @@ export const useTablesStore = defineStore('tables', () => {
     return activeRoot.value ? csvEditHistory.redoCsvEdit(activeRoot.value, currentTab.value, getActiveState()) : false;
   }
 
-  async function addNewRow() {
+  function addNewRow() {
     const state = getActiveState();
     if (!state) return;
     pushCsvDraftResult(state.currentTab, createCsvRowDraft(state, Date.now()));
   }
 
-  async function deleteSelected() {
+  function deleteSelected() {
     const state = getActiveState();
     if (!state) return;
     pushCsvDraftResult(state.currentTab, deleteSelectedCsvRowDraft(state));
@@ -331,12 +331,6 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   function discardTableDraftForReload(tab: TableKey) {
-    const state = getActiveState();
-    if (!state) return;
-    discardCsvTableWindowForReloadDraft(state, tab);
-  }
-
-  function loadExternalTableDraft(tab: TableKey) {
     const state = getActiveState();
     if (!state) return;
     discardCsvTableWindowForReloadDraft(state, tab);
@@ -394,7 +388,6 @@ export const useTablesStore = defineStore('tables', () => {
     finishCellEdit,
     getActiveModTableState,
     getModTableState,
-    loadExternalTableDraft,
     hasModDirtyChanges,
     hydrate,
     hydrateWithoutActivate,
@@ -419,5 +412,3 @@ export const useTablesStore = defineStore('tables', () => {
     updateCellValueByKey,
   };
 });
-
-export { MODULE_LABELS };

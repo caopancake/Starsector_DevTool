@@ -4,7 +4,7 @@ import { saveSettings } from '@/services/app-settings.service';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useFileHistoryStore } from '@/stores/file-history.store';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
-import { emitWindowEvent, listenWindowEvent } from '@/windows/tauri.events';
+import { emitWindowEvent, listenWindowEvent, type UnlistenFn } from '@/windows/tauri.events';
 import { WINDOW_EVENTS, type AppSettingsChangedEvent } from '@/windows/window.events';
 import { formatError } from '@/shared/lib/errors';
 import type { AppSettings } from '@/shared/types';
@@ -14,12 +14,14 @@ let started = false;
 let mirrorStarted = false;
 let skipPersistedSnapshot = false;
 
-export function startSettingsPersistence(): void {
-  if (started) return;
+const noopDispose = () => {};
+
+export function startSettingsPersistence(): () => void {
+  if (started) return noopDispose;
   started = true;
   const settings = useSettingsStore();
   syncHistoryLimit(settings.historyLimit);
-  watch(
+  const stopWatch = watch(
     () => settings.settingsSnapshot(),
     (snapshot) => {
       if (skipPersistedSnapshot) {
@@ -31,6 +33,7 @@ export function startSettingsPersistence(): void {
     },
     { deep: true },
   );
+  return stopWatch;
 }
 
 export async function saveLogDirectory(directory: string | null): Promise<void> {
@@ -44,10 +47,11 @@ export async function saveLogDirectory(directory: string | null): Promise<void> 
   await broadcastSettingsSnapshot(savedSettings);
 }
 
-export function startSettingsMirror(): void {
-  if (mirrorStarted) return;
+export function startSettingsMirror(): () => void {
+  if (mirrorStarted) return noopDispose;
   mirrorStarted = true;
   const settings = useSettingsStore();
+  const unlisteners: UnlistenFn[] = [];
   void listenWindowEvent<AppSettingsChangedEvent>(
     WINDOW_EVENTS.appSettingsChanged,
     (snapshot) => {
@@ -55,9 +59,16 @@ export function startSettingsMirror(): void {
       syncHistoryLimit(snapshot.historyLimit);
     },
     recordWindowEventHandlerError,
-  ).catch((error: unknown) => {
-    recordLogBestEffort({ level: 'error', message: `监听设置广播失败：${formatError(error)}`, path: null, line: null });
-  });
+  )
+    .then((unlisten) => {
+      unlisteners.push(unlisten);
+    })
+    .catch((error: unknown) => {
+      recordLogBestEffort({ level: 'error', message: `监听设置广播失败：${formatError(error)}`, path: null, line: null });
+    });
+  return () => {
+    for (const unlisten of unlisteners) unlisten();
+  };
 }
 
 function syncHistoryLimit(limit: number): void {

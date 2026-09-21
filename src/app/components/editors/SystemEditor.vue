@@ -183,7 +183,6 @@ import { useObjectField } from '@/app/composables/use-object-field';
 import { editorCollapseTheme, toOptions } from '@/domain/editors/lib/editor-constants';
 
 const props = defineProps<{
-  modRoot: string;
   systemId: string;
   system?: RowData;
   draftRevision: number;

@@ -106,7 +106,7 @@ const BUNDLE_LOADERS: Record<EditorWindowKind, (sessionId: ProjectSessionId, id:
 
 async function queryShipEditorBundle(sessionId: ProjectSessionId, id: string): Promise<ShipEditorEntityBundle> {
   const ship = await querySessionEntity(sessionId, 'ship', id);
-  const shipSpec = ship ? requireEditorRowData(ship.data, `舰船 ${id} 数据无效`) : defaultEditorSpec('ship', id);
+  const shipSpec = ship ? requireRowData(ship.data, `舰船 ${id} 数据无效`) : defaultEditorSpec('ship', id);
   return {
     kind: 'ship',
     ship: shipSpec,
@@ -137,9 +137,9 @@ async function queryWeaponLikeBundle(
   id: string,
 ): Promise<Omit<WeaponEditorEntityBundle, 'kind' | 'projectileOptions'>> {
   const weapon = requireEditorEntity(await querySessionEntity(sessionId, 'weapon', id), 'weapon', id);
-  const weaponEntity = requireEditorRowData(weapon.data, `武器 ${id} 数据无效`);
-  const weaponSpec = requireEditorRowData(weaponEntity.spec, `武器 ${id} spec 数据无效`);
-  const weaponCsvRow = requireEditorRowData(weaponEntity.csvRow, `武器 ${id} CSV 数据无效`);
+  const weaponEntity = requireRowData(weapon.data, `武器 ${id} 数据无效`);
+  const weaponSpec = requireRowData(weaponEntity.spec, `武器 ${id} spec 数据无效`);
+  const weaponCsvRow = requireRowData(weaponEntity.csvRow, `武器 ${id} CSV 数据无效`);
   const isNew = Object.keys(weaponSpec).length === 0;
   const projectileId = typeof weaponSpec.projectileSpecId === 'string' ? weaponSpec.projectileSpecId : '';
   const weaponProjectile = projectileId ? await querySessionEntity(sessionId, 'projectile', projectileId) : null;
@@ -147,9 +147,7 @@ async function queryWeaponLikeBundle(
     weapon: weaponSpec,
     weaponCsvRow,
     isNew,
-    projectileSpecs: weaponProjectile
-      ? { [projectileId]: requireEditorRowData(weaponProjectile.data, `弹体 ${projectileId} 数据无效`) }
-      : {},
+    projectileSpecs: weaponProjectile ? { [projectileId]: requireRowData(weaponProjectile.data, `弹体 ${projectileId} 数据无效`) } : {},
     resourceRefs: Object.values(weapon.resourceRefs),
     weaponSpriteData: await queryWeaponSprites(sessionId, weapon.resourceRefs),
   };
@@ -157,7 +155,7 @@ async function queryWeaponLikeBundle(
 
 async function queryProjectileEditorBundle(sessionId: ProjectSessionId, id: string): Promise<ProjectileEditorEntityBundle> {
   const projectile = await querySessionEntity(sessionId, 'projectile', id);
-  const spec = projectile ? requireEditorRowData(projectile.data, `弹体 ${id} 数据无效`) : defaultEditorSpec('projectile', id);
+  const spec = projectile ? requireRowData(projectile.data, `弹体 ${id} 数据无效`) : defaultEditorSpec('projectile', id);
   return {
     kind: 'projectile',
     projectile: spec,
@@ -170,7 +168,7 @@ async function querySystemEditorBundle(sessionId: ProjectSessionId, id: string):
   const system = await querySessionEntity(sessionId, 'system', id);
   return {
     kind: 'system',
-    system: system ? requireEditorRowData(system.data, `战术系统 ${id} 数据无效`) : defaultEditorSpec('system', id),
+    system: system ? requireRowData(system.data, `战术系统 ${id} 数据无效`) : defaultEditorSpec('system', id),
     isNew: !system,
   };
 }
@@ -226,7 +224,7 @@ async function queryProjectileSpecs(sessionId: ProjectSessionId, currentSpecs: R
   const entries = await Promise.all(
     Object.keys(currentSpecs).map(async (id) => {
       const projectile = await querySessionEntity(sessionId, 'projectile', id);
-      return projectile ? ([id, requireEditorRowData(projectile.data, `弹体 ${id} 数据无效`)] as const) : null;
+      return projectile ? ([id, requireRowData(projectile.data, `弹体 ${id} 数据无效`)] as const) : null;
     }),
   );
   return Object.fromEntries(entries.filter((entry): entry is [string, RowData] => entry !== null));
@@ -235,10 +233,6 @@ async function queryProjectileSpecs(sessionId: ProjectSessionId, currentSpecs: R
 function requireEditorEntity(entity: EntityData | null, kind: EditorSpecKind, id: string): EntityData {
   if (entity) return entity;
   throw new AppError(`找不到 ${id} 的 ${kind} 数据。`, { action: 'query-editor-entity' });
-}
-
-function requireEditorRowData(value: unknown, message: string): RowData {
-  return requireRowData(value, message);
 }
 
 function ensureSpecContext(modRoot: string, id: string) {

@@ -293,7 +293,7 @@ const mirrorPair = ref<number | null>(null);
 const localSpriteData = ref<Record<string, string>>({ ...(props.spriteData || {}) });
 const spriteImages = new Map<string, InstanceType<typeof Image>>();
 let last = { x: 0, y: 0 };
-const history = useHistory(() => localWeapon.value);
+const history = useHistory<RowData>();
 const drawing = useCanvasDrawing();
 const { bindObjectField } = useObjectField(localWeapon);
 const { pickModImageReference } = useResourceReference();

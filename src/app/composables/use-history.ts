@@ -1,6 +1,6 @@
 import { deepClone } from '@/shared/lib/starsector';
 
-export function useHistory<T>(initial: () => T, limit = 250) {
+export function useHistory<T>(limit = 250) {
   const undoStack: T[] = [];
   const redoStack: T[] = [];
 
@@ -24,17 +24,9 @@ export function useHistory<T>(initial: () => T, limit = 250) {
     return deepClone(next);
   }
 
-  function reset(value = initial()) {
-    undoStack.length = 0;
-    redoStack.length = 0;
-    push(value);
-    undoStack.pop();
-  }
-
   return {
     push,
     redo,
-    reset,
     undo,
   };
 }

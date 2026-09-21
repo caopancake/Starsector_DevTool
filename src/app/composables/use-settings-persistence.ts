@@ -1,9 +1,12 @@
+import { onUnmounted } from 'vue';
 import { startSettingsMirror, startSettingsPersistence } from '@/orchestrators/settings-persistence.orchestrator';
 
 export function useSettingsPersistence() {
-  startSettingsPersistence();
+  const dispose = startSettingsPersistence();
+  onUnmounted(dispose);
 }
 
 export function useSettingsMirror() {
-  startSettingsMirror();
+  const dispose = startSettingsMirror();
+  onUnmounted(dispose);
 }

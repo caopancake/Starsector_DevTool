@@ -1,4 +1,4 @@
-import { CSV_DEFAULT_FACTION_ID, CSV_FACTION_FILTER_ALL, type CsvFactionFilter, type TableKey } from '@/shared/types';
+import { CSV_DEFAULT_FACTION_ID, CSV_FACTION_FILTER_ALL, type CsvFactionFilter } from '@/shared/types';
 
 export interface CsvFactionFilterOption {
   label: string;
@@ -18,10 +18,6 @@ export function filterOptionValue(filter: CsvFactionFilter): string {
 
 export function defaultCsvFactionId(): string {
   return CSV_DEFAULT_FACTION_ID;
-}
-
-export function isFilterableTable(table: TableKey): boolean {
-  return table === 'ships' || table === 'weapons';
 }
 
 export function csvFactionFilterOptions(): CsvFactionFilterOption[] {

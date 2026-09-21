@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { computed, reactive, ref } from 'vue';
+import { reactive, ref } from 'vue';
 import type { FileChangeRecord } from '@/shared/types';
 import type { FileHistoryItem, FileSaveHistoryEntry } from '@/shared/types/file-history.types';
 import { isFileSaveEntry } from '@/shared/types/file-history.types';
@@ -45,12 +45,6 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
     }
     return state;
   }
-
-  const canUndoFileSave = computed(() => Boolean(peekSavedWriteUndo(activeRoot.value)));
-  const canRedoFileSave = computed(() => Boolean(peekSavedWriteRedo(activeRoot.value)));
-  const activeUndoStack = computed(() => getState(activeRoot.value)?.undoStack ?? []);
-  const activeRedoStack = computed(() => getState(activeRoot.value)?.redoStack ?? []);
-  const activeHistoryCount = computed(() => activeUndoStack.value.length + activeRedoStack.value.length);
 
   function pushSavedWriteEntry(modRoot: string, changes: FileChangeRecord[], label: string) {
     if (!modRoot) throw new AppError('无法记录文件历史：缺少 Mod 根目录', { action: 'push-saved-write-entry' });
@@ -133,12 +127,7 @@ export const useFileHistoryStore = defineStore('fileHistory', () => {
   }
 
   return {
-    canRedoFileSave,
-    canUndoFileSave,
-    activeHistoryCount,
     activeRoot,
-    activeRedoStack,
-    activeUndoStack,
     activateFor,
     clearForMod,
     commitReplayRedo,

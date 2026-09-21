@@ -34,20 +34,8 @@ export async function openEditorWindow(request: EditorWindowRequest): Promise<vo
   });
 }
 
-export function openShipEditorWindow(request: Omit<EditorWindowRequest, 'kind'>): Promise<void> {
-  return openEditorWindow({ ...request, kind: 'ship' });
-}
-
-export function openWeaponEditorWindow(request: Omit<EditorWindowRequest, 'kind'>): Promise<void> {
-  return openEditorWindow({ ...request, kind: 'weapon' });
-}
-
 export function openProjectileEditorWindow(request: Omit<EditorWindowRequest, 'kind'>): Promise<void> {
   return openEditorWindow({ ...request, kind: 'projectile' });
-}
-
-export function openSystemEditorWindow(request: Omit<EditorWindowRequest, 'kind'>): Promise<void> {
-  return openEditorWindow({ ...request, kind: 'system' });
 }
 
 export function openWeaponPreviewWindow(request: Omit<EditorWindowRequest, 'kind'>): Promise<void> {
