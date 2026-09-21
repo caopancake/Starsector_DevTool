@@ -127,13 +127,13 @@ Owner 原则：同构实体族（列表 + 草稿编辑器 + 新建/删除确认�
 
 ### Phase 2.6: 表格渲染与交互一致性
 
-- [ ] 8 处 v-for index key 改为结构化稳定 key（字段路径/条目 id）；`SchemaFieldRenderer.vue` 的 `removeKvEntry` 手工重排补偿逻辑随之删除。
-- [ ] 快捷键统一：单一 shortcut 分发（域命令式，含输入焦点豁免与 Ctrl+S 全局语义），`use-editor-shortcuts`、`EditorWindowContent` 与 `FileEditorContent` 的自写 handler、`use-main-window-shortcuts` 四套合一；键位语义与 Phase 8 规划对齐，不新增键位。
-- [ ] JSON 编辑失败处理统一：ObjectEditor、SchemaFieldRenderer、SystemEditor 提交非法 JSON 统一给出 warning/error 反馈，禁止静默吞掉。
-- [ ] SystemEditor 内联的额外字段编辑实现删除，复用 `JsonFieldEditor`；评估 `JsonFieldEditor` 归属（schema 模块或 shared/ui 择一）。
-- [ ] `WeaponEditor.vue` 事件 `editProjectile` 改 kebab-case `edit-projectile`；naming 规则接线事件命名约束。
-- [ ] 评估 `use-table-dom-selection` 的 DOM class 与响应式双轨选中态收敛为响应式唯一来源。
-- [ ] 跑前端全套检查 + 手工验收表格选中、kv 字段增删、快捷键与 JSON 编辑。
+- [x] 8 处 v-for index key 改为结构化稳定 key：新增 `shared/lib/entry-keys.ts`（WeakMap 引用身份 uid + 位置回退）用于 genericArrayItems/arrayItems 与舰船/弹体引擎槽列表；kv 行改为并行行 id（增行追加/删行截断），`kvSelectOpen` 按行 id 记录，`removeKvEntry` 手工重排补偿逻辑删除（改名/删除不再错位）；发射点与边界列表为天然位置型条目，改为显式结构前缀 key（`barrel-{view}-{i}`/`bound-{i}`）。
+- [x] 快捷键统一（经确认全窗口对齐含 Ctrl+Y）：domain `shortcutCommandFromKeyEvent` 为唯一键位表（undo/redo/save/close，Ctrl+S 全局语义不受输入焦点限制，undoRedoInEditable 供文本面开启，Ctrl+Z/Ctrl+Shift+Z/Ctrl+Y 三路重做）；`use-shortcut-dispatch` 为唯一分发器（window 监听 + 命中 preventDefault + 纯键表带输入豁免）；`use-editor-shortcuts` 删除（use-canvas-editor 改走分发器）、`EditorWindowContent` 与 `FileEditorContent` 自写 handler 删除、`use-main-window-shortcuts` 重写为分发器薄壳。行为对齐：编辑器子窗口新增 Ctrl+Y 重做；Escape 仅文件编辑窗口有 close 处理器。
+- [x] JSON 编辑失败处理统一：`ObjectEditor` 解析失败发 `invalid-json` 事件，四个宿主（WeaponEditor muzzleFlash/smoke、ProjectileEditor engineSpec/explosionSpec）与 SystemEditor aiHints 接 warning 反馈；SystemEditor `applyDroneBehavior` 静默 catch 改 warning；`SchemaFieldRenderer` JSON 形态字段 textarea 增加 `@change` 提交边界校验（解析失败 warning 一次，逐键不告警）。
+- [x] SystemEditor 内联额外字段 textarea（extraJson/applyExtra）删除，复用 `shared/ui/JsonFieldEditor`；归属评估结论：保留在 shared/ui（仅依赖 shared/lib、同时服务 schema 与 editors 两模块）。
+- [x] `WeaponEditor.vue` 事件 `editProjectile` 改 kebab-case `edit-projectile`；naming-boundary 接线事件命名约束（defineEmits 裸驼峰键与 emit 调用驼峰字面量为违规），合成样例验证规则真实触发。
+- [x] `use-table-dom-selection` 评估结论：完全收敛为响应式唯一来源——`CsvGridRow` 增加 `selected` prop 绑定 class（沿用 `.data-table tr.selected td` 样式），composable 与 DOM classList/querySelector 手工同步删除；虚拟滚动下选中变化仅重渲两行。
+- [x] 跑前端全套检查全绿（typecheck、lint、架构三脚本、encoding、71 测试、build；format 仅剩 HEAD 既有 write.service.ts 问题）；手工验收清单：表格选中高亮（滚动后保持）、kv 行增删改名（展开态跟随正确行）、数组项删除焦点保持、三窗口快捷键（输入框内 Ctrl+S、文本区 undo/redo、编辑器 Ctrl+Y）、JSON 非法提交告警、SystemEditor 额外字段增删改、编辑弹体按钮。
 
 ### Phase 2.7: settings、主题与窗口层归位
 

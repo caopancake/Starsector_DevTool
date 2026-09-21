@@ -122,7 +122,7 @@
               <div class="item-list">
                 <button
                   v-for="(_, i) in barrelCountFor('turret')"
-                  :key="i"
+                  :key="`barrel-turret-${i}`"
                   :data-inspector-target="`turret-barrel-${i}`"
                   :class="{ selected: viewMode === 'turret' && selected === i }"
                   @click="selectBarrel('turret', i)"
@@ -145,7 +145,7 @@
               <div class="item-list">
                 <button
                   v-for="(_, i) in barrelCountFor('hardpoint')"
-                  :key="i"
+                  :key="`barrel-hardpoint-${i}`"
                   :data-inspector-target="`hardpoint-barrel-${i}`"
                   :class="{ selected: viewMode === 'hardpoint' && selected === i }"
                   @click="selectBarrel('hardpoint', i)"
@@ -188,8 +188,12 @@
                 <label>visualRecoil</label
                 ><n-input-number :value="localWeapon.visualRecoil" @update:value="setField('visualRecoil', $event)" />
               </div>
-              <ObjectEditor v-model="muzzleFlashSpec" title="muzzleFlashSpec" />
-              <ObjectEditor v-model="smokeSpec" title="smokeSpec" />
+              <ObjectEditor
+                v-model="muzzleFlashSpec"
+                title="muzzleFlashSpec"
+                @invalid-json="feedback.warning('muzzleFlashSpec JSON 无效，已保留输入内容')"
+              />
+              <ObjectEditor v-model="smokeSpec" title="smokeSpec" @invalid-json="feedback.warning('smokeSpec JSON 无效，已保留输入内容')" />
             </n-collapse-item>
             <n-collapse-item v-if="localWeapon.specClass === 'projectile'" title="弹体" name="proj">
               <div class="form-grid">
@@ -197,7 +201,7 @@
                 <n-auto-complete v-model:value="projectileSpecId" :options="projectileOptions" />
               </div>
               <div class="action-row button-row">
-                <n-button @click="$emit('editProjectile', projectileSpecId)">编辑弹体</n-button>
+                <n-button @click="$emit('edit-projectile', projectileSpecId)">编辑弹体</n-button>
                 <n-button tertiary @click="$emit('preview', weaponId)">发射预览</n-button>
               </div>
             </n-collapse-item>
@@ -244,6 +248,7 @@
 
 <script setup lang="ts">
 import { computed, ref, useTemplateRef, watch } from 'vue';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
@@ -299,9 +304,10 @@ const emit = defineEmits<{
   'save-requested': [];
   'draft-changed': [weapon: RowData];
   'load-external': [];
-  editProjectile: [id: string];
+  'edit-projectile': [id: string];
   preview: [id: string];
 }>();
+const feedback = useAppFeedback();
 const editorWindowRef = useTemplateRef<HTMLElement>('editorWindowRef');
 const stageRef = useTemplateRef<HTMLElement>('stageRef');
 const canvasRef = useTemplateRef<HTMLCanvasElement>('canvasRef');

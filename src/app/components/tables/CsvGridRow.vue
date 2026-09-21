@@ -1,5 +1,5 @@
 <template>
-  <tr :data-row-key="row.rowKey" @click="$emit('select-row', row.rowKey, $event)">
+  <tr :data-row-key="row.rowKey" :class="{ selected }" @click="$emit('select-row', row.rowKey, $event)">
     <CsvGridCell
       v-for="column in columns"
       :key="column.key"
@@ -26,6 +26,7 @@ defineProps<{
   columns: CsvGridColumn[];
   isDirty: (rowKey: string, column: string) => boolean;
   row: CsvWindowRow;
+  selected: boolean;
   sourceIndex: CsvSourceIndex;
 }>();
 

@@ -6,6 +6,7 @@
 
 ## Owner 与链路
 
+- 快捷键命令解析唯一入口为 domain 的 `shortcutCommandFromKeyEvent`（undo/redo/save/close，含输入焦点豁免与 undoRedoInEditable 表面开关），window 监听与分发唯一入口为 `use-shortcut-dispatch`；主窗口与编辑器/文件窗口共用同一键位表。
 - shortcut composable 仅在非原生文本编辑目标拦截按键，调用 history command orchestrator。
 - orchestrator 读取 active `modRoot/tableKey`：先 CSV draft undo/redo，当前表无 entry 才调用 File History replay。
 

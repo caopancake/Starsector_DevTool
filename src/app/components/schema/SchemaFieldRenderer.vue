@@ -55,6 +55,7 @@
           :autosize="{ minRows: 1, maxRows: 4 }"
           size="small"
           @update:value="emitSchemaUiJsonText"
+          @change="warnInvalidUiJsonOnCommit($event)"
         />
         <n-input
           v-else-if="field.type === 'path-image' || field.type === 'path'"
@@ -81,6 +82,7 @@
           :autosize="{ minRows: 2, maxRows: 10 }"
           size="small"
           @update:value="emitSchemaUiJsonText"
+          @change="warnInvalidUiJsonOnCommit($event)"
         />
         <n-input
           v-else
@@ -89,6 +91,7 @@
           :autosize="{ minRows: 1, maxRows: 4 }"
           size="small"
           @update:value="emitSchemaUiJsonText"
+          @change="warnInvalidUiJsonOnCommit($event)"
         />
       </template>
 
@@ -242,31 +245,31 @@
 
         <!-- key-value -->
         <div v-else-if="field.type === 'key-value'" class="key-value-editor" :class="{ 'reference-key-value': isReferenceKeyValue }">
-          <div v-for="(entry, idx) in kvEntries" :key="idx" class="kv-row">
+          <div v-for="(row, idx) in kvRows" :key="row.rowId" class="kv-row">
             <n-select
-              :show="kvSelectOpen[idx]"
-              :value="entry.key"
+              :show="kvSelectOpen[row.rowId]"
+              :value="row.entry.key"
               :options="kvKeyOptions"
               :render-label="renderSelectLabel"
               filterable
               tag
               size="small"
               class="kv-key-select"
-              @mousedown.capture="closeOpenKvSelectOnFieldClick($event, idx)"
-              @update:show="handleKvSelectShowUpdate(idx, $event)"
+              @mousedown.capture="closeOpenKvSelectOnFieldClick($event, row.rowId)"
+              @update:show="handleKvSelectShowUpdate(row.rowId, $event)"
               @update:value="updateKvKey(idx, $event)"
             />
             <SchemaFieldRenderer
               v-if="field.valueSchema"
               :field="field.valueSchema"
-              :value="entry.val"
+              :value="row.entry.val"
               :runtime-context="runtimeContext"
               :is-nested="true"
               @update="updateKvValue(idx, $event)"
             />
             <n-input
               v-else
-              :value="formatSchemaKeyValueText(entry.val)"
+              :value="formatSchemaKeyValueText(row.entry.val)"
               class="kv-value-input"
               size="small"
               @update:value="updateKvVal(idx, $event)"
@@ -295,7 +298,7 @@
 
         <!-- array -->
         <div v-else-if="field.type === 'array' && field.item" class="array-of-object">
-          <div v-for="(_item, idx) in genericArrayItems" :key="idx" class="array-item">
+          <div v-for="(item, idx) in genericArrayItems" :key="entryKey('array-item', item, idx)" class="array-item">
             <div class="array-item-header">
               <span class="array-item-index">#{{ idx + 1 }}</span>
               <n-button class="compact-icon-button" size="tiny" quaternary title="删除" @click="removeGenericArrayItem(idx)">
@@ -317,7 +320,7 @@
 
         <!-- array-of-object -->
         <div v-else-if="field.type === 'array-of-object' && field.nested" class="array-of-object">
-          <div v-for="(_, idx) in arrayItems" :key="idx" class="array-item">
+          <div v-for="(item, idx) in arrayItems" :key="entryKey('array-item', item, idx)" class="array-item">
             <div class="array-item-header">
               <span class="array-item-index">#{{ idx + 1 }}</span>
               <n-button class="compact-icon-button" size="tiny" quaternary title="删除" @click="removeArrayItem(idx)">
@@ -347,6 +350,7 @@
           :autosize="{ minRows: 1, maxRows: 4 }"
           size="small"
           @update:value="emitSchemaUiJsonText"
+          @change="warnInvalidUiJsonOnCommit($event)"
         />
       </template>
 
@@ -395,6 +399,8 @@ import {
   type SelectOption,
 } from '@/domain/schema/schema-options';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
+import { entryKey } from '@/shared/lib/entry-keys';
 import { useCoreGraphics } from '@/app/composables/use-core-graphics';
 import { useSettingsStore } from '@/stores/settings.store';
 import { isCsvSource } from '@/domain/tables/csv-source-options';
@@ -482,6 +488,7 @@ const { pickPathFile } = useSchemaPathPicker({
 const isReferenceKeyValue = computed(() => props.field.type === 'key-value' && isCsvSource(props.field.source));
 const selectOpen = ref(false);
 const suppressNextSelectOpen = ref(false);
+const feedback = useAppFeedback();
 const kvSelectOpen = ref<Record<number, boolean>>({});
 const suppressNextKvSelectOpen = ref<Record<number, boolean>>({});
 
@@ -656,6 +663,26 @@ function removeArrayItem(idx: number) {
 
 const kvEntries = computed<SchemaKeyValueEntry[]>(() => schemaKeyValueEntries(props.value, props.field.format));
 
+// 行 id 与条目按位置对齐：增行追加、删行截断，id 不随下标平移，
+// 行内下拉展开态因此跟随内容而非行号，无需删除时手工重排。
+const kvRowIds = ref<number[]>([]);
+let nextKvRowId = 1;
+watch(
+  kvEntries,
+  (entries) => {
+    if (kvRowIds.value.length < entries.length) {
+      for (let i = kvRowIds.value.length; i < entries.length; i += 1) {
+        kvRowIds.value.push(nextKvRowId);
+        nextKvRowId += 1;
+      }
+    }
+    if (kvRowIds.value.length > entries.length) kvRowIds.value.splice(entries.length);
+  },
+  { immediate: true },
+);
+
+const kvRows = computed(() => kvEntries.value.map((entry, idx) => ({ entry, rowId: kvRowIds.value[idx] ?? idx })));
+
 function emitKvUpdate(entries: SchemaKeyValueEntry[]) {
   emit('update', schemaKeyValueOutput(entries, props.field.format));
 }
@@ -679,15 +706,13 @@ function updateKvValue(idx: number, newVal: unknown) {
 }
 
 function removeKvEntry(idx: number) {
+  const rowId = kvRowIds.value[idx];
+  if (rowId !== undefined) {
+    delete kvSelectOpen.value[rowId];
+    delete suppressNextKvSelectOpen.value[rowId];
+  }
   const entries = [...kvEntries.value];
   entries.splice(idx, 1);
-  const nextOpen: Record<number, boolean> = {};
-  for (const [key, value] of Object.entries(kvSelectOpen.value)) {
-    const keyIndex = Number(key);
-    if (keyIndex < idx) nextOpen[keyIndex] = value;
-    if (keyIndex > idx) nextOpen[keyIndex - 1] = value;
-  }
-  kvSelectOpen.value = nextOpen;
   emitKvUpdate(entries);
 }
 
@@ -723,6 +748,18 @@ function emitSchemaUiJsonText(raw: string) {
   emit('update', parseSchemaUiJsonText(raw));
 }
 
+// 提交边界（blur/enter）校验：JSON 形态文本解析失败时提示一次，
+// 逐键输入期不告警，避免半成品 JSON 触发告警刷屏。
+function warnInvalidUiJsonOnCommit(raw: string) {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return;
+  try {
+    JSON.parse(trimmed);
+  } catch {
+    feedback.warning(`${props.field.label || props.field.key} JSON 无效，已保留输入内容，请修正后再离开字段`);
+  }
+}
+
 // ─── String-or-object smart emitter (for version-like fields) ────────
 
 function emitStringOrUiJsonText(raw: string) {
@@ -748,14 +785,14 @@ function closeOpenSelectOnFieldClick(event: MouseEvent) {
   });
 }
 
-function closeOpenKvSelectOnFieldClick(event: MouseEvent, idx: number) {
-  if (!kvSelectOpen.value[idx] || shouldLetSelectClickPass(event)) return;
+function closeOpenKvSelectOnFieldClick(event: MouseEvent, rowId: number) {
+  if (!kvSelectOpen.value[rowId] || shouldLetSelectClickPass(event)) return;
   event.preventDefault();
   event.stopPropagation();
-  suppressNextKvSelectOpen.value = { ...suppressNextKvSelectOpen.value, [idx]: true };
-  kvSelectOpen.value[idx] = false;
+  suppressNextKvSelectOpen.value = { ...suppressNextKvSelectOpen.value, [rowId]: true };
+  kvSelectOpen.value[rowId] = false;
   window.setTimeout(() => {
-    suppressNextKvSelectOpen.value = { ...suppressNextKvSelectOpen.value, [idx]: false };
+    suppressNextKvSelectOpen.value = { ...suppressNextKvSelectOpen.value, [rowId]: false };
   });
 }
 
@@ -769,9 +806,9 @@ function handleSelectShowUpdate(show: boolean) {
   }
 }
 
-function handleKvSelectShowUpdate(idx: number, show: boolean) {
-  if (show && suppressNextKvSelectOpen.value[idx]) return;
-  kvSelectOpen.value[idx] = show;
+function handleKvSelectShowUpdate(rowId: number, show: boolean) {
+  if (show && suppressNextKvSelectOpen.value[rowId]) return;
+  kvSelectOpen.value[rowId] = show;
   if (show) ensureSelectMedia(kvKeyOptions.value);
 }
 

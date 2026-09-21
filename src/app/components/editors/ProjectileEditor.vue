@@ -90,11 +90,11 @@
               <n-button size="small" tertiary @click="pickProjectileSprite('sprite')">浏览贴图（引用 Mod 内文件）</n-button>
             </n-collapse-item>
             <n-collapse-item title="引擎参数" name="engine">
-              <ObjectEditor v-model="engineSpec" />
+              <ObjectEditor v-model="engineSpec" @invalid-json="feedback.warning('engineSpec JSON 无效，已保留输入内容')" />
             </n-collapse-item>
             <n-collapse-item title="引擎槽位" name="slots">
               <div class="bounds-list">
-                <div v-for="(slot, i) in engineSlots" :key="i">
+                <div v-for="(slot, i) in engineSlots" :key="entryKey('engine-slot', slot, i)">
                   <span>{{ i }}</span>
                   <n-input-number :value="slotLoc(slot)[0]" @update:value="setSlotLoc(i, 0, $event)" />
                   <n-input-number :value="slotLoc(slot)[1]" @update:value="setSlotLoc(i, 1, $event)" />
@@ -113,7 +113,7 @@
                 ><n-input-number :value="localProjectile.armingTime" @update:value="setField('armingTime', $event)" />
                 <label>fadeTime</label><n-input-number :value="localProjectile.fadeTime" @update:value="setField('fadeTime', $event)" />
               </div>
-              <ObjectEditor v-model="explosionSpec" />
+              <ObjectEditor v-model="explosionSpec" @invalid-json="feedback.warning('explosionSpec JSON 无效，已保留输入内容')" />
             </n-collapse-item>
           </template>
           <n-collapse-item v-else title="通用属性" name="generic">
@@ -140,6 +140,7 @@ import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import ObjectEditor from '@/app/components/editors/common/ObjectEditor.vue';
 import type { RowData } from '@/shared/types';
 import { arr, str } from '@/shared/lib/starsector';
+import { entryKey } from '@/shared/lib/entry-keys';
 import { normalizeProjectileSpec } from '@/domain/editors/lib/normalize';
 import { useObjectField } from '@/app/composables/use-object-field';
 import { useResourceReference } from '@/app/composables/use-resource-reference';

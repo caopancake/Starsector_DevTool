@@ -54,6 +54,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 import { useDirtyWindowCloseGuard } from '@/app/composables/use-dirty-window-close-guard';
 import { useFileEditorViewModel } from '@/app/composables/use-file-editor-view-model';
+import { useShortcutDispatch } from '@/app/composables/use-shortcut-dispatch';
 import { useSettingsStore } from '@/stores/settings.store';
 import { closeCurrentWebviewWindow } from '@/windows/current.window';
 import { pathBasename, pathBelongsToRoot, relativePathFromRoot } from '@/shared/lib/paths';
@@ -173,35 +174,19 @@ async function closeEditorWindow() {
   await closeCurrentWebviewWindow();
 }
 
-function handleEditorKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    void closeEditorWindow();
-    return;
-  }
-
-  if (!(event.ctrlKey || event.metaKey)) return;
-
-  const key = event.key.toLowerCase();
-  if (key === 's') {
-    event.preventDefault();
-    void saveFile();
-    return;
-  }
-  if (key === 'z' && event.shiftKey) {
-    event.preventDefault();
-    redoTextEdit();
-    return;
-  }
-  if (key === 'z') {
-    event.preventDefault();
-    undoTextEdit();
-  }
-}
+// 文本编辑面：撤销/重做必须在 textarea 内生效，因此开启 undoRedoInEditable。
+useShortcutDispatch({
+  undoRedoInEditable: true,
+  commands: {
+    close: () => void closeEditorWindow(),
+    save: () => void saveFile(),
+    undo: undoTextEdit,
+    redo: redoTextEdit,
+  },
+});
 
 onMounted(() => {
   void closeGuard.install();
-  window.addEventListener('keydown', handleEditorKeydown);
   void initialize().then(async () => {
     await nextTick();
     scrollToTargetLine();
@@ -212,7 +197,6 @@ watch([targetLine, targetColumn], () => void nextTick(scrollToTargetLine));
 
 onUnmounted(() => {
   closeGuard.dispose();
-  window.removeEventListener('keydown', handleEditorKeydown);
   dispose();
 });
 

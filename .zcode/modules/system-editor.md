@@ -7,7 +7,8 @@
 ## Owner 与链路
 
 - ViewModel 拥有 entity bundle、Draft Session、外部更新与保存；schema runtime 解析 type 条件字段；Rust editor backend 拥有目标写入与 changeset。
-- Draft 提交为显式模型：全部表单变更路径（字段输入、颜色、type 切换、额外字段/无人机行为 JSON 应用）显式 commit `draft-changed` -> Draft Session setDraft；不存在深度 watch 同步。
+- 额外字段编辑复用 `shared/ui/JsonFieldEditor`（结构化键值行 + 增删），组件只保留结构化键表与合并回写；内联整对象 JSON textarea 已删除。
+- Draft 提交为显式模型：全部表单变更路径（字段输入、颜色、type 切换、无人机行为 JSON 应用、额外字段结构化编辑）显式 commit `draft-changed` -> Draft Session setDraft；不存在深度 watch 同步。
 
 ## 不变量
 

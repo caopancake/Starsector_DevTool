@@ -175,7 +175,7 @@
               <div class="item-list">
                 <button
                   v-for="(eng, i) in engineSlots"
-                  :key="i"
+                  :key="entryKey('engine-slot', eng, i)"
                   :data-inspector-target="`engine-${i}`"
                   :class="{ selected: mode === 'engine' && selected === i }"
                   @click="selectInspectorItem('engine', i, 'engine')"
@@ -208,7 +208,7 @@
               <div class="bounds-list">
                 <div
                   v-for="(_, i) in boundPairs"
-                  :key="i"
+                  :key="`bound-${i}`"
                   :data-inspector-target="`bound-${i}`"
                   :class="{ selected: mode === 'bounds' && selected === i }"
                   @click="selectInspectorItem('bounds', i, 'bound')"
@@ -261,6 +261,7 @@ import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import EditorInspector from '@/app/components/editors/common/EditorInspector.vue';
 import type { RowData } from '@/shared/types';
 import { arr, deepClone, num, str } from '@/shared/lib/starsector';
+import { entryKey } from '@/shared/lib/entry-keys';
 import { normalizeShipSpec } from '@/domain/editors/lib/normalize';
 import {
   createCanvasEditorState,

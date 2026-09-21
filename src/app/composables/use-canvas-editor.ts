@@ -4,7 +4,7 @@ import type { RowData } from '@/shared/types';
 import { useCanvasDrawing } from '@/app/composables/use-canvas-drawing';
 import type { CanvasViewport } from '@/app/composables/use-canvas-viewport';
 import { useHistory } from '@/app/composables/use-history';
-import { useEditorShortcuts } from '@/app/composables/use-editor-shortcuts';
+import { useShortcutDispatch } from '@/app/composables/use-shortcut-dispatch';
 
 export interface CanvasTarget {
   kind: string;
@@ -381,30 +381,17 @@ export function useCanvasEditor<TPreview>(options: {
     state.inspectorLock.value = null;
   }
 
-  function handleShortcut(event: KeyboardEvent) {
-    if (event.code === 'Space') {
-      event.preventDefault();
-      toggleMirrorMode();
-      return;
-    }
-    const key = event.key.toLowerCase();
-    if (key === 'backspace') {
-      if (hooks.deleteSelected()) event.preventDefault();
-      return;
-    }
-    if (key === 't') {
-      event.preventDefault();
-      void revealInspector();
-      return;
-    }
-    const custom = hooks.shortcutKeys[key];
-    if (custom) {
-      event.preventDefault();
-      custom();
-    }
-  }
-
-  useEditorShortcuts({ onKeyDown: handleShortcut, redo: doRedo, scope: windowRef, undo: doUndo });
+  useShortcutDispatch({
+    commands: { undo: doUndo, redo: doRedo },
+    keys: {
+      ' ': () => toggleMirrorMode(),
+      backspace: () => {
+        hooks.deleteSelected();
+      },
+      t: () => void revealInspector(),
+      ...hooks.shortcutKeys,
+    },
+  });
 
   onMounted(() => {
     window.addEventListener('resize', resizeCanvas);

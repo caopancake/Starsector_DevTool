@@ -13,6 +13,8 @@ withDefaults(defineProps<{ title?: string }>(), {
   title: '',
 });
 
+const emit = defineEmits<{ 'invalid-json': [] }>();
+
 const model = defineModel<RowData>({ default: () => ({}) });
 
 const text = ref(JSON.stringify(model.value || {}, null, 2));
@@ -25,7 +27,8 @@ function apply() {
   try {
     model.value = JSON.parse(text.value || '{}');
   } catch {
-    // Keep the invalid text in place so the user can correct it.
+    // 原文保留在输入框等待修正；由宿主组件给出告警反馈。
+    emit('invalid-json');
   }
 }
 </script>

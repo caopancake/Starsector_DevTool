@@ -100,6 +100,7 @@ import ProjectileEditor from '@/app/components/editors/ProjectileEditor.vue';
 import WeaponFirePreview from '@/app/components/editors/WeaponFirePreview.vue';
 import SystemEditor from '@/app/components/editors/SystemEditor.vue';
 import { useDirtyWindowCloseGuard } from '@/app/composables/use-dirty-window-close-guard';
+import { useShortcutDispatch } from '@/app/composables/use-shortcut-dispatch';
 import { openProjectileEditorWindow, openWeaponPreviewWindow } from '@/windows/editor.window';
 import { useSettingsStore } from '@/stores/settings.store';
 import { closeCurrentWindow } from '@/windows/current.window';
@@ -187,28 +188,27 @@ function openPreview(weaponId: string) {
   });
 }
 
-function handleEditorWindowKeyDown(event: KeyboardEvent) {
-  if (!(event.ctrlKey || event.metaKey)) return;
-  if (event.key.toLowerCase() !== 's') return;
-  event.preventDefault();
-  const editableKind = resolveEditableKind();
-  if (editableKind) void saveEditorData(editableKind);
-}
-
 function resolveEditableKind(): EditorSpecKind | null {
   if (kind.value === 'weapon-preview') return null;
   return kind.value as EditorSpecKind;
 }
 
+useShortcutDispatch({
+  commands: {
+    save: () => {
+      const editableKind = resolveEditableKind();
+      if (editableKind) void saveEditorData(editableKind);
+    },
+  },
+});
+
 onMounted(() => {
   void closeGuard.install();
-  window.addEventListener('keydown', handleEditorWindowKeyDown);
   void initializeEditorWindow();
 });
 
 onUnmounted(() => {
   closeGuard.dispose();
-  window.removeEventListener('keydown', handleEditorWindowKeyDown);
   disposeEditorWindow();
 });
 </script>

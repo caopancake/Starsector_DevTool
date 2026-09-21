@@ -69,5 +69,5 @@ function isHistoryDispatcher(text, current) {
 }
 
 function isCommandDomain(text, current) {
-  return current.layer === 'domain' && current.domain === 'workspace' && /\bmainWindowCommandFromKeyEvent\b/.test(text);
+  return current.layer === 'domain' && current.domain === 'workspace' && /\bshortcutCommandFromKeyEvent\b/.test(text);
 }

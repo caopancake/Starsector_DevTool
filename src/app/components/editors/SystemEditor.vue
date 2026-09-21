@@ -230,15 +230,11 @@
           </n-collapse-item>
 
           <n-collapse-item title="AI 提示" name="aiHints">
-            <ObjectEditor v-model="aiHintsJson" />
+            <ObjectEditor v-model="aiHintsJson" @invalid-json="feedback.warning('aiHints JSON 无效，已保留输入内容')" />
           </n-collapse-item>
 
           <n-collapse-item title="额外字段" name="extra">
-            <textarea
-              v-model="extraJson"
-              @change="applyExtra"
-              style="width: 100%; min-height: 120px; font-family: monospace; font-size: 12px"
-            />
+            <JsonFieldEditor :model-value="extraFields" :known-keys="structuredKnownKeys" @update:model-value="onExtraUpdate" />
           </n-collapse-item>
         </n-collapse>
       </div>
@@ -254,7 +250,9 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
+import JsonFieldEditor from '@/shared/ui/JsonFieldEditor.vue';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import ObjectEditor from '@/app/components/editors/common/ObjectEditor.vue';
@@ -275,6 +273,7 @@ const props = defineProps<{
   externalUpdateNotice: string;
 }>();
 const emit = defineEmits<{ close: []; 'save-requested': []; 'draft-changed': [system: RowData]; 'load-external': [] }>();
+const feedback = useAppFeedback();
 
 const localSystem = ref<RowData>(normalizeSystemSpec(props.system || { id: props.systemId, type: 'STAT_MOD' }));
 const expandedSections = ref(['basic']);
@@ -382,7 +381,7 @@ function applyDroneBehavior(value: string) {
     localSystem.value.droneBehavior = JSON.parse(value);
     commitDraft();
   } catch {
-    // ignore invalid JSON during editing
+    feedback.warning('无人机行为 JSON 无效，已保留输入内容');
   }
 }
 
@@ -452,8 +451,10 @@ const SYSTEM_STRUCTURED_FIELD_KEYS = new Set([
   'aiHints',
 ]);
 
-const extraFields = computed(() => {
-  const extra: Record<string, unknown> = {};
+const structuredKnownKeys = [...SYSTEM_STRUCTURED_FIELD_KEYS];
+
+const extraFields = computed<RowData>(() => {
+  const extra: RowData = {};
   for (const [key, value] of Object.entries(localSystem.value)) {
     if (!SYSTEM_STRUCTURED_FIELD_KEYS.has(key) && !isInternalJsonFieldKey(key)) {
       extra[key] = value;
@@ -462,7 +463,17 @@ const extraFields = computed(() => {
   return extra;
 });
 
-const extraJson = ref(JSON.stringify(extraFields.value, null, 2));
+function onExtraUpdate(nextExtra: RowData) {
+  const nextSystem: RowData = {};
+  for (const [key, value] of Object.entries(localSystem.value)) {
+    if (SYSTEM_STRUCTURED_FIELD_KEYS.has(key) || isInternalJsonFieldKey(key)) {
+      nextSystem[key] = value;
+    }
+  }
+  Object.assign(nextSystem, nextExtra);
+  localSystem.value = nextSystem;
+  commitDraft();
+}
 
 function onTypeChange(newType: string) {
   const oldType = str(localSystem.value.type, 'STAT_MOD');
@@ -477,26 +488,10 @@ function onTypeChange(newType: string) {
   commitDraft();
 }
 
-function applyExtra() {
-  try {
-    const parsed = JSON.parse(extraJson.value);
-    for (const key of Object.keys(localSystem.value)) {
-      if (!SYSTEM_STRUCTURED_FIELD_KEYS.has(key) && !isInternalJsonFieldKey(key)) {
-        delete localSystem.value[key];
-      }
-    }
-    Object.assign(localSystem.value, parsed);
-    commitDraft();
-  } catch {
-    // ignore invalid JSON
-  }
-}
-
 watch(
   () => props.draftRevision,
   () => {
     localSystem.value = normalizeSystemSpec(props.system || { id: props.systemId, type: 'STAT_MOD' });
-    extraJson.value = JSON.stringify(extraFields.value, null, 2);
   },
 );
 </script>

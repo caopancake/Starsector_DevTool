@@ -1,5 +1,5 @@
 <template>
-  <tbody ref="bodyRef">
+  <tbody>
     <tr v-if="beforeHeight > 0" class="csv-grid-spacer-row" :style="{ height: `${beforeHeight}px` }">
       <td :colspan="columns.length"></td>
     </tr>
@@ -10,6 +10,7 @@
         :columns="columns"
         :is-dirty="isDirty"
         :row="row"
+        :selected="row.rowKey === selectedRowKey"
         :source-index="sourceIndex"
         @activate-cell="forwardActivateCell"
         @close-active-cell="$emit('close-active-cell')"
@@ -27,14 +28,12 @@
 </template>
 
 <script setup lang="ts">
-import { toRef, useTemplateRef } from 'vue';
 import type { CsvGridRowSlot, CsvWindowRow } from '@/shared/types';
 import type { CsvGridColumn } from '@/domain/tables/csv-grid-model';
 import type { CsvSourceIndex } from '@/domain/tables/csv-source-options';
-import { useTableDomSelection } from '@/app/composables/use-table-dom-selection';
 import CsvGridRow from '@/app/components/tables/CsvGridRow.vue';
 
-const props = defineProps<{
+defineProps<{
   activeCell: { columnKey: string; rowKey: string } | null;
   afterHeight: number;
   beforeHeight: number;
@@ -52,11 +51,8 @@ const emit = defineEmits<{
   'update-cell': [rowKey: string, column: string, value: string];
 }>();
 
-const bodyRef = useTemplateRef<HTMLTableSectionElement>('bodyRef');
-const { handleRowClick } = useTableDomSelection(bodyRef, toRef(props, 'selectedRowKey'));
-
 function selectRow(rowKey: string, event: MouseEvent) {
-  handleRowClick(rowKey, event, (key) => emit('select-row', key, event));
+  emit('select-row', rowKey, event);
 }
 
 function forwardActivateCell(row: CsvWindowRow, column: CsvGridColumn, event: MouseEvent) {

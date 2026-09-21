@@ -31,6 +31,20 @@ export const namingBoundaryRule = {
       if (/\bimport\s+(?:type\s+)?\{[\s\S]*?\bas\b[\s\S]*?\}\s+from\b/.test(file.text)) {
         failures.push(`${file.rel}: import aliasing is forbidden`);
       }
+      if (file.rel.endsWith('.vue')) {
+        for (const match of file.text.matchAll(/\bdefineEmits<\{([\s\S]*?)\}>\s*\(/g)) {
+          for (const key of match[1].matchAll(/(?:^|[,{\s])([A-Za-z][A-Za-z0-9]*)\s*:/g)) {
+            if (/[A-Z]/.test(key[1])) {
+              failures.push(`${file.rel}: emits event "${key[1]}" must use kebab-case`);
+            }
+          }
+        }
+        for (const call of file.text.matchAll(/\b(?:emit|\$emit)\(\s*'([A-Za-z0-9-]+)'/g)) {
+          if (/[A-Z]/.test(call[1])) {
+            failures.push(`${file.rel}: emitted event "${call[1]}" must use kebab-case`);
+          }
+        }
+      }
       for (const name of exportedFunctionNames(file.text)) {
         if (/^(?:save|create|delete|upload)(?!FileEditor|TextFile|ModFiles)[A-Za-z0-9_]*File$/.test(name)) {
           failures.push(`${file.rel}: business action ${name} must not use File to describe a save effect`);

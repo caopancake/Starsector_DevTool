@@ -9,6 +9,7 @@
 - ProjectSession query 提供窗口行；`tables.store` 按 mod/table 管理草稿、选择与 dirty；Draft Session 管理 base/draft/row identity。
 - 组件经 ViewModel 操作 store；保存 orchestrator 捕获当前目标、构造 patches/关联动作，调用 service，交 File History/ProjectSession refresh 后提交本地结果。
 - 表格导航先同步活动 Mod 与目标表，再暴露表格视图；已处于同一 Mod/表的导航为幂等操作，不触发草稿或查询重置。
+- 行选中态以响应式 `selectedRowKey` 为唯一来源，行组件按 key 绑定 `selected` class；严禁回归 DOM classList 手工同步。
 
 ## 不变量
 

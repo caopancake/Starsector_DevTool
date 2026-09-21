@@ -13,6 +13,8 @@
 - 舰船 ID 的显示名称必须优先使用 `ship_data.csv` 的 `name`；只有该名称缺失或为空时才允许使用对应 `.ship` 的 `hullName`，两者均为空时只允许显示 hull ID。
 - 联队 ID 的 CSV 行没有名称列时，source query 以其 `variant` 的 `displayName` 作为显示名称，并继续沿用该 variant 的舰体资源引用；菜单项和已选标签均消费同一个 `SelectOption`。
 - Bundled schema 在注册时必须校验每个 `csv:` source 的表名属于正式 CSV 表注册表；无效 source 必须阻止注册，严禁静默渲染为空下拉。
+- JSON 形态字段的文本输入在提交边界（blur/enter）校验：解析失败必须给出 warning 并保留原文，严禁静默吞掉；逐键输入期不告警。
+- key-value 行与数组条目必须使用结构化稳定 key（kv 行为并行行 id，对象条目为引用身份 uid），行内下拉展开态跟随行身份；严禁按下标 key 后手工重排状态补偿。
 
 ## 不变量
 
