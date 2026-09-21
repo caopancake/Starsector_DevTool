@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { EditableFileData, ProjectSessionId, RowData } from '@/shared/types';
-import type { EditorSpecKind } from '@/shared/types/editor.types';
+import type { EditableFileData, EditorSpecKind, ProjectSessionId, RowData } from '@/shared/types';
 
 export function loadEditableFile(sessionId: ProjectSessionId | null, modRoot: string, path: string): Promise<EditableFileData> {
   return invoke('load_editable_file', { payload: { sessionId, modRoot, path } });

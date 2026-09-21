@@ -6,7 +6,7 @@ import {
   openAppLogFile,
   openConfigDir,
 } from '@/shared/api/app-feedback-log-api';
-import type { AppLogEntry, AppLogStatus } from '@/shared/types/app-log.types';
+import type { AppLogEntry, AppLogStatus } from '@/shared/types';
 import { setPerformanceLogSink } from '@/shared/runtime/performance';
 
 function recordLog(entry: AppLogEntry): Promise<void> {

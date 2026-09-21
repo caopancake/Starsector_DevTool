@@ -51,6 +51,15 @@ export const feedbackBoundaryRule = {
       if (/\b(?:useMessage|useDialog|createDiscreteApi)\s*\(/.test(file.text) && !isFeedbackBoundary(current)) {
         failures.push(`${file.rel}: business code must not create feedback APIs directly`);
       }
+      for (const imported of importedProjectPaths(file)) {
+        if (!/\bcreateAppFeedback\b/.test(imported.importedName ?? '')) continue;
+        // 单一入口：只有同时取得 naive message 与 dialog 的 hook（use-app-feedback）
+        // 才允许消费工厂；其余任何直接导入都视为绕过统一反馈入口。
+        const hookShapesFactoryUsage = /\buseMessage\s*\(\s*\)/.test(file.text) && /\buseDialog\s*\(\s*\)/.test(file.text);
+        if (!hookShapesFactoryUsage) {
+          failures.push(`${file.rel}: the feedback factory must only be consumed by the use-app-feedback hook`);
+        }
+      }
     }
     return failures;
   },

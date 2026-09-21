@@ -9,7 +9,3 @@ export interface FileSaveHistoryEntry {
 }
 
 export type FileHistoryItem = FileSaveHistoryEntry;
-
-export function isFileSaveEntry(item: FileHistoryItem): item is FileSaveHistoryEntry {
-  return item.kind === 'file-save';
-}

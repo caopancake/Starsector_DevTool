@@ -1,5 +1,5 @@
 import { loadAppSettings, saveAppSettings } from '@/shared/api/app-settings-api';
-import type { AppSettings } from '@/shared/types/settings.types';
+import type { AppSettings } from '@/shared/types';
 
 export function loadSettings(): Promise<AppSettings> {
   return loadAppSettings();

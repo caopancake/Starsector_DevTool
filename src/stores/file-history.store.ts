@@ -15,7 +15,7 @@ import {
 } from '@/domain/edit-session';
 import { AppError } from '@/shared/lib/errors';
 import type { FileChangeRecord } from '@/shared/types';
-import type { FileSaveHistoryEntry } from '@/shared/types/file-history.types';
+import type { FileSaveHistoryEntry } from '@/shared/types';
 
 type FileHistoryStack = UndoStackState<FileSaveHistoryEntry>;
 
@@ -23,7 +23,7 @@ function createFileHistoryStack(): FileHistoryStack {
   return createUndoStackState<FileSaveHistoryEntry>();
 }
 
-export const useFileHistoryStore = defineStore('fileHistory', () => {
+export const useFileHistoryStore = defineStore('file-history', () => {
   const stateMap = reactive<Map<string, FileHistoryStack>>(new Map());
   const activeRoot = ref<string | null>(null);
   const historyLimit = ref(100);

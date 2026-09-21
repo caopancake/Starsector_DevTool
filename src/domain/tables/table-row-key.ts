@@ -3,12 +3,6 @@ import { cell, rowDisplayId } from '@/shared/lib/starsector';
 
 export const TABLE_ROW_KEY_FIELD = '_rowKey';
 
-export function assignTableRowKeys(state: ModTableState, table: TableKey, rows: RowData[]) {
-  for (const row of rows) {
-    assignTableRowKey(state, table, row);
-  }
-}
-
 export function assignTableRowKey(state: ModTableState, table: TableKey, row: RowData) {
   if (!cell(row[TABLE_ROW_KEY_FIELD])) {
     row[TABLE_ROW_KEY_FIELD] = `${table}:rowKey:${state.nextRowKey++}`;

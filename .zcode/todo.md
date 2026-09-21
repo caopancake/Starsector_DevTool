@@ -158,11 +158,12 @@ Owner 原则：同构实体族（列表 + 草稿编辑器 + 新建/删除确认�
 
 ### Phase 2.9: 错误语义、命名与一致性收尾
 
-- [ ] 错误类型边界成文并入规则：domain 允许值语义裸 Error；service/orchestrator 必须抛带 action 的 AppError；修正 `write.service.ts` 与 `mod-creation.orchestrator.ts` 中的裸 Error。
-- [ ] Pinia store id 统一 kebab-case，naming-boundary 接线。
-- [ ] `app-feedback.ts` 工厂与 `use-app-feedback.ts` 的关系成文（工厂 + hook 单一入口），工厂内直取 store 与开窗的行为评估上移。
-- [ ] `shared/types` barrel 直引的散点收敛走统一入口。
-- [ ] 全仓 grep 复核收尾：死导出、同名同体方法、service 互调为零；三个静态检查脚本全绿。
+- [x] 错误类型边界成文并入规则：新增 `error-boundary.mjs`——`services`/`orchestrators` 内 `throw new Error` 即违规（必须抛携带 `action` 的 `AppError`/`withCause`），domain 允许值语义裸 Error；修正 write.service 排他写冲突（action `exclusive-write`）与 mod-creation.orchestrator 三处打开结果分支（action `open-created-mod`）共 4 处裸 Error；frontend-guidelines 补错误语义边界说明。
+- [x] Pinia store id 统一 kebab-case：`fileHistory` → `file-history`、`tablesEditHistory` → `tables-edit-history`（无字符串引用，仅 Pinia 内部标识）；naming-boundary 接线 `defineStore('id')` kebab-case 约束。
+- [x] `app-feedback.ts` 工厂与 `use-app-feedback.ts` hook 关系成文：feedback-boundary 新增"工厂仅允许被 hook 消费"约束（以内容特征锚定，规避文件名存在性检查）；工厂内直取 store 与开窗的评估结论为**维持现状不上移**（耦合仅发生在点击回调运行时，上移是搬运而非消除），结论已写入 app-feedback-log.md。
+- [x] `shared/types` barrel 直引收敛：barrel 增补 `FileHistoryItem`/`FileSaveHistoryEntry`/`CsvDraftOperation`/`CsvEditHistoryEntry` 4 个缺失导出；17 处绕桶直引（app 3、stores 2、domain 2、orchestrators 2、services 3、shared/api 4、shared/lib 1）全部改走统一 barrel；shared-types-boundary 补正向约束（barrel 外禁止直引成员文件）。
+- [x] 全仓 grep 复核收尾：删除 6 处零消费死导出（`resolveEnumSource`、`assignTableRowKeys`、`saveTablePatch`、`toAppError`、`pathStem`、`normalizedProjectPath`；`isFileSaveEntry` 同批删除），csv-table→write 白名单边随之失效移除；同名同体函数定向抽查（formatTimestamp/formatChange/fileTitle 等经典嫌疑）无第二份同体实现；service 互调 10 条边全部在白名单内且 DFS 无环；其余"仅本文件使用"的导出保留（是 API 面非死代码）。
+- [x] write.service 历史格式问题顺手修正，`format:check` 首次全仓通过（零例外）；前端全套检查全绿（typecheck、lint、架构三脚本、encoding、71 测试、build）；手工验收清单：同表重复 Ctrl+S 触发排他写提示、新建 Mod 目标已存在/无法打开的错误反馈、两 history store 撤销重做功能不变、各表面 Ctrl+S。
 
 ### Phase 2.10: 测试补强与文档同步
 

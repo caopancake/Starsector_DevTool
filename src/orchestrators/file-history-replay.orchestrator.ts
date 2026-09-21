@@ -7,8 +7,7 @@ import { replayFileChangeSet } from '@/services/write.service';
 import { refreshLoadedSessionsAfterWrite } from '@/orchestrators/project-session-refresh.orchestrator';
 import { WINDOW_EVENTS } from '@/windows/window.events';
 import { emitWindowEvent } from '@/windows/tauri.events';
-import type { FileChangeRecord, FileChangeReplayDirection } from '@/shared/types';
-import type { FileSaveHistoryEntry } from '@/shared/types/file-history.types';
+import type { FileChangeRecord, FileChangeReplayDirection, FileSaveHistoryEntry } from '@/shared/types';
 import { AppError } from '@/shared/lib/errors';
 
 type ProjectStore = ReturnType<typeof useProjectStore>;

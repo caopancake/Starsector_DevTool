@@ -1,4 +1,4 @@
-import type { CsvRowKeyMapping, CsvTableWindow, ModTableState, RowData, TableKey } from '@/shared/types';
+import type { CsvDraftOperation, CsvRowKeyMapping, CsvTableWindow, ModTableState, RowData, TableKey } from '@/shared/types';
 import { CSV_FACTION_FIELD } from '@/shared/types';
 import { cell, deepClone, rowDisplayId } from '@/shared/lib/starsector';
 import { isInternalJsonFieldKey } from '@/shared/lib/json-fields';
@@ -6,7 +6,6 @@ import { createCsvDeletedRow, createCsvDirtyCells, csvDirtyCells, hasCsvDirtyCel
 import { defaultCsvFactionId } from '@/domain/tables/csv-faction-filter';
 import { isLoadedCsvTableRow } from '@/domain/tables/csv-table-rows';
 import { resolveTableRowKey, TABLE_ROW_KEY_FIELD } from '@/domain/tables/table-row-key';
-import type { CsvDraftOperation } from '@/shared/types/tables-edit-history.types';
 
 export interface CsvDraftResult {
   changed: boolean;

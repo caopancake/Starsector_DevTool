@@ -5,7 +5,7 @@ import type { MessageApiInjection } from 'naive-ui/es/message/src/MessageProvide
 import { NSpace } from 'naive-ui/es/space';
 import { NText } from 'naive-ui/es/typography';
 import { extractFileReferenceFromError, formatError } from '@/shared/lib/errors';
-import type { AppFeedback, ChooseOptions, ConfirmOptions } from '@/shared/types/feedback.types';
+import type { AppFeedback, ChooseOptions, ConfirmOptions } from '@/shared/types';
 import { openFileEditorWindow } from '@/windows/file-editor.window';
 import { recordLogBestEffort } from '@/services/app-feedback-log.service';
 import { useSettingsStore } from '@/stores/settings.store';

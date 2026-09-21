@@ -1,8 +1,7 @@
 import { querySessionCsvRowPreview, querySessionSourceOptions, querySessionTableWindow } from '@/services/query.service';
 import { queryResourceDataUrls } from '@/services/resource-cache.service';
-import { writeCsvPatch } from '@/services/write.service';
 import { recordPerformance } from '@/shared/runtime/performance';
-import type { AssociatedSpecChange, CsvFactionFilter, CsvRowPatch, CsvTableWindow, TableKey, WriteResult } from '@/shared/types';
+import type { CsvFactionFilter, CsvTableWindow, TableKey } from '@/shared/types';
 
 export function queryTableWindow(
   sessionId: string,
@@ -30,14 +29,4 @@ export async function queryTableRowPreviewDataUrl(sessionId: string, table: Tabl
   const resource = (await querySessionCsvRowPreview(sessionId, table, rowKey)).resourceRef;
   if (!resource) return '';
   return (await queryResourceDataUrls(sessionId, [resource]))[0] ?? '';
-}
-
-export function saveTablePatch(
-  sessionId: string,
-  modRoot: string,
-  table: TableKey,
-  patches: CsvRowPatch[],
-  associatedSpecs: AssociatedSpecChange[],
-): Promise<WriteResult> {
-  return writeCsvPatch(sessionId, modRoot, table, patches, associatedSpecs);
 }

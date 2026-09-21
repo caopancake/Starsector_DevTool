@@ -81,8 +81,7 @@
 
 <script setup lang="ts">
 import { useFileHistoryViewModel } from '@/app/composables/use-file-history-view-model';
-import type { FileChangeRecord } from '@/shared/types';
-import type { FileHistoryItem } from '@/shared/types/file-history.types';
+import type { FileChangeRecord, FileHistoryItem } from '@/shared/types';
 
 const {
   modTitle,

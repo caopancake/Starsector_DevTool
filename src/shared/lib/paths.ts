@@ -25,10 +25,6 @@ export function pathBasename(path: string): string {
   return normalizeRelPath(path).split('/').filter(Boolean).pop() || path;
 }
 
-export function pathStem(path: string): string {
-  return pathBasename(path).replace(/\.[^.]+$/, '');
-}
-
 export function joinRootRelativePath(root: string, relativePath: string): string {
   const parts = normalizeRelPath(relativePath).split('/').filter(Boolean);
   return [root.replace(/[\\/]+$/, ''), ...parts].join('\\');
@@ -66,16 +62,4 @@ export function relativePathFromRoot(root: string, path: string): string {
   const comparableRoot = normalizeFsPath(root);
   if (comparablePath === comparableRoot) return '';
   return normalizedPath.slice(comparableRoot.length + 1);
-}
-
-export function normalizedProjectPath(root: string, path: string): { external: boolean; relative: string } {
-  if (pathHasParentDirComponent(path)) return { external: true, relative: normalizeFsPath(path) };
-  const normalizedPath = normalizeFsPath(path);
-  if (pathBelongsToRoot(path, root)) {
-    return {
-      external: false,
-      relative: normalizedPath === normalizeFsPath(root) ? '' : normalizeFsPath(relativePathFromRoot(root, path)),
-    };
-  }
-  return { external: isAbsoluteFsPath(path), relative: normalizedPath };
 }

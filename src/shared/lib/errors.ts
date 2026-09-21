@@ -1,4 +1,4 @@
-import type { ModOpeningFailure } from '@/shared/types/workspace.types';
+import type { ModOpeningFailure } from '@/shared/types';
 import { pathBelongsToRoot } from '@/shared/lib/paths';
 
 export class AppError extends Error {
@@ -15,11 +15,6 @@ export class AppError extends Error {
 
 export function withCause(message: string, cause: unknown, action?: string): AppError {
   return new AppError(message, { action, cause });
-}
-
-export function toAppError(error: unknown, defaultMessage: string, action?: string): AppError {
-  if (error instanceof AppError) return error;
-  return withCause(defaultMessage, error, action);
 }
 
 export function formatError(error: unknown): string {

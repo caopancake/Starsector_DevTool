@@ -14,6 +14,7 @@ import {
   saveTextFile,
   saveVariantEntity,
 } from '@/shared/api/write-api';
+import { AppError } from '@/shared/lib/errors';
 import type {
   AssociatedFileChange,
   AssociatedSpecChange,
@@ -24,19 +25,19 @@ import type {
   FileChangeRecord,
   FileChangeReplayDirection,
   IndexedConfigEntityWrite,
+  EditorSpecKind,
   RowData,
   SkinEntityWrite,
   TableKey,
   VariantEntityWrite,
   WriteResult,
 } from '@/shared/types';
-import type { EditorSpecKind } from '@/shared/types/editor.types';
 
 const inFlightTargets = new Set<string>();
 
 async function runExclusiveWrite<T>(target: string, operation: () => Promise<T>): Promise<T> {
   if (inFlightTargets.has(target)) {
-    throw new Error('相同目标的保存正在进行，请等待其完成');
+    throw new AppError('相同目标的保存正在进行，请等待其完成', { action: 'exclusive-write' });
   }
   inFlightTargets.add(target);
   try {
@@ -53,9 +54,7 @@ export async function writeCsvPatch(
   patches: CsvRowPatch[],
   associatedSpecs: AssociatedSpecChange[],
 ): Promise<WriteResult> {
-  return runExclusiveWrite(`csv:${sessionId}:${table}`, () =>
-    saveCsvPatch(sessionId, modRoot, table, patches, associatedSpecs),
-  );
+  return runExclusiveWrite(`csv:${sessionId}:${table}`, () => saveCsvPatch(sessionId, modRoot, table, patches, associatedSpecs));
 }
 
 export async function writeTextFile(sessionId: string | null, modRoot: string, path: string, text: string): Promise<WriteResult> {
@@ -81,15 +80,11 @@ export async function writeIndexedConfigEntity(write: IndexedConfigEntityWrite):
 }
 
 export async function writeCreateIndexedConfigEntity(write: IndexedConfigEntityWrite): Promise<WriteResult> {
-  return runExclusiveWrite(`indexed-create:${write.sessionId}:${write.kind}:${write.nextId}`, () =>
-    createIndexedConfigEntity(write),
-  );
+  return runExclusiveWrite(`indexed-create:${write.sessionId}:${write.kind}:${write.nextId}`, () => createIndexedConfigEntity(write));
 }
 
 export async function writeDeleteIndexedConfigEntity(write: DeleteIndexedConfigEntityWrite): Promise<WriteResult> {
-  return runExclusiveWrite(`indexed-delete:${write.sessionId}:${write.kind}:${write.id}`, () =>
-    deleteIndexedConfigEntity(write),
-  );
+  return runExclusiveWrite(`indexed-delete:${write.sessionId}:${write.kind}:${write.id}`, () => deleteIndexedConfigEntity(write));
 }
 
 export async function writeVariantEntity(write: VariantEntityWrite): Promise<WriteResult> {
@@ -122,7 +117,5 @@ export async function replayFileChangeSet(
   direction: FileChangeReplayDirection,
   changes: FileChangeRecord[],
 ): Promise<WriteResult> {
-  return runExclusiveWrite(`replay:${sessionId}:${modRoot}:${direction}`, () =>
-    applyFileChangeSet(sessionId, modRoot, direction, changes),
-  );
+  return runExclusiveWrite(`replay:${sessionId}:${modRoot}:${direction}`, () => applyFileChangeSet(sessionId, modRoot, direction, changes));
 }

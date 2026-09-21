@@ -1,6 +1,4 @@
-import type { AssociatedSpecChange, CsvRowPatch } from '@/shared/types';
-import type { ProjectManifest, TableKey } from '@/shared/types';
-import type { ModTableState } from '@/shared/types/workspace.types';
+import type { AssociatedSpecChange, CsvRowPatch, ModTableState, ProjectManifest, TableKey } from '@/shared/types';
 import { getAssociatedSpecCandidates } from '@/domain/tables/associated-spec-candidates';
 import { isCsvDeletedRow } from '@/domain/tables/csv-dirty';
 import { writeCsvPatch } from '@/services/write.service';

@@ -7,6 +7,7 @@
 ## Owner 与链路
 
 - 组件经 `useAppFeedback()`；非组件接收 `AppFeedback`。它拥有 message/dialog/choose、warning/error 的 best-effort 日志和错误文件引用解析。
+- 反馈工厂（`app/app-feedback.ts` 的 `createAppFeedback`）与 hook（`use-app-feedback.ts`）是唯一入口组合：工厂只允许被该 hook 消费，由架构规则锚定。工厂内 showError 点击回调直取 settings/project store 与 `openFileEditorWindow` 的耦合经评估维持现状——该上下文仅在用户点击时才需要，上移只是搬运而非消除耦合。
 - `app-feedback-log.service -> shared/api -> command -> app_log/app_config service`；后端拥有固定 `starsector-devtool.log`、打开、清空、状态与工具私有目录维护。
 - 错误文件仅在 path 匹配已加载 `modRoot` 且有 `sessionId` 时打开文件编辑器；否则只提示。
 

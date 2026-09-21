@@ -71,7 +71,6 @@ const allowedServiceEdges = new Set([
   'config-resource -> resource-cache',
   'csv-table -> query',
   'csv-table -> resource-cache',
-  'csv-table -> write',
   'files -> write',
   'editor -> files',
   'editor -> query',

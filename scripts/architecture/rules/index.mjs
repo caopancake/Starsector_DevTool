@@ -5,6 +5,7 @@ import { directoryOpeningBoundaryRule } from './directory-opening-boundary.mjs';
 import { draftSessionBoundaryRule } from './draft-session-boundary.mjs';
 import { editorConfigBackendBoundaryRule } from './editor-config-backend-boundary.mjs';
 import { editorModuleBoundaryRule } from './editor-module-boundary.mjs';
+import { errorBoundaryRule } from './error-boundary.mjs';
 import { feedbackBoundaryRule } from './feedback-boundary.mjs';
 import { fileEditorBoundaryRule } from './file-editor-boundary.mjs';
 import { fileHistoryBoundaryRule } from './file-history-boundary.mjs';
@@ -41,6 +42,7 @@ export const rules = [
   parserBoundaryRule,
   windowBoundaryRule,
   feedbackBoundaryRule,
+  errorBoundaryRule,
   namingBoundaryRule,
   sharedTypesBoundaryRule,
   csvModuleBoundaryRule,

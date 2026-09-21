@@ -1,5 +1,6 @@
 import { openCreatedModTarget, type DirectoryOpeningOutcome } from '@/orchestrators/directory-opening.orchestrator';
 import { createNewModProject } from '@/services/mod-creation.service';
+import { AppError } from '@/shared/lib/errors';
 import { measurePerformanceAsync } from '@/shared/runtime/performance';
 import type { CreatedMod, CreateModRequest } from '@/shared/types';
 
@@ -28,10 +29,10 @@ function openedCreatedMod(outcome: DirectoryOpeningOutcome): CreatedModProject {
     return { modName: outcome.modName, warnings: outcome.warnings };
   }
   if (outcome.type === 'already-loaded') {
-    throw new Error(`新建 Mod 已意外存在于工作区：${outcome.modName}`);
+    throw new AppError(`新建 Mod 已意外存在于工作区：${outcome.modName}`, { action: 'open-created-mod' });
   }
   if (outcome.type === 'unknown') {
-    throw new Error(`Mod 已创建，但无法打开：${outcome.message}`);
+    throw new AppError(`Mod 已创建，但无法打开：${outcome.message}`, { action: 'open-created-mod' });
   }
-  throw new Error('Mod 已创建，但创建结果打开返回了无效状态');
+  throw new AppError('Mod 已创建，但创建结果打开返回了无效状态', { action: 'open-created-mod' });
 }

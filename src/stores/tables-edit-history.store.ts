@@ -16,7 +16,7 @@ import {
 } from '@/domain/edit-session';
 import type { ModTableState, TableKey } from '@/shared/types';
 import { applyCsvEditRedo, applyCsvEditUndo } from '@/domain/tables/csv-edit-history';
-import type { CsvDraftOperation, CsvEditHistoryEntry } from '@/shared/types/tables-edit-history.types';
+import type { CsvDraftOperation, CsvEditHistoryEntry } from '@/shared/types';
 
 type CsvEditHistoryStack = UndoStackState<CsvEditHistoryEntry>;
 
@@ -24,7 +24,7 @@ function createCsvEditHistoryStack(): CsvEditHistoryStack {
   return createUndoStackState<CsvEditHistoryEntry>();
 }
 
-export const useTablesEditHistoryStore = defineStore('tablesEditHistory', () => {
+export const useTablesEditHistoryStore = defineStore('tables-edit-history', () => {
   const stateMap = reactive<Map<string, Map<TableKey, CsvEditHistoryStack>>>(new Map());
   const historyLimit = ref(100);
 

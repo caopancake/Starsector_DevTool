@@ -13,6 +13,11 @@ export const namingBoundaryRule = {
       if (file.rel.startsWith('src/stores/') && !file.rel.endsWith('.store.ts')) {
         failures.push(`${file.rel}: store files must use .store.ts`);
       }
+      for (const match of file.text.matchAll(/\bdefineStore\(\s*'([A-Za-z0-9-]+)'/g)) {
+        if (!/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(match[1])) {
+          failures.push(`${file.rel}: Pinia store id "${match[1]}" must use kebab-case`);
+        }
+      }
       if (file.rel.startsWith('src/orchestrators/') && !file.rel.endsWith('.orchestrator.ts')) {
         failures.push(`${file.rel}: orchestrator files must use .orchestrator.ts`);
       }

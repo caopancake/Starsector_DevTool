@@ -9,7 +9,9 @@
 - service 之间默认禁止依赖；仅白名单内的基础设施边（缓存宿主、投影订阅、文件写底座）例外，白名单由架构规则显式维护。
 - `stores` 只允许保存内存运行态；`windows` 只允许管理窗口身份、生命周期和事件；`shared` 只允许保存跨模块 API、runtime、类型和纯工具。
 - service、store、orchestrator 与 window 文件必须分别使用 `.service.ts`、`.store.ts`、`.orchestrator.ts` 与 `.window.ts` 或 `.events.ts` 后缀；共享业务类型必须位于 `shared/types` 或 domain。
-- 项目内导入必须使用 `@/`；共享类型 owner 文件必须直接导入具体类型文件，严禁反向导入 shared types barrel。
+- 项目内导入必须使用 `@/`；`shared/types` 之外严禁直引成员文件，共享类型必须经 barrel（`@/shared/types`）导入；barrel 内 owner 文件必须直接导入具体类型文件，严禁反向导入 shared types barrel。
+- 错误语义边界：`domain` 允许以裸 `Error` 表达值语义校验失败；`services`/`orchestrators` 的失败必须抛出携带 `action` 的 `AppError`（或 `withCause`），由架构规则强制；反馈层用 `formatError` 呈现。
+- Pinia store id 必须为 kebab-case，与文件名 `.store.ts` 约定一致。
 
 ## 依赖方向
 

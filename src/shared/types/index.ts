@@ -5,6 +5,8 @@ export { ACCENT_PRESET_VALUES, APP_THEMES, EDIT_MODES } from '@/shared/types/set
 export type { AppLogEntry, AppLogLevel, AppLogStatus } from '@/shared/types/app-log.types';
 export { APP_LOG_LEVELS } from '@/shared/types/app-log.types';
 export type { FileChangeKind, FileChangeRecord, FileChangeReplayDirection, FileSnapshot } from '@/shared/types/history.types';
+export type { CsvDraftOperation, CsvEditHistoryEntry } from '@/shared/types/tables-edit-history.types';
+export type { FileHistoryItem, FileSaveHistoryEntry } from '@/shared/types/file-history.types';
 export type {
   AssociatedFileChange,
   AssociatedSpecChange,

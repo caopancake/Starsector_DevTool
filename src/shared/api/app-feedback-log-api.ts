@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { AppLogEntry, AppLogStatus } from '@/shared/types/app-log.types';
+import type { AppLogEntry, AppLogStatus } from '@/shared/types';
 
 export function appendAppLog(entry: AppLogEntry): Promise<void> {
   return invoke('append_app_log', { payload: { entry } });

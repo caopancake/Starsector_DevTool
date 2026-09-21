@@ -31,18 +31,6 @@ const CURRENT_VALUE_OPTION_GROUP = {
   value: '__current',
 } as const;
 
-export function resolveEnumSource(source: string | undefined | null): SelectOption[] {
-  if (!source) return [];
-  if (source.startsWith('enum:')) {
-    return source
-      .slice(5)
-      .split(',')
-      .map((v) => ({ label: v.trim(), value: v.trim() }));
-  }
-
-  return [];
-}
-
 export function selectOptionValueExists(options: SelectOption[], value: string): boolean {
   return options.some((option) => option.value === value || option.children?.some((child) => child.value === value));
 }

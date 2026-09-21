@@ -6,6 +6,7 @@ import type {
   DeleteIndexedConfigEntityWrite,
   DeleteSkinEntityWrite,
   DeleteVariantEntityWrite,
+  EditorSpecKind,
   FileChangeRecord,
   FileChangeReplayDirection,
   IndexedConfigEntityWrite,
@@ -16,7 +17,6 @@ import type {
   VariantEntityWrite,
   WriteResult,
 } from '@/shared/types';
-import type { EditorSpecKind } from '@/shared/types/editor.types';
 
 export function saveCsvPatch(
   sessionId: ProjectSessionId,
