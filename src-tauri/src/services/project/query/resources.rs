@@ -1,7 +1,6 @@
-use super::super::cache::{session_for, sessions};
-use super::super::resources::{resource_cache_key, sprite_resource_bytes_cached};
+use super::super::resources::{resource_cache_key, sprite_resource_bytes, sprite_source_context};
 use crate::{
-    errors::{AppError, AppResult},
+    errors::AppResult,
     models::{ResourceDataUrlBatchEntry, ResourceDataUrlBatchResult, ResourceRef},
 };
 use std::collections::BTreeMap;
@@ -10,10 +9,7 @@ pub fn query_resource_data_urls(
     session_id: &str,
     resources: Vec<ResourceRef>,
 ) -> AppResult<ResourceDataUrlBatchResult> {
-    let guard = sessions()
-        .lock()
-        .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = session_for(&guard, session_id)?;
+    let context = sprite_source_context(session_id)?;
     let mut loaded: BTreeMap<String, Option<String>> = BTreeMap::new();
     let mut entries = Vec::with_capacity(resources.len());
     for resource in resources {
@@ -21,7 +17,7 @@ pub fn query_resource_data_urls(
         let data_url = if let Some(data_url) = loaded.get(&cache_key) {
             data_url.clone()
         } else {
-            let bytes = sprite_resource_bytes_cached(session_id, session, &resource)?;
+            let bytes = sprite_resource_bytes(&context, &resource)?;
             loaded.insert(cache_key, bytes.data_url.clone());
             bytes.data_url
         };

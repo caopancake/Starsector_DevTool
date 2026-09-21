@@ -1,7 +1,7 @@
 use super::super::{
     cache::{
         ensure_registered_table_rows, load_core_csv_table, load_core_source_data, loaded_csv_rows,
-        loaded_registered_csv_rows, session_for_mut, sessions,
+        loaded_registered_csv_rows, lock_session, session_handle,
     },
     model::{CoreSourceData, ProjectSession, SessionCsvRow, is_comment_row, string_from_row},
     table_definitions::{csv_table_source_display_name, csv_table_source_resource_ref},
@@ -30,13 +30,11 @@ pub fn query_csv_source_options(
     session_id: &str,
     source: &str,
 ) -> AppResult<Vec<SourceOptionGroup>> {
-    let mut guard = sessions()
-        .lock()
-        .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = session_for_mut(&mut guard, session_id)?;
+    let handle = session_handle(session_id)?;
+    let mut session = lock_session(&handle)?;
     let (table, column) = parse_csv_source(source)?;
     let table_key = table.as_str();
-    ensure_registered_table_rows(session, table)?;
+    ensure_registered_table_rows(&mut session, table)?;
     {
         let csv = session
             .csv_tables
@@ -44,7 +42,7 @@ pub fn query_csv_source_options(
             .ok_or_else(|| AppError::message(format!("unknown table: {table_key}")))?;
         ensure_source_column(&csv.header, table_key, column)?;
     }
-    let metadata_catalog = source_token_metadata_catalog(column, session)?;
+    let metadata_catalog = source_token_metadata_catalog(column, &mut session)?;
     let csv = session
         .csv_tables
         .get(table_key)
@@ -73,7 +71,7 @@ pub fn query_csv_source_options(
     };
     let resource_context = SourceOptionResourceContext {
         metadata_catalog: metadata_catalog.as_ref(),
-        session,
+        session: &session,
         table,
     };
     let mut seen = BTreeSet::new();

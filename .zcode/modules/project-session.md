@@ -12,6 +12,8 @@
 ## 不变量
 
 - Session 由 `sessionId + modRoot` 身份约束；所有 Mod 缓存隔离。query 不写盘，write 不重开整个项目。
+- Session 注册表锁只保护 `sessionId -> Arc<Mutex<ProjectSession>>` 的插入、移除与查找；每个 session 各自持有一把状态锁。注册表锁临界区内禁止磁盘 IO 与其它锁获取之外的工作；一个 session 的任何操作（含磁盘 IO）不得阻塞其它 session。锁序固定为注册表锁 -> session 锁 -> core/sprite/持久化缓存锁，不得反向。
+- Session 关闭只从注册表移除条目；已取到 handle 的在途操作自然完成，关闭后新进入的操作按未知 session 拒绝。
 - ID 归属的实体视图、表计数与写后失效快照只枚举非注释且实体 ID 非空的 CSV 行；缺 ID 行仍是原始表格、草稿与保存链路的一部分，但不属于实体树或实体详情查询，不能阻断其它已注册实体或扩大失效范围。
 - cache 失效必须按结构化 invalidation 精确处理；前端不能以完整项目快照、磁盘扫描或旧 session 取代 query。
 - session refresh 只能接收已写盘或已回放的 `FileChangeRecord`；单文件的 before/after 文本与目录快照共同推导实体 ID、CSV 行 ID 和资源路径。无法解析时才发出该实体种类的正式 `id: null` scope；重命名必须同时携带旧、新 ID。

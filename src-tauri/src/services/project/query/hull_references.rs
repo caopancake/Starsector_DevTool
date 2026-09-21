@@ -1,6 +1,6 @@
 use super::super::cache::{
     ensure_registered_table_rows, load_core_csv_table, loaded_csv_rows, loaded_registered_csv_rows,
-    session_for_mut, sessions,
+    lock_session, session_handle,
 };
 use super::super::resources::{resource_ref, skin_resource_ref};
 use super::super::{
@@ -8,7 +8,7 @@ use super::super::{
     model::{ProjectSession, SessionCsvRow, is_comment_row, string_field, string_from_row},
 };
 use crate::{
-    errors::{AppError, AppResult},
+    errors::AppResult,
     models::{
         CsvTableKey, HullReferenceGroup, HullReferenceKind, HullReferenceOption,
         HullReferencesResult, ResourceOwnerKind, ResourceSource,
@@ -20,11 +20,9 @@ pub fn query_hull_references(
     session_id: &str,
     reference_ids: &[String],
 ) -> AppResult<HullReferencesResult> {
-    let mut guard = sessions()
-        .lock()
-        .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = session_for_mut(&mut guard, session_id)?;
-    build_hull_references(session, reference_ids)
+    let handle = session_handle(session_id)?;
+    let mut session = lock_session(&handle)?;
+    build_hull_references(&mut session, reference_ids)
 }
 
 fn build_hull_references(

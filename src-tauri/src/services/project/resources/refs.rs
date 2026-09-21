@@ -1,4 +1,5 @@
 use super::super::{
+    cache::{lock_session, session_handle},
     model::{ProjectSession, WEAPON_SPRITE_FIELDS, string_field},
     table_definitions::hull_resource_ref,
 };
@@ -44,13 +45,32 @@ pub(in crate::services::project) struct SpriteResourceBytes {
     pub(in crate::services::project) data_url: Option<String>,
 }
 
-pub(in crate::services::project) fn sprite_resource_bytes_cached(
+/// The session-owned inputs to sprite loading, cloned out of the session under
+/// a short lock so batch loading never holds the session (or registry) lock.
+pub(in crate::services::project) struct SpriteSourceContext {
+    session_id: String,
+    mod_root: String,
+    starsector_root: Option<String>,
+}
+
+pub(in crate::services::project) fn sprite_source_context(
     session_id: &str,
-    session: &ProjectSession,
+) -> AppResult<SpriteSourceContext> {
+    let handle = session_handle(session_id)?;
+    let session = lock_session(&handle)?;
+    Ok(SpriteSourceContext {
+        session_id: session_id.to_string(),
+        mod_root: session.manifest.mod_root.clone(),
+        starsector_root: session.manifest.starsector_root.clone(),
+    })
+}
+
+pub(in crate::services::project) fn sprite_resource_bytes(
+    context: &SpriteSourceContext,
     resource: &ResourceRef,
 ) -> AppResult<SpriteResourceBytes> {
     let cache_key = resource_cache_key(resource);
-    let media_key = (session_id.to_string(), cache_key);
+    let media_key = (context.session_id.clone(), cache_key);
     if let Some(data_url) = cached_sprite_media_lookup(&media_key) {
         return Ok(SpriteResourceBytes {
             data_url: Some(data_url),
@@ -58,8 +78,7 @@ pub(in crate::services::project) fn sprite_resource_bytes_cached(
     }
     let loaded = match resource.source {
         ResourceSource::Core => {
-            let root = session
-                .manifest
+            let root = context
                 .starsector_root
                 .as_ref()
                 .map(|root| PathBuf::from(root).join("starsector-core"))
@@ -67,9 +86,8 @@ pub(in crate::services::project) fn sprite_resource_bytes_cached(
             sprites::load_sprite_bytes_from_root(&root, &resource.rel_path)?
         }
         ResourceSource::Mod => {
-            let mod_root = PathBuf::from(&session.manifest.mod_root);
-            let core_dir = session
-                .manifest
+            let mod_root = PathBuf::from(&context.mod_root);
+            let core_dir = context
                 .starsector_root
                 .as_ref()
                 .map(|root| PathBuf::from(root).join("starsector-core"));

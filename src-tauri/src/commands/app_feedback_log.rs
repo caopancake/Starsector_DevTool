@@ -4,7 +4,7 @@ use crate::{
     services,
 };
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn append_app_log(
     app_handle: tauri::AppHandle,
     payload: AppendAppLogPayload,
@@ -12,27 +12,27 @@ pub fn append_app_log(
     services::app_log::append_app_log(app_handle, payload.entry)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_app_log_status(app_handle: tauri::AppHandle) -> Result<AppLogStatus, AppError> {
     services::app_log::app_log_status(app_handle)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn open_config_dir(app_handle: tauri::AppHandle) -> Result<(), AppError> {
     services::app_config::open_config_dir(app_handle)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn open_app_log_file(app_handle: tauri::AppHandle) -> Result<(), AppError> {
     services::app_log::open_app_log_file(app_handle)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn clear_config_files(app_handle: tauri::AppHandle) -> Result<(), AppError> {
     services::app_config::clear_app_config_files(app_handle)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn clear_app_log_file(app_handle: tauri::AppHandle) -> Result<AppLogStatus, AppError> {
     services::app_log::clear_app_log_file(app_handle)
 }

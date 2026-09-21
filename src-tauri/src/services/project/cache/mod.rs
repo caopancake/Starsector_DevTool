@@ -9,7 +9,7 @@ use crate::{
 };
 use std::{
     collections::BTreeMap,
-    sync::{LazyLock, Mutex},
+    sync::{Arc, LazyLock, Mutex},
 };
 
 use super::model::{CoreCache, ProjectSession};
@@ -24,12 +24,12 @@ pub(crate) use csv::{
 };
 pub(crate) use invalidation::invalidate_session_changes;
 
-static PROJECT_SESSIONS: LazyLock<Mutex<BTreeMap<ProjectSessionId, ProjectSession>>> =
+static PROJECT_SESSIONS: LazyLock<Mutex<BTreeMap<ProjectSessionId, Arc<Mutex<ProjectSession>>>>> =
     LazyLock::new(|| Mutex::new(BTreeMap::new()));
 static CORE_CACHES: LazyLock<Mutex<BTreeMap<String, CoreCache>>> =
     LazyLock::new(|| Mutex::new(BTreeMap::new()));
 
-pub(crate) fn sessions() -> &'static Mutex<BTreeMap<ProjectSessionId, ProjectSession>> {
+pub(crate) fn sessions() -> &'static Mutex<BTreeMap<ProjectSessionId, Arc<Mutex<ProjectSession>>>> {
     &PROJECT_SESSIONS
 }
 
@@ -37,22 +37,25 @@ pub(crate) fn core_caches() -> &'static Mutex<BTreeMap<String, CoreCache>> {
     &CORE_CACHES
 }
 
-pub(crate) fn session_for<'a>(
-    sessions: &'a BTreeMap<ProjectSessionId, ProjectSession>,
-    session_id: &str,
-) -> AppResult<&'a ProjectSession> {
-    sessions
+/// The registry lock is only ever held for map insert/remove/get plus the Arc
+/// clone returned here; all session work — including disk IO — happens on the
+/// per-session lock so one session can never block another.
+pub(crate) fn session_handle(session_id: &str) -> AppResult<Arc<Mutex<ProjectSession>>> {
+    sessions()
+        .lock()
+        .map_err(|_| AppError::message("project session lock poisoned"))?
         .get(session_id)
+        .cloned()
         .ok_or_else(|| AppError::message(format!("unknown project session: {session_id}")))
 }
 
-pub(crate) fn session_for_mut<'a>(
-    sessions: &'a mut BTreeMap<ProjectSessionId, ProjectSession>,
-    session_id: &str,
-) -> AppResult<&'a mut ProjectSession> {
-    sessions
-        .get_mut(session_id)
-        .ok_or_else(|| AppError::message(format!("unknown project session: {session_id}")))
+/// Lock a session handle, mapping poisoning to the shared AppError form.
+pub(crate) fn lock_session(
+    handle: &Mutex<ProjectSession>,
+) -> AppResult<std::sync::MutexGuard<'_, ProjectSession>> {
+    handle
+        .lock()
+        .map_err(|_| AppError::message("project session lock poisoned"))
 }
 
 pub(super) fn invalidate_core_cache(starsector_root: &str) -> AppResult<()> {

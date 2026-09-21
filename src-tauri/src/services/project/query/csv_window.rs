@@ -1,13 +1,13 @@
 use super::super::{
     cache::{
-        ensure_registered_table_rows, loaded_registered_csv_rows, registered_session_table,
-        session_for_mut, sessions,
+        ensure_registered_table_rows, loaded_registered_csv_rows, lock_session,
+        registered_session_table, session_handle,
     },
     model::SessionCsvRow,
     table_definitions::{csv_table_row_resource_ref, csv_table_supports_faction_filter},
 };
 use crate::{
-    errors::{AppError, AppResult},
+    errors::AppResult,
     models::{
         CSV_FACTION_FIELD, CsvFactionFilter, CsvRowPreview, CsvTableKey, CsvTableWindow,
         CsvWindowRow,
@@ -22,13 +22,11 @@ pub fn query_csv_table_window(
     search: Option<String>,
     faction: CsvFactionFilter,
 ) -> AppResult<CsvTableWindow> {
-    let mut guard = sessions()
-        .lock()
-        .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = session_for_mut(&mut guard, session_id)?;
-    ensure_registered_table_rows(session, table)?;
-    let table_data = registered_session_table(session, table)?;
-    let rows_ref = loaded_registered_csv_rows(session, table)?;
+    let handle = session_handle(session_id)?;
+    let mut session = lock_session(&handle)?;
+    ensure_registered_table_rows(&mut session, table)?;
+    let table_data = registered_session_table(&session, table)?;
+    let rows_ref = loaded_registered_csv_rows(&session, table)?;
     let search = search.unwrap_or_default().trim().to_lowercase();
     let filtered: Vec<(usize, &SessionCsvRow)> = rows_ref
         .iter()
@@ -60,16 +58,14 @@ pub fn query_csv_row_preview(
     table: CsvTableKey,
     row_key: &str,
 ) -> AppResult<CsvRowPreview> {
-    let mut guard = sessions()
-        .lock()
-        .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = session_for_mut(&mut guard, session_id)?;
-    ensure_registered_table_rows(session, table)?;
-    let row = loaded_registered_csv_rows(session, table)?
+    let handle = session_handle(session_id)?;
+    let mut session = lock_session(&handle)?;
+    ensure_registered_table_rows(&mut session, table)?;
+    let row = loaded_registered_csv_rows(&session, table)?
         .iter()
         .find(|row| row.row_key == row_key);
     Ok(CsvRowPreview {
-        resource_ref: row.and_then(|row| csv_table_row_resource_ref(session, table, &row.row)),
+        resource_ref: row.and_then(|row| csv_table_row_resource_ref(&session, table, &row.row)),
     })
 }
 

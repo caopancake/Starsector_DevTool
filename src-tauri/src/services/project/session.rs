@@ -2,7 +2,7 @@ use super::model::{
     MISSION_LIST_REL_PATH, MISSION_LIST_TABLE_KEY, ProjectSession, SessionCsvTable, SpecBundle,
 };
 use super::{
-    cache::{self, session_for_mut, sessions},
+    cache::{self, lock_session, session_handle, sessions},
     factions,
     performance::PerformanceTrace,
     projectiles, root,
@@ -17,6 +17,7 @@ use crate::{
 use std::{
     collections::BTreeMap,
     path::Path,
+    sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -30,10 +31,8 @@ pub fn close_project_session(session_id: String) -> AppResult<()> {
 }
 
 pub fn ensure_project_session_mod_root(session_id: &str, mod_root: &str) -> AppResult<()> {
-    let guard = sessions()
-        .lock()
-        .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = super::cache::session_for(&guard, session_id)?;
+    let handle = session_handle(session_id)?;
+    let session = lock_session(&handle)?;
     let expected_root = FsRootBoundary::new(Path::new(&session.manifest.mod_root), "mod root")?;
     let actual_root = FsRootBoundary::new(Path::new(mod_root), "mod root")?;
     if expected_root.root() != actual_root.root() {
@@ -48,12 +47,10 @@ pub fn invalidate_project_session(
     session_id: &str,
     changes: Vec<FileChangeRecord>,
 ) -> AppResult<ProjectSessionInvalidationResult> {
-    let mut guard = sessions()
-        .lock()
-        .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = session_for_mut(&mut guard, session_id)?;
+    let handle = session_handle(session_id)?;
+    let mut session = lock_session(&handle)?;
     let mut invalidation = ProjectInvalidation::default();
-    invalidation.merge(cache::invalidate_session_changes(session, &changes)?);
+    invalidation.merge(cache::invalidate_session_changes(&mut session, &changes)?);
     Ok(ProjectSessionInvalidationResult {
         manifest: session.manifest.clone(),
         invalidation,
@@ -74,7 +71,7 @@ pub(crate) fn open_project_session_traced(
     sessions()
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?
-        .insert(manifest.session_id.clone(), session);
+        .insert(manifest.session_id.clone(), Arc::new(Mutex::new(session)));
     Ok(manifest)
 }
 
@@ -691,5 +688,98 @@ mod tests {
                 .any(|message| message.contains("name=persistent_index")
                     && message.contains("result=miss"))
         );
+    }
+
+    #[test]
+    fn concurrent_threads_on_separate_sessions_run_without_blocking_or_corruption() {
+        use crate::models::{CsvFactionFilter, CsvRowPatch, CsvRowPatchAction, CsvTableKey};
+        use crate::services::project::{query::query_csv_table_window, write::save_csv_patch};
+        use serde_json::{Map, Value};
+        use std::sync::{Arc, Barrier};
+
+        const THREADS: usize = 4;
+        const ROUNDS: usize = 4;
+        const SESSIONS: usize = 2;
+        const WRITES_PER_SESSION: usize = THREADS * ROUNDS / SESSIONS;
+
+        let roots: Vec<_> = (0..SESSIONS)
+            .map(|index| {
+                let root = temp_dir(&format!("session_concurrency_{index}"));
+                std::fs::create_dir_all(root.join("data/hulls")).unwrap();
+                write_utf8_no_bom(
+                    &root.join("data/hulls/ship_data.csv"),
+                    "id,name\r\nbase_ship,Base Ship\r\n",
+                )
+                .unwrap();
+                root
+            })
+            .collect();
+        let session_ids: Vec<String> = roots
+            .iter()
+            .map(|root| {
+                let mut trace = PerformanceTrace::new("project.openSession");
+                open_project_session_traced(root, None, &mut trace)
+                    .unwrap()
+                    .session_id
+            })
+            .collect();
+
+        let barrier = Arc::new(Barrier::new(THREADS));
+        let mut handles = Vec::new();
+        for thread_index in 0..THREADS {
+            let barrier = barrier.clone();
+            let session_id = session_ids[thread_index % SESSIONS].clone();
+            handles.push(std::thread::spawn(move || {
+                barrier.wait();
+                for round in 0..ROUNDS {
+                    let window = query_csv_table_window(
+                        &session_id,
+                        CsvTableKey::Ships,
+                        0,
+                        200,
+                        None,
+                        CsvFactionFilter::All,
+                    )
+                    .unwrap();
+                    assert!(window.total_rows >= 1);
+                    let mut row = Map::new();
+                    row.insert(
+                        "id".to_string(),
+                        Value::String(format!("thread_{thread_index}_row_{round}")),
+                    );
+                    row.insert("name".to_string(), Value::String("Concurrent".to_string()));
+                    save_csv_patch(
+                        &session_id,
+                        CsvTableKey::Ships,
+                        vec![CsvRowPatch {
+                            row_key: format!("ships:new:{thread_index}-{round}"),
+                            action: CsvRowPatchAction::Upsert,
+                            row,
+                        }],
+                        Vec::new(),
+                    )
+                    .unwrap();
+                    invalidate_project_session(&session_id, Vec::new()).unwrap();
+                }
+            }));
+        }
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        for (session_index, session_id) in session_ids.iter().enumerate() {
+            let window = query_csv_table_window(
+                session_id,
+                CsvTableKey::Ships,
+                0,
+                200,
+                None,
+                CsvFactionFilter::All,
+            )
+            .unwrap();
+            assert_eq!(window.total_rows, 1 + WRITES_PER_SESSION);
+            let _ = close_project_session(session_id.clone());
+            let _ = std::fs::remove_dir_all(&roots[session_index]);
+        }
     }
 }

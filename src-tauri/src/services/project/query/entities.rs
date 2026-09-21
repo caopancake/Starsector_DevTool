@@ -1,24 +1,22 @@
 use super::super::{
-    cache::{session_for_mut, sessions},
+    cache::{lock_session, session_handle},
     entity_definitions::entity_definition,
 };
 use crate::{
-    errors::{AppError, AppResult},
+    errors::AppResult,
     models::{EntityData, EntityKind},
 };
 
 pub fn query_entity(session_id: &str, kind: EntityKind, id: &str) -> AppResult<Option<EntityData>> {
-    let mut guard = sessions()
-        .lock()
-        .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = session_for_mut(&mut guard, session_id)?;
+    let handle = session_handle(session_id)?;
+    let mut session = lock_session(&handle)?;
     let definition = entity_definition(kind);
-    (definition.prepare)(session)?;
-    let data = (definition.detail)(session, id)?;
+    (definition.prepare)(&mut session)?;
+    let data = (definition.detail)(&mut session, id)?;
     let Some(data) = data else {
         return Ok(None);
     };
-    let resource_refs = (definition.resources)(session, id, &data);
+    let resource_refs = (definition.resources)(&session, id, &data);
     Ok(Some(EntityData {
         resource_refs,
         kind: definition.kind,
@@ -28,13 +26,11 @@ pub fn query_entity(session_id: &str, kind: EntityKind, id: &str) -> AppResult<O
 }
 
 pub fn query_entity_list(session_id: &str, kind: EntityKind) -> AppResult<Vec<EntityData>> {
-    let mut guard = sessions()
-        .lock()
-        .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = session_for_mut(&mut guard, session_id)?;
+    let handle = session_handle(session_id)?;
+    let mut session = lock_session(&handle)?;
     let definition = entity_definition(kind);
-    (definition.prepare)(session)?;
-    (definition.list)(session)
+    (definition.prepare)(&mut session)?;
+    (definition.list)(&mut session)
 }
 
 #[cfg(test)]

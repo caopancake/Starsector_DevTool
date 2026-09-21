@@ -1,6 +1,6 @@
 use super::super::cache::{
-    ensure_registered_table_rows, loaded_registered_csv_rows, registered_session_table,
-    registered_session_table_mut, session_for_mut, sessions,
+    ensure_registered_table_rows, loaded_registered_csv_rows, lock_session,
+    registered_session_table, registered_session_table_mut, session_handle,
 };
 use super::super::entity_definitions::associated_spec_definition;
 use super::super::model::SessionCsvRow;
@@ -22,18 +22,16 @@ pub fn save_csv_patch(
     patches: Vec<CsvRowPatch>,
     associated_specs: Vec<AssociatedSpecChange>,
 ) -> AppResult<WriteResult> {
-    let mut guard = sessions()
-        .lock()
-        .map_err(|_| AppError::message("project session lock poisoned"))?;
-    let session = session_for_mut(&mut guard, session_id)?;
-    ensure_registered_table_rows(session, table)?;
+    let handle = session_handle(session_id)?;
+    let mut session = lock_session(&handle)?;
+    ensure_registered_table_rows(&mut session, table)?;
     let (mod_root, rel_path, header, mut rows) = {
-        let table_data = registered_session_table(session, table)?;
+        let table_data = registered_session_table(&session, table)?;
         (
             session.manifest.mod_root.clone(),
             table_data.path.clone(),
             table_data.header.clone(),
-            loaded_registered_csv_rows(session, table)?.to_vec(),
+            loaded_registered_csv_rows(&session, table)?.to_vec(),
         )
     };
     let key_map = apply_csv_row_patches(table, &mut rows, patches)?;
@@ -46,7 +44,7 @@ pub fn save_csv_patch(
     }
     let changes = builder.apply()?;
     {
-        let table_data = registered_session_table_mut(session, table)?;
+        let table_data = registered_session_table_mut(&mut session, table)?;
         table_data.rows = Some(rows);
         table_data.header = header;
     }

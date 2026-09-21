@@ -18,7 +18,7 @@ pub fn close_project_session(payload: CloseProjectSessionPayload) -> Result<(), 
     services::project::close_project_session(payload.session_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn query_csv_table_window(payload: CsvTableWindowPayload) -> Result<CsvTableWindow, AppError> {
     services::project::query_csv_table_window(
         &payload.session_id,
@@ -30,31 +30,31 @@ pub fn query_csv_table_window(payload: CsvTableWindowPayload) -> Result<CsvTable
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn query_csv_source_options(
     payload: CsvSourceOptionsPayload,
 ) -> Result<Vec<SourceOptionGroup>, AppError> {
     services::project::query_csv_source_options(&payload.session_id, &payload.source)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn query_csv_row_preview(payload: CsvRowPreviewPayload) -> Result<CsvRowPreview, AppError> {
     services::project::query_csv_row_preview(&payload.session_id, payload.table, &payload.row_key)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn query_hull_references(
     payload: HullReferencesPayload,
 ) -> Result<HullReferencesResult, AppError> {
     services::project::query_hull_references(&payload.session_id, &payload.reference_ids)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn query_entity(payload: QueryEntityPayload) -> Result<Option<EntityData>, AppError> {
     services::project::query_entity(&payload.session_id, payload.kind, &payload.id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn query_entity_list(payload: QueryEntityListPayload) -> Result<Vec<EntityData>, AppError> {
     services::project::query_entity_list(&payload.session_id, payload.kind)
 }
@@ -73,7 +73,7 @@ pub fn invalidate_project_session(
     services::project::invalidate_project_session(&payload.session_id, payload.changes)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn invalidate_core_cache(payload: InvalidateCoreCachePayload) -> Result<(), AppError> {
     services::project::invalidate_core_cache(&payload.starsector_root)
 }

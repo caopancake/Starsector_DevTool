@@ -6,14 +6,15 @@
 
 ### Phase 1.1: Rust 命令线程模型与锁边界
 
-Owner 原则：`PROJECT_SESSIONS` 锁只保护 session 注册表与 session 状态的一致性；一切磁盘 IO（读 core、写盘、目录重扫、指纹计算）必须在锁外执行；一切含 IO 的 command 必须在异步线程执行。
+Owner 原则：`PROJECT_SESSIONS` 注册表锁只保护 `sessionId -> Arc<Mutex<ProjectSession>>` 的插入、移除与查找；每个 session 持有独立状态锁，操作（含磁盘 IO）只串行本 session，永不阻塞其它 session；一切含 IO 的 command 在异步线程执行。
 
-- [ ] `src-tauri/src/commands/project.rs` 中 7 个纯 `#[tauri::command]` 的 query/invalidate 命令改为 `#[tauri::command(async)]`；`app_feedback_log.rs`、`app_settings.rs` 的同步命令逐一按 IO 属性评估后统一标注。
-- [ ] `services/project/write/csv_patch.rs`：changeset 写盘（`builder.apply()`）移出锁临界区；锁内只完成行数据读取与写后状态提交，两段之间不得持有跨锁引用。
-- [ ] `services/project/query/source_options.rs`：core CSV 与 core source data 加载移出锁外（先取 session 快照与 root，锁外加载，再短锁回写缓存）。
-- [ ] `services/project/session.rs`：invalidation 触发的目录重扫移出锁外。
-- [ ] 补并发回归测试：多 session 并发 query 与单 session 写入互不串行阻塞；以审查确认锁临界区内无文件系统调用。
-- [ ] 跑 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test`。
+- [x] `commands/project.rs` 7 个 query/invalidate、`app_feedback_log.rs` 6 个、`app_settings.rs` 2 个同步命令全部改为 `#[tauri::command(async)]`（经 tauri-macros 与 tauri 源码核实：`(async)` 同步函数经 `async_runtime::spawn` 执行，不占主线程）。
+- [x] 注册表改存 `Arc<Mutex<ProjectSession>>`，以 `session_handle`（短注册表锁 + Arc clone）与 `lock_session` 取代 `session_for`/`session_for_mut`；`csv_window`/`entities`/`hull_references`/`source_options`/`csv_patch`/`session` 六文件九处调用点换取锁序言，下游函数签名不变。
+- [x] `save_csv_patch` 全程持本 session 锁：同 session 写入天然串行防丢更新，写盘只阻塞本 session；无需 snapshot/commit 拆分，无新增错误路径。
+- [x] `query_resource_data_urls` 先短锁克隆 `SpriteSourceContext`，批量贴图加载移出 session 锁；`sprite_resource_bytes_cached` 收窄为 `sprite_source_context` + `sprite_resource_bytes`。
+- [x] invalidation 目录重扫与 source-options core 加载只持本 session 锁，跨 session 不再互阻；锁序固定为注册表锁 -> session 锁 -> core/sprite/持久化缓存锁。
+- [x] 补并发冒烟测试 `concurrent_threads_on_separate_sessions_run_without_blocking_or_corruption`（4 线程 × 2 session 屏障并发混合操作）；锁模型契约已写入 `.zcode/modules/project-session.md`。
+- [x] 跑 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test`（261 通过）。
 
 ### Phase 1.2: core 缓存指纹与外设正确性
 
