@@ -1,7 +1,7 @@
 use crate::{
     errors::{AppError, AppResult},
     io::{read_csv_data, read_json_file},
-    models::{CSV_DEFAULT_FACTION_ID, FactionMeta},
+    models::FactionMeta,
 };
 use serde_json::{Map, Value};
 use std::{
@@ -62,15 +62,6 @@ pub(super) fn discover_factions(
         }
     }
     Ok((factions, tag_map))
-}
-
-pub(super) fn detect_faction(_id: &str, tags: &str, tag_map: &HashMap<String, String>) -> String {
-    for tag in faction_blueprint_tags(tags) {
-        if let Some(faction) = tag_map.get(tag) {
-            return faction.clone();
-        }
-    }
-    CSV_DEFAULT_FACTION_ID.to_string()
 }
 
 pub(super) fn load_faction_files(mod_root: &Path) -> AppResult<BTreeMap<String, Value>> {
@@ -217,12 +208,6 @@ fn is_owned_faction_blueprint_tag(tag: &str, faction_id: &str) -> bool {
         || (tag.starts_with(&format!("{faction_id}_")) && tag.ends_with("_bp"))
 }
 
-fn faction_blueprint_tags(tags: &str) -> impl Iterator<Item = &str> {
-    tags.split(|ch: char| ch == ',' || ch == ';' || ch == '|' || ch.is_whitespace())
-        .map(str::trim)
-        .filter(|tag| !tag.is_empty())
-}
-
 fn rgb_to_hex(values: &[Value]) -> String {
     let r = values
         .first()
@@ -249,29 +234,6 @@ mod tests {
     use crate::testutil::temp_dir;
     use serde_json::json;
     use std::fs;
-
-    #[test]
-    fn detects_faction_from_blueprint_tag() {
-        let mut tag_map = HashMap::new();
-        tag_map.insert("demo_bp".to_string(), "demo".to_string());
-
-        assert_eq!(detect_faction("ship_id", "rare,demo_bp", &tag_map), "demo");
-    }
-
-    #[test]
-    fn detects_faction_from_exact_blueprint_tag_tokens_only() {
-        let mut tag_map = HashMap::new();
-        tag_map.insert("demo_bp".to_string(), "demo".to_string());
-
-        assert_eq!(
-            detect_faction("ship_id", "rare,not_demo_bp_extra", &tag_map),
-            CSV_DEFAULT_FACTION_ID
-        );
-        assert_eq!(
-            detect_faction("ship_id", "rare; demo_bp | other", &tag_map),
-            "demo"
-        );
-    }
 
     #[test]
     fn accepts_only_blueprint_tags_derived_from_current_faction_id() {

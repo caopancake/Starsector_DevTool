@@ -11,6 +11,8 @@
 `scripts/check-identifier-length.mjs`：标识符长度检查 owner，限制变量与函数名长度。
 `scripts/architecture/rules/index.mjs`：规则注册表 owner，拥有全部规则的注册清单。
 `scripts/architecture/rules/frontend-layer-boundary.mjs`：前端分层与 service 白名单规则 owner。
+`scripts/architecture/rules/rust-project-layer-boundary.mjs`：Rust project 内部分层矩阵规则 owner，支持 crate 绝对与相对导入解析。
+`scripts/architecture/rules/rust-service-edge-boundary.mjs`：后端顶层 service 横向依赖授权表规则 owner。
 `scripts/architecture/rules/error-boundary.mjs`：错误语义边界规则 owner。
 `scripts/architecture/rules/docs-module-map.mjs`：模块文档契约规则 owner。
 `scripts/architecture/self-boundary.mjs`：规则自检 owner，约束规则书写方式。

@@ -1,11 +1,11 @@
 use crate::{
     errors::{AppError, AppResult},
     io::{
-        FsRootBoundary, path_belongs_to_root, read_utf8_no_bom, validate_safe_absolute_path,
-        write_utf8_no_bom,
+        FsRootBoundary, ensure_file_appendable, path_belongs_to_root, read_utf8_no_bom,
+        validate_safe_absolute_path, write_utf8_no_bom,
     },
-    models::AppSettings,
-    services::{app_log, app_paths, workspace_persistence},
+    models::{AppSettings, LOG_FILE},
+    services::{app_paths, workspace_persistence},
 };
 use std::{
     fs,
@@ -91,7 +91,7 @@ fn prepare_log_directory_for_save(app_data_dir: &Path, directory: &str) -> AppRe
         .root()
         .to_path_buf();
     reject_log_directory_boundary(app_data_dir, &canonical)?;
-    app_log::ensure_log_directory_writable(&canonical)?;
+    ensure_file_appendable(&canonical.join(LOG_FILE))?;
     Ok(canonical)
 }
 
@@ -118,7 +118,7 @@ fn check_log_directory_boundary(
     validate_safe_absolute_path(requested, "log directory")?;
     if requested
         .file_name()
-        .is_some_and(|name| name.eq_ignore_ascii_case(app_log::LOG_FILE))
+        .is_some_and(|name| name.eq_ignore_ascii_case(LOG_FILE))
     {
         return Err(AppError::message(format!(
             "log directory must not include the log file name: {directory}"
@@ -152,40 +152,7 @@ fn reject_log_directory_boundary(app_data_dir: &Path, canonical: &Path) -> AppRe
             canonical.display()
         )));
     }
-    reject_mod_or_workspace_directory(app_data_dir, canonical)
-}
-
-fn reject_mod_or_workspace_directory(app_data_dir: &Path, directory: &Path) -> AppResult<()> {
-    if directory
-        .ancestors()
-        .any(|ancestor| ancestor.join("mod_info.json").is_file())
-    {
-        return Err(AppError::message(format!(
-            "log directory must not be inside a Mod: {}",
-            directory.display()
-        )));
-    }
-    let workspace = workspace_persistence::load_workspace(app_data_dir)?;
-    for root in workspace
-        .mods
-        .iter()
-        .map(|mod_entry| mod_entry.mod_root.as_str())
-        .chain(workspace.starsector_root.iter().map(String::as_str))
-    {
-        let path = Path::new(root);
-        if path.is_dir() {
-            let canonical_root = FsRootBoundary::new(path, "workspace directory")?
-                .root()
-                .to_path_buf();
-            if path_belongs_to_root(directory, &canonical_root) {
-                return Err(AppError::message(format!(
-                    "log directory must not be inside a workspace directory: {}",
-                    directory.display()
-                )));
-            }
-        }
-    }
-    Ok(())
+    workspace_persistence::reject_mod_or_workspace_directory(app_data_dir, canonical)
 }
 
 pub fn settings_path(app_data_dir: &Path) -> PathBuf {
@@ -293,7 +260,7 @@ mod tests {
     #[test]
     fn custom_log_directory_rejects_a_complete_log_file_path() {
         let app_data = temp_dir("settings_log_file_path_app_data");
-        let file_path = app_data.parent().unwrap().join(app_log::LOG_FILE);
+        let file_path = app_data.parent().unwrap().join(LOG_FILE);
         let result = prepare_log_directory_for_save(&app_data, &file_path.to_string_lossy());
 
         let _ = fs::remove_dir_all(&app_data);

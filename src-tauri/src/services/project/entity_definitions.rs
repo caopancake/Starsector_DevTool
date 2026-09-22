@@ -2,18 +2,20 @@ use super::{
     cache::{
         ensure_registered_table_rows, ensure_session_table_rows, loaded_csv_rows,
         loaded_registered_csv_rows,
+        spec_files::{load_skin_files, load_variant_files},
+    },
+    entity_resources::{
+        faction_resource_refs, mission_resource_refs, projectile_resource_refs, ship_resource_refs,
+        skin_entity_resource_refs, system_resource_refs, variant_resource_refs,
+        weapon_resource_refs,
     },
     factions,
     model::{
         MISSION_LIST_REL_PATH, MISSION_LIST_TABLE_KEY, ProjectSession, SessionCsvRow,
         is_comment_row, string_from_row,
     },
-    resources::{
-        faction_resource_refs, mission_resource_refs, projectile_resource_refs, resource_ref,
-        ship_resource_refs, skin_entity_resource_refs, system_resource_refs, variant_resource_refs,
-        weapon_resource_refs,
-    },
-    root, spec_files,
+    resources::resource_ref,
+    root,
     table_definitions::csv_table_icon_resource_ref,
 };
 use crate::{
@@ -746,11 +748,9 @@ fn refresh_faction(session: &mut ProjectSession) -> AppResult<()> {
     session.tag_map = factions::discover_factions(mod_root)?.1;
     for definition in super::table_definitions::csv_table_definitions()
         .iter()
-        .filter(|definition| {
-            super::table_definitions::csv_table_supports_faction_filter(definition.key)
-        })
+        .filter(|definition| definition.spec.supports_faction_filter)
     {
-        if let Some(table) = session.csv_tables.get_mut(definition.key.as_str()) {
+        if let Some(table) = session.csv_tables.get_mut(definition.spec.key.as_str()) {
             table.rows = None;
         }
     }
@@ -766,20 +766,20 @@ fn refresh_mission(session: &mut ProjectSession) -> AppResult<()> {
 
 fn refresh_variant(session: &mut ProjectSession) -> AppResult<()> {
     let mod_root = Path::new(&session.manifest.mod_root);
-    let (files, warnings) = spec_files::load_variant_files(mod_root)?;
+    let (files, warnings) = load_variant_files(mod_root)?;
     session.variant_files = files;
     session.manifest.entity_summaries.variants = session.variant_files.len();
-    let (_, skin_warnings) = spec_files::load_skin_files(mod_root)?;
+    let (_, skin_warnings) = load_skin_files(mod_root)?;
     session.manifest.warnings = warnings.into_iter().chain(skin_warnings).collect();
     Ok(())
 }
 
 fn refresh_skin(session: &mut ProjectSession) -> AppResult<()> {
     let mod_root = Path::new(&session.manifest.mod_root);
-    let (files, warnings) = spec_files::load_skin_files(mod_root)?;
+    let (files, warnings) = load_skin_files(mod_root)?;
     session.skin_files = files;
     session.manifest.entity_summaries.skins = session.skin_files.len();
-    let (_, variant_warnings) = spec_files::load_variant_files(mod_root)?;
+    let (_, variant_warnings) = load_variant_files(mod_root)?;
     session.manifest.warnings = variant_warnings.into_iter().chain(warnings).collect();
     Ok(())
 }

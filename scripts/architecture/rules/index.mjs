@@ -19,6 +19,7 @@ import { projectResourcesBoundaryRule } from './project-resources-boundary.mjs';
 import { queryBoundaryRule } from './query-boundary.mjs';
 import { resourceBoundaryRule } from './resource-boundary.mjs';
 import { rustProjectLayerBoundaryRule } from './rust-project-layer-boundary.mjs';
+import { rustServiceEdgeBoundaryRule } from './rust-service-edge-boundary.mjs';
 import { schemaModuleBoundaryRule } from './schema-module-boundary.mjs';
 import { sharedTypesBoundaryRule } from './shared-types-boundary.mjs';
 import { windowBoundaryRule } from './window-boundary.mjs';
@@ -30,6 +31,7 @@ export const rules = [
   frontendLayerBoundaryRule,
   mainHistoryCommandBoundaryRule,
   rustProjectLayerBoundaryRule,
+  rustServiceEdgeBoundaryRule,
   queryBoundaryRule,
   writeBoundaryRule,
   resourceBoundaryRule,

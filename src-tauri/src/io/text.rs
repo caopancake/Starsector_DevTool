@@ -3,9 +3,23 @@ use crate::{
     io::paths::validate_walk_entry,
     models::known_cp1252_char,
 };
+use std::fs::OpenOptions;
 use std::{fs, path::Path};
 
 const UTF8_BOM: &[u8] = &[0xef, 0xbb, 0xbf];
+
+/// Opens a file for append as a writability probe without truncating content.
+pub fn ensure_file_appendable(path: &Path) -> AppResult<()> {
+    OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map(|_| ())
+        .map_err(|error| {
+            AppError::context(format!("打开文件失败 ({})", path.display()), error.into())
+        })?;
+    Ok(())
+}
 
 pub fn read_utf8_no_bom(path: &Path) -> AppResult<String> {
     let bytes = read_text_bytes_no_bom(path)?;

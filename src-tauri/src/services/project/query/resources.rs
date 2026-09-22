@@ -38,7 +38,7 @@ mod tests {
     use super::super::super::session::{close_project_session, open_project_session_traced};
     use super::*;
     use crate::models::{ResourceOwnerKind, ResourceRef, ResourceSource};
-    use crate::services::project::resources::cached_sprite_media_contains;
+    use crate::services::project::cache::media::cached_sprite_media_contains;
 
     use crate::testutil::temp_dir;
 
@@ -244,7 +244,7 @@ mod tests {
     #[test]
     fn media_cache_evicts_oldest_beyond_capacity() {
         let root = temp_dir("media_cache_eviction");
-        let count = super::super::super::resources::SPRITE_MEDIA_CACHE_CAPACITY_FOR_TEST + 3;
+        let count = super::super::super::cache::media::SPRITE_MEDIA_CACHE_CAPACITY_FOR_TEST + 3;
         let sprite_dir = root.join("graphics/ships");
         std::fs::create_dir_all(&sprite_dir).unwrap();
         let mut resources = Vec::new();
@@ -267,23 +267,23 @@ mod tests {
 
         let oldest_still_cached = cached_sprite_media_contains(
             &manifest.session_id,
-            &ResourceRef {
+            &resource_cache_key(&ResourceRef {
                 source: ResourceSource::Mod,
                 rel_path: "graphics/ships/p0000.png".to_string(),
                 owner_kind: ResourceOwnerKind::Ship,
                 owner_id: "ship".to_string(),
                 key: "p0000.png".to_string(),
-            },
+            }),
         );
         let newest_still_cached = cached_sprite_media_contains(
             &manifest.session_id,
-            &ResourceRef {
+            &resource_cache_key(&ResourceRef {
                 source: ResourceSource::Mod,
                 rel_path: format!("graphics/ships/p{:04}.png", count - 1),
                 owner_kind: ResourceOwnerKind::Ship,
                 owner_id: "ship".to_string(),
                 key: format!("p{:04}.png", count - 1),
-            },
+            }),
         );
 
         let _ = close_project_session(manifest.session_id);
@@ -312,11 +312,17 @@ mod tests {
         let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
         let session_id = manifest.session_id.clone();
         query_resource_data_urls(&session_id, vec![resource.clone()]).unwrap();
-        assert!(cached_sprite_media_contains(&session_id, &resource));
+        assert!(cached_sprite_media_contains(
+            &session_id,
+            &resource_cache_key(&resource)
+        ));
 
         close_project_session(session_id.clone()).unwrap();
 
-        assert!(!cached_sprite_media_contains(&session_id, &resource));
+        assert!(!cached_sprite_media_contains(
+            &session_id,
+            &resource_cache_key(&resource)
+        ));
         let _ = std::fs::remove_dir_all(root);
     }
 

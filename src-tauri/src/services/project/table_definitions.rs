@@ -1,13 +1,21 @@
 use super::{
     cache::{load_core_ship_files, load_core_skin_files},
-    model::{CoreSourceData, ProjectSession, string_field, string_from_row, weapon_sprite_path},
+    model::{
+        ABILITIES_SPEC, COMMODITIES_SPEC, CoreSourceData, CsvTableSpec, DESCRIPTIONS_SPEC,
+        HULLMODS_SPEC, INDUSTRIES_SPEC, MARKET_CONDITIONS_SPEC, ProjectSession, SHIP_SYSTEMS_SPEC,
+        SHIPS_SPEC, SIM_OPPONENTS_SPEC, SKILLS_SPEC, SPECIAL_ITEMS_SPEC, SUBMARKETS_SPEC,
+        WEAPONS_SPEC, WINGS_SPEC, csv_table_spec, is_comment_row, string_field, string_from_row,
+        weapon_sprite_path,
+    },
     resources::{resource_ref, skin_resource_ref},
 };
 use crate::{
     errors::AppResult,
+    io::read_csv_data,
     models::{CsvTableKey, EntitySummaries, ResourceOwnerKind, ResourceRef, ResourceSource},
 };
 use serde_json::{Map, Value};
+use std::{collections::BTreeMap, path::Path};
 
 type CsvRowResourceExtractor = fn(
     &ProjectSession,
@@ -33,24 +41,12 @@ type CsvSourceDisplayNameExtractor = fn(
 ) -> AppResult<Option<String>>;
 
 pub(super) struct ProjectCsvTableDefinition {
-    pub key: CsvTableKey,
-    pub rel_path: &'static str,
-    pub entity_id_field: &'static str,
-    pub entity_summary: Option<fn(&EntitySummaries) -> usize>,
-    pub supports_faction_filter: bool,
-    pub core_source_requirements: CoreSourceRequirements,
+    pub spec: &'static CsvTableSpec,
     pub resource_owner: Option<ResourceOwnerKind>,
     pub icon_field: Option<&'static str>,
     pub row_resource: CsvRowResourceExtractor,
     pub source_resource: CsvSourceResourceExtractor,
     pub source_display_name: CsvSourceDisplayNameExtractor,
-}
-
-#[derive(Clone, Copy)]
-pub(super) struct CoreSourceRequirements {
-    pub ships: bool,
-    pub weapons: bool,
-    pub variants: bool,
 }
 
 pub(super) fn csv_table_definitions() -> &'static [ProjectCsvTableDefinition] {
@@ -81,24 +77,58 @@ pub(super) fn csv_table_definition_by_key(
 ) -> Option<&'static ProjectCsvTableDefinition> {
     csv_table_definitions()
         .iter()
-        .find(|definition| definition.key.as_str() == table)
+        .find(|definition| definition.spec.key.as_str() == table)
 }
 
 pub(super) fn csv_table_entity_id_field(table: CsvTableKey) -> &'static str {
-    csv_table_definition(table).entity_id_field
+    csv_table_spec(table).entity_id_field
 }
 
 pub(super) fn csv_table_supports_faction_filter(table: CsvTableKey) -> bool {
-    csv_table_definition(table).supports_faction_filter
+    csv_table_spec(table).supports_faction_filter
 }
 
 pub(super) fn csv_table_entity_summary(
     table: CsvTableKey,
     summaries: &EntitySummaries,
 ) -> Option<usize> {
-    csv_table_definition(table)
+    csv_table_spec(table)
         .entity_summary
         .map(|summary| summary(summaries))
+}
+
+pub(super) fn build_table_entity_summaries(
+    mod_root: &Path,
+    entity_summaries: &EntitySummaries,
+) -> AppResult<BTreeMap<CsvTableKey, usize>> {
+    csv_table_definitions()
+        .iter()
+        .map(|definition| {
+            let count = if let Some(count) =
+                csv_table_entity_summary(definition.spec.key, entity_summaries)
+            {
+                count
+            } else {
+                count_valid_csv_entities(mod_root, definition.spec.key, definition.spec.rel_path)?
+            };
+            Ok((definition.spec.key, count))
+        })
+        .collect()
+}
+
+pub(super) fn count_valid_csv_entities(
+    mod_root: &Path,
+    table: CsvTableKey,
+    rel_path: &str,
+) -> AppResult<usize> {
+    let id_field = csv_table_spec(table).entity_id_field;
+    let csv = read_csv_data(&mod_root.join(rel_path))?;
+    Ok(csv
+        .rows
+        .iter()
+        .filter(|row| !is_comment_row(row))
+        .filter(|row| string_from_row(row, id_field).is_some())
+        .count())
 }
 
 pub(super) fn csv_table_row_resource_ref(
@@ -140,22 +170,13 @@ pub(super) fn csv_table_icon_resource_ref(
 ) -> Option<ResourceRef> {
     let definition = csv_table_definition(table);
     let owner = definition.resource_owner?;
-    let id = string_from_row(row, definition.entity_id_field)?;
+    let id = string_from_row(row, definition.spec.entity_id_field)?;
     let rel_path = string_from_row(row, definition.icon_field?)?;
     Some(resource_ref(source, &rel_path, owner, &id, "icon"))
 }
 
 const SHIPS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
-    key: CsvTableKey::Ships,
-    rel_path: "data/hulls/ship_data.csv",
-    entity_id_field: "id",
-    entity_summary: Some(|summaries| summaries.ships),
-    supports_faction_filter: true,
-    core_source_requirements: CoreSourceRequirements {
-        ships: true,
-        weapons: false,
-        variants: false,
-    },
+    spec: &SHIPS_SPEC,
     resource_owner: Some(ResourceOwnerKind::Ship),
     icon_field: None,
     row_resource: ship_row_resource,
@@ -164,16 +185,7 @@ const SHIPS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
 };
 
 const WEAPONS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
-    key: CsvTableKey::Weapons,
-    rel_path: "data/weapons/weapon_data.csv",
-    entity_id_field: "id",
-    entity_summary: Some(|summaries| summaries.weapons),
-    supports_faction_filter: true,
-    core_source_requirements: CoreSourceRequirements {
-        ships: false,
-        weapons: true,
-        variants: false,
-    },
+    spec: &WEAPONS_SPEC,
     resource_owner: Some(ResourceOwnerKind::Weapon),
     icon_field: None,
     row_resource: weapon_row_resource,
@@ -182,16 +194,7 @@ const WEAPONS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
 };
 
 const WINGS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
-    key: CsvTableKey::Wings,
-    rel_path: "data/hulls/wing_data.csv",
-    entity_id_field: "id",
-    entity_summary: None,
-    supports_faction_filter: false,
-    core_source_requirements: CoreSourceRequirements {
-        ships: true,
-        weapons: false,
-        variants: true,
-    },
+    spec: &WINGS_SPEC,
     resource_owner: Some(ResourceOwnerKind::Variant),
     icon_field: None,
     row_resource: wing_row_resource,
@@ -200,16 +203,7 @@ const WINGS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
 };
 
 const HULLMODS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
-    key: CsvTableKey::Hullmods,
-    rel_path: "data/hullmods/hull_mods.csv",
-    entity_id_field: "id",
-    entity_summary: None,
-    supports_faction_filter: false,
-    core_source_requirements: CoreSourceRequirements {
-        ships: false,
-        weapons: false,
-        variants: false,
-    },
+    spec: &HULLMODS_SPEC,
     resource_owner: Some(ResourceOwnerKind::Hullmods),
     icon_field: Some("sprite"),
     row_resource: icon_row_resource,
@@ -218,16 +212,7 @@ const HULLMODS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
 };
 
 const SHIP_SYSTEMS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
-    key: CsvTableKey::ShipSystems,
-    rel_path: "data/shipsystems/ship_systems.csv",
-    entity_id_field: "id",
-    entity_summary: Some(|summaries| summaries.systems),
-    supports_faction_filter: false,
-    core_source_requirements: CoreSourceRequirements {
-        ships: false,
-        weapons: false,
-        variants: false,
-    },
+    spec: &SHIP_SYSTEMS_SPEC,
     resource_owner: Some(ResourceOwnerKind::ShipSystems),
     icon_field: Some("icon"),
     row_resource: icon_row_resource,
@@ -236,16 +221,7 @@ const SHIP_SYSTEMS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition 
 };
 
 const INDUSTRIES_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
-    key: CsvTableKey::Industries,
-    rel_path: "data/campaign/industries.csv",
-    entity_id_field: "id",
-    entity_summary: None,
-    supports_faction_filter: false,
-    core_source_requirements: CoreSourceRequirements {
-        ships: false,
-        weapons: false,
-        variants: false,
-    },
+    spec: &INDUSTRIES_SPEC,
     resource_owner: Some(ResourceOwnerKind::Industries),
     icon_field: Some("image"),
     row_resource: icon_row_resource,
@@ -254,16 +230,7 @@ const INDUSTRIES_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
 };
 
 const SKILLS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
-    key: CsvTableKey::Skills,
-    rel_path: "data/characters/skills/skill_data.csv",
-    entity_id_field: "id",
-    entity_summary: Some(|summaries| summaries.skills),
-    supports_faction_filter: false,
-    core_source_requirements: CoreSourceRequirements {
-        ships: false,
-        weapons: false,
-        variants: false,
-    },
+    spec: &SKILLS_SPEC,
     resource_owner: Some(ResourceOwnerKind::Skills),
     icon_field: Some("icon"),
     row_resource: icon_row_resource,
@@ -272,16 +239,7 @@ const SKILLS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
 };
 
 const ABILITIES_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
-    key: CsvTableKey::Abilities,
-    rel_path: "data/campaign/abilities.csv",
-    entity_id_field: "id",
-    entity_summary: None,
-    supports_faction_filter: false,
-    core_source_requirements: CoreSourceRequirements {
-        ships: false,
-        weapons: false,
-        variants: false,
-    },
+    spec: &ABILITIES_SPEC,
     resource_owner: Some(ResourceOwnerKind::Abilities),
     icon_field: Some("icon"),
     row_resource: icon_row_resource,
@@ -290,16 +248,7 @@ const ABILITIES_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
 };
 
 const COMMODITIES_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
-    key: CsvTableKey::Commodities,
-    rel_path: "data/campaign/commodities.csv",
-    entity_id_field: "id",
-    entity_summary: None,
-    supports_faction_filter: false,
-    core_source_requirements: CoreSourceRequirements {
-        ships: false,
-        weapons: false,
-        variants: false,
-    },
+    spec: &COMMODITIES_SPEC,
     resource_owner: Some(ResourceOwnerKind::Commodities),
     icon_field: Some("icon"),
     row_resource: icon_row_resource,
@@ -308,16 +257,7 @@ const COMMODITIES_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
 };
 
 const SPECIAL_ITEMS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
-    key: CsvTableKey::SpecialItems,
-    rel_path: "data/campaign/special_items.csv",
-    entity_id_field: "id",
-    entity_summary: None,
-    supports_faction_filter: false,
-    core_source_requirements: CoreSourceRequirements {
-        ships: false,
-        weapons: false,
-        variants: false,
-    },
+    spec: &SPECIAL_ITEMS_SPEC,
     resource_owner: Some(ResourceOwnerKind::SpecialItems),
     icon_field: Some("icon"),
     row_resource: icon_row_resource,
@@ -326,16 +266,7 @@ const SPECIAL_ITEMS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition
 };
 
 const SUBMARKETS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
-    key: CsvTableKey::Submarkets,
-    rel_path: "data/campaign/submarkets.csv",
-    entity_id_field: "id",
-    entity_summary: None,
-    supports_faction_filter: false,
-    core_source_requirements: CoreSourceRequirements {
-        ships: false,
-        weapons: false,
-        variants: false,
-    },
+    spec: &SUBMARKETS_SPEC,
     resource_owner: Some(ResourceOwnerKind::Submarkets),
     icon_field: Some("icon"),
     row_resource: icon_row_resource,
@@ -344,16 +275,7 @@ const SUBMARKETS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
 };
 
 const MARKET_CONDITIONS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
-    key: CsvTableKey::MarketConditions,
-    rel_path: "data/campaign/market_conditions.csv",
-    entity_id_field: "id",
-    entity_summary: None,
-    supports_faction_filter: false,
-    core_source_requirements: CoreSourceRequirements {
-        ships: false,
-        weapons: false,
-        variants: false,
-    },
+    spec: &MARKET_CONDITIONS_SPEC,
     resource_owner: Some(ResourceOwnerKind::MarketConditions),
     icon_field: Some("icon"),
     row_resource: icon_row_resource,
@@ -362,16 +284,7 @@ const MARKET_CONDITIONS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefini
 };
 
 const SIM_OPPONENTS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
-    key: CsvTableKey::SimOpponents,
-    rel_path: "data/campaign/sim_opponents.csv",
-    entity_id_field: "variant id",
-    entity_summary: None,
-    supports_faction_filter: false,
-    core_source_requirements: CoreSourceRequirements {
-        ships: false,
-        weapons: false,
-        variants: false,
-    },
+    spec: &SIM_OPPONENTS_SPEC,
     resource_owner: None,
     icon_field: None,
     row_resource: no_row_resource,
@@ -380,16 +293,7 @@ const SIM_OPPONENTS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition
 };
 
 const DESCRIPTIONS_TABLE: ProjectCsvTableDefinition = ProjectCsvTableDefinition {
-    key: CsvTableKey::Descriptions,
-    rel_path: "data/strings/descriptions.csv",
-    entity_id_field: "id",
-    entity_summary: None,
-    supports_faction_filter: false,
-    core_source_requirements: CoreSourceRequirements {
-        ships: false,
-        weapons: false,
-        variants: false,
-    },
+    spec: &DESCRIPTIONS_SPEC,
     resource_owner: None,
     icon_field: None,
     row_resource: no_row_resource,

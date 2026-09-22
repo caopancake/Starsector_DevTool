@@ -2,16 +2,18 @@ use super::model::{
     MISSION_LIST_REL_PATH, MISSION_LIST_TABLE_KEY, ProjectSession, SessionCsvTable, SpecBundle,
 };
 use super::{
-    cache::{self, lock_session, session_handle, sessions},
+    cache::{
+        self, lock_session, session_handle, sessions,
+        spec_files::{load_skin_files, load_variant_files},
+    },
     factions,
     performance::PerformanceTrace,
-    projectiles, root,
-    spec_files::{load_skin_files, load_variant_files},
+    projectiles, root, table_definitions,
 };
 use crate::{
     errors::{AppError, AppResult},
-    io::{FsRootBoundary, load_json_dir_by_id, read_csv_data},
-    models::{CsvTableKey, EntitySummaries, ProjectManifest, TableSummary},
+    io::{FsRootBoundary, load_json_dir_by_id},
+    models::{EntitySummaries, ProjectManifest, TableSummary},
     models::{FileChangeRecord, ProjectInvalidation, ProjectSessionInvalidationResult},
 };
 use std::{
@@ -22,7 +24,7 @@ use std::{
 };
 
 pub fn close_project_session(session_id: String) -> AppResult<()> {
-    super::resources::clear_sprite_media_for_session(&session_id);
+    cache::clear_sprite_media_for_session(&session_id);
     sessions()
         .lock()
         .map_err(|_| AppError::message("project session lock poisoned"))?
@@ -50,7 +52,10 @@ pub fn invalidate_project_session(
     let handle = session_handle(session_id)?;
     let mut session = lock_session(&handle)?;
     let mut invalidation = ProjectInvalidation::default();
-    invalidation.merge(cache::invalidate_session_changes(&mut session, &changes)?);
+    invalidation.merge(super::invalidation::invalidate_session_changes(
+        &mut session,
+        &changes,
+    )?);
     Ok(ProjectSessionInvalidationResult {
         manifest: session.manifest.clone(),
         invalidation,
@@ -81,7 +86,7 @@ pub(crate) fn open_project_session_traced(
             break;
         };
         guard.remove(&oldest);
-        super::resources::clear_sprite_media_for_session(&oldest);
+        cache::clear_sprite_media_for_session(&oldest);
     }
     guard.insert(manifest.session_id.clone(), Arc::new(Mutex::new(session)));
     Ok(manifest)
@@ -143,14 +148,16 @@ pub(super) fn build_project_session(
     let table_summaries = super::table_definitions::csv_table_definitions()
         .iter()
         .map(|definition| {
-            let table = csv_tables.get(definition.key.as_str()).ok_or_else(|| {
-                AppError::message(format!(
-                    "missing registered CSV table: {}",
-                    definition.key.as_str()
-                ))
-            })?;
+            let table = csv_tables
+                .get(definition.spec.key.as_str())
+                .ok_or_else(|| {
+                    AppError::message(format!(
+                        "missing registered CSV table: {}",
+                        definition.spec.key.as_str()
+                    ))
+                })?;
             Ok((
-                definition.key,
+                definition.spec.key,
                 TableSummary {
                     path: table.path.clone(),
                     header: table.header.clone(),
@@ -243,7 +250,8 @@ fn build_project_index(
         systems: spec_bundle.system_files.len(),
         skills: spec_bundle.skill_files.len(),
     };
-    let table_entity_summaries = build_table_entity_summaries(mod_root, &entity_summaries)?;
+    let table_entity_summaries =
+        table_definitions::build_table_entity_summaries(mod_root, &entity_summaries)?;
     let index = super::cache::persistent::ProjectIndex {
         mod_info,
         faction_files,
@@ -262,10 +270,10 @@ pub(super) fn build_registered_session_csv_tables() -> BTreeMap<String, SessionC
             .iter()
             .map(|definition| {
                 (
-                    definition.key.as_str().to_string(),
+                    definition.spec.key.as_str().to_string(),
                     SessionCsvTable {
                         header: Vec::new(),
-                        path: definition.rel_path.to_string(),
+                        path: definition.spec.rel_path.to_string(),
                         rows: None,
                         next_row_seq: 0,
                     },
@@ -282,40 +290,6 @@ pub(super) fn build_registered_session_csv_tables() -> BTreeMap<String, SessionC
         },
     );
     tables
-}
-
-pub(super) fn build_table_entity_summaries(
-    mod_root: &Path,
-    entity_summaries: &EntitySummaries,
-) -> AppResult<BTreeMap<CsvTableKey, usize>> {
-    super::table_definitions::csv_table_definitions()
-        .iter()
-        .map(|definition| {
-            let count = if let Some(count) =
-                super::table_definitions::csv_table_entity_summary(definition.key, entity_summaries)
-            {
-                count
-            } else {
-                count_valid_csv_entities(mod_root, definition.key, definition.rel_path)?
-            };
-            Ok((definition.key, count))
-        })
-        .collect()
-}
-
-pub(super) fn count_valid_csv_entities(
-    mod_root: &Path,
-    table: CsvTableKey,
-    rel_path: &str,
-) -> AppResult<usize> {
-    let id_field = super::table_definitions::csv_table_entity_id_field(table);
-    let csv = read_csv_data(&mod_root.join(rel_path))?;
-    Ok(csv
-        .rows
-        .iter()
-        .filter(|row| !super::model::is_comment_row(row))
-        .filter(|row| super::model::string_from_row(row, id_field).is_some())
-        .count())
 }
 
 /// Zero-padded so registry key order equals creation order, which is what

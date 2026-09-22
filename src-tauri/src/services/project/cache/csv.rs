@@ -6,11 +6,9 @@ use crate::{
 use serde_json::Value;
 use std::path::Path;
 
-use super::super::{
-    factions,
-    model::{
-        MISSION_LIST_TABLE_KEY, ProjectSession, SessionCsvRow, SessionCsvTable, is_comment_row,
-    },
+use super::super::model::{
+    MISSION_LIST_TABLE_KEY, ProjectSession, SessionCsvRow, SessionCsvTable, csv_table_spec,
+    is_comment_row,
 };
 use super::core::load_core_csv_table;
 
@@ -101,9 +99,7 @@ pub(crate) fn ensure_session_table_rows(
             csv.header = vec!["mission".to_string()];
         }
     }
-    if CsvTableKey::from_key(table)
-        .is_some_and(super::super::table_definitions::csv_table_supports_faction_filter)
-    {
+    if CsvTableKey::from_key(table).is_some_and(|key| csv_table_spec(key).supports_faction_filter) {
         annotate_faction_rows(&mut csv.rows, &session.tag_map);
     }
     let rows: Vec<SessionCsvRow> = csv
@@ -155,7 +151,9 @@ fn annotate_faction_rows(
         }
         row.insert(
             CSV_FACTION_FIELD.to_string(),
-            Value::String(factions::detect_faction(id, tags, tag_map)),
+            Value::String(crate::domain::faction_annotation::detect_faction(
+                tags, tag_map,
+            )),
         );
     }
 }

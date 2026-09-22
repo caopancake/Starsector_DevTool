@@ -14,10 +14,10 @@
 
 Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层边要么结构归位、要么显式授权，禁止改矩阵迁就现状。
 
-- [ ] `scripts/architecture/shared/rust-crate-paths.mjs` 支持 `super::`/`self::` 相对导入到 crate 绝对路径的确定性静态解析，`rust-project-layer-boundary` 矩阵对 project 内部相对导入真实生效。
-- [ ] 规则修复后暴露的违规边逐边按真实 owner 归位：root↔cache 双向、session→resources、cache→root 的 factions/table_definitions 依赖，优先结构重排或公共下沉；确属长期授权的边写入矩阵与对应模块文档。
-- [ ] 后端 service 横向依赖建立显式授权表（对齐前端 `allowedServiceEdges` 模式）并入静态规则；`editor_config→file_changes`、`mod_creation→directory_opening`、`directory_opening→app_log/app_paths/project` 等实存边逐一立约或消灭。
-- [ ] `app_log`↔`app_settings` 解环：日志目录校验所需能力收口单一 owner，settings 校验不再读取 workspace 持久化内容。
+- [x] `scripts/architecture/shared/rust-crate-paths.mjs` 支持 `super::`/`self::` 相对导入到 crate 绝对路径的确定性静态解析，`rust-project-layer-boundary` 矩阵对 project 内部相对导入真实生效。
+- [x] 规则修复后暴露的违规边逐边按真实 owner 归位：root↔cache 双向、session→resources、cache→root 的 factions/table_definitions 依赖，优先结构重排或公共下沉；确属长期授权的边写入矩阵与对应模块文档。
+- [x] 后端 service 横向依赖建立显式授权表（对齐前端 `allowedServiceEdges` 模式）并入静态规则；`editor_config→file_changes`、`mod_creation→directory_opening`、`directory_opening→app_log/app_paths/project` 等实存边逐一立约或消灭。
+- [x] `app_log`↔`app_settings` 解环：日志目录校验所需能力收口单一 owner，settings 校验不再读取 workspace 持久化内容。
 - [ ] 跑 `node scripts/check-architecture.mjs`、`cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test`。
 
 ### Phase 1.3: wire 协议与错误通道收敛

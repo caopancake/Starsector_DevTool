@@ -6,7 +6,7 @@ use crate::{
 };
 use std::path::Path;
 
-pub(super) fn load_variant_files(
+pub(crate) fn load_variant_files(
     mod_root: &Path,
 ) -> AppResult<(Vec<VariantFile>, Vec<GameScanWarning>)> {
     let dir = mod_root.join("data/variants");
@@ -40,7 +40,7 @@ pub(super) fn load_variant_files(
     Ok((files, warnings))
 }
 
-pub(super) fn load_skin_files(mod_root: &Path) -> AppResult<(Vec<SkinFile>, Vec<GameScanWarning>)> {
+pub(crate) fn load_skin_files(mod_root: &Path) -> AppResult<(Vec<SkinFile>, Vec<GameScanWarning>)> {
     let dir = mod_root.join("data/hulls/skins");
     let mut seen = std::collections::HashMap::new();
     let mut files = Vec::new();

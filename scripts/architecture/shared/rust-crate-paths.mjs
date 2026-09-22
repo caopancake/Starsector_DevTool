@@ -1,12 +1,39 @@
-export function cratePaths(text) {
+export function cratePaths(text, moduleRelPath = '') {
+  const moduleParts = modulePartsFromRel(moduleRelPath);
+  const code = text.replace(/pub\(in\s+crate::[A-Za-z0-9_:]+\)/g, 'pub');
   const paths = [];
-  for (const match of text.matchAll(/\buse\s+crate::([^;]+);/g)) {
-    paths.push(...expandUseTree(match[1]));
+  for (const match of code.matchAll(/\buse\s+(crate|super|self)::([^;]+);/g)) {
+    paths.push(...expandUseTree(match[2]).map((item) => resolveParts(moduleParts, [match[1], ...item])));
   }
-  for (const match of text.matchAll(/\bcrate::([A-Za-z0-9_:]+)/g)) {
-    paths.push(match[1].split('::').filter(Boolean));
+  for (const match of code.matchAll(/\b(crate|super|self)::([A-Za-z0-9_:]+)/g)) {
+    paths.push(resolveParts(moduleParts, [match[1], ...match[2].split('::').filter(Boolean)]));
   }
   return paths.filter((path) => path.length > 0);
+}
+
+export function modulePartsFromRel(rel) {
+  return rel
+    .replace(/^src-tauri\/src\//, '')
+    .replace(/\.rs$/, '')
+    .replace(/(^|\/)mod$/, '')
+    .split('/')
+    .filter(Boolean);
+}
+
+function resolveParts(moduleParts, parts) {
+  const resolved = [...moduleParts];
+  for (const part of parts) {
+    if (part === 'crate') {
+      resolved.length = 0;
+    } else if (part === 'super') {
+      resolved.pop();
+    } else if (part === 'self') {
+      continue;
+    } else {
+      resolved.push(part);
+    }
+  }
+  return resolved;
 }
 
 function expandUseTree(source) {
@@ -58,6 +85,6 @@ function pathParts(parts) {
     .split('::')
     .map((part) => part.trim())
     .filter(Boolean)
-    .filter((part) => part !== 'self' && part !== 'super')
+    .filter((part) => part !== '*')
     .map((part) => part.replace(/\s+as\s+[A-Za-z0-9_]+$/, ''));
 }

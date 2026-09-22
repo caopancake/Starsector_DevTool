@@ -1,6 +1,8 @@
 mod cache;
 pub(crate) mod entity_definitions;
+mod entity_resources;
 mod factions;
+mod invalidation;
 mod model;
 mod performance;
 mod projectiles;
@@ -8,7 +10,6 @@ mod query;
 mod resources;
 mod root;
 mod session;
-mod spec_files;
 mod table_definitions;
 mod write;
 

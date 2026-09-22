@@ -1,12 +1,48 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::{read_utf8_no_bom, write_utf8_no_bom},
+    io::{FsRootBoundary, path_belongs_to_root, read_utf8_no_bom, write_utf8_no_bom},
     models::PersistedWorkspace,
     services::app_paths,
 };
 use std::{fs, path::Path};
 
 const WORKSPACE_FILE: &str = "workspace.json";
+
+/// Rejects directories that would place tool-private files inside a Mod or a
+/// tracked workspace root; the tracked-root knowledge lives here because this
+/// module owns the persisted workspace state.
+pub fn reject_mod_or_workspace_directory(app_data_dir: &Path, directory: &Path) -> AppResult<()> {
+    if directory
+        .ancestors()
+        .any(|ancestor| ancestor.join("mod_info.json").is_file())
+    {
+        return Err(AppError::message(format!(
+            "directory must not be inside a Mod: {}",
+            directory.display()
+        )));
+    }
+    let workspace = load_workspace(app_data_dir)?;
+    for root in workspace
+        .mods
+        .iter()
+        .map(|mod_entry| mod_entry.mod_root.as_str())
+        .chain(workspace.starsector_root.iter().map(String::as_str))
+    {
+        let path = Path::new(root);
+        if path.is_dir() {
+            let canonical_root = FsRootBoundary::new(path, "workspace directory")?
+                .root()
+                .to_path_buf();
+            if path_belongs_to_root(directory, &canonical_root) {
+                return Err(AppError::message(format!(
+                    "directory must not be inside a workspace directory: {}",
+                    directory.display()
+                )));
+            }
+        }
+    }
+    Ok(())
+}
 
 pub fn load_app_workspace(app_handle: tauri::AppHandle) -> AppResult<PersistedWorkspace> {
     let app_data = app_paths::app_data_dir(app_handle)?;

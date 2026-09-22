@@ -1,7 +1,8 @@
 pub(super) mod core;
 pub(super) mod csv;
-pub(super) mod invalidation;
+pub(super) mod media;
 pub(super) mod persistent;
+pub(super) mod spec_files;
 
 use crate::{
     errors::{AppError, AppResult},
@@ -22,7 +23,7 @@ pub(crate) use csv::{
     ensure_registered_table_rows, ensure_session_table_rows, loaded_csv_rows,
     loaded_registered_csv_rows, registered_session_table, registered_session_table_mut,
 };
-pub(crate) use invalidation::invalidate_session_changes;
+pub(super) use media::clear_sprite_media_for_session;
 
 static PROJECT_SESSIONS: LazyLock<Mutex<BTreeMap<ProjectSessionId, Arc<Mutex<ProjectSession>>>>> =
     LazyLock::new(|| Mutex::new(BTreeMap::new()));

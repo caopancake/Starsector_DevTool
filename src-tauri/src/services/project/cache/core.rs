@@ -9,12 +9,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::super::{
-    model::{CoreCache, CoreSourceData, SessionCsvRow, SessionCsvTable},
-    spec_files::{load_skin_files, load_variant_files},
-    table_definitions::csv_table_definition,
+use super::super::model::{
+    CoreCache, CoreSourceData, SessionCsvRow, SessionCsvTable, csv_table_spec,
 };
-use super::{core_caches, persistent};
+use super::{
+    core_caches, persistent,
+    spec_files::{load_skin_files, load_variant_files},
+};
 
 pub(crate) fn core_cache_snapshot(starsector_root: &str) -> AppResult<CoreCache> {
     let cache_key = core_cache_key(starsector_root)?;
@@ -77,7 +78,7 @@ pub(crate) fn load_core_csv_table(
     if let Some(csv) = cache.csv_tables.get(table_key) {
         return Ok(Some(csv.clone()));
     }
-    let rel = csv_table_definition(table).rel_path;
+    let rel = csv_table_spec(table).rel_path;
     let core_dir = core_dir(starsector_root)?;
     if !core_dir.exists() {
         replace_core_cache(starsector_root, cache)?;
@@ -203,7 +204,7 @@ pub(crate) fn load_core_source_data(
     table: CsvTableKey,
 ) -> AppResult<CoreSourceData> {
     let mut data = CoreSourceData::default();
-    let requirements = csv_table_definition(table).core_source_requirements;
+    let requirements = csv_table_spec(table).core_source_requirements;
     if requirements.ships {
         data.ship_files = load_core_ship_files(starsector_root)?;
     }

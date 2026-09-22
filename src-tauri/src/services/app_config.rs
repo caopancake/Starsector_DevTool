@@ -1,6 +1,7 @@
 use crate::{
     errors::{AppError, AppResult},
-    services::{app_log, app_paths, system_open},
+    models::LOG_FILE,
+    services::{app_paths, system_open},
 };
 use std::{fs, path::Path};
 
@@ -37,7 +38,7 @@ pub fn clear_config_files(app_data_dir: &Path) -> AppResult<()> {
             )
         })?;
         let path = entry.path();
-        if path.file_name().and_then(|name| name.to_str()) == Some(app_log::LOG_FILE) {
+        if path.file_name().and_then(|name| name.to_str()) == Some(LOG_FILE) {
             continue;
         }
         if path.is_dir() {
@@ -65,7 +66,7 @@ mod tests {
     use crate::{
         io::write_utf8_no_bom,
         models::{AppLogEntry, AppLogLevel},
-        services::app_settings,
+        services::{app_log, app_settings},
     };
 
     use crate::testutil::temp_dir;
@@ -88,7 +89,7 @@ mod tests {
         )
         .unwrap();
         clear_config_files(&dir).unwrap();
-        let log_exists = dir.join(app_log::LOG_FILE).exists();
+        let log_exists = dir.join(LOG_FILE).exists();
         let workspace_exists = dir.join("workspace.json").exists();
         let settings_exists = app_settings::settings_path(&dir).exists();
         let nested_exists = dir.join("nested").exists();

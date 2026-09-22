@@ -1,7 +1,7 @@
 use crate::{
     errors::{AppError, AppResult},
-    io::write_utf8_no_bom,
-    models::{AppLogEntry, AppLogStatus},
+    io::{ensure_file_appendable, write_utf8_no_bom},
+    models::{AppLogEntry, AppLogStatus, LOG_FILE},
     services::{app_paths, app_settings, system_open},
 };
 use std::{
@@ -10,8 +10,6 @@ use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
-
-pub const LOG_FILE: &str = "starsector-devtool.log";
 
 pub fn append_app_log(app_handle: tauri::AppHandle, entry: AppLogEntry) -> AppResult<()> {
     let app_data = app_paths::app_data_dir(app_handle)?;
@@ -110,25 +108,14 @@ fn ensure_log_file(app_data_dir: &Path) -> AppResult<()> {
     ensure_log_directory_writable(app_data_dir)
 }
 
-pub fn ensure_log_directory_writable(app_data_dir: &Path) -> AppResult<()> {
+fn ensure_log_directory_writable(app_data_dir: &Path) -> AppResult<()> {
     if !app_data_dir.is_dir() {
         return Err(AppError::message(format!(
             "日志目录不可用 ({})",
             app_data_dir.display()
         )));
     }
-    let path = log_path(app_data_dir);
-    OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-        .map_err(|error| {
-            AppError::context(
-                format!("打开日志文件失败 ({})", path.display()),
-                error.into(),
-            )
-        })?;
-    Ok(())
+    ensure_file_appendable(&log_path(app_data_dir))
 }
 
 fn render_log_entry(entry: &AppLogEntry) -> String {

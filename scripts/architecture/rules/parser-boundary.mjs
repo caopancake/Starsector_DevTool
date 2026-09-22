@@ -14,7 +14,7 @@ export const parserBoundaryRule = {
       if (usesStrictJsonParse(file.text) && !mayUseStrictJsonParse(role)) {
         failures.push(`${file.rel}: Mod JSON-like reads must go through alex_json IO/parser boundary`);
       }
-      const usedCrates = cratePaths(file.text).map((parts) => `crate::${parts.join('::')}`);
+      const usedCrates = cratePaths(file.text, file.rel).map((parts) => `crate::${parts.join('::')}`);
       if (usedCrates.some((path) => path.startsWith('crate::parsers::parse_csv_bytes')) && !mayParseCsvBytes(role)) {
         failures.push(`${file.rel}: CSV bytes must be parsed through CSV IO or alex_csv parser tests`);
       }

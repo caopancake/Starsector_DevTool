@@ -11,7 +11,9 @@ export const rustProjectLayerBoundaryRule = {
       if (testOnlyRustFile(file.text)) continue;
       const productionText = productionRustSource(file.text);
       const from = rustLayer(file.rel);
-      for (const parts of cratePaths(productionText)) {
+      const source =
+        from === 'project-root' && projectServiceModule(file.rel, 'mod') ? stripFacadeReexports(productionText) : productionText;
+      for (const parts of cratePaths(source, file.rel)) {
         const reference = `crate::${parts.join('::')}`;
         const to = rustLayerFromCratePath(reference);
         if (!to) continue;
@@ -48,9 +50,9 @@ function rustLayer(path) {
   if (path.startsWith('src-tauri/src/services/project/write/')) return 'project-write';
   if (path.startsWith('src-tauri/src/services/project/resources/')) return 'project-resources';
   if (path.startsWith('src-tauri/src/services/project/cache/')) return 'project-cache';
-  if (projectServiceModule(path, 'mod')) return 'project-root';
   if (projectServiceModule(path, 'session')) return 'project-session';
   if (projectServiceModule(path, 'model')) return 'project-model';
+  if (/^src-tauri\/src\/services\/project\/[^/]+\.rs$/.test(path)) return 'project-root';
   if (path.startsWith('src-tauri/src/services/')) return 'services';
   if (path.startsWith('src-tauri/src/domain/')) return 'domain';
   if (path.startsWith('src-tauri/src/io/')) return 'io';
@@ -72,6 +74,7 @@ function rustLayerFromCratePath(path) {
   if (path.startsWith('crate::services::project::cache')) return 'project-cache';
   if (path.startsWith('crate::services::project::session')) return 'project-session';
   if (path.startsWith('crate::services::project::model')) return 'project-model';
+  if (path.startsWith('crate::services::project')) return 'project-root';
   if (path.startsWith('crate::services')) return 'services';
   if (path.startsWith('crate::domain')) return 'domain';
   if (path.startsWith('crate::io')) return 'io';
@@ -84,18 +87,25 @@ function projectServiceModule(path, moduleName) {
   return new RegExp(`^src-tauri/src/services/project/${moduleName}(?:\\.rs|/)`).test(path);
 }
 
+function stripFacadeReexports(text) {
+  return text.replace(/^\s*pub(?:\s*\([a-z]+\))?\s+use\s[^;]+;/gm, '');
+}
+
 function validRustDependency(from, to) {
+  if (from === to) return true;
   if (from === 'commands') return to === 'services' || to === 'models';
-  if (from === 'project-query') return ['project-model', 'project-cache', 'domain', 'io', 'parsers', 'models'].includes(to);
+  if (from === 'project-query')
+    return ['project-model', 'project-cache', 'project-root', 'project-resources', 'domain', 'io', 'parsers', 'models'].includes(to);
   if (from === 'project-write')
-    return ['project-model', 'project-cache', 'project-query', 'domain', 'io', 'parsers', 'models'].includes(to);
+    return ['project-model', 'project-cache', 'project-query', 'project-root', 'domain', 'io', 'parsers', 'models'].includes(to);
   if (from === 'project-resources') return ['project-model', 'project-cache', 'domain', 'io', 'parsers', 'models', 'services'].includes(to);
   if (from === 'project-cache') return ['project-model', 'domain', 'io', 'parsers', 'models'].includes(to);
   if (from === 'project-session')
-    return ['project-model', 'project-cache', 'project-query', 'domain', 'io', 'parsers', 'models'].includes(to);
+    return ['project-model', 'project-cache', 'project-root', 'domain', 'io', 'parsers', 'models'].includes(to);
   if (from === 'project-model') return ['domain', 'models'].includes(to);
-  if (from === 'project-root') return ['project-session', 'project-query', 'project-resources', 'models'].includes(to);
-  if (from === 'services') return ['services', 'domain', 'io', 'parsers', 'models'].includes(to);
+  if (from === 'project-root')
+    return ['project-cache', 'project-resources', 'project-model', 'domain', 'io', 'parsers', 'models'].includes(to);
+  if (from === 'services') return ['services', 'project-root', 'domain', 'io', 'parsers', 'models'].includes(to);
   if (from === 'domain') return to === 'domain' || to === 'models';
   if (from === 'io') return to === 'io' || to === 'parsers' || to === 'models';
   if (from === 'parsers') return to === 'parsers' || to === 'models';

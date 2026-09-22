@@ -15,7 +15,7 @@ use std::{
     path::Path,
 };
 
-use super::super::{entity_definitions, model::ProjectSession, root, table_definitions};
+use super::{entity_definitions, model::ProjectSession, root, table_definitions};
 
 pub(crate) fn invalidate_session_changes(
     session: &mut ProjectSession,
@@ -332,10 +332,10 @@ fn snapshot_csv_rows(
     }
     let mut rows = BTreeMap::new();
     for row in csv.rows {
-        if super::super::model::is_comment_row(&row) {
+        if super::model::is_comment_row(&row) {
             continue;
         }
-        let Some(id) = super::super::model::string_from_row(&row, id_field) else {
+        let Some(id) = super::model::string_from_row(&row, id_field) else {
             continue;
         };
         rows.entry(id).or_insert_with(Vec::new).push(row);
@@ -354,8 +354,8 @@ fn is_exact_spec_path(path: &str, dir: &str, extension: &str) -> bool {
 fn faction_annotated_tables() -> impl Iterator<Item = CsvTableKey> {
     table_definitions::csv_table_definitions()
         .iter()
-        .filter(|definition| table_definitions::csv_table_supports_faction_filter(definition.key))
-        .map(|definition| definition.key)
+        .filter(|definition| definition.spec.supports_faction_filter)
+        .map(|definition| definition.spec.key)
 }
 
 fn push_unique_all<T: PartialEq>(target: &mut Vec<T>, values: Vec<T>) {
@@ -487,7 +487,7 @@ fn affected_csv_tables(path: &str) -> Vec<CsvTableKey> {
     table_definitions::csv_table_definitions()
         .iter()
         .filter_map(|definition| {
-            path_affects_target(path, definition.rel_path).then_some(definition.key)
+            path_affects_target(path, definition.spec.rel_path).then_some(definition.spec.key)
         })
         .collect()
 }
@@ -497,7 +497,7 @@ fn refresh_table_entity_summary(session: &mut ProjectSession, table_key: &str) -
         return Ok(());
     };
     let count = if let Some(count) = table_definitions::csv_table_entity_summary(
-        definition.key,
+        definition.spec.key,
         &session.manifest.entity_summaries,
     ) {
         count
@@ -508,7 +508,7 @@ fn refresh_table_entity_summary(session: &mut ProjectSession, table_key: &str) -
             .get(table_key)
             .map(|table| table.path.as_str());
         if let Some(rel_path) = rel_path {
-            super::super::session::count_valid_csv_entities(mod_root, definition.key, rel_path)?
+            table_definitions::count_valid_csv_entities(mod_root, definition.spec.key, rel_path)?
         } else {
             0
         }
@@ -516,7 +516,7 @@ fn refresh_table_entity_summary(session: &mut ProjectSession, table_key: &str) -
     session
         .manifest
         .table_entity_summaries
-        .insert(definition.key, count);
+        .insert(definition.spec.key, count);
     Ok(())
 }
 
@@ -542,7 +542,7 @@ mod tests {
         .unwrap();
         let mut trace = PerformanceTrace::new("project.openSession");
         let mut session =
-            super::super::super::session::build_project_session(&root, None, &mut trace).unwrap();
+            super::super::session::build_project_session(&root, None, &mut trace).unwrap();
         write_utf8_no_bom(
             &root.join("data/variants/demo.variant"),
             r#"{"variantId":"new","hullId":"hull"}"#,
@@ -604,8 +604,9 @@ mod tests {
         .unwrap();
         let mut trace = PerformanceTrace::new("project.openSession");
         let mut session =
-            super::super::super::session::build_project_session(&root, None, &mut trace).unwrap();
-        super::super::ensure_registered_table_rows(&mut session, CsvTableKey::Ships).unwrap();
+            super::super::session::build_project_session(&root, None, &mut trace).unwrap();
+        super::super::cache::ensure_registered_table_rows(&mut session, CsvTableKey::Ships)
+            .unwrap();
         write_utf8_no_bom(
             &root.join("data/world/factions/demo.faction"),
             r#"{"id":"demo","displayName":"Demo","knownShips":{"tags":["demo_new_bp"]}}"#,
@@ -649,7 +650,7 @@ mod tests {
         write_utf8_no_bom(&root.join("data/hulls/ship_data.csv"), after).unwrap();
         let mut trace = PerformanceTrace::new("project.openSession");
         let mut session =
-            super::super::super::session::build_project_session(&root, None, &mut trace).unwrap();
+            super::super::session::build_project_session(&root, None, &mut trace).unwrap();
 
         let invalidation = invalidate_session_changes(
             &mut session,
@@ -692,7 +693,7 @@ mod tests {
         write_utf8_no_bom(&root.join("data/variants/old.variant"), old).unwrap();
         let mut trace = PerformanceTrace::new("project.openSession");
         let mut session =
-            super::super::super::session::build_project_session(&root, None, &mut trace).unwrap();
+            super::super::session::build_project_session(&root, None, &mut trace).unwrap();
         fs::remove_dir_all(root.join("data/variants")).unwrap();
 
         let invalidation = invalidate_session_changes(
@@ -780,7 +781,7 @@ mod tests {
                 continue;
             };
             let id_field = table_definitions::csv_table_entity_id_field(table);
-            let path = table_definitions::csv_table_definition(table).rel_path;
+            let path = table_definitions::csv_table_definition(table).spec.rel_path;
             let target = ChangedProjectPath::classify(path);
             let create = format!("{id_field},name\r\nnew,New\r\n");
             let delete = format!("{id_field},name\r\nold,Old\r\n");
@@ -831,7 +832,9 @@ mod tests {
 
     #[test]
     fn csv_snapshot_ignores_rows_without_an_entity_id() {
-        let path = table_definitions::csv_table_definition(CsvTableKey::Weapons).rel_path;
+        let path = table_definitions::csv_table_definition(CsvTableKey::Weapons)
+            .spec
+            .rel_path;
         let target = ChangedProjectPath::classify(path);
         let before = "id,type,number\r\n,ENERGY,69\r\ndemo_weapon,ENERGY,70\r\n";
         let after = "id,type,number\r\n,ENERGY,69\r\ndemo_weapon,BALLISTIC,70\r\n";
@@ -902,7 +905,7 @@ mod tests {
         .unwrap();
         let mut trace = PerformanceTrace::new("project.openSession");
         let mut session =
-            super::super::super::session::build_project_session(&root, None, &mut trace).unwrap();
+            super::super::session::build_project_session(&root, None, &mut trace).unwrap();
 
         invalidate_session_changes(
             &mut session,

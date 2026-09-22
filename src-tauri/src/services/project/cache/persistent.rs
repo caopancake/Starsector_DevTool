@@ -17,10 +17,7 @@ use std::{
 };
 use walkdir::WalkDir;
 
-use super::super::{
-    model::{CoreCache, SpecBundle},
-    table_definitions,
-};
+use super::super::model::{CoreCache, SpecBundle, csv_table_specs};
 
 const CACHE_FORMAT_VERSION: u32 = 1;
 const CACHE_DIRECTORY: &str = "project-index-cache";
@@ -224,8 +221,8 @@ fn session_source_files(root: &Path) -> AppResult<Vec<(String, PathBuf)>> {
     collect_exact_file(root, "mod_info.json", &mut files);
     collect_exact_file(root, "data/world/factions/factions.csv", &mut files);
     collect_exact_file(root, "data/missions/mission_list.csv", &mut files);
-    for definition in table_definitions::csv_table_definitions() {
-        collect_exact_file(root, definition.rel_path, &mut files);
+    for spec in csv_table_specs() {
+        collect_exact_file(root, spec.rel_path, &mut files);
     }
     collect_extension_files(root, "data/world", &["faction"], &mut files)?;
     collect_extension_files(root, "data/hulls", &["ship", "skin"], &mut files)?;
