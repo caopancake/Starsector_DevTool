@@ -11,7 +11,7 @@
 `src/app/composables/use-edit-target-draft-session.ts`：按目标管理的 Draft Session 适配器 owner。
 `src/app/composables/config/use-config-editor-draft-session.ts`：配置目标 Draft Session 组合 owner。
 `src/stores/draft-sessions.store.ts`：未保存工作注册表 owner，按 `modRoot` 聚合会话登记与判定源。
-`src/app/table-save.orchestrator.spec.ts`：表保存编排行为测试。
+`src/orchestrators/table-save.orchestrator.spec.ts`：表保存编排行为测试。
 
 ## 边界
 

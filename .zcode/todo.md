@@ -139,9 +139,9 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 2.11: 收尾复核与文档同步
 
-- [ ] 受影响契约文档终审：overview、guidelines、module map、模块文档与新实现逐条对齐，文档不记录实现过程与临时状态。
-- [ ] 跑前后端全套检查（前端：format:check、encoding:check、lint、typecheck、test、build；Rust：cargo fmt --check、clippy、test）；汇总手工验收清单（画布、表格、快捷键、窗口、保存链路、错误反馈）。
-- [ ] 复查工作树、暂存区、换行、编码与无关用户修改的保留状态。
+- [x] 契约文档终审：overview、frontend/backend guidelines、module map 与 29 份模块文档的 183 条路径引用逐一存在性核对（仅 draft-session.md 与 table-save-changeset.md 两处 `src/app/table-save.orchestrator.spec.ts` 过期路径已修为 `src/orchestrators/`）；后端 services 枚举与磁盘 13 模块逐一相符；码表、naive-ui 接线、AppError 约定等 1.x–2.x 落点均有文档归属；模块文档无实现过程与临时状态措辞。
+- [x] 跑前后端全套检查全绿（前端：format:check、encoding:check、lint 三件套、typecheck 0 错、test 103、build；Rust：cargo fmt --check、clippy -D warnings、test 270）。手工验收清单见阶段总结：画布（舰船/武器拖拽与镜像预览、弹体窗口）、表格（窗口滚动、单元格编辑、保存、撤销重做）、快捷键（Ctrl+S 全局与输入框内、主窗口历史分派）、窗口（子窗口身份、保存事件回主窗口、设置变更失效）、保存链路（CSV/配置/spec/文件编辑器 changeset 与写后失效）、错误反馈（后端稳定码→中文文案、一次动作一条提示、失败不落历史）。
+- [x] 复查工作树与暂存区：暂存区为空，仅含本轮两份模块文档修复与本条勾选；`git diff --check` 无空白/冲突标记；编码检查覆盖全部文本文件通过；用户的 "phase 2.11" 提交（实为 2.10 修复内容）原样保留。
 
 ## Phase 3: 外置文本 JSON 支持
 

@@ -13,7 +13,7 @@
 `src/domain/tables/csv-dirty.ts`：dirty 行形状 owner。
 `src/orchestrators/file-history-write.orchestrator.ts`：保存完成登记 owner。
 `src-tauri/src/services/project/write/`：后端写入 owner，合成 CSV 与关联目标并构建 changeset。
-`src/app/table-save.orchestrator.spec.ts`：保存编排行为测试。
+`src/orchestrators/table-save.orchestrator.spec.ts`：保存编排行为测试。
 
 ## 边界
 
