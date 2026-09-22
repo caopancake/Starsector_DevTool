@@ -268,6 +268,15 @@ import type { RowData } from '@/shared/types';
 import { arr, deepClone, num, str } from '@/shared/lib/starsector';
 import { entryKey } from '@/shared/lib/entry-keys';
 import { normalizeShipSpec } from '@/domain/editors/lib/normalize';
+import { distance, distanceToSegment, pointAngle, pointArc } from '@/domain/editors/lib/geometry';
+import {
+  engineWithDefaults,
+  formatLaunchBayId,
+  formatWeaponSlotId,
+  launchBayWithDefaults,
+  nextFormattedId,
+  weaponSlotWithDefaults,
+} from '@/domain/editors/lib/ship-slots';
 import {
   createCanvasEditorState,
   useCanvasEditor,
@@ -498,29 +507,6 @@ function relativeToAbsolute(loc: number[]) {
 function absoluteToRelative(loc: number[]) {
   return [snapToStep((loc[1] || 0) - (center.value[1] || 0)), snapToStep((center.value[0] || 0) - (loc[0] || 0))];
 }
-function roundDegree(value: number) {
-  return Math.round(value);
-}
-function normalizeDegree(value: number) {
-  const normalized = roundDegree(value) % 360;
-  return normalized < 0 ? normalized + 360 : normalized;
-}
-function clampArc(value: number) {
-  return Math.max(0, Math.min(360, roundDegree(value)));
-}
-function distance(a: number[], b: number[]) {
-  return Math.hypot((a[0] || 0) - (b[0] || 0), (a[1] || 0) - (b[1] || 0));
-}
-function pointAngle(origin: number[], point: number[]) {
-  const relativePoint = [point[1] - (origin[1] || 0), (origin[0] || 0) - point[0]];
-  return normalizeDegree((Math.atan2(relativePoint[1] || 0, relativePoint[0] || 0) * 180) / Math.PI);
-}
-function pointArc(origin: number[], point: number[], angle: number) {
-  return clampArc(angleDelta(pointAngle(origin, point), angle) * 2);
-}
-function angleDelta(a: number, b: number) {
-  return Math.abs(((((a - b + 540) % 360) + 360) % 360) - 180);
-}
 function targetKindAt(mx: number, my: number): string | null {
   if (mode.value !== 'ranges') return activeTarget.value?.kind || null;
   const raw = rawCanvasToShip(mx, my);
@@ -584,16 +570,7 @@ function previewWeaponState(coord: number[], modifiers: CanvasModifiers, mx: num
     return {
       kind: 'weaponCopy' as const,
       coord: relativeCoord,
-      slot: {
-        ...source,
-        id: nextWeaponSlotId(),
-        size: str(source.size, 'MEDIUM'),
-        type: str(source.type, 'BALLISTIC'),
-        mount: str(source.mount, 'TURRET'),
-        arc: num(source.arc, 120),
-        angle: num(source.angle, 0),
-        locations: relativeCoord,
-      },
+      slot: weaponSlotWithDefaults(source, nextWeaponSlotId(), relativeCoord),
     };
   }
   if (modifiers.ctrlKey && selectedSlot.value) {
@@ -608,16 +585,7 @@ function previewLaunchBayState(coord: number[], modifiers: CanvasModifiers) {
   return {
     kind: 'launchBayAdd' as const,
     coord: relativeCoord,
-    slot: {
-      ...source,
-      id: nextLaunchBayId(),
-      size: 'LARGE',
-      type: 'LAUNCH_BAY',
-      mount: 'HIDDEN',
-      arc: 360,
-      angle: 0,
-      locations: relativeCoord,
-    },
+    slot: launchBayWithDefaults(source, nextLaunchBayId(), relativeCoord),
   };
 }
 function previewEngineState(coord: number[], modifiers: CanvasModifiers, mx: number, my: number) {
@@ -631,15 +599,7 @@ function previewEngineState(coord: number[], modifiers: CanvasModifiers, mx: num
     return {
       kind: 'engineCopy' as const,
       coord: relativeCoord,
-      engine: {
-        ...source,
-        angle: num(source.angle, 180),
-        contrailSize: num(source.contrailSize, 12),
-        length: num(source.length, 30),
-        width: num(source.width, 10),
-        location: relativeCoord,
-        style: str(source.style, 'LOW_TECH'),
-      },
+      engine: engineWithDefaults(source, relativeCoord),
     };
   }
   if (modifiers.ctrlKey && selectedEngine.value) {
@@ -983,34 +943,11 @@ function offsetRelativeFields(dxAbsolute: number, dyAbsolute: number) {
     bounds.value[i + 1] = snapToStep((bounds.value[i + 1] || 0) + dxAbsolute);
   }
 }
-function distanceToSegment(point: number[], a: number[], b: number[]) {
-  const ax = a[0] || 0;
-  const ay = a[1] || 0;
-  const bx = b[0] || 0;
-  const by = b[1] || 0;
-  const px = point[0] || 0;
-  const py = point[1] || 0;
-  const dx = bx - ax;
-  const dy = by - ay;
-  const lengthSquared = dx * dx + dy * dy;
-  if (lengthSquared === 0) return Math.hypot(px - ax, py - ay);
-  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSquared));
-  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
-}
 function copyWeaponSlotAt(coord: number[]) {
   const source = selectedSlot.value ? deepClone(selectedSlot.value) : {};
   const relativeCoord = absoluteToRelative(coord);
   const sourceIndex = weaponSlots.value.length;
-  weaponSlots.value.push({
-    ...source,
-    id: nextWeaponSlotId(),
-    size: str(source.size, 'MEDIUM'),
-    type: str(source.type, 'BALLISTIC'),
-    mount: str(source.mount, 'TURRET'),
-    arc: num(source.arc, 120),
-    angle: num(source.angle, 0),
-    locations: relativeCoord,
-  });
+  weaponSlots.value.push(weaponSlotWithDefaults(source, nextWeaponSlotId(), relativeCoord));
   if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
     weaponSlots.value.push({ ...mirrorWeaponSlotForAdd(weaponSlots.value[sourceIndex]), id: nextWeaponSlotId() });
     mirrorPair.value = { kind: 'weapon', i: sourceIndex + 1 };
@@ -1024,15 +961,7 @@ function copyWeaponSlotAt(coord: number[]) {
 function addLaunchBayAt(coord: number[]) {
   const relativeCoord = absoluteToRelative(coord);
   const sourceIndex = weaponSlots.value.length;
-  weaponSlots.value.push({
-    id: nextLaunchBayId(),
-    size: 'LARGE',
-    type: 'LAUNCH_BAY',
-    mount: 'HIDDEN',
-    arc: 360,
-    angle: 0,
-    locations: relativeCoord,
-  });
+  weaponSlots.value.push(launchBayWithDefaults({}, nextLaunchBayId(), relativeCoord));
   if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
     weaponSlots.value.push({ ...mirrorWeaponSlotForAdd(weaponSlots.value[sourceIndex]), id: nextLaunchBayId() });
     mirrorPair.value = { kind: 'weapon', i: sourceIndex + 1 };
@@ -1047,15 +976,7 @@ function copyEngineAt(coord: number[]) {
   const source = selectedEngine.value ? deepClone(selectedEngine.value) : {};
   const relativeCoord = absoluteToRelative(coord);
   const sourceIndex = engineSlots.value.length;
-  engineSlots.value.push({
-    ...source,
-    angle: num(source.angle, 180),
-    contrailSize: num(source.contrailSize, 12),
-    length: num(source.length, 30),
-    width: num(source.width, 10),
-    location: relativeCoord,
-    style: str(source.style, 'LOW_TECH'),
-  });
+  engineSlots.value.push(engineWithDefaults(source, relativeCoord));
   if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
     engineSlots.value.push(mirrorEngineForAdd(engineSlots.value[sourceIndex]));
     mirrorPair.value = { kind: 'engine', i: sourceIndex + 1 };
@@ -1293,11 +1214,7 @@ function nextWeaponSlotId() {
     const id = str(slot.id);
     if (/^WS\d{4}$/.test(id)) used.add(id);
   }
-  for (let index = 1; index <= 9999; index += 1) {
-    const id = `WS${String(index).padStart(4, '0')}`;
-    if (!used.has(id)) return id;
-  }
-  return `WS${String(weaponSlots.value.length + 1).padStart(4, '0')}`;
+  return nextFormattedId(used, formatWeaponSlotId);
 }
 function nextLaunchBayId() {
   const used = new Set<string>();
@@ -1305,11 +1222,7 @@ function nextLaunchBayId() {
     const id = str(item.slot.id);
     if (/^LB \d+$/.test(id)) used.add(id);
   }
-  for (let index = 1; index <= 9999; index += 1) {
-    const id = `LB ${index}`;
-    if (!used.has(id)) return id;
-  }
-  return `LB ${launchBaySlots.value.length + 1}`;
+  return nextFormattedId(used, formatLaunchBayId);
 }
 function addWeaponSlot() {
   pushUndo();

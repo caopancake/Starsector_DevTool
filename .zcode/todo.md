@@ -80,10 +80,10 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 2.3: 巨型组件拆解
 
-- [ ] `ShipEditor.vue`（1431 行）：角度/弧度/距离几何与武器槽/发射湾 ID 生成规则下沉 `domain/editors/lib`（沿用 weapon-sprite-fields 先例）；三对预览态/落盘态默认对象合并为单一工厂；与 `WeaponEditor.vue` 重复的 `pointAngle` 合并 domain。
-- [ ] `SchemaFieldRenderer.vue`（821 行）：plain/rich 双模板树收敛为按字段类型的控件映射单结构；9 处装饰性分隔注释删除；`.n-base-selection` 等组件库私有类名依赖改为公共 API 实现。
-- [ ] `SystemEditor.vue`（497 行）：`SYSTEM_STRUCTURED_FIELD_KEYS`/`TYPE_EXCLUSIVE_FIELDS` 字段规则按先例收敛 domain 常量模块。
-- [ ] 跑前端全套检查；手工验收舰船/武器画布、弹体与战术系统表单回归。
+- [x] `ShipEditor.vue`（1431→1348 行）：几何函数（roundDegree/normalizeDegree/clampArc/angleDelta/distance/pointAngle/pointArc/distanceToSegment）下沉 `domain/editors/lib/geometry.ts`；三对预览态/落盘态默认对象合并为 `ship-slots.ts` 单一工厂（weaponSlotWithDefaults/launchBayWithDefaults/engineWithDefaults）；ID 格式与扫描规则下沉（formatWeaponSlotId/formatLaunchBayId/nextFormattedId），组件内 next* 改为读槽位集合的薄壳；WeaponEditor 重复 `pointAngle` 删除，改用 domain `pointAngleScreen`。
+- [x] `SchemaFieldRenderer.vue`（821→798 行）：9 处装饰性分隔注释删除；模板中复述 `v-else-if` 条件的类型标签注释删除；`.n-base-selection` 私有类名 closest 判定改为 `composedPath` 元素类名单判定（仍依赖 Naive UI 公开类名，行为语义不变：tag 关闭钮/清除钮点击不关闭下拉）。plain/rich 双模板树经通读裁定保留：两分支的控件类型与事件形状逐类型不同（plain 全文本输入 + 字符串化 emitter，rich 类型化控件），强行映射合并不等价、可读性反降。
+- [x] `SystemEditor.vue`（497→411 行）：`SYSTEM_STRUCTURED_FIELD_KEYS`/`TYPE_EXCLUSIVE_FIELDS` 收敛 `domain/editors/lib/system-fields.ts` 常量模块。
+- [x] 跑前端全套检查；手工验收舰船/武器画布、弹体与战术系统表单回归。
 
 ### Phase 2.4: 状态 owner 与查询收敛
 

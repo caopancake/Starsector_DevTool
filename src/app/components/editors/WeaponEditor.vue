@@ -257,6 +257,7 @@ import ObjectEditor from '@/app/components/editors/common/ObjectEditor.vue';
 import type { RowData } from '@/shared/types';
 import { arr, str } from '@/shared/lib/starsector';
 import { normalizeWeaponSpec } from '@/domain/editors/lib/normalize';
+import { pointAngleScreen } from '@/domain/editors/lib/geometry';
 import {
   useCanvasEditor,
   createCanvasEditorState,
@@ -492,15 +493,10 @@ function loadSpriteField(field: WeaponSpriteField) {
   setSpriteImage(field, spriteDataFor(field));
   draw();
 }
-function pointAngle(origin: { x: number; y: number }, point: { x: number; y: number }) {
-  const angle = (Math.atan2(point.y - origin.y, point.x - origin.x) * 180) / Math.PI;
-  const rounded = Math.round(angle) % 360;
-  return rounded < 0 ? rounded + 360 : rounded;
-}
 function previewAngle(mx: number, my: number) {
   if (selected.value === null) return 0;
   const origin = { x: offsets.value[selected.value * 2] || 0, y: offsets.value[selected.value * 2 + 1] || 0 };
-  return pointAngle(origin, rawToWeapon(mx, my));
+  return pointAngleScreen(origin, rawToWeapon(mx, my));
 }
 function computePreview(mx: number, my: number, modifiers: CanvasModifiers): BarrelPreview {
   if (modifiers.shiftKey) {

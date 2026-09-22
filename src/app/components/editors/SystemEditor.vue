@@ -260,6 +260,7 @@ import type { RowData } from '@/shared/types';
 import { arr, str } from '@/shared/lib/starsector';
 import { isInternalJsonFieldKey } from '@/shared/lib/json-fields';
 import { normalizeSystemSpec } from '@/domain/editors/lib/normalize';
+import { SYSTEM_STRUCTURED_FIELD_KEYS, TYPE_EXCLUSIVE_FIELDS } from '@/domain/editors/lib/system-fields';
 import { useObjectField } from '@/app/composables/use-object-field';
 import { editorCollapseTheme, toOptions } from '@/domain/editors/lib/editor-constants';
 
@@ -301,23 +302,6 @@ const AI_TYPES = [
   'CUSTOM',
   'NONE',
 ] as const;
-
-const TYPE_EXCLUSIVE_FIELDS: Record<string, string[]> = {
-  ENGINE_MOD: [
-    'engineGlowColor',
-    'engineGlowContrailColor',
-    'engineGlowLengthMult',
-    'engineGlowWidthMult',
-    'engineGlowGlowMult',
-    'flameoutOnImpactChance',
-    'alwaysAccelerate',
-  ],
-  SHIELD_MOD: ['shieldRingColor', 'shieldInnerColor', 'shieldThicknessMult', 'shieldFluctuationMult'],
-  PHASE_CLOAK: ['effectColor1', 'effectColor2', 'phaseHighlight', 'phaseDiffuse', 'shipAlpha'],
-  DISPLACER: ['range', 'randomRange', 'renderCopyDuringTeleport'],
-  WEAPON: ['weaponDataId'],
-  DRONE_LAUNCHER: ['droneVariant', 'allowFreeRoam', 'launchSpeed', 'launchDelay', 'maxDrones', 'droneBehavior'],
-};
 
 const systemType = computed(() => str(localSystem.value.type, 'STAT_MOD'));
 const aiType = computed(() => str(localSystem.value.aiType, 'NONE'));
@@ -380,72 +364,6 @@ function droneBehaviorUpdated(value: unknown) {
   localSystem.value.droneBehavior = value;
   commitDraft();
 }
-
-const SYSTEM_STRUCTURED_FIELD_KEYS = new Set([
-  'id',
-  'type',
-  'aiType',
-  'statsScript',
-  'aiScript',
-  'runScriptWhilePaused',
-  'runScriptWhileIdle',
-  'blockActionsWhileChargingDown',
-  'canNotCauseOverload',
-  'canUseWhileRightClickSystemOn',
-  'clampTurnRateAfter',
-  'clampMaxSpeedAfter',
-  'alwaysAccelerate',
-  'flameoutOnImpactChance',
-  'fadeActivationSoundOnChargedown',
-  'activatingShieldsCancels',
-  'useSound',
-  'loopSound',
-  'deactivateSound',
-  'outOfUsesSound',
-  'soundFilterType',
-  'soundFilterGain',
-  'soundFilterGainHF',
-  'engineGlowColor',
-  'engineGlowContrailColor',
-  'engineGlowLengthMult',
-  'engineGlowWidthMult',
-  'engineGlowGlowMult',
-  'weaponGlowColor',
-  'weaponTypes',
-  'jitterColor',
-  'jitterCopies',
-  'jitterMinRange',
-  'jitterRange',
-  'jitterRangeRadiusFraction',
-  'jitterUnderColor',
-  'jitterUnderCopies',
-  'jitterUnderMinRange',
-  'jitterUnderRange',
-  'jitterUnderRangeRadiusFraction',
-  'effectColor1',
-  'effectColor2',
-  'phaseHighlight',
-  'phaseDiffuse',
-  'shipAlpha',
-  'shieldRingColor',
-  'shieldInnerColor',
-  'shieldThicknessMult',
-  'shieldFluctuationMult',
-  'range',
-  'randomRange',
-  'renderCopyDuringTeleport',
-  'weaponDataId',
-  'droneVariant',
-  'allowFreeRoam',
-  'launchSpeed',
-  'launchDelay',
-  'maxDrones',
-  'droneBehavior',
-  'empDamage',
-  'damage',
-  'damageType',
-  'aiHints',
-]);
 
 const structuredKnownKeys = [...SYSTEM_STRUCTURED_FIELD_KEYS];
 

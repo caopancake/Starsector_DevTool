@@ -96,7 +96,6 @@
       </template>
 
       <template v-else>
-        <!-- string -->
         <n-input
           v-if="field.type === 'string'"
           :value="strVal"
@@ -107,7 +106,6 @@
           @update:value="emitStringOrUiJsonText($event)"
         />
 
-        <!-- text (textarea) -->
         <n-input
           v-else-if="field.type === 'text'"
           :value="strVal"
@@ -117,7 +115,6 @@
           @update:value="emit('update', $event)"
         />
 
-        <!-- integer -->
         <n-input-number
           v-else-if="field.type === 'integer'"
           :value="numVal"
@@ -129,7 +126,6 @@
           @update:value="emitControlNumber($event, true)"
         />
 
-        <!-- float -->
         <n-input-number
           v-else-if="field.type === 'float'"
           :value="numVal"
@@ -141,7 +137,6 @@
           @update:value="emitControlNumber($event, false)"
         />
 
-        <!-- boolean -->
         <n-switch
           v-else-if="field.type === 'boolean'"
           class="tool-switch field-switch"
@@ -150,7 +145,6 @@
           @update:value="emit('update', $event)"
         />
 
-        <!-- enum -->
         <n-select
           v-else-if="field.type === 'enum'"
           :show="selectOpen"
@@ -164,7 +158,6 @@
           @update:value="emit('update', $event)"
         />
 
-        <!-- color-rgba -->
         <ColorPicker
           v-else-if="field.type === 'color-rgb' || field.type === 'color-rgba'"
           :model-value="props.value as JsonValue"
@@ -209,7 +202,6 @@
           </n-button>
         </div>
 
-        <!-- string-array -->
         <n-select
           v-else-if="field.type === 'string-array'"
           :show="selectOpen"
@@ -226,7 +218,6 @@
           @update:value="emit('update', $event)"
         />
 
-        <!-- tag-select -->
         <n-select
           v-else-if="field.type === 'tag-select'"
           :show="selectOpen"
@@ -243,7 +234,6 @@
           @update:value="emit('update', wrapTags($event))"
         />
 
-        <!-- key-value -->
         <div v-else-if="field.type === 'key-value'" class="key-value-editor" :class="{ 'reference-key-value': isReferenceKeyValue }">
           <div v-for="(row, idx) in kvRows" :key="row.rowId" class="kv-row">
             <n-select
@@ -296,7 +286,6 @@
           />
         </div>
 
-        <!-- array -->
         <div v-else-if="field.type === 'array' && field.item" class="array-of-object">
           <div v-for="(item, idx) in genericArrayItems" :key="entryKey('array-item', item, idx)" class="array-item">
             <div class="array-item-header">
@@ -318,7 +307,6 @@
           <n-button size="tiny" @click="addGenericArrayItem">+ 添加项</n-button>
         </div>
 
-        <!-- array-of-object -->
         <div v-else-if="field.type === 'array-of-object' && field.nested" class="array-of-object">
           <div v-for="(item, idx) in arrayItems" :key="entryKey('array-item', item, idx)" class="array-item">
             <div class="array-item-header">
@@ -342,7 +330,6 @@
           <n-button size="tiny" @click="addArrayItem">+ 添加项</n-button>
         </div>
 
-        <!-- default JSON textarea -->
         <n-input
           v-else
           :value="uiJsonText"
@@ -430,8 +417,6 @@ const settings = useSettingsStore();
 const fieldTitle = computed(() => [props.field.key, props.field.description ?? ''].filter(Boolean).join('\n'));
 const { schemaSelectSprite, ensureSchemaSelectSprites } = useSchemaSelectMedia();
 
-// ─── Computed value converters ────────────────────────────────────────
-
 const strVal = computed(() => schemaStringValue(props.value));
 const stringTextareaAutosize = { minRows: 1, maxRows: 6 };
 const stringInputType = computed(() => (strVal.value.includes('\n') || strVal.value.includes('\r') ? 'textarea' : 'text'));
@@ -473,8 +458,6 @@ function emitPlainStringArray(raw: string) {
 function emitPlainTagSelect(raw: string) {
   emit('update', wrapSchemaTagValues(props.value, parseSchemaCommaList(raw)));
 }
-
-// ─── Source / enum options ────────────────────────────────────────────
 
 const { sourceOptions } = useSchemaSourceOptions({
   field: () => props.field,
@@ -579,8 +562,6 @@ const displayOptions = computed(() => includeCurrentSelectOptions(enumOptions.va
 const listOptions = computed(() => includeCurrentSelectOptions(sourceOptions.value, arrVal.value));
 const tagDisplayOptions = computed(() => includeCurrentSelectOptions(sourceOptions.value, tagSelectVal.value));
 
-// ─── path-image graphics options ─────────────────────────────────────
-
 const graphicsOptions = computed(() => {
   const options: SelectOption[] = [];
   const seen = new Set<string>();
@@ -611,8 +592,6 @@ const kvKeyOptions = computed(() => {
   );
 });
 
-// ─── Nested object helpers ────────────────────────────────────────────
-
 function getSubValue(subKey: string): unknown {
   if (props.value && typeof props.value === 'object' && !Array.isArray(props.value)) {
     return (props.value as Record<string, unknown>)[subKey];
@@ -625,8 +604,6 @@ function onSubUpdate(subKey: string, subValue: unknown) {
     props.value && typeof props.value === 'object' && !Array.isArray(props.value) ? (props.value as Record<string, unknown>) : {};
   emit('update', { ...current, [subKey]: subValue });
 }
-
-// ─── Array-of-object helpers ──────────────────────────────────────────
 
 const arrayItems = computed(() => (Array.isArray(props.value) ? (props.value as Record<string, unknown>[]) : []));
 
@@ -658,8 +635,6 @@ function removeArrayItem(idx: number) {
   items.splice(idx, 1);
   emit('update', items);
 }
-
-// ─── Key-value helpers ────────────────────────────────────────────────
 
 const kvEntries = computed<SchemaKeyValueEntry[]>(() => schemaKeyValueEntries(props.value, props.field.format));
 
@@ -721,8 +696,6 @@ function addKvEntry() {
   emit('update', appendSchemaKeyValueEntry(kvEntries.value, props.field.format));
 }
 
-// ─── Generic array helpers ────────────────────────────────────────────
-
 const genericArrayItems = computed(() => (Array.isArray(props.value) ? props.value : []));
 
 function updateGenericArrayItem(idx: number, itemValue: unknown) {
@@ -743,8 +716,6 @@ function removeGenericArrayItem(idx: number) {
   emit('update', items);
 }
 
-// ─── Fallback JSON parser ─────────────────────────────────────────────
-
 function emitSchemaUiJsonText(raw: string) {
   emit('update', parseSchemaUiJsonText(raw));
 }
@@ -760,8 +731,6 @@ function warnInvalidUiJsonOnCommit(raw: string) {
     feedback.warning(`${props.field.label || props.field.key} JSON 无效，已保留输入内容，请修正后再离开字段`);
   }
 }
-
-// ─── String-or-object smart emitter (for version-like fields) ────────
 
 function emitStringOrUiJsonText(raw: string) {
   const trimmed = raw.trim();
@@ -814,8 +783,18 @@ function handleKvSelectShowUpdate(rowId: number, show: boolean) {
 }
 
 function shouldLetSelectClickPass(event: MouseEvent): boolean {
-  const target = event.target as { closest?: (selector: string) => unknown } | null;
-  if (!target?.closest) return false;
-  return Boolean(target.closest('.n-base-selection-tag__close, .n-tag__close, .n-base-close, .n-base-selection__clear'));
+  // Clicks on rendered tag close buttons and the selection clear icon must
+  // reach their own handlers instead of closing the dropdown. Naive UI marks
+  // these controls as non-button elements, so detect them via composedPath
+  // element class lists instead of DOM structure assumptions.
+  const path = event.composedPath();
+  return path.some((node) => {
+    if (!(node instanceof Element)) return false;
+    if (node.tagName === 'svg') return true;
+    const classes = (node as HTMLElement).classList;
+    return Boolean(
+      classes && (classes.contains('n-tag__close') || classes.contains('n-base-close') || classes.contains('n-base-selection__clear')),
+    );
+  });
 }
 </script>
