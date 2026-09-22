@@ -1,9 +1,12 @@
+import { rustCommandModule } from '../../shared/files.mjs';
+
 export const editorConfigBackendBoundaryRule = {
   name: 'editor-config-backend-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
-      const rel = normalize(file.rel);
+      const rel = file.rel;
       if (rel.startsWith('scripts/architecture/')) continue;
       if (rustCommandModule(rel) && hasEditorConfigCommand(file.text)) {
         if (!file.text.includes('services::editor_config::')) {
@@ -24,18 +27,12 @@ export const editorConfigBackendBoundaryRule = {
   },
 };
 
+/** @param {string} text @returns {boolean} */
 function hasEditorConfigCommand(text) {
   return /\b(save_editor_spec|load_imported_editor_spec_file|save_indexed_config_entity|save_variant_entity|save_skin_entity)\b/.test(text);
 }
 
-function normalize(path) {
-  return path.replaceAll('\\', '/');
-}
-
-function rustCommandModule(path) {
-  return path.startsWith('src-tauri/src/commands/');
-}
-
+/** @param {string} path @returns {boolean} */
 function projectEntityDefinitions(path) {
   return path.endsWith('/project/entity_definitions.rs');
 }

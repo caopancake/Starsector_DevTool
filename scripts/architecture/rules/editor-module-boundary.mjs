@@ -1,9 +1,10 @@
-import { classifyFrontendPath } from '../shared/classify.mjs';
-import { frontendFile } from '../shared/files.mjs';
-import { importedProjectPaths } from '../shared/imports.mjs';
+import { classifyFrontendPath } from '../../shared/classify.mjs';
+import { frontendFile } from '../../shared/files.mjs';
+import { importedProjectPaths } from '../../shared/imports.mjs';
 
 export const editorModuleBoundaryRule = {
   name: 'editor-module-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
@@ -38,6 +39,7 @@ export const editorModuleBoundaryRule = {
   },
 };
 
+/** @param {import('../../shared/classify.mjs').FrontendPathClass} current @returns {boolean} */
 function isEditorSurface(current) {
   return current.layer === 'app' && (current.domain === 'editors' || current.domain === 'editor-window');
 }

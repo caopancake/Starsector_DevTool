@@ -1,4 +1,4 @@
-import { frontendFile, singleFileByRel } from '../shared/files.mjs';
+import { frontendFile, singleFileByRel } from '../../shared/files.mjs';
 
 const storePath = 'src/stores/workspace.store.ts';
 const oldWorkspaceNames = ['modList', 'modCount', 'hasAnyMod', 'setGameWorkspace', 'restoreFrom'];
@@ -20,7 +20,9 @@ const lifecycleDetailCalls = /\b(?:invalidateQueryCacheForSession|invalidateReso
 
 export const workspaceModuleBoundaryRule = {
   name: 'workspace-module-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
+    /** @type {string[]} */
     const failures = [];
     for (const file of files) {
       if (frontendFile(file.rel)) {
@@ -35,6 +37,7 @@ export const workspaceModuleBoundaryRule = {
   },
 };
 
+/** @param {import('../../shared/files.mjs').RepoFile} file @param {string[]} failures @returns {void} */
 function checkFrontendWorkspaceBoundary(file, failures) {
   for (const name of oldWorkspaceNames) {
     if (new RegExp(`\\b${name}\\b`).test(file.text)) {
@@ -61,6 +64,7 @@ function checkFrontendWorkspaceBoundary(file, failures) {
   }
 }
 
+/** @param {import('../../shared/files.mjs').RepoFile} file @param {string[]} failures @returns {void} */
 function checkWorkspaceDocumentBoundary(file, failures) {
   if (directoryOpeningDetails.test(file.text)) {
     failures.push(`${file.rel}: workspace document must not expand Directory Opening internal function names`);

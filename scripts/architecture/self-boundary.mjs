@@ -1,5 +1,6 @@
 export const architectureRulesSelfBoundaryRule = {
   name: 'architecture-rules-self-boundary',
+  /** @param {import('../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     const ruleFiles = files.filter((file) => file.rel.startsWith('scripts/architecture/rules/') && file.rel.endsWith('.mjs'));
@@ -36,10 +37,12 @@ export const architectureRulesSelfBoundaryRule = {
   },
 };
 
+/** @param {string} text @returns {boolean} */
 function usesConcreteSourcePathEquality(text) {
   return /\b(?:\w+\.)?(?:rel|path|resolved)\s*!?={2,3}\s*['"]src(?:-tauri)?\/[^'"]+['"]/.test(text);
 }
 
+/** @param {string} text @returns {boolean} */
 function usesConcretePathIdentity(text) {
   return (
     /\b(?:file\.)?rel\s*!={1,2}\s*[^;\n]*\??\.rel\b/.test(text) ||
@@ -51,6 +54,7 @@ function usesConcretePathIdentity(text) {
   );
 }
 
+/** @param {string} text @returns {boolean} */
 function usesSourcePathBoundaryHelper(text) {
   const helperMatches = text.matchAll(
     /\b(?:is|mayUse|canUse|allow|allows|isAllowed|isTrusted)[A-Za-z0-9_]*\s*\([^)]*\)\s*\{([\s\S]*?)\n\}/g,
@@ -58,10 +62,12 @@ function usesSourcePathBoundaryHelper(text) {
   return [...helperMatches].some((match) => /\b(?:path|rel)\.(?:startsWith|endsWith)\(\s*['"]src|\/\^src\\\//.test(match[1]));
 }
 
+/** @param {string} text @returns {boolean} */
 function usesTooManySingleFileAnchors(text) {
   return countSingleFileByRelCalls(text) > 1;
 }
 
+/** @param {string} text @returns {boolean} */
 function misusesSingleFileByRel(text) {
   if (singleFileInAuthorizationHelper(text)) return true;
   if (/\b(?:providerFiles|runtimeFiles)[A-Za-z0-9_]*\s*=\s*[^;\n]*singleFileByRel\s*\(/.test(text)) return true;
@@ -70,15 +76,18 @@ function misusesSingleFileByRel(text) {
   return false;
 }
 
+/** @param {string} text @returns {number} */
 function countSingleFileByRelCalls(text) {
   return [...text.matchAll(/(?<!function\s)singleFileByRel\s*\(/g)].length;
 }
 
+/** @param {string} text @returns {boolean} */
 function singleFileInAuthorizationHelper(text) {
   const helperMatches = text.matchAll(/\b(?:mayUse|canUse|allow|allows|isAllowed|isTrusted)[A-Za-z0-9_]*\s*\([^)]*\)\s*\{([\s\S]*?)\n\}/g);
   return [...helperMatches].some((match) => match[1].includes('singleFileByRel('));
 }
 
+/** @param {string} text @returns {boolean} */
 function usesDirectoryPrefixAuthorization(text) {
   const helperMatches = text.matchAll(/\b(?:mayUse|canUse|allow|allows)[A-Za-z0-9_]*\s*\([^)]*\)\s*\{([\s\S]*?)\n\}/g);
   return [...helperMatches].some((match) =>
@@ -86,6 +95,7 @@ function usesDirectoryPrefixAuthorization(text) {
   );
 }
 
+/** @param {string} text @returns {boolean} */
 function usesContentIdentityBoundary(text) {
   return /\.text\.includes\(\s*['"][A-Za-z0-9_./-]*(?:App|View|Editor|Window|Content|\.vue)[A-Za-z0-9_./-]*['"]\s*\)/.test(text);
 }
@@ -93,6 +103,7 @@ function usesContentIdentityBoundary(text) {
 // `/^src-tauri\/src\/...\/x\.rs$/.test(path)` is raw single-file path identity
 // escaped into a regex so the equality checks above cannot see it; same fragile
 // anchor, same ban.
+/** @param {string} text @returns {boolean} */
 function usesBarePathRegexIdentity(text) {
   return /\^\s*src(?:-tauri)?\\\/(?:[^/\n]*\\\/)*[^/\n]*\.rs\$\/\s*\.test\(\s*(?:path|rel|resolved)\s*\)/.test(text);
 }

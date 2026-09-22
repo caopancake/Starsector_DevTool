@@ -1,12 +1,14 @@
-import { singleFileByRel } from '../shared/files.mjs';
+import { singleFileByRel } from '../../shared/files.mjs';
 
 const SECTION_ORDER = ['定义', '参考', '边界', '链路', '规范', '陷阱'];
+/** @type {Record<string, number>} */
 const MIN_SECTION_LINES = { 参考: 3, 边界: 5, 规范: 5, 陷阱: 3 };
 const MAX_DEFINITION_LINES = 1;
 const MAX_DOC_LINES = 300;
 
 export const docsModuleMapRule = {
   name: 'docs-module-map',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     const moduleMap = singleFileByRel(files, '.zcode/module-map.md');
@@ -40,6 +42,7 @@ export const docsModuleMapRule = {
   },
 };
 
+/** @param {string} text @returns {{ rel: string }[]} */
 function extractIndexedDocs(text) {
   const entries = [];
   for (const match of text.matchAll(/\]\(modules\/([a-z0-9-]+\.md)\)/g)) {
@@ -48,6 +51,7 @@ function extractIndexedDocs(text) {
   return entries;
 }
 
+/** @param {string} rel @param {string} text @returns {string[]} */
 function checkDocStructure(rel, text) {
   const failures = [];
   const lines = text.split('\n');
@@ -84,6 +88,7 @@ function checkDocStructure(rel, text) {
   return failures;
 }
 
+/** @param {string[]} lines @param {number} start @param {number} end @returns {{ contentLines: string[] }} */
 function sectionBody(lines, start, end) {
   const contentLines = [];
   for (let index = start + 1; index < end; index += 1) {

@@ -1,5 +1,5 @@
-import { classifyFrontendPath } from '../shared/classify.mjs';
-import { frontendFile } from '../shared/files.mjs';
+import { classifyFrontendPath } from '../../shared/classify.mjs';
+import { frontendFile } from '../../shared/files.mjs';
 
 const draftStateWritePattern =
   /(?:\b(?:state|tableState)\.(?:dirty|originalTables|pendingExternalTableUpdates)\s*\[[^\n;]*\]\s*=|\bdelete\s+(?:state|tableState)\.(?:dirty|originalTables|pendingExternalTableUpdates)\s*\[|\b(?:state|tableState)\.(?:originalTables)\s*\[[^\n;]*\]\.(?:splice|push)\s*\()/;
@@ -15,6 +15,7 @@ const legacyStoreDraftTerms = [
 
 export const csvDraftBoundaryRule = {
   name: 'csv-draft-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
@@ -49,6 +50,7 @@ export const csvDraftBoundaryRule = {
   },
 };
 
+/** @param {string} text @returns {string} */
 function removeLifecycleSections(text) {
   return text
     .replace(/function emptyDirtyState[\s\S]*?function emptyExternalUpdateState/, 'function emptyExternalUpdateState')

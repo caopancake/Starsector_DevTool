@@ -1,9 +1,12 @@
+import { rustCommandModule } from '../../shared/files.mjs';
+
 export const workspacePersistenceBoundaryRule = {
   name: 'workspace-persistence-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
-      const rel = normalize(file.rel);
+      const rel = file.rel;
       if (rel.startsWith('scripts/architecture/')) continue;
       if (rustCommandModule(rel) && hasWorkspacePersistenceCommand(file.text)) {
         if (!file.text.includes('services::workspace_persistence::')) {
@@ -15,14 +18,7 @@ export const workspacePersistenceBoundaryRule = {
   },
 };
 
+/** @param {string} text @returns {boolean} */
 function hasWorkspacePersistenceCommand(text) {
   return /\b(load_workspace|save_workspace)\b/.test(text);
-}
-
-function rustCommandModule(path) {
-  return path.startsWith('src-tauri/src/commands/');
-}
-
-function normalize(path) {
-  return path.replaceAll('\\', '/');
 }

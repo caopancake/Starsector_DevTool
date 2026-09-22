@@ -1,6 +1,6 @@
-import { classifyFrontendPath } from '../shared/classify.mjs';
-import { frontendFile } from '../shared/files.mjs';
-import { importedProjectPaths } from '../shared/imports.mjs';
+import { classifyFrontendPath } from '../../shared/classify.mjs';
+import { frontendFile } from '../../shared/files.mjs';
+import { importedProjectPaths } from '../../shared/imports.mjs';
 
 const legacyDraftTerms = [
   'useConfigDraft',
@@ -16,6 +16,7 @@ const targetSessionTerms = ['currentTargetKey', 'loadTarget', 'refreshTarget', '
 
 export const draftSessionBoundaryRule = {
   name: 'draft-session-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
@@ -54,14 +55,17 @@ export const draftSessionBoundaryRule = {
   },
 };
 
+/** @param {import('../../shared/classify.mjs').FrontendPathClass} target @returns {boolean} */
 function ownsBusinessDependency(target) {
   return target.role === 'api' || target.role === 'service' || target.role === 'orchestrator' || target.role === 'store';
 }
 
+/** @param {import('../../shared/classify.mjs').FrontendPathClass} target @returns {boolean} */
 function isEditSessionPrimitive(target) {
   return target.layer === 'domain' && target.domain === 'edit-session';
 }
 
+/** @param {import('../../shared/classify.mjs').FrontendPathClass} current @returns {boolean} */
 function isEditSessionAdapter(current) {
   if (current.layer === 'test') return true;
   return (
@@ -72,6 +76,7 @@ function isEditSessionAdapter(current) {
   );
 }
 
+/** @param {import('../../shared/classify.mjs').FrontendPathClass} current @returns {boolean} */
 function isBusinessEditingModule(current) {
   if (current.layer !== 'app') return false;
   return (

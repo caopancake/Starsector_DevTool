@@ -1,9 +1,12 @@
+import { rustCommandModule } from '../../shared/files.mjs';
+
 export const projectResourcesBoundaryRule = {
   name: 'project-resources-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
-      const rel = normalize(file.rel);
+      const rel = file.rel;
       if (rel.startsWith('scripts/architecture/')) continue;
       if (
         rel.startsWith('src-tauri/src/services/editor_config/') &&
@@ -31,6 +34,7 @@ export const projectResourcesBoundaryRule = {
   },
 };
 
+/** @param {string} text @param {string[]} commandNames @returns {string[]} */
 function commandBodies(text, commandNames) {
   return commandNames.flatMap((commandName) => {
     const signatureIndex = text.indexOf(`pub fn ${commandName}`);
@@ -43,6 +47,7 @@ function commandBodies(text, commandNames) {
   });
 }
 
+/** @param {string} text @param {number} openingIndex @returns {number} */
 function matchingBraceIndex(text, openingIndex) {
   let depth = 0;
   for (let index = openingIndex; index < text.length; index += 1) {
@@ -53,12 +58,4 @@ function matchingBraceIndex(text, openingIndex) {
     }
   }
   return -1;
-}
-
-function rustCommandModule(path) {
-  return path.startsWith('src-tauri/src/commands/');
-}
-
-function normalize(path) {
-  return path.replaceAll('\\', '/');
 }

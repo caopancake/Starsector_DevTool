@@ -1,3 +1,7 @@
+/** @typedef {'external' | 'test' | 'shared' | 'domain' | 'services' | 'stores' | 'orchestrators' | 'windows' | 'app' | 'styles' | 'unknown'} FrontendLayer */
+/** @typedef {{ layer: FrontendLayer, role: string, domain: string | null }} FrontendPathClass */
+
+/** @param {string} path @returns {FrontendPathClass} */
 export function classifyFrontendPath(path) {
   if (!path.startsWith('src/')) return { layer: 'external', role: 'external', domain: null };
   if (/\.spec\.(ts|tsx)$/.test(path)) return { layer: 'test', role: 'test', domain: null };
@@ -14,6 +18,7 @@ export function classifyFrontendPath(path) {
   return { layer: 'unknown', role: 'unknown', domain: null };
 }
 
+/** @param {string} path @returns {string} */
 export function roleFor(path) {
   if (path.endsWith('.vue')) return 'component';
   if (path.endsWith('.store.ts')) return 'store';
@@ -27,10 +32,12 @@ export function roleFor(path) {
   return 'module';
 }
 
+/** @param {string} path @param {number} index @returns {string | null} */
 function segment(path, index) {
   return path.split('/')[index] ?? null;
 }
 
+/** @param {string} path @returns {string | null} */
 function appDomain(path) {
   const parts = path.split('/');
   if (parts[2] === 'components') return parts[3] ?? null;
@@ -45,29 +52,35 @@ function appDomain(path) {
   return parts[2]?.replace(/\.(?:ts|vue)$/, '') ?? null;
 }
 
+/** @param {string} fileName @returns {string | null} */
 function composableDomain(fileName) {
   if (!fileName.startsWith('use-')) return fileName.replace(/\.ts$/, '') || null;
   return fileName.replace(/^use-/, '').replace(/\.ts$/, '');
 }
 
+/** @param {string} path @returns {string | null} */
 function serviceDomain(path) {
   return suffixDomain(path, '.service.ts');
 }
 
+/** @param {string} path @returns {string} */
 function sharedDomain(path) {
   return path.split('/')[2] ?? 'shared';
 }
 
+/** @param {string} path @returns {string | null} */
 function sharedApiDomain(path) {
   return suffixDomain(path, '-api.ts');
 }
 
+/** @param {string} path @returns {string | null} */
 function windowDomain(path) {
   const fileName = path.split('/').at(-1) ?? '';
   if (fileName.endsWith('.events.ts')) return fileName.replace(/\.events\.ts$/, '');
   return suffixDomain(path, '.window.ts');
 }
 
+/** @param {string} path @param {string} suffix @returns {string | null} */
 function suffixDomain(path, suffix) {
   return path.split('/').at(-1)?.replace(suffix, '') ?? null;
 }

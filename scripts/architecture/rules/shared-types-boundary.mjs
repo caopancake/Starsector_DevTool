@@ -1,5 +1,6 @@
 export const sharedTypesBoundaryRule = {
   name: 'shared-types-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {

@@ -1,9 +1,10 @@
-import { classifyFrontendPath } from '../shared/classify.mjs';
-import { frontendFile } from '../shared/files.mjs';
-import { importedProjectPaths } from '../shared/imports.mjs';
+import { classifyFrontendPath } from '../../shared/classify.mjs';
+import { frontendFile } from '../../shared/files.mjs';
+import { importedProjectPaths } from '../../shared/imports.mjs';
 
 export const queryBoundaryRule = {
   name: 'query-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {

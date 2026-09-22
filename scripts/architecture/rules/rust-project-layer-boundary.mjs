@@ -1,9 +1,12 @@
-import { rustFile } from '../shared/files.mjs';
-import { cratePaths } from '../shared/rust-crate-paths.mjs';
-import { productionRustSource } from '../shared/rust-source.mjs';
+import { rustFile } from '../../shared/files.mjs';
+import { cratePaths } from '../../shared/rust-crate-paths.mjs';
+import { productionRustSource } from '../../shared/rust-source.mjs';
+
+/** @typedef {'commands' | 'project-query' | 'project-write' | 'project-resources' | 'project-cache' | 'project-session' | 'project-model' | 'project-root' | 'services' | 'domain' | 'io' | 'parsers' | 'models' | 'other'} RustLayer */
 
 export const rustProjectLayerBoundaryRule = {
   name: 'rust-project-layer-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
@@ -44,6 +47,7 @@ export const rustProjectLayerBoundaryRule = {
   },
 };
 
+/** @param {string} path @returns {RustLayer} */
 function rustLayer(path) {
   if (path.startsWith('src-tauri/src/commands/')) return 'commands';
   if (path.startsWith('src-tauri/src/services/project/query/')) return 'project-query';
@@ -62,11 +66,13 @@ function rustLayer(path) {
   return 'other';
 }
 
+/** @param {string} text @returns {boolean} */
 function testOnlyRustFile(text) {
   const trimmed = text.trimStart();
   return trimmed.startsWith('#[cfg(test)]') || trimmed.startsWith('#![cfg(test)]');
 }
 
+/** @param {string} path @returns {RustLayer | null} */
 function rustLayerFromCratePath(path) {
   if (path.startsWith('crate::commands')) return 'commands';
   if (path.startsWith('crate::services::project::query')) return 'project-query';
@@ -84,14 +90,17 @@ function rustLayerFromCratePath(path) {
   return null;
 }
 
+/** @param {string} path @param {string} moduleName @returns {boolean} */
 function projectServiceModule(path, moduleName) {
   return new RegExp(`^src-tauri/src/services/project/${moduleName}(?:\\.rs|/)`).test(path);
 }
 
+/** @param {string} text @returns {string} */
 function stripFacadeReexports(text) {
   return text.replace(/^\s*pub(?:\s*\([a-z]+\))?\s+use\s[^;]+;/gm, '');
 }
 
+/** @param {RustLayer} from @param {RustLayer} to @returns {boolean} */
 function validRustDependency(from, to) {
   if (from === to) return true;
   if (from === 'commands') return to === 'services' || to === 'models';
@@ -114,6 +123,7 @@ function validRustDependency(from, to) {
   return true;
 }
 
+/** @param {string} text @returns {boolean} */
 function writesToDisk(text) {
   return /\bwrite_|remove_|rename_|create_dir|apply_file_change_set|save_/.test(text);
 }

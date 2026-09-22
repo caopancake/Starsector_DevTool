@@ -9,7 +9,9 @@
     "moduleDetection": "force",
     "skipLibCheck": true,
     "strict": true,
+    "allowJs": true,
+    "checkJs": true,
     "noEmit": true
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "scripts/**/*.mjs"]
 }

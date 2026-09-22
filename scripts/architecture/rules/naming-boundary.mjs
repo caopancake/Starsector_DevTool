@@ -1,8 +1,9 @@
-import { frontendFile, specFile } from '../shared/files.mjs';
-import { exportedFunctionNames } from '../shared/imports.mjs';
+import { frontendFile, specFile } from '../../shared/files.mjs';
+import { exportedFunctionNames } from '../../shared/imports.mjs';
 
 export const namingBoundaryRule = {
   name: 'naming-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {

@@ -1,9 +1,10 @@
-import { classifyFrontendPath } from '../shared/classify.mjs';
-import { frontendFile } from '../shared/files.mjs';
-import { importedProjectPaths } from '../shared/imports.mjs';
+import { classifyFrontendPath } from '../../shared/classify.mjs';
+import { frontendFile } from '../../shared/files.mjs';
+import { importedProjectPaths } from '../../shared/imports.mjs';
 
 export const writeBoundaryRule = {
   name: 'write-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
@@ -28,7 +29,7 @@ export const writeBoundaryRule = {
             failures.push(`${file.rel}: write service belongs behind write-facing services and file history replay`);
           }
         }
-        if (target.layer === 'services' && ['query-cache', 'resource-cache'].includes(target.domain)) {
+        if (target.layer === 'services' && ['query-cache', 'resource-cache'].includes(target.domain ?? '')) {
           if (!canImportCacheInvalidationService(current)) {
             failures.push(`${file.rel}: cache invalidation services must be driven by ProjectSession refresh boundary`);
           }
@@ -54,11 +55,13 @@ export const writeBoundaryRule = {
   },
 };
 
+/** @param {import('../../shared/classify.mjs').FrontendPathClass} current @returns {boolean} */
 function canImportWriteService(current) {
   if (current.layer === 'services') return current.domain !== 'write';
   return current.layer === 'orchestrators' && current.domain === 'file-history-session';
 }
 
+/** @param {import('../../shared/classify.mjs').FrontendPathClass} current @returns {boolean} */
 function canImportCacheInvalidationService(current) {
   return (
     (current.layer === 'orchestrators' && current.domain === 'project-session-refresh') ||

@@ -1,5 +1,5 @@
-import { classifyFrontendPath } from '../shared/classify.mjs';
-import { frontendFile } from '../shared/files.mjs';
+import { classifyFrontendPath } from '../../shared/classify.mjs';
+import { frontendFile } from '../../shared/files.mjs';
 
 const manifestMutationNames = ['registerProjectManifest', 'replaceProjectManifest', 'removeProjectManifest'];
 const forbiddenManifestPatchNames = ['updateManifest', 'updateEntitySummary'];
@@ -7,6 +7,7 @@ const manifestSummaryFields = ['entitySummaries', 'tableSummaries', 'tableEntity
 
 export const projectSessionBoundaryRule = {
   name: 'project-session-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {

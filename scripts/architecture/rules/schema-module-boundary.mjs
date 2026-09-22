@@ -1,9 +1,10 @@
-import { frontendFile } from '../shared/files.mjs';
-import { classifyFrontendPath } from '../shared/classify.mjs';
-import { importedProjectPaths } from '../shared/imports.mjs';
+import { frontendFile } from '../../shared/files.mjs';
+import { classifyFrontendPath } from '../../shared/classify.mjs';
+import { importedProjectPaths } from '../../shared/imports.mjs';
 
 export const schemaModuleBoundaryRule = {
   name: 'schema-module-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
@@ -61,21 +62,26 @@ export const schemaModuleBoundaryRule = {
   },
 };
 
+/** @param {import('../../shared/classify.mjs').FrontendPathClass} current @returns {boolean} */
 function isSchemaComponent(current) {
   return current.layer === 'app' && current.role === 'component' && current.domain === 'schema';
 }
 
+/** @param {string} text @param {import('../../shared/classify.mjs').FrontendPathClass} current @returns {boolean} */
 function isSchemaFieldRenderer(text, current) {
   return isSchemaComponent(current) && /\bfield\s*:\s*FieldSchema\b/.test(text);
 }
 
+/** @param {string} text @param {import('../../shared/classify.mjs').FrontendPathClass} current @returns {boolean} */
 function isSchemaAssetRegistry(text, current) {
   return current.layer === 'domain' && current.domain === 'schema' && /schemas\/.*\.schema\.json/.test(text) && /\bgetSchema\b/.test(text);
 }
 
+/** @param {string} text @returns {string[]} */
 function exportedNames(text) {
   const names = [];
   const pattern = /\bexport\s+(?:function|const|class|interface|type)\s+([A-Za-z_$][\w$]*)/g;
+  /** @type {RegExpExecArray | null} */
   let match;
   while ((match = pattern.exec(text)) !== null) names.push(match[1]);
   return names;

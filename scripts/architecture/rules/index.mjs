@@ -1,3 +1,5 @@
+import { noNameExistenceChecksRule } from '../no-name-existence-checks.mjs';
+import { architectureRulesSelfBoundaryRule } from '../self-boundary.mjs';
 import { configModuleBoundaryRule } from './config-module-boundary.mjs';
 import { csvDraftBoundaryRule } from './csv-draft-boundary.mjs';
 import { csvModuleBoundaryRule } from './csv-module-boundary.mjs';
@@ -27,7 +29,11 @@ import { workspaceModuleBoundaryRule } from './workspace-module-boundary.mjs';
 import { workspacePersistenceBoundaryRule } from './workspace-persistence-boundary.mjs';
 import { writeBoundaryRule } from './write-boundary.mjs';
 
+// Meta-rules govern how rules themselves may be written; they live outside
+// rules/ so their own source is not a subject of the checks they define.
 export const rules = [
+  architectureRulesSelfBoundaryRule,
+  noNameExistenceChecksRule,
   frontendLayerBoundaryRule,
   mainHistoryCommandBoundaryRule,
   rustProjectLayerBoundaryRule,

@@ -1,6 +1,6 @@
-import { rustFile } from '../shared/files.mjs';
-import { cratePaths } from '../shared/rust-crate-paths.mjs';
-import { productionRustSource } from '../shared/rust-source.mjs';
+import { rustFile } from '../../shared/files.mjs';
+import { cratePaths } from '../../shared/rust-crate-paths.mjs';
+import { productionRustSource } from '../../shared/rust-source.mjs';
 
 // Horizontal edges between top-level backend services. The `project` subtree
 // has its own layer matrix (rust-project-layer-boundary) and is referenced
@@ -25,6 +25,7 @@ const allowedServiceEdges = new Set([
 
 export const rustServiceEdgeBoundaryRule = {
   name: 'rust-service-edge-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
@@ -43,6 +44,7 @@ export const rustServiceEdgeBoundaryRule = {
   },
 };
 
+/** @param {string} rel @returns {string | null} */
 function topLevelServiceModule(rel) {
   const match = /^src-tauri\/src\/services\/([^/]+?)(?:\.rs|\/)/.exec(rel);
   if (!match) return null;

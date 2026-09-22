@@ -1,8 +1,9 @@
-import { rustFile } from '../shared/files.mjs';
-import { cratePaths } from '../shared/rust-crate-paths.mjs';
+import { rustFile } from '../../shared/files.mjs';
+import { cratePaths } from '../../shared/rust-crate-paths.mjs';
 
 export const parserBoundaryRule = {
   name: 'parser-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
@@ -26,6 +27,7 @@ export const parserBoundaryRule = {
   },
 };
 
+/** @param {string} rel @returns {'parser' | 'io' | 'tool-json' | 'config-service' | 'project-write' | 'service' | 'other'} */
 function parserRustRole(rel) {
   if (rel.startsWith('src-tauri/src/parsers/')) return 'parser';
   if (rel.startsWith('src-tauri/src/io/')) return 'io';
@@ -37,22 +39,27 @@ function parserRustRole(rel) {
   return 'other';
 }
 
+/** @param {string} text @returns {boolean} */
 function hasLocalStarsectorPath(text) {
   return /[A-Z]:\/Starsector|[A-Z]:\\Starsector/.test(text);
 }
 
+/** @param {string} text @returns {boolean} */
 function usesStrictJsonParse(text) {
   return /\bserde_json::from_str\b/.test(text);
 }
 
+/** @param {string} role @returns {boolean} */
 function mayUseStrictJsonParse(role) {
   return role === 'parser' || role === 'tool-json';
 }
 
+/** @param {string} role @returns {boolean} */
 function mayParseCsvBytes(role) {
   return role === 'parser' || role === 'io';
 }
 
+/** @param {string} role @returns {boolean} */
 function mayRenderCsvText(role) {
   return role === 'parser' || role === 'config-service' || role === 'project-write';
 }

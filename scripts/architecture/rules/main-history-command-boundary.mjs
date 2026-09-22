@@ -1,6 +1,6 @@
-import { frontendFile } from '../shared/files.mjs';
-import { classifyFrontendPath } from '../shared/classify.mjs';
-import { importedProjectPaths } from '../shared/imports.mjs';
+import { frontendFile } from '../../shared/files.mjs';
+import { classifyFrontendPath } from '../../shared/classify.mjs';
+import { importedProjectPaths } from '../../shared/imports.mjs';
 
 const oldDispatcherNames = /\b(?:undoMainWindow|redoMainWindow)\b/;
 const oldDispatcherImport = /@\/orchestrators\/main-undo-redo\.orchestrator\b/;
@@ -11,6 +11,7 @@ const historyStoreImport = /\/stores\/(?:file-history|tables-edit-history|tables
 
 export const mainHistoryCommandBoundaryRule = {
   name: 'main-history-command-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
@@ -57,14 +58,17 @@ export const mainHistoryCommandBoundaryRule = {
   },
 };
 
+/** @param {string} text @param {import('../../shared/classify.mjs').FrontendPathClass} current @returns {boolean} */
 function isMainShortcutComposable(text, current) {
   return current.layer === 'app' && current.role === 'composable' && /\buseMainWindowShortcuts\b/.test(text);
 }
 
+/** @param {string} text @param {import('../../shared/classify.mjs').FrontendPathClass} current @returns {boolean} */
 function isHistoryDispatcher(text, current) {
   return current.layer === 'orchestrators' && /\bdispatchMain(?:Undo|Redo)Command\b/.test(text);
 }
 
+/** @param {string} text @param {import('../../shared/classify.mjs').FrontendPathClass} current @returns {boolean} */
 function isCommandDomain(text, current) {
   return current.layer === 'domain' && current.domain === 'workspace' && /\bshortcutCommandFromKeyEvent\b/.test(text);
 }

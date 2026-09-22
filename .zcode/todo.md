@@ -121,10 +121,10 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 2.8: scripts 检查体系收敛
 
-- [ ] `normalize`×4、`rustCommandModule`×4、`splitTopLevel`×2、`ignoredDirs`×3 收敛到共享层；`scripts/architecture/shared` 归位 `scripts/shared`（收集器与入口脚本同层共享）。
-- [ ] 文件收集器三套实现合一，static-checks"共享收集"契约扩展覆盖入口脚本；两条元规则（self-boundary、no-name-existence-checks）入规则注册表或契约显式例外成文；规则 surface 判定范式（classify/startsWith/singleFileByRel）成文。
-- [ ] `scripts/*.mjs` 纳入类型检查（checkJs 或迁移 .ts）。
-- [ ] 跑 `lint` 全套（eslint + check-architecture + check-identifier-length）。
+- [x] `normalize`×4 经核实为恒等变换（收集器已归一化 `rel`）直接删除；`rustCommandModule`×4 收敛 `scripts/shared/files.mjs` 路径谓词；`splitTopLevel`×2 取四括号超集版上收 `scripts/shared/rust-source.mjs`（use 树与参数列表行为等价）；`ignoredDirs`/`ignoredPathParts` 收敛为收集器私有常量；`scripts/architecture/shared` 五文件经 git mv 归位 `scripts/shared`。
+- [x] 文件收集器三套实现合一为 `collectRepoPaths(root, include)`（范围差异只以扩展名与包含谓词表达，三入口行为逐项等价），static-checks"共享收集"契约扩展覆盖入口脚本；两条元规则（self-boundary、no-name-existence-checks）经 `rules/index.mjs` 注册表装配（文件留在规则目录之外避免自检命中自身，例外已成文）；规则 surface 判定三形态范式（共享分类器路径角色 / 归一化路径成员判定 / singleFileByRel 单文件锚定）成文 static-checks.md。
+- [x] `scripts/*.mjs` 经 tsconfig.node.json `checkJs` 纳入 `npm run typecheck`（选 checkJs 而非迁 .ts：零重命名且不破坏 Node 22.13 引擎下限），39 个 .mjs 全量 JSDoc 注解，strict 零错误。
+- [x] 跑 `lint` 全套（eslint + check-architecture + check-identifier-length）、typecheck、format:check、encoding:check 全绿。
 
 ### Phase 2.9: schema 资产与静态数据整理
 

@@ -1,9 +1,10 @@
-import { frontendFile } from '../shared/files.mjs';
-import { classifyFrontendPath } from '../shared/classify.mjs';
-import { importedProjectPaths, importSpecifiers } from '../shared/imports.mjs';
+import { frontendFile } from '../../shared/files.mjs';
+import { classifyFrontendPath } from '../../shared/classify.mjs';
+import { importedProjectPaths, importSpecifiers } from '../../shared/imports.mjs';
 
 export const feedbackBoundaryRule = {
   name: 'feedback-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
@@ -65,6 +66,9 @@ export const feedbackBoundaryRule = {
   },
 };
 
+/** @typedef {{ layer?: string, role?: string, domain?: string, text?: RegExp }} ForbiddenTarget */
+
+/** @param {import('../../shared/files.mjs').RepoFile} file @param {string[]} failures @param {ForbiddenTarget} forbiddenTarget @param {string} message @returns {void} */
 function assertNoImportDomain(file, failures, forbiddenTarget, message) {
   for (const imported of importedProjectPaths(file)) {
     const target = classifyFrontendPath(imported.resolved);
@@ -72,6 +76,7 @@ function assertNoImportDomain(file, failures, forbiddenTarget, message) {
   }
 }
 
+/** @param {import('../../shared/classify.mjs').FrontendPathClass} target @param {import('../../shared/imports.mjs').ResolvedImport} imported @param {ForbiddenTarget} forbiddenTarget @returns {boolean} */
 function targetMatches(target, imported, forbiddenTarget) {
   if (forbiddenTarget.layer && target.layer !== forbiddenTarget.layer) return false;
   if (forbiddenTarget.role && target.role !== forbiddenTarget.role) return false;
@@ -80,6 +85,7 @@ function targetMatches(target, imported, forbiddenTarget) {
   return true;
 }
 
+/** @param {string} text @returns {boolean} */
 function mixesSettingsAndFeedbackLogCommands(text) {
   return (
     /\b(?:load_app_settings|save_app_settings)\b/.test(text) &&
@@ -87,14 +93,17 @@ function mixesSettingsAndFeedbackLogCommands(text) {
   );
 }
 
+/** @param {string} text @returns {boolean} */
 function mixesSettingsAndFeedbackLogTypes(text) {
   return /\bAppSettings\b/.test(text) && /\b(?:APP_LOG_LEVELS|AppLogLevel|AppLogEntry|AppLogStatus)\b/.test(text);
 }
 
+/** @param {string} text @returns {boolean} */
 function isTypeBarrel(text) {
   return !/\b(?:interface|type|const|enum)\s+[A-Za-z0-9_]+/.test(text);
 }
 
+/** @param {import('../../shared/classify.mjs').FrontendPathClass} current @returns {boolean} */
 function isFeedbackBoundary(current) {
   return current.layer === 'app' && current.domain === 'app-feedback';
 }

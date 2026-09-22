@@ -1,26 +1,28 @@
-import { readFile, readdir } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
-import { productionRustSource } from './architecture/shared/rust-source.mjs';
+import { collectRepoPaths } from './shared/files.mjs';
+import { productionRustSource, splitTopLevel } from './shared/rust-source.mjs';
 
 const maxIdentifierLength = 35;
-const ignoredDirs = new Set(['.git', 'dist', 'node_modules', 'release', 'target']);
 const sourceExtensions = new Set(['.ts', '.vue', '.rs']);
 
 const root = process.cwd();
-const files = await collectSourceFiles(root, root);
+const files = await collectRepoPaths(
+  root,
+  (rel, extension) => sourceExtensions.has(extension) && (rel.startsWith('src/') || rel.startsWith('src-tauri/src/')),
+);
+/** @type {string[]} */
 const failures = [];
 
-for (const filePath of files) {
-  const rel = normalizePath(relative(root, filePath));
-  if (isTestPath(rel)) continue;
-  const text = await readFile(filePath, 'utf8');
-  if (rel.endsWith('.rs')) {
-    checkRustFile(rel, text, failures);
-  } else if (rel.endsWith('.vue')) {
-    for (const block of vueScriptBlocks(text)) checkTypeScript(rel, block, failures);
+for (const file of files) {
+  if (isTestPath(file.rel)) continue;
+  const text = await readFile(file.path, 'utf8');
+  if (file.rel.endsWith('.rs')) {
+    checkRustFile(file.rel, text, failures);
+  } else if (file.rel.endsWith('.vue')) {
+    for (const block of vueScriptBlocks(text)) checkTypeScript(file.rel, block, failures);
   } else {
-    checkTypeScript(rel, text, failures);
+    checkTypeScript(file.rel, text, failures);
   }
 }
 
@@ -31,39 +33,22 @@ if (failures.length > 0) {
 
 console.log(`Identifier length check passed: variables and functions <= ${maxIdentifierLength} characters.`);
 
-async function collectSourceFiles(rootDir, dir) {
-  const entries = await readdir(dir, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (ignoredDirs.has(entry.name)) continue;
-      files.push(...(await collectSourceFiles(rootDir, path)));
-      continue;
-    }
-    const extension = entry.name.includes('.') ? entry.name.slice(entry.name.lastIndexOf('.')) : '';
-    const rel = normalizePath(relative(rootDir, path));
-    if (sourceExtensions.has(extension) && (rel.startsWith('src/') || rel.startsWith('src-tauri/src/'))) files.push(path);
-  }
-  return files;
-}
-
-function normalizePath(path) {
-  return path.replace(/\\/g, '/');
-}
-
+/** @param {string} rel @returns {boolean} */
 function isTestPath(rel) {
   return /(^|\/)(?:__tests__|tests)(?:\/|$)|[.-](?:test|spec)\.(?:ts|vue|rs)$|_test\.rs$/.test(rel);
 }
 
+/** @param {string} text @returns {string[]} */
 function vueScriptBlocks(text) {
   return [...text.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
 }
 
+/** @param {string} rel @param {string} text @param {string[]} output @returns {void} */
 function checkTypeScript(rel, text, output) {
   const source = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   visit(source);
 
+  /** @param {import('typescript').Node} node */
   function visit(node) {
     if (ts.isVariableDeclaration(node)) {
       checkBindingName(rel, node.name, 'variable', output);
@@ -81,6 +66,7 @@ function checkTypeScript(rel, text, output) {
   }
 }
 
+/** @param {string} rel @param {import('typescript').BindingName} name @param {string} kind @param {string[]} output @returns {void} */
 function checkBindingName(rel, name, kind, output) {
   if (ts.isIdentifier(name)) {
     checkIdentifier(rel, name.text, kind, output);
@@ -91,6 +77,7 @@ function checkBindingName(rel, name, kind, output) {
   }
 }
 
+/** @param {string} rel @param {string} text @param {string[]} output @returns {void} */
 function checkRustFile(rel, text, output) {
   const clean = productionRustSource(text);
   for (const match of clean.matchAll(/\bfn\s+([A-Za-z_][A-Za-z0-9_]*)/g)) {
@@ -104,20 +91,23 @@ function checkRustFile(rel, text, output) {
   }
 }
 
+/** @param {string} pattern @returns {string[]} */
 function rustPatternIdentifiers(pattern) {
   return identifiers(pattern).filter((name) => !rustIgnoredNames().has(name));
 }
 
+/** @param {string} text @returns {string[]} */
 function rustFunctionParamLists(text) {
   const lists = [];
   for (const match of text.matchAll(/\bfn\s+[A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>{;]*>)?\s*\(/g)) {
-    const start = match.index + match[0].length - 1;
+    const start = (match.index ?? 0) + match[0].length - 1;
     const end = matchingParenIndex(text, start);
     if (end > start) lists.push(text.slice(start + 1, end));
   }
   return lists;
 }
 
+/** @param {string} params @returns {string[]} */
 function rustParamIdentifiers(params) {
   const names = [];
   for (const param of splitTopLevel(params)) {
@@ -130,23 +120,7 @@ function rustParamIdentifiers(params) {
   return names;
 }
 
-function splitTopLevel(value) {
-  const parts = [];
-  let depth = 0;
-  let start = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    const char = value[index];
-    if ('([{<'.includes(char)) depth += 1;
-    if (')]}>'.includes(char)) depth -= 1;
-    if (char === ',' && depth === 0) {
-      parts.push(value.slice(start, index));
-      start = index + 1;
-    }
-  }
-  parts.push(value.slice(start));
-  return parts;
-}
-
+/** @param {string} text @param {number} openIndex @returns {number} */
 function matchingParenIndex(text, openIndex) {
   let depth = 0;
   for (let index = openIndex; index < text.length; index += 1) {
@@ -160,14 +134,17 @@ function matchingParenIndex(text, openIndex) {
   return -1;
 }
 
+/** @param {string} text @returns {string[]} */
 function identifiers(text) {
   return [...text.matchAll(/\b[A-Za-z_][A-Za-z0-9_]*\b/g)].map((match) => match[0]);
 }
 
+/** @returns {Set<string>} */
 function rustIgnoredNames() {
   return new Set(['mut', 'ref', 'self', 'Self', '_']);
 }
 
+/** @param {string} rel @param {string} name @param {string} kind @param {string[]} output @returns {void} */
 function checkIdentifier(rel, name, kind, output) {
   const normalized = name.replace(/^_+/, '');
   if (normalized.length > maxIdentifierLength) {

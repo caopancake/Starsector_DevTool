@@ -1,7 +1,8 @@
-import { frontendFile, specFile } from '../shared/files.mjs';
+import { frontendFile, specFile } from '../../shared/files.mjs';
 
 export const errorBoundaryRule = {
   name: 'error-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {

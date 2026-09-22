@@ -1,5 +1,9 @@
 import { dirname, join, normalize } from 'node:path';
 
+/** @typedef {{ importedName: string | null, specifier: string, typeOnly: boolean }} ImportSpecifierInfo */
+/** @typedef {ImportSpecifierInfo & { resolved: string }} ResolvedImport */
+
+/** @param {string} text @returns {ImportSpecifierInfo[]} */
 export function importSpecifiers(text) {
   const specs = [];
   for (const match of text.matchAll(/import\s+(type\s+)?([^'"]+?\s+from\s+)?['"]([^'"]+)['"]/g)) {
@@ -20,6 +24,7 @@ export function importSpecifiers(text) {
   return specs;
 }
 
+/** @param {string} importClause @returns {string[]} */
 function namedImportNames(importClause) {
   const match = importClause.match(/\{([\s\S]*?)\}/);
   if (!match) return [];
@@ -35,16 +40,19 @@ function namedImportNames(importClause) {
     .filter(Boolean);
 }
 
+/** @param {string} fromRel @param {string} specifier @returns {string} */
 export function resolvedProjectImport(fromRel, specifier) {
   if (specifier.startsWith('@/')) return normalizeProjectPath(`src/${specifier.slice(2)}`);
   if (!specifier.startsWith('.')) return specifier;
   return normalizeProjectPath(join(dirname(fromRel), specifier));
 }
 
+/** @param {string} path @returns {string} */
 export function normalizeProjectPath(path) {
   return normalize(path).replace(/\\/g, '/');
 }
 
+/** @param {import('./files.mjs').RepoFile} file @returns {ResolvedImport[]} */
 export function importedProjectPaths(file) {
   return importSpecifiers(file.text).map((item) => ({
     ...item,
@@ -52,6 +60,7 @@ export function importedProjectPaths(file) {
   }));
 }
 
+/** @param {string} text @returns {string[]} */
 export function exportedFunctionNames(text) {
   return [
     ...[...text.matchAll(/export\s+(?:async\s+)?function\s+([A-Za-z0-9_]+)/g)].map((match) => match[1]),

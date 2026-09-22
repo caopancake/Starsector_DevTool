@@ -1,9 +1,10 @@
-import { classifyFrontendPath } from '../shared/classify.mjs';
-import { frontendFile } from '../shared/files.mjs';
-import { importedProjectPaths, importSpecifiers } from '../shared/imports.mjs';
+import { classifyFrontendPath } from '../../shared/classify.mjs';
+import { frontendFile } from '../../shared/files.mjs';
+import { importedProjectPaths, importSpecifiers } from '../../shared/imports.mjs';
 
 export const frontendLayerBoundaryRule = {
   name: 'frontend-layer-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
@@ -78,15 +79,19 @@ const allowedServiceEdges = new Set([
   'editor -> write',
 ]);
 
+/** @param {import('../../shared/classify.mjs').FrontendPathClass} current @param {import('../../shared/classify.mjs').FrontendPathClass} target @returns {boolean} */
 function allowedServiceEdge(current, target) {
   return allowedServiceEdges.has(`${normalizeServiceDomain(current)} -> ${normalizeServiceDomain(target)}`);
 }
 
+/** @param {import('../../shared/classify.mjs').FrontendPathClass} file @returns {string} */
 function normalizeServiceDomain(file) {
   return (file.domain ?? '').replace(/\.service$/, '');
 }
 
+/** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
 function orchestratorCycleFailures(files) {
+  /** @type {string[]} */
   const failures = [];
   const orchestratorFiles = files.filter(
     (file) => file.rel.startsWith('src/orchestrators/') && file.rel.endsWith('.ts') && !file.rel.endsWith('.spec.ts'),
@@ -102,6 +107,7 @@ function orchestratorCycleFailures(files) {
   }
   const visiting = new Set();
   const visited = new Set();
+  /** @param {string} rel @param {string[]} trail @returns {void} */
   function visit(rel, trail) {
     if (visiting.has(rel)) {
       failures.push(`src/orchestrators: orchestrator dependency cycle detected: ${[...trail, rel].join(' -> ')}`);
@@ -117,11 +123,14 @@ function orchestratorCycleFailures(files) {
   return failures;
 }
 
+/** @param {import('../../shared/classify.mjs').FrontendPathClass} current @returns {boolean} */
 function tauriRuntimeBoundary(current) {
   return current.role === 'api' || (current.layer === 'shared' && current.domain === 'runtime') || current.layer === 'windows';
 }
 
+/** @param {import('../../shared/classify.mjs').FrontendLayer} fromLayer @param {import('../../shared/classify.mjs').FrontendLayer} toLayer @returns {boolean} */
 function validFrontendDependency(fromLayer, toLayer) {
+  /** @type {Record<string, number>} */
   const rank = {
     shared: 0,
     domain: 1,
@@ -133,6 +142,9 @@ function validFrontendDependency(fromLayer, toLayer) {
     styles: 5,
   };
   if (!(fromLayer in rank) || !(toLayer in rank)) return true;
+  const from = rank[fromLayer];
+  const to = rank[toLayer];
+  if (from === undefined || to === undefined) return true;
   if (fromLayer === 'shared') return toLayer === 'shared';
   if (fromLayer === 'domain') return toLayer === 'domain' || toLayer === 'shared';
   if (fromLayer === 'services') return toLayer === 'services' || toLayer === 'domain' || toLayer === 'shared';
@@ -141,5 +153,5 @@ function validFrontendDependency(fromLayer, toLayer) {
   if (fromLayer === 'windows') return ['windows', 'orchestrators', 'services', 'domain', 'shared'].includes(toLayer);
   if (fromLayer === 'app') return toLayer !== 'styles';
   if (fromLayer === 'styles') return toLayer === 'styles';
-  return rank[toLayer] <= rank[fromLayer];
+  return to <= from;
 }

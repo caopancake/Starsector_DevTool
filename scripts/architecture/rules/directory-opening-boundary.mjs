@@ -1,4 +1,4 @@
-import { frontendFile } from '../shared/files.mjs';
+import { frontendFile } from '../../shared/files.mjs';
 
 const openingCommandNames = ['open_project_session', 'detect_directory', 'scan_game_overview'];
 const openingModelTypeDefs = [
@@ -23,6 +23,7 @@ const oldFrontendNames = ['scanWorkspaceOverview', 'detectWorkspaceDirectory'];
 
 // Anchored per-file name lists: rel path -> names that must stay out of that
 // file, expressed as a plain data table instead of per-file path predicates.
+/** @type {Record<string, { words?: string[], typeDefs?: string[], message: string }>} */
 const moduleAnchors = {
   'src-tauri/src/commands/project.rs': {
     words: openingCommandNames,
@@ -40,6 +41,7 @@ const moduleAnchors = {
 
 export const directoryOpeningBoundaryRule = {
   name: 'directory-opening-boundary',
+  /** @param {import('../../shared/files.mjs').RepoFile[]} files @returns {string[]} */
   check(files) {
     const failures = [];
     for (const file of files) {
