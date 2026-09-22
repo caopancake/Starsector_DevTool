@@ -74,9 +74,9 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 2.2: shared/lib/starsector.ts 按职责拆分
 
-- [ ] 拆分落点为 `shared/lib/starsector/` 子目录（表列资产、视觉常量、通用工具、领域规则、默认模板各为独立模块），消费方 import 路径同步；`str`/`num`/`arr` 占位命名复核。
-- [ ] `WEAPON_COLORS` 颜色字面量统一为 `rgb()` 现代语法。
-- [ ] 跑前端全套检查。
+- [x] 拆分落点为 `shared/lib/starsector/` 子目录（`tables.ts` 表列资产与列解析、`colors.ts` 视觉常量、`value.ts` 值取用与格式化原语、`rows.ts` 行身份规则、`index.ts` barrel——默认模板已随 2.1 归位 domain，不在本拆分内），消费方经 barrel 导入零改动；`str`/`num`/`arr` 复核结论：保留原名（与 `cell()` 同族的单元格取值原语，非占位缩写）。
+- [x] `WEAPON_COLORS` 颜色字面量统一为 `rgb()` 现代语法（LAUNCH_BAY/DECORATIVE/SYSTEM 三个 hex 完成 hex→rgb 换算）。
+- [x] 跑前端全套检查。
 
 ### Phase 2.3: 巨型组件拆解
 
