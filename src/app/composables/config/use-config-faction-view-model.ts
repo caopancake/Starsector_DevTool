@@ -109,7 +109,7 @@ export function useConfigFactionViewModel() {
       sessionId: saveSessionId,
       modRoot: saveModRoot,
       kind: 'faction',
-      previousId: idChanged ? previousId : null,
+      previousId,
       nextId,
       indexRow: buildFactionIndexRow(nextId),
       entityData: { file: draft.file },

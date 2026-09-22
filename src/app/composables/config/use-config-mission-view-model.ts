@@ -131,7 +131,7 @@ export function useConfigMissionViewModel() {
       sessionId: activeSessionId,
       modRoot: activeModRoot,
       kind: 'mission',
-      previousId: idChanged ? previousId : null,
+      previousId,
       nextId: draft.nextId,
       indexRow: buildMissionIndexRow([draft.list], Object.keys(draft.list).length ? Object.keys(draft.list) : ['mission'], draft.nextId),
       entityData: { descriptor: deepClone(draft.descriptor), text: draft.text },
