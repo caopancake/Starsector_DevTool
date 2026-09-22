@@ -273,14 +273,10 @@ fn skin_detail(session: &mut ProjectSession, id: &str) -> AppResult<Option<Value
 }
 
 fn ship_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
-    let entries: Vec<(String, Value)> = session
+    session
         .ship_files
         .iter()
-        .map(|(id, data)| (id.clone(), data.clone()))
-        .collect();
-    entries
-        .into_iter()
-        .map(|(id, data)| plain_entity(session, EntityKind::Ship, &id, data))
+        .map(|(id, data)| plain_entity(session, EntityKind::Ship, id, data.clone()))
         .collect()
 }
 
@@ -292,26 +288,18 @@ fn weapon_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
 }
 
 fn projectile_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
-    let entries: Vec<(String, Value)> = session
+    session
         .projectile_specs
         .iter()
-        .map(|(id, data)| (id.clone(), data.clone()))
-        .collect();
-    entries
-        .into_iter()
-        .map(|(id, data)| plain_entity(session, EntityKind::Projectile, &id, data))
+        .map(|(id, data)| plain_entity(session, EntityKind::Projectile, id, data.clone()))
         .collect()
 }
 
 fn system_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
-    let entries: Vec<(String, Value)> = session
+    session
         .system_files
         .iter()
-        .map(|(id, data)| (id.clone(), data.clone()))
-        .collect();
-    entries
-        .into_iter()
-        .map(|(id, data)| plain_entity(session, EntityKind::System, &id, data))
+        .map(|(id, data)| plain_entity(session, EntityKind::System, id, data.clone()))
         .collect()
 }
 
@@ -323,14 +311,10 @@ fn skill_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
 }
 
 fn faction_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
-    let entries: Vec<(String, Value)> = session
+    session
         .faction_files
         .iter()
-        .map(|(id, data)| (id.clone(), data.clone()))
-        .collect();
-    entries
-        .into_iter()
-        .map(|(id, data)| plain_entity(session, EntityKind::Faction, &id, data))
+        .map(|(id, data)| plain_entity(session, EntityKind::Faction, id, data.clone()))
         .collect()
 }
 
@@ -342,16 +326,16 @@ fn mission_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
 }
 
 fn variant_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
-    let files = session.variant_files.clone();
-    files
+    session
+        .variant_files
         .iter()
         .map(|item| build_variant_entity(session, EntityKind::Variant, item))
         .collect()
 }
 
 fn skin_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
-    let files = session.skin_files.clone();
-    files
+    session
+        .skin_files
         .iter()
         .map(|item| build_skin_entity(session, EntityKind::Skin, item))
         .collect()

@@ -31,46 +31,6 @@ pub(super) fn image_mime_type(extension: &str) -> Option<&'static str> {
     }
 }
 
-#[cfg(test)]
-pub(super) fn load_ship_sprite_data(
-    mod_root: &Path,
-    core_dir: Option<&Path>,
-    ship_files: &BTreeMap<String, Value>,
-) -> BTreeMap<String, String> {
-    let mut sprites = BTreeMap::new();
-    for (id, value) in ship_files {
-        if let Some(sprite) = value.get("spriteName").and_then(Value::as_str) {
-            if let Ok(Some(data_url)) = load_sprite_data_url(mod_root, core_dir, sprite) {
-                sprites.insert(id.clone(), data_url);
-            }
-        }
-    }
-    sprites
-}
-
-#[cfg(test)]
-pub(super) fn load_weapon_sprite_data(
-    mod_root: &Path,
-    core_dir: Option<&Path>,
-    weapon_specs: &BTreeMap<String, Value>,
-) -> BTreeMap<String, BTreeMap<String, String>> {
-    let mut sprites = BTreeMap::new();
-    for (id, value) in weapon_specs {
-        let mut weapon_sprites = BTreeMap::new();
-        for field in super::super::model::WEAPON_SPRITE_FIELDS {
-            if let Some(sprite) = value.get(field).and_then(Value::as_str) {
-                if let Ok(Some(data_url)) = load_sprite_data_url(mod_root, core_dir, sprite) {
-                    weapon_sprites.insert(field.to_string(), data_url);
-                }
-            }
-        }
-        if !weapon_sprites.is_empty() {
-            sprites.insert(id.clone(), weapon_sprites);
-        }
-    }
-    sprites
-}
-
 pub(super) fn load_sprite_bytes_from_root(
     root: &Path,
     sprite: &str,
@@ -190,6 +150,44 @@ mod tests {
     use super::*;
     use crate::testutil::temp_dir;
     use std::fs;
+
+    fn load_ship_sprite_data(
+        mod_root: &Path,
+        core_dir: Option<&Path>,
+        ship_files: &BTreeMap<String, Value>,
+    ) -> BTreeMap<String, String> {
+        let mut sprites = BTreeMap::new();
+        for (id, value) in ship_files {
+            if let Some(sprite) = value.get("spriteName").and_then(Value::as_str) {
+                if let Ok(Some(data_url)) = load_sprite_data_url(mod_root, core_dir, sprite) {
+                    sprites.insert(id.clone(), data_url);
+                }
+            }
+        }
+        sprites
+    }
+
+    fn load_weapon_sprite_data(
+        mod_root: &Path,
+        core_dir: Option<&Path>,
+        weapon_specs: &BTreeMap<String, Value>,
+    ) -> BTreeMap<String, BTreeMap<String, String>> {
+        let mut sprites = BTreeMap::new();
+        for (id, value) in weapon_specs {
+            let mut weapon_sprites = BTreeMap::new();
+            for field in crate::services::project::model::WEAPON_SPRITE_FIELDS {
+                if let Some(sprite) = value.get(field).and_then(Value::as_str) {
+                    if let Ok(Some(data_url)) = load_sprite_data_url(mod_root, core_dir, sprite) {
+                        weapon_sprites.insert(field.to_string(), data_url);
+                    }
+                }
+            }
+            if !weapon_sprites.is_empty() {
+                sprites.insert(id.clone(), weapon_sprites);
+            }
+        }
+        sprites
+    }
 
     #[test]
     fn missing_sprite_does_not_create_entry() {

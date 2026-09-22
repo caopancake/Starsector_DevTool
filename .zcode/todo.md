@@ -114,10 +114,10 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 2.7: 缓存与热路径性能收敛
 
-- [ ] `CoreCache` 命中路径 `Arc` 化消灭全量深拷贝；六个 `load_core_*` 泛型 `get_or_load` 收敛；冷加载的全量持久化落盘合并为一次性 flush 并移出 query 持锁路径。
-- [ ] `csv_patch.rs` 写路径双轮整表拷贝收敛；`entity_definitions.rs` list 函数先收集克隆再二次遍历收敛为单遍；`io/file_changes.rs` 目录快照单次采集。
-- [ ] `sprites.rs` 测试专用旧批量加载器迁入测试模块或删除。
-- [ ] 跑 cargo 全套；`performance-baseline` 模块文档同步。
+- [x] `CoreCache` 命中路径 `Arc` 化（资产字段与 `CORE_CACHES` 值均包 `Arc`，命中 = Arc clone 零深拷贝；serde 启用 `rc` 特性）；六个 `load_core_*` 收敛为泛型 `get_or_load_core`（get/store/load 三闭包）薄壳；冷加载只写内存并标 dirty，落盘合并为一次性 `flush_core_cache`（打开成功后与缓存失效前执行），query 路径内零持久化。
+- [x] `csv_patch.rs` 写路径第二轮整表深拷贝消除（`render_csv_text` 改引用传递 `&[&Map]`，csv_patch/indexed_entities/alex_csv 调用方同步；第一轮工作副本为失败隔离所需，保留）；`entity_definitions.rs` 五个 list 函数"先收集克隆再二次遍历"收敛为单遍（含 variant/skin 整 Vec clone 删除）；`io/file_changes.rs::build_current_state` 目录快照单次采集。
+- [x] `sprites.rs` 测试专用旧批量加载器迁入测试模块（`load_ship_sprite_data`/`load_weapon_sprite_data` 转为 tests mod 私有）。
+- [x] 跑 cargo 全套；`performance-baseline` 模块文档同步（core 缓存 flush 语义实际归属 `project-session.md`，已同步其规范段）。
 
 ### Phase 2.8: scripts 检查体系收敛
 

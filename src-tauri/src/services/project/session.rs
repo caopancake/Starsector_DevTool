@@ -85,6 +85,14 @@ pub(crate) fn open_project_session_traced(
         cache::clear_sprite_media_for_session(&oldest);
     }
     guard.insert(manifest.session_id.clone(), Arc::new(Mutex::new(session)));
+    drop(guard);
+    // Open concentrated cold loads of core assets; persist them once here so
+    // the dump never runs inside a query.
+    if let Some(root) = &manifest.starsector_root {
+        if let Err(error) = cache::flush_core_cache(root) {
+            crate::diagnostics::record(format!("core cache flush failed: {error}"));
+        }
+    }
     Ok(manifest)
 }
 
@@ -348,7 +356,8 @@ pub(super) fn load_spec_bundle(
     let core_projectiles = starsector_root
         .map(|root| cache::load_core_projectile_specs(&root.to_string_lossy()))
         .transpose()?;
-    let projectile_specs = projectiles::load_projectile_specs(mod_root, core_projectiles)?;
+    let projectile_specs =
+        projectiles::load_projectile_specs(mod_root, core_projectiles.as_deref())?;
     trace.record_stage(
         "spec.projectile_specs",
         timer,

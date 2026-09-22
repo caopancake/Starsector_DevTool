@@ -6,13 +6,13 @@ use std::{collections::BTreeMap, path::Path};
 /// id always wins, core-only specs fill the rest.
 pub(in crate::services::project) fn load_projectile_specs(
     mod_root: &Path,
-    core_projectiles: Option<BTreeMap<String, Value>>,
+    core_projectiles: Option<&BTreeMap<String, Value>>,
 ) -> AppResult<BTreeMap<String, Value>> {
     let mut result = BTreeMap::new();
     insert_projectiles(&mut result, &mod_root.join("data/weapons/proj"))?;
     if let Some(core_projectiles) = core_projectiles {
         for (id, value) in core_projectiles {
-            result.entry(id).or_insert(value);
+            result.entry(id.clone()).or_insert_with(|| value.clone());
         }
     }
     Ok(result)
@@ -54,7 +54,7 @@ mod tests {
             let id = value["id"].as_str().unwrap().to_string();
             core_projectiles.insert(id, value);
         }
-        let loaded = load_projectile_specs(&root.join("mod"), Some(core_projectiles)).unwrap();
+        let loaded = load_projectile_specs(&root.join("mod"), Some(&core_projectiles)).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(loaded["same"]["damage"], 2);

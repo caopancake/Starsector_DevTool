@@ -75,7 +75,7 @@ pub fn save_indexed_config_entity(
     }
     builder.root_text_file(
         definition.index_rel_path(),
-        Some(render_csv_text(&header, &rows)?),
+        Some(render_csv_text(&header, &rows.iter().collect::<Vec<_>>())?),
     )?;
     definition.add_save_changes(&mut builder, &next_id, &entity_data)?;
     if delete_previous_target {
@@ -130,7 +130,7 @@ pub fn delete_indexed_config_entity(
     let mut builder = FileChangeSetBuilder::new(mod_root)?;
     builder.root_text_file(
         definition.index_rel_path(),
-        Some(render_csv_text(&header, &rows)?),
+        Some(render_csv_text(&header, &rows.iter().collect::<Vec<_>>())?),
     )?;
     if delete_target {
         definition.add_delete_target_change(&mut builder, &id)?;

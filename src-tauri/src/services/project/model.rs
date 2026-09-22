@@ -4,6 +4,7 @@ use crate::models::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 
 pub(super) const MISSION_LIST_TABLE_KEY: &str = "missions";
 pub(super) const MISSION_LIST_REL_PATH: &str = "data/missions/mission_list.csv";
@@ -307,19 +308,32 @@ pub(super) struct ProjectSession {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub(super) struct CoreCache {
-    pub csv_tables: BTreeMap<String, SessionCsvTable>,
-    pub ship_files: Option<BTreeMap<String, Value>>,
-    pub variant_files: Option<Vec<VariantFile>>,
-    pub skin_files: Option<Vec<SkinFile>>,
-    pub weapon_specs: Option<BTreeMap<String, Value>>,
-    pub projectile_specs: Option<BTreeMap<String, Value>>,
+    pub csv_tables: BTreeMap<String, Arc<SessionCsvTable>>,
+    pub ship_files: Option<Arc<BTreeMap<String, Value>>>,
+    pub variant_files: Option<Arc<Vec<VariantFile>>>,
+    pub skin_files: Option<Arc<Vec<SkinFile>>>,
+    pub weapon_specs: Option<Arc<BTreeMap<String, Value>>>,
+    pub projectile_specs: Option<Arc<BTreeMap<String, Value>>>,
+}
+
+impl CoreCache {
+    pub(super) fn empty() -> Self {
+        Self {
+            csv_tables: BTreeMap::new(),
+            ship_files: None,
+            variant_files: None,
+            skin_files: None,
+            weapon_specs: None,
+            projectile_specs: None,
+        }
+    }
 }
 
 #[derive(Clone, Default)]
 pub(super) struct CoreSourceData {
-    pub ship_files: BTreeMap<String, Value>,
-    pub variant_files: Vec<VariantFile>,
-    pub weapon_specs: BTreeMap<String, Value>,
+    pub ship_files: Arc<BTreeMap<String, Value>>,
+    pub variant_files: Arc<Vec<VariantFile>>,
+    pub weapon_specs: Arc<BTreeMap<String, Value>>,
 }
 
 pub(super) fn string_from_row(row: &Map<String, Value>, key: &str) -> Option<String> {

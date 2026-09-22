@@ -282,17 +282,19 @@ fn build_current_state(path: &Path) -> AppResult<FileChangeRecord> {
         validate_walk_entry(path, "current changeset state")?;
     }
     if path.is_dir() {
+        // before and after are the same current state; walk once.
+        let files = snapshot_directory(path)?;
         return Ok(FileChangeRecord {
             kind: FileChangeKind::Directory,
             path: path.to_string_lossy().to_string(),
             before_exists: true,
             before_text: None,
             before_data_base64: None,
-            before_files: snapshot_directory(path)?,
+            before_files: files.clone(),
             after_exists: true,
             after_text: None,
             after_data_base64: None,
-            after_files: snapshot_directory(path)?,
+            after_files: files,
         });
     }
     let exists = path.exists();

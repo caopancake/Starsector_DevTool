@@ -114,7 +114,7 @@ fn build_hull_references(
             .unwrap_or_default();
 
         let mut core_ship_options = Vec::new();
-        for (hull_id, ship) in &core_ship_files {
+        for (hull_id, ship) in core_ship_files.iter() {
             if seen.contains(hull_id) {
                 continue;
             }
@@ -147,7 +147,7 @@ fn build_hull_references(
         }
 
         let mut core_skin_options = Vec::new();
-        for skin in &core_skin_files {
+        for skin in core_skin_files.iter() {
             if seen.contains(&skin.skin_hull_id) {
                 continue;
             }

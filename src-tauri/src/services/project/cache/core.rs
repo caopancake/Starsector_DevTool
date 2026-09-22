@@ -5,8 +5,9 @@ use crate::{
 };
 use serde_json::Value;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
+    sync::{Arc, LazyLock, Mutex},
 };
 
 use super::super::model::{
@@ -17,34 +18,83 @@ use super::{
     spec_files::{load_skin_files, load_variant_files},
 };
 
-pub(crate) fn core_cache_snapshot(starsector_root: &str) -> AppResult<CoreCache> {
+static CORE_CACHE_DIRTY: LazyLock<Mutex<BTreeSet<String>>> =
+    LazyLock::new(|| Mutex::new(BTreeSet::new()));
+
+fn mark_core_cache_dirty(cache_key: &str) {
+    if let Ok(mut guard) = CORE_CACHE_DIRTY.lock() {
+        guard.insert(cache_key.to_string());
+    }
+}
+
+/// Persists the in-memory core cache once, and only when something loaded
+/// since the last flush; a save failure is recorded and never propagated.
+pub(crate) fn flush_core_cache(starsector_root: &str) -> AppResult<()> {
+    let cache_key = core_cache_key(starsector_root)?;
+    let dirty = CORE_CACHE_DIRTY
+        .lock()
+        .map(|mut guard| guard.remove(cache_key.as_str()))
+        .unwrap_or(false);
+    if !dirty {
+        return Ok(());
+    }
+    let Some(cache) = lock_core_caches()?.get(&cache_key).cloned() else {
+        return Ok(());
+    };
+    if let Err(error) = persistent::save_core_cache(starsector_root, &cache) {
+        crate::diagnostics::record(format!("core cache save failed: {error}"));
+    }
+    Ok(())
+}
+
+pub(crate) fn core_cache_snapshot(starsector_root: &str) -> AppResult<Arc<CoreCache>> {
     let cache_key = core_cache_key(starsector_root)?;
     if let Some(cache) = lock_core_caches()?.get(&cache_key).cloned() {
         return Ok(cache);
     }
-    let cache = persistent::load_core_cache(starsector_root)?.unwrap_or_else(|| CoreCache {
-        csv_tables: BTreeMap::new(),
-        ship_files: None,
-        variant_files: None,
-        skin_files: None,
-        weapon_specs: None,
-        projectile_specs: None,
-    });
-    let mut guard = lock_core_caches()?;
-    Ok(guard
+    let cache = persistent::load_core_cache(starsector_root)?.unwrap_or_else(CoreCache::empty);
+    let cache = Arc::new(cache);
+    lock_core_caches()?
         .entry(cache_key)
-        .or_insert_with(|| cache.clone())
-        .clone())
+        .or_insert_with(|| cache.clone());
+    Ok(cache)
 }
 
-pub(crate) fn replace_core_cache(starsector_root: &str, cache: CoreCache) -> AppResult<()> {
-    let cache_key = core_cache_key(starsector_root)?;
-    lock_core_caches()?.insert(cache_key, cache);
-    let snapshot = core_cache_snapshot(starsector_root)?;
-    if let Err(error) = persistent::save_core_cache(starsector_root, &snapshot) {
-        crate::diagnostics::record(format!("core cache save failed: {error}"));
+fn store_core_cache(starsector_root: &str, cache: CoreCache) {
+    let Ok(cache_key) = core_cache_key(starsector_root) else {
+        return;
+    };
+    mark_core_cache_dirty(&cache_key);
+    if let Err(error) = lock_core_caches().map(|mut guard| guard.insert(cache_key, Arc::new(cache)))
+    {
+        crate::diagnostics::record(format!("core cache store failed: {error}"));
     }
-    Ok(())
+}
+
+/// Hit path clones the `Arc` (no deep copy); a miss loads the asset from disk,
+/// stores an `Arc` into the in-memory cache and marks it dirty for the next
+/// flush. Persistence never happens inside a query.
+fn get_or_load_core<T, G, S, L>(
+    starsector_root: &str,
+    get: G,
+    store: S,
+    load: L,
+) -> AppResult<Arc<T>>
+where
+    G: Fn(&CoreCache) -> Option<&Arc<T>>,
+    S: Fn(&mut CoreCache, Arc<T>),
+    L: FnOnce(&Path) -> AppResult<T>,
+{
+    let cache = core_cache_snapshot(starsector_root)?;
+    if let Some(value) = get(&cache) {
+        return Ok(value.clone());
+    }
+    let core_dir = core_dir(starsector_root)?;
+    let value = Arc::new(load(&core_dir)?);
+    let mut updated = CoreCache::clone(&cache);
+    store(&mut updated, value.clone());
+    store_core_cache(starsector_root, updated);
+    Ok(value)
 }
 
 pub(super) fn core_cache_key(starsector_root: &str) -> AppResult<String> {
@@ -64,16 +114,15 @@ pub(crate) fn core_dir(starsector_root: &str) -> AppResult<PathBuf> {
 pub(crate) fn load_core_csv_table(
     starsector_root: &str,
     table: CsvTableKey,
-) -> AppResult<Option<SessionCsvTable>> {
+) -> AppResult<Option<Arc<SessionCsvTable>>> {
     let table_key = table.as_str();
-    let mut cache = core_cache_snapshot(starsector_root)?;
+    let cache = core_cache_snapshot(starsector_root)?;
     if let Some(csv) = cache.csv_tables.get(table_key) {
         return Ok(Some(csv.clone()));
     }
     let rel = csv_table_spec(table).rel_path;
     let core_dir = core_dir(starsector_root)?;
     if !core_dir.exists() {
-        replace_core_cache(starsector_root, cache)?;
         return Ok(None);
     }
     let csv = read_csv_data(&core_dir.join(rel))?;
@@ -87,99 +136,69 @@ pub(crate) fn load_core_csv_table(
         })
         .collect();
     let next_row_seq = rows.len() as u64;
-    let table_state = SessionCsvTable {
+    let table_state = Arc::new(SessionCsvTable {
         header: csv.header,
         path: rel.to_string(),
         rows: Some(rows),
         next_row_seq,
-    };
-    cache
+    });
+    let mut updated = CoreCache::clone(&cache);
+    updated
         .csv_tables
         .insert(table_key.to_string(), table_state.clone());
-    replace_core_cache(starsector_root, cache)?;
+    store_core_cache(starsector_root, updated);
     Ok(Some(table_state))
 }
 
-pub(crate) fn load_core_ship_files(starsector_root: &str) -> AppResult<BTreeMap<String, Value>> {
-    let mut cache = core_cache_snapshot(starsector_root)?;
-    if let Some(files) = cache.ship_files.clone() {
-        return Ok(files);
-    }
-    let core_dir = core_dir(starsector_root)?;
-    let files = if core_dir.exists() {
-        load_json_dir_by_id(&core_dir.join("data/hulls"), "ship", "hullId")?
-    } else {
-        BTreeMap::new()
-    };
-    cache.ship_files = Some(files.clone());
-    replace_core_cache(starsector_root, cache)?;
-    Ok(files)
+pub(crate) fn load_core_ship_files(
+    starsector_root: &str,
+) -> AppResult<Arc<BTreeMap<String, Value>>> {
+    get_or_load_core(
+        starsector_root,
+        |cache| cache.ship_files.as_ref(),
+        |cache, files| cache.ship_files = Some(files),
+        |core_dir| load_json_dir_by_id(&core_dir.join("data/hulls"), "ship", "hullId"),
+    )
 }
 
-pub(crate) fn load_core_weapon_specs(starsector_root: &str) -> AppResult<BTreeMap<String, Value>> {
-    let mut cache = core_cache_snapshot(starsector_root)?;
-    if let Some(files) = cache.weapon_specs.clone() {
-        return Ok(files);
-    }
-    let core_dir = core_dir(starsector_root)?;
-    let files = if core_dir.exists() {
-        load_json_dir_by_id(&core_dir.join("data/weapons"), "wpn", "id")?
-    } else {
-        BTreeMap::new()
-    };
-    cache.weapon_specs = Some(files.clone());
-    replace_core_cache(starsector_root, cache)?;
-    Ok(files)
+pub(crate) fn load_core_weapon_specs(
+    starsector_root: &str,
+) -> AppResult<Arc<BTreeMap<String, Value>>> {
+    get_or_load_core(
+        starsector_root,
+        |cache| cache.weapon_specs.as_ref(),
+        |cache, specs| cache.weapon_specs = Some(specs),
+        |core_dir| load_json_dir_by_id(&core_dir.join("data/weapons"), "wpn", "id"),
+    )
 }
 
 pub(crate) fn load_core_projectile_specs(
     starsector_root: &str,
-) -> AppResult<BTreeMap<String, Value>> {
-    let mut cache = core_cache_snapshot(starsector_root)?;
-    if let Some(files) = cache.projectile_specs.clone() {
-        return Ok(files);
-    }
-    let core_dir = core_dir(starsector_root)?;
-    let files = if core_dir.exists() {
-        load_json_dir_by_id(&core_dir.join("data/weapons/proj"), "proj", "id")?
-    } else {
-        BTreeMap::new()
-    };
-    cache.projectile_specs = Some(files.clone());
-    replace_core_cache(starsector_root, cache)?;
-    Ok(files)
+) -> AppResult<Arc<BTreeMap<String, Value>>> {
+    get_or_load_core(
+        starsector_root,
+        |cache| cache.projectile_specs.as_ref(),
+        |cache, specs| cache.projectile_specs = Some(specs),
+        |core_dir| load_json_dir_by_id(&core_dir.join("data/weapons/proj"), "proj", "id"),
+    )
 }
 
-pub(crate) fn load_core_variant_files(starsector_root: &str) -> AppResult<Vec<VariantFile>> {
-    let mut cache = core_cache_snapshot(starsector_root)?;
-    if let Some(files) = cache.variant_files.clone() {
-        return Ok(files);
-    }
-    let core_dir = core_dir(starsector_root)?;
-    let files = if core_dir.exists() {
-        load_variant_files(&core_dir)?.0
-    } else {
-        Vec::new()
-    };
-    cache.variant_files = Some(files.clone());
-    replace_core_cache(starsector_root, cache)?;
-    Ok(files)
+pub(crate) fn load_core_variant_files(starsector_root: &str) -> AppResult<Arc<Vec<VariantFile>>> {
+    get_or_load_core(
+        starsector_root,
+        |cache| cache.variant_files.as_ref(),
+        |cache, files| cache.variant_files = Some(files),
+        |core_dir| Ok(load_variant_files(core_dir)?.0),
+    )
 }
 
-pub(crate) fn load_core_skin_files(starsector_root: &str) -> AppResult<Vec<SkinFile>> {
-    let mut cache = core_cache_snapshot(starsector_root)?;
-    if let Some(files) = cache.skin_files.clone() {
-        return Ok(files);
-    }
-    let core_dir = core_dir(starsector_root)?;
-    let files = if core_dir.exists() {
-        load_skin_files(&core_dir)?.0
-    } else {
-        Vec::new()
-    };
-    cache.skin_files = Some(files.clone());
-    replace_core_cache(starsector_root, cache)?;
-    Ok(files)
+pub(crate) fn load_core_skin_files(starsector_root: &str) -> AppResult<Arc<Vec<SkinFile>>> {
+    get_or_load_core(
+        starsector_root,
+        |cache| cache.skin_files.as_ref(),
+        |cache, files| cache.skin_files = Some(files),
+        |core_dir| Ok(load_skin_files(core_dir)?.0),
+    )
 }
 
 pub(crate) fn load_core_source_data(
@@ -243,6 +262,9 @@ mod tests {
         persistent::configure_persistent_index_cache(&cache_root).unwrap();
 
         let loaded = load_core_ship_files(&root.to_string_lossy()).unwrap();
+        // Loads only dirty the in-memory cache; the flush (open/close path)
+        // is what lands the build on disk.
+        flush_core_cache(&root.to_string_lossy()).unwrap();
         let persisted = persistent::load_core_cache(&root.to_string_lossy()).unwrap();
         crate::io::write_utf8_no_bom(
             &hull_dir.join("demo.ship"),

@@ -36,7 +36,7 @@ pub fn save_csv_patch(
         )
     };
     let key_map = apply_csv_row_patches(table, &mut rows, &mut next_row_seq, patches)?;
-    let row_values: Vec<Map<String, Value>> = rows.iter().map(|row| row.row.clone()).collect();
+    let row_values: Vec<&Map<String, Value>> = rows.iter().map(|row| &row.row).collect();
     let csv_text = render_csv_text(&header, &row_values)?;
     let mut builder = FileChangeSetBuilder::new(Path::new(&mod_root))?;
     builder.text_file(&rel_path, Some(csv_text))?;

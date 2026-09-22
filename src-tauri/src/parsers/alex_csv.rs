@@ -58,7 +58,9 @@ pub fn parse_csv_bytes(path_label: &str, bytes: &[u8]) -> AppResult<CsvTable> {
     })
 }
 
-pub fn render_csv_text(header: &[String], rows: &[Map<String, Value>]) -> AppResult<String> {
+/// Rows are passed as references to the parsed cell maps so write paths never
+/// clone a full table just to render it.
+pub fn render_csv_text(header: &[String], rows: &[&Map<String, Value>]) -> AppResult<String> {
     let mut bytes = Vec::new();
     let mut wtr = csv::Writer::from_writer(&mut bytes);
     wtr.write_record(header)?;
@@ -309,7 +311,7 @@ mod tests {
         let mut row = Map::new();
         row.insert("id".to_string(), Value::String("b".to_string()));
         row.insert("name".to_string(), Value::String("B".to_string()));
-        let out = render_csv_text(&header, &[empty, row]).unwrap();
+        let out = render_csv_text(&header, &[&empty, &row]).unwrap();
         assert!(out.lines().any(|line| line == ","));
         assert!(out.contains("b,B"));
     }
@@ -477,7 +479,7 @@ mod tests {
         let mut row = Map::new();
         row.insert("id".to_string(), Value::String("x".to_string()));
         row.insert("name".to_string(), Value::String("X".to_string()));
-        let out = render_csv_text(&header, &[row]).unwrap();
+        let out = render_csv_text(&header, &[&row]).unwrap();
         assert!(out.lines().next().is_some_and(|line| line == "id,name"));
         assert!(out.contains("x,X"));
     }
@@ -525,9 +527,10 @@ mod tests {
             ]),
         ];
 
-        let first = render_csv_text(&header, &rows).unwrap();
+        let first = render_csv_text(&header, &rows.iter().collect::<Vec<_>>()).unwrap();
         let reparsed = parse_csv_bytes("csv_round_trip.csv", first.as_bytes()).unwrap();
-        let second = render_csv_text(&reparsed.header, &reparsed.rows).unwrap();
+        let second =
+            render_csv_text(&reparsed.header, &reparsed.rows.iter().collect::<Vec<_>>()).unwrap();
 
         assert_eq!(reparsed.header, header);
         assert_eq!(reparsed.rows, rows);
