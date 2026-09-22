@@ -85,8 +85,7 @@ export function createDefaultFaction(id: string): RowData {
 
 export function buildFactionIndexRow(id: string): RowData {
   return {
-    id,
-    file: `data/world/factions/${id}.faction`,
+    faction: `data/world/factions/${id}.faction`,
   };
 }
 

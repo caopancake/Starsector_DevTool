@@ -168,9 +168,8 @@ struct IndexedConfigDefinition {
     display_name: &'static str,
     index_rel_path: &'static str,
     default_header: &'static [&'static str],
-    id_column_candidates: &'static [&'static str],
     target_rel_path: fn(&str) -> String,
-    row_matches: fn(&Map<String, Value>, &str, &str) -> bool,
+    row_matches: fn(&Map<String, Value>, &[String], &str) -> bool,
     normalize_index_row: fn(Map<String, Value>, &str) -> Map<String, Value>,
     add_save_changes:
         fn(&mut FileChangeSetBuilder, &IndexedConfigDefinition, &str, &Value) -> AppResult<()>,
@@ -218,24 +217,11 @@ impl IndexedConfigDefinition {
     }
 
     fn row_matches(&self, row: &Map<String, Value>, header: &[String], id: &str) -> bool {
-        let key = self.id_column(header);
-        let Some(value) = row.get(&key).and_then(Value::as_str).map(str::trim) else {
-            return false;
-        };
-        (self.row_matches)(row, value, id)
+        (self.row_matches)(row, header, id)
     }
 
     fn normalize_index_row(&self, row: Map<String, Value>, id: &str) -> Map<String, Value> {
         (self.normalize_index_row)(row, id)
-    }
-
-    fn id_column(&self, header: &[String]) -> String {
-        find_header_col(header, self.id_column_candidates).unwrap_or_else(|| {
-            header
-                .first()
-                .cloned()
-                .unwrap_or_else(|| self.default_header[0].to_string())
-        })
     }
 
     fn add_save_changes(
@@ -262,7 +248,6 @@ const INDEXED_CONFIG_DEFINITIONS: [IndexedConfigDefinition; 2] = [
         display_name: "势力",
         index_rel_path: "data/world/factions/factions.csv",
         default_header: &["id", "file"],
-        id_column_candidates: &["id", "faction", "factionId"],
         target_rel_path: faction_target_rel_path,
         row_matches: faction_row_matches,
         normalize_index_row: normalize_faction_index_row,
@@ -275,7 +260,6 @@ const INDEXED_CONFIG_DEFINITIONS: [IndexedConfigDefinition; 2] = [
         display_name: "战役",
         index_rel_path: "data/missions/mission_list.csv",
         default_header: &["mission"],
-        id_column_candidates: &["mission", "id"],
         target_rel_path: mission_target_rel_path,
         row_matches: mission_row_matches,
         normalize_index_row: normalize_mission_index_row,
@@ -348,15 +332,6 @@ fn require_index_row(
     ))
 }
 
-fn find_header_col(header: &[String], candidates: &[&str]) -> Option<String> {
-    candidates.iter().find_map(|candidate| {
-        header
-            .iter()
-            .find(|col| col.eq_ignore_ascii_case(candidate))
-            .cloned()
-    })
-}
-
 fn file_stem(value: &str) -> String {
     Path::new(value)
         .file_stem()
@@ -373,18 +348,29 @@ fn mission_target_rel_path(id: &str) -> String {
     format!("data/missions/{id}")
 }
 
-fn faction_row_matches(_row: &Map<String, Value>, value: &str, id: &str) -> bool {
-    value == id || file_stem(value) == id
+fn faction_row_matches(row: &Map<String, Value>, _header: &[String], id: &str) -> bool {
+    let target = faction_target_rel_path(id);
+    row.values().any(|value| {
+        let Some(value) = value.as_str().map(str::trim) else {
+            return false;
+        };
+        value == id || value == target || file_stem(value) == id
+    })
 }
 
-fn mission_row_matches(_row: &Map<String, Value>, value: &str, id: &str) -> bool {
+fn mission_row_matches(row: &Map<String, Value>, _header: &[String], id: &str) -> bool {
+    let Some(value) = row.get("mission").and_then(Value::as_str).map(str::trim) else {
+        return false;
+    };
     value == id
 }
 
-fn normalize_faction_index_row(mut row: Map<String, Value>, id: &str) -> Map<String, Value> {
-    row.insert("id".to_string(), Value::String(id.to_string()));
-    row.entry("file".to_string())
-        .or_insert_with(|| Value::String(faction_target_rel_path(id)));
+fn normalize_faction_index_row(_row: Map<String, Value>, id: &str) -> Map<String, Value> {
+    let mut row = Map::new();
+    row.insert(
+        "faction".to_string(),
+        Value::String(faction_target_rel_path(id)),
+    );
     row
 }
 
@@ -477,25 +463,22 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         write_utf8_no_bom(
             &dir.join("factions.csv"),
-            "id,file\r\nold,data/world/factions/old.faction\r\n",
+            "faction\ndata/world/factions/old.faction\n",
         )
         .unwrap();
         write_utf8_no_bom(&dir.join("old.faction"), r#"{"id":"old"}"#).unwrap();
 
+        let mut index_row = Map::new();
+        index_row.insert(
+            "faction".to_string(),
+            Value::String("data/world/factions/new.faction".to_string()),
+        );
         let result = save_indexed_config_entity(
             &root.to_string_lossy(),
             IndexedConfigKind::Faction,
             Some("old"),
             "new",
-            {
-                let mut row = Map::new();
-                row.insert("id".to_string(), Value::String("new".to_string()));
-                row.insert(
-                    "file".to_string(),
-                    Value::String("data/world/factions/new.faction".to_string()),
-                );
-                row
-            },
+            index_row,
             serde_json::json!({"file": {"id": "new", "displayName": "New"}}),
             true,
         )
@@ -503,10 +486,9 @@ mod tests {
 
         assert!(!dir.join("old.faction").exists());
         assert!(dir.join("new.faction").exists());
-        assert!(
-            read_utf8_no_bom(&dir.join("factions.csv"))
-                .unwrap()
-                .contains("new,data/world/factions/new.faction")
+        assert_eq!(
+            read_utf8_no_bom(&dir.join("factions.csv")).unwrap(),
+            "faction\ndata/world/factions/new.faction\n"
         );
 
         apply_file_change_set(
@@ -530,26 +512,67 @@ mod tests {
     }
 
     #[test]
+    fn faction_save_keeps_single_column_game_format_on_same_id_save() {
+        let root = temp_dir("indexed_faction_same_id");
+        let dir = root.join("data/world/factions");
+        fs::create_dir_all(&dir).unwrap();
+        write_utf8_no_bom(
+            &dir.join("factions.csv"),
+            "faction\ndata/world/factions/demo.faction\n",
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &dir.join("demo.faction"),
+            r#"{"id":"demo","displayName":"Demo"}"#,
+        )
+        .unwrap();
+
+        let mut index_row = Map::new();
+        index_row.insert(
+            "faction".to_string(),
+            Value::String("data/world/factions/demo.faction".to_string()),
+        );
+        let result = save_indexed_config_entity(
+            &root.to_string_lossy(),
+            IndexedConfigKind::Faction,
+            Some("demo"),
+            "demo",
+            index_row,
+            serde_json::json!({"file": {"id": "demo", "displayName": "Demo"}}),
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(
+            read_utf8_no_bom(&dir.join("factions.csv")).unwrap(),
+            "faction\ndata/world/factions/demo.faction\n"
+        );
+        assert_eq!(result.changes.len(), 2);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn indexed_entity_rejects_duplicate_id() {
         let root = temp_dir("indexed_duplicate_id");
         let dir = root.join("data/world/factions");
         fs::create_dir_all(&dir).unwrap();
         write_utf8_no_bom(
             &dir.join("factions.csv"),
-            "id,file\r\nnew,data/world/factions/new.faction\r\n",
+            "faction\r\ndata/world/factions/new.faction\r\n",
         )
         .unwrap();
 
+        let mut index_row = Map::new();
+        index_row.insert(
+            "faction".to_string(),
+            Value::String("data/world/factions/new.faction".to_string()),
+        );
         let result = save_indexed_config_entity(
             &root.to_string_lossy(),
             IndexedConfigKind::Faction,
             Some("old"),
             "new",
-            {
-                let mut row = Map::new();
-                row.insert("id".to_string(), Value::String("new".to_string()));
-                row
-            },
+            index_row,
             serde_json::json!({"file": {"id": "new"}}),
             false,
         );
