@@ -16,17 +16,17 @@
           />
         </div>
         <div class="top-action-group">
-          <n-button :disabled="!project.activeManifest" @click="$emit('add-row')">新建</n-button>
-          <n-button type="error" ghost :disabled="!tables.selectedRowKey" @click="$emit('delete-row')">删除</n-button>
+          <n-button :disabled="!project.activeManifest" @click="actions.addNewRow">新建</n-button>
+          <n-button type="error" ghost :disabled="!tables.selectedRowKey" @click="actions.deleteSelectedRow">删除</n-button>
         </div>
         <div class="top-action-group">
-          <n-button :disabled="!tables.canUndoCurrentTableEdit" @click="$emit('undo')">撤销</n-button>
-          <n-button :disabled="!tables.canRedoCurrentTableEdit" @click="$emit('redo')">重做</n-button>
+          <n-button :disabled="!tables.canUndoCurrentTableEdit" @click="actions.undoCurrentTableEdit">撤销</n-button>
+          <n-button :disabled="!tables.canRedoCurrentTableEdit" @click="actions.redoCurrentTableEdit">重做</n-button>
           <n-button
             type="primary"
             :loading="tables.saving"
             :disabled="!tables.hasCurrentTableChanges"
-            @pointerdown.prevent="$emit('save')"
+            @pointerdown.prevent="actions.saveChanges()"
             @click.prevent
           >
             保存
@@ -39,7 +39,7 @@
       <DetailPane
         :query-row-preview="csvTable.querySelectedRowPreview"
         :source-index="csvTable.sourceIndex.value"
-        @detail-action="$emit('detail-action', $event)"
+        @detail-action="actions.handleDetailAction"
       />
     </section>
   </main>
@@ -50,24 +50,17 @@ import { computed } from 'vue';
 import DataTable from '@/app/components/tables/DataTable.vue';
 import DetailPane from '@/app/components/tables/DetailPane.vue';
 import { useCsvTableViewModel } from '@/app/composables/use-csv-table-view-model';
+import { useWorkspaceShellActions } from '@/app/composables/use-workspace-shell-actions';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useTablesStore } from '@/stores/tables.store';
 import { useProjectStore } from '@/stores/project.store';
 import { MODULE_LABELS } from '@/shared/lib/starsector';
 import { csvFactionFilterOptions } from '@/domain/tables/csv-faction-filter';
-import type { TableDetailAction } from '@/domain/tables/table-detail-actions';
-
-defineEmits<{
-  'add-row': [];
-  'delete-row': [];
-  redo: [];
-  save: [];
-  undo: [];
-  'detail-action': [request: TableDetailAction];
-}>();
 
 const tables = useTablesStore();
 const project = useProjectStore();
 const csvTable = useCsvTableViewModel();
+const actions = useWorkspaceShellActions(useAppFeedback());
 
 const factionOptions = computed(() => csvFactionFilterOptions());
 </script>

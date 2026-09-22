@@ -11,6 +11,7 @@ import type { ProjectInvalidation, ProjectManifest, WriteResult } from '@/shared
 import { TABLE_KEYS } from '@/shared/types';
 import { useProjectStore } from '@/stores/project.store';
 import { useTablesStore } from '@/stores/tables.store';
+import { useWorkspaceStore } from '@/stores/workspace.store';
 import { captureActiveTableSaveTarget, saveCapturedTableChanges } from '@/orchestrators/table-save.orchestrator';
 
 const MOD_ROOT = 'M:\\test-mod';
@@ -70,6 +71,9 @@ function writeResult(overrides: Partial<WriteResult> = {}): WriteResult {
 
 function hydrateActiveTable() {
   const tables = useTablesStore();
+  const workspace = useWorkspaceStore();
+  workspace.registerMod({ modRoot: MOD_ROOT, displayName: MOD_ROOT, version: '', status: 'ready' });
+  workspace.activateModTable(MOD_ROOT);
   tables.hydrate(MOD_ROOT, buildManifest());
   const state = tables.getModTableState(MOD_ROOT);
   if (!state) throw new Error('table state missing after hydrate');

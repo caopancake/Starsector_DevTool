@@ -25,11 +25,9 @@ function createFileHistoryStack(): FileHistoryStack {
 
 export const useFileHistoryStore = defineStore('file-history', () => {
   const stateMap = reactive<Map<string, FileHistoryStack>>(new Map());
-  const activeRoot = ref<string | null>(null);
   const historyLimit = ref(100);
 
   function activateFor(modRoot: string | null) {
-    activeRoot.value = modRoot;
     if (modRoot && !stateMap.has(modRoot)) stateMap.set(modRoot, createFileHistoryStack());
   }
 
@@ -95,7 +93,6 @@ export const useFileHistoryStore = defineStore('file-history', () => {
   }
 
   return {
-    activeRoot,
     activateFor,
     clearForMod,
     commitReplayRedo,

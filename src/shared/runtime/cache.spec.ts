@@ -21,11 +21,11 @@ describe('createRuntimeCache', () => {
     expect(cache.size).toBe(2);
   });
 
-  it('touch refreshes recency and protects entries from eviction', () => {
+  it('get refreshes recency and protects entries from eviction', () => {
     const cache = createRuntimeCache<string, number>({ capacity: 2 });
     cache.set('a', 1);
     cache.set('b', 2);
-    cache.touch('a');
+    cache.get('a');
     cache.set('c', 3);
     expect(cache.has('a')).toBe(true);
     expect(cache.has('b')).toBe(false);

@@ -388,7 +388,7 @@ import {
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { entryKey } from '@/shared/lib/entry-keys';
-import { useCoreGraphics } from '@/app/composables/use-core-graphics';
+import { useCoreGraphics } from '@/app/composables/use-core-assets';
 import { useSettingsStore } from '@/stores/settings.store';
 import { isCsvSource } from '@/domain/tables/csv-source-options';
 import { useSchemaSelectMedia } from '@/app/composables/use-schema-select-media';
@@ -567,7 +567,7 @@ const graphicsOptions = computed(() => {
   const seen = new Set<string>();
 
   // Add core graphics paths
-  for (const path of graphicsPaths.value) {
+  for (const path of graphicsPaths) {
     if (!seen.has(path)) {
       seen.add(path);
       options.push({ label: schemaPathDisplayLabel(path), value: path });

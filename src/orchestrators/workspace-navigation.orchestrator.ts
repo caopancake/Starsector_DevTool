@@ -8,9 +8,10 @@ function syncActiveModRuntime(modRoot: string) {
   const project = useProjectStore();
   const tables = useTablesStore();
   const fileHistory = useFileHistoryStore();
+  // workspace owns the active identity (set by activateMod* below); here we
+  // only project per-Mod derived state onto the other stores.
   const manifest = project.getManifest(modRoot);
 
-  project.setActiveModRoot(modRoot);
   tables.activateFor(modRoot, manifest);
   fileHistory.activateFor(modRoot);
 }
@@ -48,12 +49,10 @@ export function activateModTab(modRoot: string) {
 
 function isActiveTableTarget(modRoot: string, tab: TableKey): boolean {
   const workspace = useWorkspaceStore();
-  const project = useProjectStore();
   const tables = useTablesStore();
   return (
     workspace.activeModRoot === modRoot &&
     workspace.currentView === 'table' &&
-    project.activeModRoot === modRoot &&
     tables.activeModRoot === modRoot &&
     tables.currentTab === tab
   );

@@ -17,7 +17,6 @@ export function useConfigMissionEditorViewModel(params: {
   sessionId: Ref<string | null>;
 }) {
   const feedback = useAppFeedback();
-  const indexHeader = ref<string[]>(['mission']);
   const loadedMissionId = ref<string | null>(null);
   const iconSrc = ref('');
   let editorRequestId = 0;
@@ -87,7 +86,6 @@ export function useConfigMissionEditorViewModel(params: {
       const data = snapshot?.meta ?? null;
       if (!data) return;
       const model = configMissionEditorModel(data);
-      indexHeader.value = model.indexHeader;
       loadedMissionId.value = params.missionId.value;
       iconSrc.value = model.iconSrc;
     } catch (error) {
@@ -133,7 +131,6 @@ export function useConfigMissionEditorViewModel(params: {
     externalUpdateNotice: draftSession.externalUpdateNotice,
     hasPendingExternalData: draftSession.hasPendingExternalValue,
     iconSrc,
-    indexHeader,
     loadPendingExternalData: draftSession.loadPendingExternal,
     loadedMissionId,
     save,

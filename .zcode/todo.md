@@ -87,12 +87,12 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 2.4: 状态 owner 与查询收敛
 
-- [ ] "当前 Mod 身份"四 store（workspace/project/tables/file-history）合并为单一事实源，其余派生；关闭/切换/失败回滚清理序列随之收敛。
-- [ ] 未保存查询统一走 `draft-sessions` 注册表：`LoadedModsPanel.vue` 弃 `tables.hasModDirtyChanges` 直查。
-- [ ] 删除死状态与死导出：`project.store` 的 `loading`/`setLoading`/`isOpen`、`workspace.store` 的 `gameWorkspace`、`RuntimeCache.touch`、`use-config-mission-editor-view-model` 的 `indexHeader`、`WeaponEditor.vue` 的 `projectiles` prop 及父级传参。
-- [ ] `use-core-schema`/`use-core-graphics` 合并为参数化 core 资产加载器，全局单例载体统一 Pinia。
-- [ ] `DetailPane`/`TableWorkspace`/`ModTabsBar` 过路 emit 收敛（中间层直接接 composable，AppContent 只留装配）；组件状态消费统一为 view-model 单一路径，faction/mission 族对齐 family 组件模式。
-- [ ] 跑前端全套检查。
+- [x] "当前 Mod 身份"收敛：workspace 为唯一事实源；project/tables 的 activeModRoot 改为从 workspace 派生（computed），file-history 的 activeRoot 删除（栈按需创建）；`syncActiveModRuntime`/`hydrateOpenedModRuntime` 双写收敛为只传 manifest；`isActiveTableTarget` 减为 workspace+tables 两源；连带删除零引用的 `shared/lib/store-utils.ts`（getNextActiveKeyAfterRemoval 随投影化失去全部调用方）。
+- [x] 未保存查询统一走 `draft-sessions` 注册表：`LoadedModsPanel.vue` 弃 `tables.hasModDirtyChanges` 直查。
+- [x] 删除死状态与死导出：`project.store` 的 `loading`/`setLoading`/`isOpen`、`workspace.store` 的 `gameWorkspace`、`RuntimeCache.touch`（测试改走 get 语义）、`use-config-mission-editor-view-model` 的 `indexHeader`、`WeaponEditor.vue` 的 `projectiles` prop 及父级传参。
+- [x] `use-core-schema`/`use-core-graphics` 合并为 `use-core-assets.ts` Pinia store（单 watcher + 参数化 load/reset/log），`useCoreSchema`/`useCoreGraphics` 兼容门面保持原签名，4 个消费文件零改动。
+- [x] `TableWorkspace` 六事件过路 emit 收敛（组件直用 `useWorkspaceShellActions`，AppContent 减为无参挂载）；`ModTabsBar`/`LoadedModsPanel`/`GameOverviewPanel` 的页面级 emit 链保留（装配层职责，非过路）。
+- [x] 跑前端全套检查。
 
 ### Phase 2.5: 前端写法统一
 

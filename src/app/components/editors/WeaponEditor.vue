@@ -292,7 +292,6 @@ const props = defineProps<{
   weaponId: string;
   weapon: RowData;
   spriteData?: Record<string, string>;
-  projectiles: Record<string, RowData>;
   projectileOptions: { label: string; value: string }[];
   draftRevision: number;
   dirty: boolean;

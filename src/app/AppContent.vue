@@ -16,15 +16,7 @@
       />
       <SettingsPage v-else-if="workspace.currentView === 'settings'" />
       <AboutPage v-else-if="workspace.currentView === 'about'" />
-      <TableWorkspace
-        v-else-if="workspace.currentView === 'table' && project.activeManifest"
-        @add-row="actions.addNewRow"
-        @delete-row="actions.deleteSelectedRow"
-        @redo="actions.redoCurrentTableEdit"
-        @save="actions.saveChanges"
-        @undo="actions.undoCurrentTableEdit"
-        @detail-action="actions.handleDetailAction"
-      />
+      <TableWorkspace v-else-if="workspace.currentView === 'table' && project.activeManifest" />
       <ConfigWorkspace v-else-if="workspace.currentView === 'config' && project.activeManifest" />
       <main v-else class="workspace">
         <section class="empty-state">

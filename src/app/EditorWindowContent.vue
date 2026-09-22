@@ -32,7 +32,6 @@
       :weapon-id="target.id"
       :weapon="weaponForEditor"
       :sprite-data="weaponEditorData.weaponSpriteData"
-      :projectiles="weaponEditorData.projectileSpecs"
       :projectile-options="weaponEditorData.projectileOptions"
       :draft-revision="draftRevision"
       :dirty="draftDirty"

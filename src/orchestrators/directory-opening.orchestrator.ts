@@ -108,22 +108,15 @@ async function openModProject(modRoot: string, starsectorRoot: string | null, af
 
 export async function openModProjectManifest(modRoot: string, starsectorRoot: string | null): Promise<ProjectManifest> {
   const project = useProjectStore();
-  project.setLoading(true);
-  try {
-    const loaded = await openProject(modRoot, starsectorRoot);
-    measurePerformance('frontend.project.registerProjectManifest', { modRoot }, () => project.registerProjectManifest(loaded));
-    return loaded;
-  } finally {
-    project.setLoading(false);
-  }
+  const loaded = await openProject(modRoot, starsectorRoot);
+  measurePerformance('frontend.project.registerProjectManifest', { modRoot }, () => project.registerProjectManifest(loaded));
+  return loaded;
 }
 
 export function hydrateOpenedModRuntime(modRoot: string, loaded: ProjectManifest, activate: boolean) {
-  const project = useProjectStore();
   const tables = useTablesStore();
   const fileHistory = useFileHistoryStore();
   if (activate) {
-    project.setActiveModRoot(modRoot);
     tables.hydrate(modRoot, loaded);
     fileHistory.activateFor(modRoot);
   } else {

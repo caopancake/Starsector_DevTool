@@ -30,7 +30,7 @@ import {
   type WorkspacePersistenceWatcher,
 } from '@/orchestrators/workspace-persistence.orchestrator';
 import { useWorkspaceStore } from '@/stores/workspace.store';
-import { useCoreSchema } from '@/app/composables/use-core-schema';
+import { useCoreSchema } from '@/app/composables/use-core-assets';
 import { recordLogBestEffort } from '@/services/app-feedback-log.service';
 import { buildModOpeningFailure } from '@/shared/lib/errors';
 

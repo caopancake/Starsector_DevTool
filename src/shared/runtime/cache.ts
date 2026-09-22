@@ -17,7 +17,6 @@ export interface RuntimeCache<TKey extends string, TValue> {
   peek(key: TKey): TValue | undefined;
   has(key: TKey): boolean;
   set(key: TKey, value: TValue): void;
-  touch(key: TKey): void;
   delete(key: TKey): void;
   keys(): IterableIterator<TKey>;
   versionOf(key: TKey): number;
@@ -71,9 +70,6 @@ export function createRuntimeCache<TKey extends string, TValue>(options: Runtime
     set(key, value) {
       cache.set(key, value);
       evictOverCapacity();
-    },
-    touch(key) {
-      touchKey(key);
     },
     delete(key) {
       cache.delete(key);

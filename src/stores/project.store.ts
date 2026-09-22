@@ -2,23 +2,19 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import type { ProjectManifest, ProjectSessionId } from '@/shared/types';
 import { cell } from '@/shared/lib/starsector';
-import { getNextActiveKeyAfterRemoval } from '@/shared/lib/store-utils';
+import { useWorkspaceStore } from '@/stores/workspace.store';
 
 export const useProjectStore = defineStore('project', () => {
   const manifests = ref<Map<string, ProjectManifest>>(new Map());
-  const activeModRoot = ref<string | null>(null);
-  const loading = ref(false);
 
+  // Active mod identity is owned by the workspace store; project projects it
+  // onto its manifests instead of keeping its own copy in sync.
+  const activeModRoot = computed(() => useWorkspaceStore().activeModRoot);
   const activeManifest = computed<ProjectManifest | null>(() =>
     activeModRoot.value ? (manifests.value.get(activeModRoot.value) ?? null) : null,
   );
   const activeSessionId = computed<ProjectSessionId | null>(() => activeManifest.value?.sessionId ?? null);
   const projectName = computed(() => cell(activeManifest.value?.modInfo?.name) || 'Starsector DevTool');
-  const isOpen = computed(() => manifests.value.size > 0);
-
-  function setActiveModRoot(modRoot: string | null) {
-    activeModRoot.value = modRoot;
-  }
 
   function getManifest(modRoot: string): ProjectManifest | null {
     return manifests.value.get(modRoot) ?? null;
@@ -30,11 +26,6 @@ export const useProjectStore = defineStore('project', () => {
 
   function removeProjectManifest(modRoot: string) {
     manifests.value.delete(modRoot);
-    activeModRoot.value = getNextActiveKeyAfterRemoval(activeModRoot.value, [...manifests.value.keys()], modRoot, null);
-  }
-
-  function setLoading(value: boolean) {
-    loading.value = value;
   }
 
   function registerProjectManifest(manifest: ProjectManifest) {
@@ -50,8 +41,6 @@ export const useProjectStore = defineStore('project', () => {
     activeManifest,
     activeModRoot,
     activeSessionId,
-    isOpen,
-    loading,
     manifests,
     projectName,
     getManifest,
@@ -59,7 +48,5 @@ export const useProjectStore = defineStore('project', () => {
     removeProjectManifest,
     registerProjectManifest,
     replaceProjectManifest,
-    setActiveModRoot,
-    setLoading,
   };
 });

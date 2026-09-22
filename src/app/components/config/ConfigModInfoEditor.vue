@@ -18,7 +18,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
-import { useCoreSchema } from '@/app/composables/use-core-schema';
+import { useCoreSchema } from '@/app/composables/use-core-assets';
 import { useConfigModInfoViewModel } from '@/app/composables/use-config-mod-info-view-model';
 import { useSaveCommandStore } from '@/stores/save-command.store';
 

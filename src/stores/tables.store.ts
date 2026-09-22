@@ -12,7 +12,7 @@ import {
 } from '@/shared/types';
 import { getColumns } from '@/shared/lib/starsector';
 import { isInternalJsonFieldKey } from '@/shared/lib/json-fields';
-import { getNextActiveKeyAfterRemoval } from '@/shared/lib/store-utils';
+import { useWorkspaceStore } from '@/stores/workspace.store';
 import { csvDirtyCells } from '@/domain/tables/csv-dirty';
 import { DEFAULT_CSV_FACTION_FILTER, filterFromOptionValue, filterOptionValue } from '@/domain/tables/csv-faction-filter';
 import { useTablesEditHistoryStore } from '@/stores/tables-edit-history.store';
@@ -91,12 +91,15 @@ function applyManifestSummaries(state: ModTableState, manifest: ProjectManifest)
 
 export const useTablesStore = defineStore('tables', () => {
   const csvEditHistory = useTablesEditHistoryStore();
+  const workspace = useWorkspaceStore();
   const stateMap = reactive<Map<string, ModTableState>>(new Map());
-  const activeRoot = ref<string | null>(null);
   const saving = ref(false);
+  // Active mod identity is owned by the workspace store; tables projects it
+  // onto its per-Mod table state instead of keeping its own copy in sync.
+  const activeModRoot = computed(() => workspace.activeModRoot);
 
   function getActiveState(): ModTableState | undefined {
-    return activeRoot.value ? stateMap.get(activeRoot.value) : undefined;
+    return activeModRoot.value ? stateMap.get(activeModRoot.value) : undefined;
   }
 
   const tables = computed(() => getActiveState()?.tables ?? emptyTablesRecord());
@@ -180,13 +183,12 @@ export const useTablesStore = defineStore('tables', () => {
     return state ? state.pendingExternalTableUpdates[state.currentTab] : false;
   });
   const canUndoCurrentTableEdit = computed(() =>
-    activeRoot.value ? csvEditHistory.canUndoCsvEdit(activeRoot.value, currentTab.value) : false,
+    activeModRoot.value ? csvEditHistory.canUndoCsvEdit(activeModRoot.value, currentTab.value) : false,
   );
   const canRedoCurrentTableEdit = computed(() =>
-    activeRoot.value ? csvEditHistory.canRedoCsvEdit(activeRoot.value, currentTab.value) : false,
+    activeModRoot.value ? csvEditHistory.canRedoCsvEdit(activeModRoot.value, currentTab.value) : false,
   );
   const hasAnyTableChanges = computed(() => hasAnyTableDirtyChanges.value || editing.value !== null);
-  const activeModRoot = computed(() => activeRoot.value);
 
   // --- Per-Mod lifecycle ---
 
@@ -194,7 +196,6 @@ export const useTablesStore = defineStore('tables', () => {
     const state = createModTableState();
     applyManifestSummaries(state, manifest);
     stateMap.set(modRoot, state);
-    activateFor(modRoot, manifest);
   }
 
   function hydrateWithoutActivate(modRoot: string, manifest: ProjectManifest) {
@@ -204,14 +205,12 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   function activateFor(modRoot: string | null, manifest?: ProjectManifest | null) {
-    activeRoot.value = modRoot;
-    const state = getActiveState();
+    const state = modRoot ? stateMap.get(modRoot) : undefined;
     if (state && manifest) applyManifestSummaries(state, manifest);
   }
 
   function removeModState(modRoot: string) {
     stateMap.delete(modRoot);
-    activeRoot.value = getNextActiveKeyAfterRemoval(activeRoot.value, [...stateMap.keys()], modRoot, null);
   }
 
   function hasModDirtyChanges(modRoot: string): boolean {
@@ -301,11 +300,11 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   function undoCurrentTableEdit(): boolean {
-    return activeRoot.value ? csvEditHistory.undoCsvEdit(activeRoot.value, currentTab.value, getActiveState()) : false;
+    return activeModRoot.value ? csvEditHistory.undoCsvEdit(activeModRoot.value, currentTab.value, getActiveState()) : false;
   }
 
   function redoCurrentTableEdit(): boolean {
-    return activeRoot.value ? csvEditHistory.redoCsvEdit(activeRoot.value, currentTab.value, getActiveState()) : false;
+    return activeModRoot.value ? csvEditHistory.redoCsvEdit(activeModRoot.value, currentTab.value, getActiveState()) : false;
   }
 
   function addNewRow() {
@@ -353,8 +352,9 @@ export const useTablesStore = defineStore('tables', () => {
   }
 
   function pushCsvDraftResult(table: TableKey, result: CsvDraftResult) {
-    if (!activeRoot.value || !result.historyOperation || !result.historyLabel) return;
-    csvEditHistory.pushCsvDraftOperation(activeRoot.value, table, result.historyOperation, result.historyLabel);
+    const modRoot = activeModRoot.value;
+    if (!modRoot || !result.historyOperation || !result.historyLabel) return;
+    csvEditHistory.pushCsvDraftOperation(modRoot, table, result.historyOperation, result.historyLabel);
   }
 
   function setSaving(value: boolean) {

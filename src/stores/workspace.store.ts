@@ -40,18 +40,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const modOpeningFailureList = computed(() => [...modOpeningFailures.value.values()]);
   const hasModOpeningFailures = computed(() => modOpeningFailures.value.size > 0);
   const hasWorkspaceContext = computed(() => hasGameWorkspace.value || hasLoadedMods.value);
-  const gameWorkspace = computed(() =>
-    gameOverview.value
-      ? {
-          starsectorRoot: gameOverview.value.starsectorRoot,
-          coreAvailable: gameOverview.value.coreAvailable,
-          mods: gameOverview.value.mods,
-          warnings: gameOverview.value.warnings,
-          loadedModRoots: loadedModList.value.map((mod) => mod.modRoot),
-          activeModRoot: activeModRoot.value,
-        }
-      : null,
-  );
 
   function registerMod(entry: ModEntry) {
     mods.value.set(entry.modRoot, entry);
@@ -209,7 +197,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     configView,
     currentView,
     gameOverview,
-    gameWorkspace,
     hasGameWorkspace,
     hasLoadedMods,
     hasModOpeningFailures,
