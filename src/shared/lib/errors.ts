@@ -1,5 +1,24 @@
 import type { ModOpeningFailure } from '@/shared/types';
 import { pathBelongsToRoot } from '@/shared/lib/paths';
+import { commandErrorCopy } from '@/shared/lib/error-messages';
+
+interface CommandErrorWire {
+  code: string;
+  message: string;
+}
+
+/// Backend command errors arrive as structured `{ code, message }` wire
+/// objects; anything else is a plain exception or a legacy string.
+function wireCommandError(error: unknown): CommandErrorWire | null {
+  if (typeof error !== 'object' || error === null) return null;
+  const candidate = error as { code?: unknown; message?: unknown };
+  if (typeof candidate.code !== 'string' || typeof candidate.message !== 'string') return null;
+  return { code: candidate.code, message: candidate.message };
+}
+
+export function commandErrorCode(error: unknown): string | null {
+  return wireCommandError(error)?.code ?? null;
+}
 
 export class AppError extends Error {
   readonly action?: string;
@@ -18,6 +37,8 @@ export function withCause(message: string, cause: unknown, action?: string): App
 }
 
 export function formatError(error: unknown): string {
+  const wire = wireCommandError(error);
+  if (wire) return commandErrorCopy(wire.code) ?? wire.message;
   if (error instanceof AppError) {
     const causeMessage = error.cause ? formatError(error.cause) : '';
     if (!causeMessage || causeMessage === error.message || error.message.includes(causeMessage)) {

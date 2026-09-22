@@ -55,7 +55,9 @@ pub(super) fn entity_definition(kind: EntityKind) -> AppResult<&'static ProjectE
     PROJECT_ENTITY_DEFINITIONS
         .iter()
         .find(|definition| definition.kind == kind)
-        .ok_or_else(|| AppError::message(format!("未注册的实体种类: {kind:?}")))
+        .ok_or_else(|| {
+            AppError::message("entity.kind_unknown", format!("未注册的实体种类: {kind:?}"))
+        })
 }
 
 pub(super) fn entity_definitions() -> &'static [ProjectEntityDefinition] {
@@ -510,7 +512,12 @@ pub(super) fn registered_mission_rows(
     let table = session
         .csv_tables
         .get(MISSION_LIST_TABLE_KEY)
-        .ok_or_else(|| AppError::message(format!("unknown table: {MISSION_LIST_TABLE_KEY}")))?;
+        .ok_or_else(|| {
+            AppError::message(
+                "table.unknown",
+                format!("unknown table: {MISSION_LIST_TABLE_KEY}"),
+            )
+        })?;
     Ok(registered_entity_rows(
         loaded_csv_rows(table, MISSION_LIST_TABLE_KEY)?,
         "mission",

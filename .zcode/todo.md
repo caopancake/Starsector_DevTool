@@ -18,15 +18,15 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 - [x] 规则修复后暴露的违规边逐边按真实 owner 归位：root↔cache 双向、session→resources、cache→root 的 factions/table_definitions 依赖，优先结构重排或公共下沉；确属长期授权的边写入矩阵与对应模块文档。
 - [x] 后端 service 横向依赖建立显式授权表（对齐前端 `allowedServiceEdges` 模式）并入静态规则；`editor_config→file_changes`、`mod_creation→directory_opening`、`directory_opening→app_log/app_paths/project` 等实存边逐一立约或消灭。
 - [x] `app_log`↔`app_settings` 解环：日志目录校验所需能力收口单一 owner，settings 校验不再读取 workspace 持久化内容。
-- [ ] 跑 `node scripts/check-architecture.mjs`、`cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test`。
+- [x] 跑 `node scripts/check-architecture.mjs`、`cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test`。
 
 ### Phase 1.3: wire 协议与错误通道收敛
 
-- [ ] `AppError` 增加稳定语义码与结构化参数：Rust 侧不再承载用户可见文案，错误消息全部改为稳定码 + 上下文参数；前端建立唯一的码→中文文案映射层（落点按 shared/domain 职责定形），wire 契约变化前后端同步。
-- [ ] `detect_directory`/`scan_game_overview` 并入统一错误通道：探测结果显式建模为类型化 outcome（区分"未识别"与"探测出错"），不再折进 warnings 字段；`OpenDirectoryResult` 契约同步。
-- [ ] 删除无生产者的 `WriteResult.warnings` wire 字段（含 `csv_patch.rs` 恒真 `debug_assert` 与对应 wire 形状测试）。
-- [ ] `read_mod_info` 缺文件不再伪造默认对象：显式建模"无 mod_info"状态并贯穿 manifest 与界面呈现，与游戏概览扫描"缺少 mod_info.json，已跳过"的语义一致。
-- [ ] 跑前端全套检查与 cargo 全套。
+- [x] `AppError` 增加稳定语义码与结构化参数：Rust 侧不再承载用户可见文案，错误消息全部改为稳定码 + 上下文参数；前端建立唯一的码→中文文案映射层（落点按 shared/domain 职责定形），wire 契约变化前后端同步。
+- [x] `detect_directory`/`scan_game_overview` 并入统一错误通道：探测结果显式建模为类型化 outcome（区分"未识别"与"探测出错"），不再折进 warnings 字段；`OpenDirectoryResult` 契约同步。
+- [x] 删除无生产者的 `WriteResult.warnings` wire 字段（含 `csv_patch.rs` 恒真 `debug_assert` 与对应 wire 形状测试）。
+- [x] `read_mod_info` 缺文件不再伪造默认对象：显式建模"无 mod_info"状态并贯穿 manifest 与界面呈现，与游戏概览扫描"缺少 mod_info.json，已跳过"的语义一致。
+- [x] 跑前端全套检查与 cargo 全套。
 
 ### Phase 1.4: 静默失败与诊断收敛
 

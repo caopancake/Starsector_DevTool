@@ -60,9 +60,12 @@ fn normalize_mod_id(value: String) -> AppResult<String> {
             .enumerate()
             .all(|(index, byte)| is_mod_id_byte(byte, index == 0))
     {
-        return Err(AppError::message(format!(
-            "Mod ID 必须以英文或数字开头，只能使用英文、数字、 .、_、-，且不超过 {MAX_MOD_ID_LENGTH} 个字符"
-        )));
+        return Err(AppError::message(
+            "mod_creation.id_invalid",
+            format!(
+                "Mod ID 必须以英文或数字开头，只能使用英文、数字、 .、_、-，且不超过 {MAX_MOD_ID_LENGTH} 个字符"
+            ),
+        ));
     }
     Ok(normalized.to_string())
 }
@@ -74,15 +77,22 @@ fn is_mod_id_byte(byte: u8, first: bool) -> bool {
 fn normalize_single_line_text(value: String, label: &str, max_length: usize) -> AppResult<String> {
     let normalized = value.trim();
     if normalized.is_empty() {
-        return Err(AppError::message(format!("{label}不能为空")));
+        return Err(AppError::message(
+            "mod_creation.label_empty",
+            format!("{label}不能为空"),
+        ));
     }
     if normalized.chars().count() > max_length {
-        return Err(AppError::message(format!(
-            "{label}不能超过 {max_length} 个字符"
-        )));
+        return Err(AppError::message(
+            "mod_creation.label_too_long",
+            format!("{label}不能超过 {max_length} 个字符"),
+        ));
     }
     if normalized.chars().any(char::is_control) {
-        return Err(AppError::message(format!("{label}不能包含控制字符")));
+        return Err(AppError::message(
+            "mod_creation.label_control_chars",
+            format!("{label}不能包含控制字符"),
+        ));
     }
     Ok(normalized.to_string())
 }

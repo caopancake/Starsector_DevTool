@@ -50,7 +50,7 @@ pub fn walk_json_dir(dir: &Path, ext: &str, label: &str) -> AppResult<Vec<(PathB
         let entry = entry.map_err(|error| {
             AppError::context(
                 format!("遍历 {label} 目录失败 ({})", dir.display()),
-                AppError::message(error.to_string()),
+                AppError::message("io.walk_failed", error.to_string()),
             )
         })?;
         validate_walk_entry(entry.path(), &format!("{label} directory"))?;

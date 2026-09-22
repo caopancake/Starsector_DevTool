@@ -18,7 +18,7 @@ export function useConfigModInfoViewModel() {
   const draftSession = useConfigEditorDraftSession<RowData, ModInfoTarget>({
     emptyValue: {},
     modRoot: computed(() => project.activeManifest?.modRoot ?? null),
-    load: (target) => ({ value: configModInfoEditorModel(deepClone(target.modInfo)) }),
+    load: (target) => ({ value: configModInfoEditorModel(deepClone(target.modInfo ?? {})) }),
     save: async (target, data) => {
       const schema = pendingSaveSchema;
       if (!schema) return;
@@ -38,7 +38,7 @@ export function useConfigModInfoViewModel() {
         return;
       }
       const target = manifest;
-      const data = configModInfoEditorModel(deepClone(target.modInfo));
+      const data = configModInfoEditorModel(deepClone(target.modInfo ?? {}));
       if (draftSession.currentTargetKey.value !== `${target.sessionId}\n${target.modRoot}`) void draftSession.loadTarget(target);
       else draftSession.applyExternalForTarget(target, data);
     },

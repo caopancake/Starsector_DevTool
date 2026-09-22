@@ -104,7 +104,7 @@ pub struct ProjectManifest {
     pub starsector_root: Option<String>,
     pub core_available: bool,
     pub associated_spec_tables: Vec<CsvTableKey>,
-    pub mod_info: Value,
+    pub mod_info: Option<Value>,
     pub table_summaries: BTreeMap<CsvTableKey, TableSummary>,
     pub table_entity_summaries: BTreeMap<CsvTableKey, usize>,
     pub entity_summaries: EntitySummaries,

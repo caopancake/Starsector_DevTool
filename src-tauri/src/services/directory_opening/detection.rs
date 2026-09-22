@@ -1,55 +1,56 @@
 use super::overview::{infer_starsector_root, is_game_root, is_mod_root, scan_game_overview};
 use crate::{
+    errors::AppResult,
     io::FsRootBoundary,
     models::{GameScanWarning, OpenDirectoryKind, OpenDirectoryResult},
 };
 use std::path::{Path, PathBuf};
 
-pub fn detect_directory(path: &Path, known_starsector_root: Option<&str>) -> OpenDirectoryResult {
+/// Detection failures (path boundary violations) are errors; an unrecognized
+/// directory is the typed `Unknown` outcome and never a synthetic warning.
+pub fn detect_directory(
+    path: &Path,
+    known_starsector_root: Option<&str>,
+) -> AppResult<OpenDirectoryResult> {
     let selected = path.to_string_lossy().to_string();
-    if let Ok(boundary) = FsRootBoundary::new(path, "selected root") {
-        let canonical = boundary.root();
-        if is_game_root(canonical) {
-            let overview = scan_game_overview(canonical);
-            return OpenDirectoryResult {
-                kind: OpenDirectoryKind::GameRoot,
-                selected_path: selected,
-                starsector_root: Some(canonical.to_string_lossy().to_string()),
-                mod_root: None,
-                warnings: overview.warnings.clone(),
-                overview: Some(overview),
-            };
-        }
-
-        if is_mod_root(canonical) {
-            return detected_mod_directory(&selected, canonical, known_starsector_root);
-        }
+    let boundary = FsRootBoundary::new(path, "selected root")?;
+    let canonical = boundary.root();
+    if is_game_root(canonical) {
+        let overview = scan_game_overview(canonical)?;
+        return Ok(OpenDirectoryResult {
+            kind: OpenDirectoryKind::GameRoot,
+            selected_path: selected,
+            starsector_root: Some(canonical.to_string_lossy().to_string()),
+            mod_root: None,
+            warnings: overview.warnings.clone(),
+            overview: Some(overview),
+        });
     }
 
-    OpenDirectoryResult {
+    if is_mod_root(canonical) {
+        return detected_mod_directory(&selected, canonical, known_starsector_root);
+    }
+
+    Ok(OpenDirectoryResult {
         kind: OpenDirectoryKind::Unknown,
-        selected_path: selected.clone(),
+        selected_path: selected,
         starsector_root: None,
         mod_root: None,
         overview: None,
-        warnings: vec![GameScanWarning {
-            path: selected,
-            message: "未识别为 Starsector 游戏目录或 Mod 目录".to_string(),
-            edit_target: None,
-        }],
-    }
+        warnings: Vec::new(),
+    })
 }
 
 fn detected_mod_directory(
     selected: &str,
     mod_root: &Path,
     known_starsector_root: Option<&str>,
-) -> OpenDirectoryResult {
+) -> AppResult<OpenDirectoryResult> {
     let inferred = infer_starsector_root(mod_root);
-    let overview = inferred.as_deref().map(scan_game_overview);
+    let overview = inferred.as_deref().map(scan_game_overview).transpose()?;
     let (known_root, mut warnings) = resolve_known_root(known_starsector_root);
     let starsector_root = inferred.clone().or(known_root);
-    OpenDirectoryResult {
+    Ok(OpenDirectoryResult {
         kind: if inferred.is_some() {
             OpenDirectoryKind::ModInGame
         } else {
@@ -60,7 +61,7 @@ fn detected_mod_directory(
         mod_root: Some(mod_root.to_string_lossy().to_string()),
         overview,
         warnings: std::mem::take(&mut warnings),
-    }
+    })
 }
 
 fn resolve_known_root(
@@ -95,7 +96,7 @@ mod tests {
         fs::create_dir_all(root.join("starsector-core")).unwrap();
         fs::create_dir_all(root.join("mods")).unwrap();
 
-        let detected = detect_directory(&root, None);
+        let detected = detect_directory(&root, None).unwrap();
 
         let expected_root = path_string(&root);
         let _ = fs::remove_dir_all(root);
@@ -114,7 +115,7 @@ mod tests {
         fs::create_dir_all(root.join("mods/demo")).unwrap();
         write_utf8_no_bom(&root.join("mods/demo/mod_info.json"), r#"{"id":"demo"}"#).unwrap();
 
-        let detected = detect_directory(&root.join("mods/demo"), None);
+        let detected = detect_directory(&root.join("mods/demo"), None).unwrap();
 
         let expected_root = path_string(&root);
         let expected_mod = path_string(&root.join("mods/demo"));
@@ -136,7 +137,7 @@ mod tests {
         fs::create_dir_all(game_root.join("mods")).unwrap();
         write_utf8_no_bom(&mod_root.join("mod_info.json"), r#"{"id":"external"}"#).unwrap();
 
-        let detected = detect_directory(&mod_root, Some(&game_root.to_string_lossy()));
+        let detected = detect_directory(&mod_root, Some(&game_root.to_string_lossy())).unwrap();
 
         let expected_root = path_string(&game_root);
         let expected_mod = path_string(&mod_root);
@@ -157,7 +158,7 @@ mod tests {
         write_utf8_no_bom(&mod_root.join("mod_info.json"), r#"{"id":"external"}"#).unwrap();
         let known_root = mod_root.join("..");
 
-        let detected = detect_directory(&mod_root, Some(&known_root.to_string_lossy()));
+        let detected = detect_directory(&mod_root, Some(&known_root.to_string_lossy())).unwrap();
 
         let expected_mod = path_string(&mod_root);
         let _ = fs::remove_dir_all(mod_root);
@@ -173,19 +174,14 @@ mod tests {
     }
 
     #[test]
-    fn detect_unknown_directory_returns_warning() {
+    fn detect_unknown_directory_is_typed_unknown_without_warning() {
         let root = temp_dir("detect_unknown");
 
-        let detected = detect_directory(&root, None);
+        let detected = detect_directory(&root, None).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(detected.kind, OpenDirectoryKind::Unknown);
-        assert!(
-            detected
-                .warnings
-                .iter()
-                .any(|warning| warning.message.contains("未识别"))
-        );
+        assert!(detected.warnings.is_empty());
     }
 
     fn path_string(path: &Path) -> String {

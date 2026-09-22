@@ -64,7 +64,6 @@ function writeResult(overrides: Partial<WriteResult> = {}): WriteResult {
     invalidation,
     keyMap: [],
     refreshedEntity: null,
-    warnings: [],
     ...overrides,
   };
 }

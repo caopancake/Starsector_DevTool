@@ -28,7 +28,10 @@ pub fn read_utf8_no_bom(path: &Path) -> AppResult<String> {
         Err(error) => {
             let bytes = normalize_known_cp1252_bytes(error.into_bytes());
             String::from_utf8(bytes).map_err(|error| {
-                AppError::message(format!("{} is not valid UTF-8: {error}", path.display()))
+                AppError::message(
+                    "text.invalid_utf8",
+                    format!("{} is not valid UTF-8: {error}", path.display()),
+                )
             })
         }
     }
@@ -45,10 +48,10 @@ pub fn read_text_bytes_no_bom(path: &Path) -> AppResult<Vec<u8>> {
         )
     })?;
     if bytes.starts_with(UTF8_BOM) {
-        return Err(AppError::message(format!(
-            "{} has UTF-8 BOM",
-            path.display()
-        )));
+        return Err(AppError::message(
+            "text.bom",
+            format!("{} has UTF-8 BOM", path.display()),
+        ));
     }
     Ok(bytes)
 }

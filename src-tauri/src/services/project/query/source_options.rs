@@ -36,17 +36,16 @@ pub fn query_csv_source_options(
     let table_key = table.as_str();
     ensure_registered_table_rows(&mut session, table)?;
     {
-        let csv = session
-            .csv_tables
-            .get(table_key)
-            .ok_or_else(|| AppError::message(format!("unknown table: {table_key}")))?;
+        let csv = session.csv_tables.get(table_key).ok_or_else(|| {
+            AppError::message("table.unknown", format!("unknown table: {table_key}"))
+        })?;
         ensure_source_column(&csv.header, table_key, column)?;
     }
     let metadata_catalog = source_token_metadata_catalog(column, &mut session)?;
     let csv = session
         .csv_tables
         .get(table_key)
-        .ok_or_else(|| AppError::message(format!("unknown table: {table_key}")))?;
+        .ok_or_else(|| AppError::message("table.unknown", format!("unknown table: {table_key}")))?;
     let rows = loaded_csv_rows(csv, table_key)?;
     let starsector_root = session.manifest.starsector_root.clone();
     let core_csv = if let Some(root) = starsector_root.as_ref() {
@@ -62,9 +61,12 @@ pub fn query_csv_source_options(
         })
         .transpose()?;
     let core_data = if core_rows.is_some() {
-        let root = starsector_root
-            .as_ref()
-            .ok_or_else(|| AppError::message("core CSV requires a Starsector root"))?;
+        let root = starsector_root.as_ref().ok_or_else(|| {
+            AppError::message(
+                "resource.core_root_required",
+                "core CSV requires a Starsector root",
+            )
+        })?;
         Some(load_core_source_data(root, table)?)
     } else {
         None
@@ -115,11 +117,15 @@ pub fn query_csv_source_options(
 
 fn parse_csv_source(source: &str) -> AppResult<(CsvTableKey, &str)> {
     let trimmed = source.strip_prefix("csv:").unwrap_or(source);
-    let (table, column) = trimmed
-        .split_once('.')
-        .ok_or_else(|| AppError::message(format!("invalid csv source: {source}")))?;
-    let table = CsvTableKey::from_key(table)
-        .ok_or_else(|| AppError::message(format!("unknown csv source table: {table}")))?;
+    let (table, column) = trimmed.split_once('.').ok_or_else(|| {
+        AppError::message("source.invalid", format!("invalid csv source: {source}"))
+    })?;
+    let table = CsvTableKey::from_key(table).ok_or_else(|| {
+        AppError::message(
+            "source.table_unknown",
+            format!("unknown csv source table: {table}"),
+        )
+    })?;
     Ok((table, column))
 }
 
@@ -127,9 +133,10 @@ fn ensure_source_column(header: &[String], table: &str, column: &str) -> AppResu
     if header.iter().any(|field| field == column) {
         return Ok(());
     }
-    Err(AppError::message(format!(
-        "csv source column does not exist: {table}.{column}"
-    )))
+    Err(AppError::message(
+        "source.column_unknown",
+        format!("csv source column does not exist: {table}.{column}"),
+    ))
 }
 
 fn source_options_from_rows(

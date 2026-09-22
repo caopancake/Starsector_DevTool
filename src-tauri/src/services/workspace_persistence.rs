@@ -16,10 +16,13 @@ pub fn reject_mod_or_workspace_directory(app_data_dir: &Path, directory: &Path) 
         .ancestors()
         .any(|ancestor| ancestor.join("mod_info.json").is_file())
     {
-        return Err(AppError::message(format!(
-            "directory must not be inside a Mod: {}",
-            directory.display()
-        )));
+        return Err(AppError::message(
+            "workspace.dir_inside_mod",
+            format!(
+                "directory must not be inside a Mod: {}",
+                directory.display()
+            ),
+        ));
     }
     let workspace = load_workspace(app_data_dir)?;
     for root in workspace
@@ -34,10 +37,13 @@ pub fn reject_mod_or_workspace_directory(app_data_dir: &Path, directory: &Path) 
                 .root()
                 .to_path_buf();
             if path_belongs_to_root(directory, &canonical_root) {
-                return Err(AppError::message(format!(
-                    "directory must not be inside a workspace directory: {}",
-                    directory.display()
-                )));
+                return Err(AppError::message(
+                    "workspace.dir_inside_tracked_root",
+                    format!(
+                        "directory must not be inside a workspace directory: {}",
+                        directory.display()
+                    ),
+                ));
             }
         }
     }

@@ -29,10 +29,10 @@ pub(crate) fn create_new_mod(
     ensure_mod_id_is_available(parent.root(), id)?;
     let mod_root = parent.resolve_relative(id, "新建 Mod 目录")?;
     if mod_root.exists() {
-        return Err(AppError::message(format!(
-            "目标 Mod 目录已存在: {}",
-            mod_root.display()
-        )));
+        return Err(AppError::message(
+            "mod_creation.dir_exists",
+            format!("目标 Mod 目录已存在: {}", mod_root.display()),
+        ));
     }
     fs::create_dir(&mod_root).map_err(|error| {
         AppError::context(
@@ -92,7 +92,10 @@ fn ensure_mod_id_is_available(parent: &Path, id: &str) -> AppResult<()> {
             continue;
         };
         if mod_id(&info).is_some_and(|candidate| candidate == id) {
-            return Err(AppError::message(format!("Mod ID 已存在于父目录: {id}")));
+            return Err(AppError::message(
+                "mod_creation.id_exists",
+                format!("Mod ID 已存在于父目录: {id}"),
+            ));
         }
     }
     Ok(())

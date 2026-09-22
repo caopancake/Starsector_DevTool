@@ -26,19 +26,22 @@ pub fn save_spec_entity(
     let renamed = previous_id.as_deref().is_some_and(|id| id != next_id);
     let target = mod_root.join(&next_rel_path);
     if renamed && target.exists() {
-        return Err(AppError::message(format!(
-            "{}目标已存在: {next_rel_path}",
-            definition.display_name
-        )));
+        return Err(AppError::message(
+            "spec.target_exists",
+            format!("{}目标已存在: {next_rel_path}", definition.display_name),
+        ));
     }
 
     let clean = strip_internal_fields(&data);
     let (entity_id, refreshed) = build_spec_file(kind, mod_root, &next_rel_path, &clean)?;
     if entity_id != next_id {
-        return Err(AppError::message(format!(
-            "{}数据 {} 与保存目标不一致: {entity_id}",
-            definition.display_name, definition.id_field
-        )));
+        return Err(AppError::message(
+            "spec.id_mismatch",
+            format!(
+                "{}数据 {} 与保存目标不一致: {entity_id}",
+                definition.display_name, definition.id_field
+            ),
+        ));
     }
 
     let mut builder = FileChangeSetBuilder::new(mod_root)?;
@@ -81,14 +84,15 @@ pub fn delete_spec_entity(
 }
 
 fn spec_entity_definition(kind: EntityKind) -> AppResult<&'static EntitySpecDefinition> {
-    let definition = entity_spec_definition(kind)
-        .ok_or_else(|| AppError::message(format!("spec 定义不存在: {kind:?}")))?;
+    let definition = entity_spec_definition(kind).ok_or_else(|| {
+        AppError::message("spec.kind_unknown", format!("spec 定义不存在: {kind:?}"))
+    })?;
     match definition.entity_kind {
         EntityKind::Variant | EntityKind::Skin => Ok(definition),
-        _ => Err(AppError::message(format!(
-            "{} 不是单文件 spec 实体",
-            definition.display_name
-        ))),
+        _ => Err(AppError::message(
+            "spec.not_single_file",
+            format!("{} 不是单文件 spec 实体", definition.display_name),
+        )),
     }
 }
 
@@ -103,10 +107,13 @@ fn require_spec_file_target(
     let data = read_json_file(&mod_root.join(rel_path))?;
     let (entity_id, _) = build_spec_file(kind, mod_root, rel_path, &data)?;
     if entity_id != id {
-        return Err(AppError::message(format!(
-            "{}路径与实体 ID 不匹配: {rel_path}",
-            definition.display_name
-        )));
+        return Err(AppError::message(
+            "spec.path_id_mismatch",
+            format!(
+                "{}路径与实体 ID 不匹配: {rel_path}",
+                definition.display_name
+            ),
+        ));
     }
     Ok(())
 }
@@ -130,7 +137,10 @@ fn build_spec_file(
             let entity_id = file.skin_hull_id.clone();
             Ok((entity_id, serde_json::to_value(file)?))
         }
-        other => Err(AppError::message(format!("{other:?} 不是单文件 spec 实体"))),
+        other => Err(AppError::message(
+            "spec.not_single_file",
+            format!("{other:?} 不是单文件 spec 实体"),
+        )),
     }
 }
 

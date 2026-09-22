@@ -19,7 +19,7 @@ pub(crate) fn session_table<'a>(
     session
         .csv_tables
         .get(table)
-        .ok_or_else(|| AppError::message(format!("unknown table: {table}")))
+        .ok_or_else(|| AppError::message("table.unknown", format!("unknown table: {table}")))
 }
 
 pub(crate) fn registered_session_table(
@@ -33,10 +33,12 @@ pub(crate) fn loaded_csv_rows<'a>(
     table: &'a SessionCsvTable,
     table_label: &str,
 ) -> AppResult<&'a [SessionCsvRow]> {
-    table
-        .rows
-        .as_deref()
-        .ok_or_else(|| AppError::message(format!("CSV rows are not loaded: {table_label}")))
+    table.rows.as_deref().ok_or_else(|| {
+        AppError::message(
+            "table.rows_not_loaded",
+            format!("CSV rows are not loaded: {table_label}"),
+        )
+    })
 }
 
 pub(crate) fn loaded_registered_csv_rows(
@@ -53,7 +55,7 @@ pub(crate) fn session_table_mut<'a>(
     session
         .csv_tables
         .get_mut(table)
-        .ok_or_else(|| AppError::message(format!("unknown table: {table}")))
+        .ok_or_else(|| AppError::message("table.unknown", format!("unknown table: {table}")))
 }
 
 pub(crate) fn registered_session_table_mut(
@@ -188,7 +190,7 @@ mod tests {
                 starsector_root: None,
                 core_available: false,
                 associated_spec_tables: Vec::new(),
-                mod_info: Value::Object(Map::new()),
+                mod_info: Some(Value::Object(Map::new())),
                 table_summaries: BTreeMap::new(),
                 table_entity_summaries: BTreeMap::new(),
                 entity_summaries: EntitySummaries::default(),
@@ -235,7 +237,7 @@ mod tests {
                 starsector_root: None,
                 core_available: false,
                 associated_spec_tables: Vec::new(),
-                mod_info: Value::Object(Map::new()),
+                mod_info: Some(Value::Object(Map::new())),
                 table_summaries: BTreeMap::new(),
                 table_entity_summaries: BTreeMap::new(),
                 entity_summaries: EntitySummaries::default(),

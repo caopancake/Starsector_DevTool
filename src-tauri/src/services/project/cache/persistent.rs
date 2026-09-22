@@ -35,7 +35,7 @@ static CORE_FINGERPRINT_CACHE: LazyLock<Mutex<BTreeMap<String, SourceFingerprint
 
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct ProjectIndex {
-    pub mod_info: Value,
+    pub mod_info: Option<Value>,
     pub faction_files: BTreeMap<String, Value>,
     pub tag_map: HashMap<String, String>,
     pub mission_count: usize,
@@ -72,9 +72,12 @@ struct SourceFileFingerprint {
 
 pub(crate) fn configure_persistent_index_cache(app_data_dir: &Path) -> AppResult<()> {
     let cache_root = app_data_dir.join(CACHE_DIRECTORY);
-    let mut guard = CACHE_ROOT
-        .lock()
-        .map_err(|_| AppError::message("persistent project cache lock poisoned"))?;
+    let mut guard = CACHE_ROOT.lock().map_err(|_| {
+        AppError::message(
+            "cache.lock_poisoned",
+            "persistent project cache lock poisoned",
+        )
+    })?;
     *guard = Some(cache_root);
     Ok(())
 }
@@ -157,7 +160,12 @@ pub(super) fn save_core_cache(starsector_root: &str, cache: &CoreCache) -> AppRe
 pub(super) fn invalidate_core_fingerprint(root: &str) -> AppResult<()> {
     CORE_FINGERPRINT_CACHE
         .lock()
-        .map_err(|_| AppError::message("core fingerprint cache lock poisoned"))?
+        .map_err(|_| {
+            AppError::message(
+                "cache.lock_poisoned",
+                "core fingerprint cache lock poisoned",
+            )
+        })?
         .remove(root);
     Ok(())
 }
@@ -165,7 +173,12 @@ pub(super) fn invalidate_core_fingerprint(root: &str) -> AppResult<()> {
 fn cached_core_fingerprint(core_dir: &Path, root: &str) -> AppResult<SourceFingerprint> {
     if let Some(fingerprint) = CORE_FINGERPRINT_CACHE
         .lock()
-        .map_err(|_| AppError::message("core fingerprint cache lock poisoned"))?
+        .map_err(|_| {
+            AppError::message(
+                "cache.lock_poisoned",
+                "core fingerprint cache lock poisoned",
+            )
+        })?
         .get(root)
         .cloned()
     {
@@ -174,16 +187,23 @@ fn cached_core_fingerprint(core_dir: &Path, root: &str) -> AppResult<SourceFinge
     let fingerprint = core_fingerprint(core_dir)?;
     CORE_FINGERPRINT_CACHE
         .lock()
-        .map_err(|_| AppError::message("core fingerprint cache lock poisoned"))?
+        .map_err(|_| {
+            AppError::message(
+                "cache.lock_poisoned",
+                "core fingerprint cache lock poisoned",
+            )
+        })?
         .insert(root.to_string(), fingerprint.clone());
     Ok(fingerprint)
 }
 
 fn configured_cache_root() -> AppResult<Option<PathBuf>> {
-    CACHE_ROOT
-        .lock()
-        .map(|root| root.clone())
-        .map_err(|_| AppError::message("persistent project cache lock poisoned"))
+    CACHE_ROOT.lock().map(|root| root.clone()).map_err(|_| {
+        AppError::message(
+            "cache.lock_poisoned",
+            "persistent project cache lock poisoned",
+        )
+    })
 }
 
 fn normalized_root(root: &Path) -> AppResult<String> {
@@ -261,10 +281,13 @@ fn collect_extension_files(
     validate_walk_entry(&dir, "project source directory")?;
     for entry in WalkDir::new(&dir) {
         let entry = entry.map_err(|error| {
-            AppError::message(format!(
-                "walk project source directory failed ({}): {error}",
-                dir.display()
-            ))
+            AppError::message(
+                "io.walk_failed",
+                format!(
+                    "walk project source directory failed ({}): {error}",
+                    dir.display()
+                ),
+            )
         })?;
         let path = entry.path();
         validate_walk_entry(path, "project source file")?;
@@ -281,10 +304,13 @@ fn collect_extension_files(
             continue;
         }
         let rel_path = path.strip_prefix(root).map_err(|error| {
-            AppError::message(format!(
-                "project source path escapes root ({}): {error}",
-                path.display()
-            ))
+            AppError::message(
+                "path.outside_root",
+                format!(
+                    "project source path escapes root ({}): {error}",
+                    path.display()
+                ),
+            )
         })?;
         files.push((forward_slash_path(rel_path), path.to_path_buf()));
     }
@@ -314,7 +340,7 @@ fn read_cache<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
 fn write_cache<T: Serialize>(path: &Path, value: &T) -> AppResult<()> {
     let parent = path
         .parent()
-        .ok_or_else(|| AppError::message("cache file has no parent"))?;
+        .ok_or_else(|| AppError::message("cache.no_parent", "cache file has no parent"))?;
     fs::create_dir_all(parent).map_err(|error| {
         AppError::context(
             format!(

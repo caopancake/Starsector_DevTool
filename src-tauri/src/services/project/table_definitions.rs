@@ -539,7 +539,10 @@ pub(super) fn hull_resource_ref(
 ) -> AppResult<Option<ResourceRef>> {
     if source == ResourceSource::Core {
         let root = session.manifest.starsector_root.as_ref().ok_or_else(|| {
-            crate::errors::AppError::message("core resource reference requires starsector root")
+            crate::errors::AppError::message(
+                "resource.core_root_required",
+                "core resource reference requires starsector root",
+            )
         })?;
         let ships = load_core_ship_files(root)?;
         if let Some(ship) = ships.get(hull_id) {

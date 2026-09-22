@@ -45,18 +45,22 @@ fn scan_json_fields(dir: &Path, ext: &str) -> AppResult<Vec<DiscoveredField>> {
     let mut field_map: BTreeMap<String, DiscoveredFieldType> = BTreeMap::new();
 
     for entry in WalkDir::new(dir).max_depth(2) {
-        let entry =
-            entry.map_err(|error| AppError::message(format!("遍历原版字段目录失败: {error}")))?;
+        let entry = entry.map_err(|error| {
+            AppError::message("io.walk_failed", format!("遍历原版字段目录失败: {error}"))
+        })?;
         validate_walk_entry(entry.path(), "core fields")?;
         if entry.path().extension().and_then(|s| s.to_str()) != Some(ext) {
             continue;
         }
         let value = read_json_file(entry.path())?;
         let Value::Object(obj) = value else {
-            return Err(AppError::message(format!(
-                "core field source must be a JSON object: {}",
-                entry.path().display()
-            )));
+            return Err(AppError::message(
+                "schema.field_source_not_object",
+                format!(
+                    "core field source must be a JSON object: {}",
+                    entry.path().display()
+                ),
+            ));
         };
         for (key, value) in &obj {
             if key.starts_with('_') {

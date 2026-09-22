@@ -242,7 +242,10 @@ fn apply_file_change(change: &FileChangeRecord, direction: ChangeDirection) -> A
             })?;
             fs::write(path, bytes)?;
         } else {
-            return Err(AppError::message("changeset missing file content"));
+            return Err(AppError::message(
+                "changeset.missing_content",
+                "changeset missing file content",
+            ));
         }
     } else if path.exists() {
         fs::remove_file(path)?;
@@ -341,7 +344,7 @@ fn snapshot_directory(path: &Path) -> AppResult<Vec<FileSnapshot>> {
         let entry = entry.map_err(|error| {
             AppError::context(
                 format!("遍历目录失败 ({})", path.display()),
-                AppError::message(error.to_string()),
+                AppError::message("io.walk_failed", error.to_string()),
             )
         })?;
         validate_walk_entry(entry.path(), "directory snapshot")?;
@@ -351,7 +354,7 @@ fn snapshot_directory(path: &Path) -> AppResult<Vec<FileSnapshot>> {
         let rel_path = entry
             .path()
             .strip_prefix(path)
-            .map_err(|error| AppError::message(error.to_string()))?
+            .map_err(|error| AppError::message("path.relative_failed", error.to_string()))?
             .to_string_lossy()
             .replace('\\', "/");
         files.push(snapshot_file(entry.path(), rel_path)?);
@@ -384,10 +387,12 @@ fn restore_snapshot_file(path: &Path, file: &FileSnapshot) -> AppResult<()> {
         write_utf8_no_bom(path, text)?;
         return Ok(());
     }
-    let data = file
-        .data_base64
-        .as_deref()
-        .ok_or_else(|| AppError::message("directory snapshot missing file data"))?;
+    let data = file.data_base64.as_deref().ok_or_else(|| {
+        AppError::message(
+            "changeset.missing_snapshot_data",
+            "directory snapshot missing file data",
+        )
+    })?;
     let bytes = general_purpose::STANDARD.decode(data).map_err(|e| {
         AppError::context(format!("解码文件数据失败 ({})", path.display()), e.into())
     })?;
@@ -428,7 +433,7 @@ mod tests {
     #[test]
     fn changeset_apply_error_includes_apply_and_rollback_errors() {
         let error = changeset_apply_error(
-            AppError::message("apply failed"),
+            AppError::message("changeset.apply_failed", "apply failed"),
             vec![
                 "first rollback failed".to_string(),
                 "second rollback failed".to_string(),

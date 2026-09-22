@@ -110,10 +110,10 @@ fn ensure_log_file(app_data_dir: &Path) -> AppResult<()> {
 
 fn ensure_log_directory_writable(app_data_dir: &Path) -> AppResult<()> {
     if !app_data_dir.is_dir() {
-        return Err(AppError::message(format!(
-            "日志目录不可用 ({})",
-            app_data_dir.display()
-        )));
+        return Err(AppError::message(
+            "log.dir_unavailable",
+            format!("日志目录不可用 ({})", app_data_dir.display()),
+        ));
     }
     ensure_file_appendable(&log_path(app_data_dir))
 }

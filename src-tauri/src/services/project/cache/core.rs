@@ -21,7 +21,7 @@ pub(crate) fn core_cache_snapshot(starsector_root: &str) -> AppResult<CoreCache>
     let cache_key = core_cache_key(starsector_root)?;
     if let Some(cache) = core_caches()
         .lock()
-        .map_err(|_| AppError::message("core cache lock poisoned"))?
+        .map_err(|_| AppError::message("cache.lock_poisoned", "core cache lock poisoned"))?
         .get(&cache_key)
         .cloned()
     {
@@ -37,7 +37,7 @@ pub(crate) fn core_cache_snapshot(starsector_root: &str) -> AppResult<CoreCache>
     });
     let mut guard = core_caches()
         .lock()
-        .map_err(|_| AppError::message("core cache lock poisoned"))?;
+        .map_err(|_| AppError::message("cache.lock_poisoned", "core cache lock poisoned"))?;
     Ok(guard
         .entry(cache_key)
         .or_insert_with(|| cache.clone())
@@ -48,7 +48,7 @@ pub(crate) fn replace_core_cache(starsector_root: &str, cache: CoreCache) -> App
     let cache_key = core_cache_key(starsector_root)?;
     core_caches()
         .lock()
-        .map_err(|_| AppError::message("core cache lock poisoned"))?
+        .map_err(|_| AppError::message("cache.lock_poisoned", "core cache lock poisoned"))?
         .insert(cache_key, cache);
     let snapshot = core_cache_snapshot(starsector_root)?;
     let _ = persistent::save_core_cache(starsector_root, &snapshot);

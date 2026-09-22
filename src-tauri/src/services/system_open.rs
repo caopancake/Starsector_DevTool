@@ -30,9 +30,9 @@ pub fn open_path(path: &Path) -> AppResult<()> {
     if status.success() {
         Ok(())
     } else {
-        Err(AppError::message(format!(
-            "打开路径失败 ({})",
-            path.display()
-        )))
+        Err(AppError::message(
+            "system_open.failed",
+            format!("打开路径失败 ({})", path.display()),
+        ))
     }
 }

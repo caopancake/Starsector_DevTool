@@ -12,7 +12,6 @@ export interface WriteResult {
   invalidation: ProjectInvalidation;
   keyMap: CsvRowKeyMapping[];
   refreshedEntity: RowData | null;
-  warnings: string[];
 }
 
 export interface AssociatedFileChange {

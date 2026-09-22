@@ -71,7 +71,8 @@ pub fn render_csv_text(header: &[String], rows: &[Map<String, Value>]) -> AppRes
     }
     wtr.flush()?;
     drop(wtr);
-    String::from_utf8(bytes).map_err(|error| AppError::message(format!("CSV 编码失败: {error}")))
+    String::from_utf8(bytes)
+        .map_err(|error| AppError::message("parse.csv_encode", format!("CSV 编码失败: {error}")))
 }
 
 pub fn value_to_cell(value: &Value) -> AppResult<String> {
@@ -80,8 +81,9 @@ pub fn value_to_cell(value: &Value) -> AppResult<String> {
         Value::String(s) => Ok(s.clone()),
         Value::Number(n) => Ok(n.to_string()),
         Value::Bool(b) => Ok(b.to_string()),
-        other => serde_json::to_string(other)
-            .map_err(|error| AppError::message(format!("CSV 单元格序列化失败: {error}"))),
+        other => serde_json::to_string(other).map_err(|error| {
+            AppError::message("parse.csv_cell", format!("CSV 单元格序列化失败: {error}"))
+        }),
     }
 }
 
@@ -105,13 +107,16 @@ fn normalize_record_width(
     }
     Err(AppError::context(
         format!("解析 CSV 失败 ({path_label})"),
-        AppError::message(format!(
-            "record {} has {} fields, but header has {} fields; record starts at line {}",
-            record_number,
-            record.len(),
-            header_width,
-            start_line
-        )),
+        AppError::message(
+            "parse.csv_width",
+            format!(
+                "record {} has {} fields, but header has {} fields; record starts at line {}",
+                record_number,
+                record.len(),
+                header_width,
+                start_line
+            ),
+        ),
     ))
 }
 
@@ -213,10 +218,13 @@ fn parse_loose_records(path_label: &str, bytes: &[u8]) -> AppResult<Vec<LooseRec
     if in_quotes {
         return Err(AppError::context(
             format!("解析 CSV 失败 ({path_label})"),
-            AppError::message(format!(
-                "unterminated quoted field starting at line {}",
-                quoted_field_start_line.unwrap_or(line_number)
-            )),
+            AppError::message(
+                "parse.csv_unterminated_quote",
+                format!(
+                    "unterminated quoted field starting at line {}",
+                    quoted_field_start_line.unwrap_or(line_number)
+                ),
+            ),
         ));
     }
     if record_has_content || !field.is_empty() || !record.is_empty() {
@@ -246,10 +254,16 @@ fn read_csv_text_char(path_label: &str, bytes: &[u8], index: &mut usize) -> AppR
         }
         _ => {
             let text = std::str::from_utf8(&bytes[*index..]).map_err(|error| {
-                AppError::message(format!("{path_label} is not valid UTF-8: {error}"))
+                AppError::message(
+                    "text.invalid_utf8",
+                    format!("{path_label} is not valid UTF-8: {error}"),
+                )
             })?;
             let ch = text.chars().next().ok_or_else(|| {
-                AppError::message(format!("{path_label} is not valid UTF-8: empty sequence"))
+                AppError::message(
+                    "text.invalid_utf8",
+                    format!("{path_label} is not valid UTF-8: empty sequence"),
+                )
             })?;
             *index += ch.len_utf8();
             Ok(ch)

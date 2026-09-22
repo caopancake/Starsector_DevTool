@@ -149,7 +149,12 @@ pub fn editor_spec_definition(kind: EditorSpecKind) -> AppResult<&'static Entity
     ENTITY_SPEC_DEFINITIONS
         .iter()
         .find(|definition| definition.editor_kind == Some(kind))
-        .ok_or_else(|| AppError::message(format!("未注册的编辑器 spec 种类: {kind:?}")))
+        .ok_or_else(|| {
+            AppError::message(
+                "spec.kind_unknown",
+                format!("未注册的编辑器 spec 种类: {kind:?}"),
+            )
+        })
 }
 
 pub fn associated_spec_definition(table: CsvTableKey) -> Option<&'static EntitySpecDefinition> {

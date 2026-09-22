@@ -58,10 +58,13 @@ fn find_json_target(
     let dir = mod_root.join(rel_dir);
     if dir.exists() {
         if !dir.is_dir() {
-            return Err(AppError::message(format!(
-                "editor spec directory is not a directory: {}",
-                dir.display()
-            )));
+            return Err(AppError::message(
+                "spec.dir_not_directory",
+                format!(
+                    "editor spec directory is not a directory: {}",
+                    dir.display()
+                ),
+            ));
         }
         for (path, value) in crate::io::walk_json_dir(&dir, ext, "editor spec")? {
             if value.get(id_key).and_then(Value::as_str) == Some(id) {
@@ -80,11 +83,14 @@ fn validate_imported_editor_spec_path(
     validate_walk_entry(path, "imported editor spec")?;
     let extension = definition.extension_without_dot();
     if path.extension().and_then(|value| value.to_str()) != Some(extension) {
-        return Err(AppError::message(format!(
-            "imported editor spec extension must be .{}: {}",
-            extension,
-            path.display()
-        )));
+        return Err(AppError::message(
+            "spec.extension_invalid",
+            format!(
+                "imported editor spec extension must be .{}: {}",
+                extension,
+                path.display()
+            ),
+        ));
     }
     Ok(())
 }

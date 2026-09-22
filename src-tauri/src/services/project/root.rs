@@ -3,24 +3,17 @@ use crate::{
     errors::AppResult,
     io::{read_csv_data, read_json_file},
 };
-use serde_json::{Map, Value};
+use serde_json::Value;
 use std::path::Path;
 
-pub(super) fn read_mod_info(mod_root: &Path) -> AppResult<Value> {
+/// `None` models a Mod opened without `mod_info.json` — the same state the
+/// game-overview scan reports as skipped, never fabricated defaults.
+pub(super) fn read_mod_info(mod_root: &Path) -> AppResult<Option<Value>> {
     let path = mod_root.join("mod_info.json");
     if path.exists() {
-        return read_json_file(&path);
+        return read_json_file(&path).map(Some);
     }
-    Ok({
-        let mut obj = Map::new();
-        let name = mod_root
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("Mod");
-        obj.insert("id".to_string(), Value::String(name.to_string()));
-        obj.insert("name".to_string(), Value::String(name.to_string()));
-        Value::Object(obj)
-    })
+    Ok(None)
 }
 
 pub(super) fn count_mission_list_entries(mod_root: &Path) -> AppResult<usize> {

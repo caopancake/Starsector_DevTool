@@ -28,7 +28,6 @@ function resultWithChanges(count: number): WriteResult {
     invalidation: { paths: [], tables: [], entities: [], resources: [], queryScopes: [], session: false },
     keyMap: [],
     refreshedEntity: null,
-    warnings: [],
   };
 }
 

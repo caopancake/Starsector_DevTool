@@ -10,25 +10,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub fn scan_game_overview(starsector_root: &Path) -> GameOverviewData {
-    let boundary = match FsRootBoundary::new(starsector_root, "starsector root") {
-        Ok(boundary) => boundary,
-        Err(error) => {
-            let root = starsector_root.to_string_lossy().to_string();
-            return GameOverviewData {
-                starsector_root: root.clone(),
-                core_available: false,
-                mods_dir: starsector_root.join("mods").to_string_lossy().to_string(),
-                mods: Vec::new(),
-                warnings: vec![GameScanWarning {
-                    path: root,
-                    message: format!("无效 Starsector 根目录: {error}"),
-                    edit_target: None,
-                }],
-            };
-        }
-    };
-    scan_game_overview_root(boundary.root())
+/// A malformed root is an error; per-Mod problems stay in the overview's
+/// warnings so one broken Mod never hides the rest of the game.
+pub fn scan_game_overview(starsector_root: &Path) -> AppResult<GameOverviewData> {
+    let boundary = FsRootBoundary::new(starsector_root, "starsector root")?;
+    Ok(scan_game_overview_root(boundary.root()))
 }
 
 fn scan_game_overview_root(starsector_root: &Path) -> GameOverviewData {
@@ -141,10 +127,13 @@ pub fn resolve_game_mods_directory(starsector_root: &Path) -> AppResult<(PathBuf
     let boundary = FsRootBoundary::new(starsector_root, "starsector root")?;
     let canonical_root = boundary.root().to_path_buf();
     if !is_game_root(&canonical_root) {
-        return Err(AppError::message(format!(
-            "不是有效的 Starsector 游戏目录: {}",
-            canonical_root.display()
-        )));
+        return Err(AppError::message(
+            "detect.not_game_root",
+            format!(
+                "不是有效的 Starsector 游戏目录: {}",
+                canonical_root.display()
+            ),
+        ));
     }
     let mods_dir = FsRootBoundary::new(&canonical_root.join("mods"), "Starsector mods 目录")?
         .root()
@@ -245,7 +234,7 @@ mod tests {
         )
         .unwrap();
 
-        let overview = scan_game_overview(&root);
+        let overview = scan_game_overview(&root).unwrap();
 
         let _ = fs::remove_dir_all(&root);
         assert!(overview.core_available);
@@ -263,7 +252,7 @@ mod tests {
         fs::create_dir_all(root.join("starsector-core")).unwrap();
         fs::create_dir_all(root.join("mods")).unwrap();
 
-        let overview = scan_game_overview(&root.join("."));
+        let overview = scan_game_overview(&root.join(".")).unwrap();
 
         let expected_root = path_string(&root);
         let _ = fs::remove_dir_all(&root);
@@ -274,15 +263,12 @@ mod tests {
     fn scan_game_overview_rejects_parent_dir_root() {
         let root = temp_dir("game_overview_parent_dir");
 
-        let overview = scan_game_overview(&root.join(".."));
+        let error = scan_game_overview(&root.join(".."))
+            .unwrap_err()
+            .to_string();
 
         let _ = fs::remove_dir_all(root);
-        assert!(
-            overview
-                .warnings
-                .iter()
-                .any(|warning| warning.message.contains("无效 Starsector 根目录"))
-        );
+        assert!(error.contains("invalid starsector root path"));
     }
 
     #[test]
@@ -294,7 +280,7 @@ mod tests {
         write_utf8_no_bom(&root.join("mods/a/mod_info.json"), r#"{"id":"dup"}"#).unwrap();
         write_utf8_no_bom(&root.join("mods/b/mod_info.json"), r#"{"id":"dup"}"#).unwrap();
 
-        let overview = scan_game_overview(&root);
+        let overview = scan_game_overview(&root).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert!(!overview.core_available);
@@ -331,7 +317,7 @@ mod tests {
         )
         .unwrap();
 
-        let overview = scan_game_overview(&root);
+        let overview = scan_game_overview(&root).unwrap();
 
         let warning = overview
             .warnings
@@ -354,7 +340,7 @@ mod tests {
         fs::create_dir_all(root.join("starsector-core")).unwrap();
         fs::write(root.join("mods"), "not a directory").unwrap();
 
-        let overview = scan_game_overview(&root);
+        let overview = scan_game_overview(&root).unwrap();
 
         let _ = fs::remove_dir_all(root);
         assert!(

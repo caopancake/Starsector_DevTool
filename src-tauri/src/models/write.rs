@@ -127,7 +127,6 @@ pub struct WriteResult<T = ()> {
     pub invalidation: ProjectInvalidation,
     pub key_map: Vec<CsvRowKeyMapping>,
     pub refreshed_entity: Option<T>,
-    pub warnings: Vec<String>,
 }
 
 /// Refreshed-entity payload of the indexed config chains (faction, mission):
@@ -148,7 +147,6 @@ impl<T> WriteResult<T> {
         changes: Vec<FileChangeRecord>,
         key_map: Vec<CsvRowKeyMapping>,
         refreshed_entity: Option<T>,
-        warnings: Vec<String>,
     ) -> Self {
         let invalidation = ProjectInvalidation {
             paths: changed_paths_for_changes(&changes),
@@ -159,28 +157,23 @@ impl<T> WriteResult<T> {
             invalidation,
             key_map,
             refreshed_entity,
-            warnings,
         }
     }
 
     pub fn refreshed_entity(&self) -> Option<&T> {
         self.refreshed_entity.as_ref()
     }
-
-    pub fn warnings(&self) -> &[String] {
-        &self.warnings
-    }
 }
 
 impl WriteResult<()> {
     pub fn from_changes(changes: Vec<FileChangeRecord>) -> Self {
-        Self::new(changes, Vec::new(), None, Vec::new())
+        Self::new(changes, Vec::new(), None)
     }
 }
 
 impl<T> WriteResult<T> {
     pub fn from_refreshed_entity(changes: Vec<FileChangeRecord>, refreshed_entity: T) -> Self {
-        Self::new(changes, Vec::new(), Some(refreshed_entity), Vec::new())
+        Self::new(changes, Vec::new(), Some(refreshed_entity))
     }
 }
 
@@ -250,25 +243,17 @@ mod tests {
 
     #[test]
     fn write_result_serializes_current_model_shape() {
-        let result: WriteResult<()> =
-            WriteResult::new(Vec::new(), Vec::new(), None, vec!["warn".to_string()]);
+        let result: WriteResult<()> = WriteResult::new(Vec::new(), Vec::new(), None);
         let serialized = serde_json::to_value(&result).unwrap();
         let object = serialized.as_object().unwrap();
         let mut keys: Vec<&str> = object.keys().map(String::as_str).collect();
         keys.sort_unstable();
         assert_eq!(
             keys,
-            [
-                "changes",
-                "invalidation",
-                "keyMap",
-                "refreshedEntity",
-                "warnings"
-            ]
+            ["changes", "invalidation", "keyMap", "refreshedEntity"]
         );
         assert!(serialized.get("invalidation").is_some());
         assert_eq!(result.invalidation.paths, [] as [&str; 0]);
         assert!(result.refreshed_entity().is_none());
-        assert_eq!(result.warnings(), ["warn"]);
     }
 }

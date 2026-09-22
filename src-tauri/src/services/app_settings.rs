@@ -98,10 +98,13 @@ fn prepare_log_directory_for_save(app_data_dir: &Path, directory: &str) -> AppRe
 fn resolve_saved_log_directory(app_data_dir: &Path, directory: &str) -> AppResult<PathBuf> {
     let (requested, _) = check_log_directory_boundary(app_data_dir, directory)?;
     if !requested.is_dir() {
-        return Err(AppError::message(format!(
-            "configured log directory is unavailable: {}",
-            requested.display()
-        )));
+        return Err(AppError::message(
+            "log.dir_unavailable",
+            format!(
+                "configured log directory is unavailable: {}",
+                requested.display()
+            ),
+        ));
     }
     let canonical = FsRootBoundary::new(&requested, "log directory")?
         .root()
@@ -120,22 +123,29 @@ fn check_log_directory_boundary(
         .file_name()
         .is_some_and(|name| name.eq_ignore_ascii_case(LOG_FILE))
     {
-        return Err(AppError::message(format!(
-            "log directory must not include the log file name: {directory}"
-        )));
+        return Err(AppError::message(
+            "log.dir_is_log_file",
+            format!("log directory must not include the log file name: {directory}"),
+        ));
     }
     let existing_parent = requested
         .ancestors()
         .find(|candidate| candidate.exists())
         .ok_or_else(|| {
-            AppError::message(format!("log directory has no existing parent: {directory}"))
+            AppError::message(
+                "log.dir_no_existing_parent",
+                format!("log directory has no existing parent: {directory}"),
+            )
         })?;
     let parent_boundary = FsRootBoundary::new(existing_parent, "log directory")?;
     let suffix = requested.strip_prefix(existing_parent).map_err(|error| {
-        AppError::message(format!(
-            "log directory cannot be related to existing parent ({}): {error}",
-            requested.display()
-        ))
+        AppError::message(
+            "path.relative_failed",
+            format!(
+                "log directory cannot be related to existing parent ({}): {error}",
+                requested.display()
+            ),
+        )
     })?;
     let canonical = parent_boundary.root().join(suffix);
     reject_log_directory_boundary(app_data_dir, &canonical)?;
@@ -147,10 +157,13 @@ fn reject_log_directory_boundary(app_data_dir: &Path, canonical: &Path) -> AppRe
         .root()
         .to_path_buf();
     if path_belongs_to_root(canonical, &app_data) {
-        return Err(AppError::message(format!(
-            "custom log directory must not be inside app data: {}",
-            canonical.display()
-        )));
+        return Err(AppError::message(
+            "log.dir_inside_app_data",
+            format!(
+                "custom log directory must not be inside app data: {}",
+                canonical.display()
+            ),
+        ));
     }
     workspace_persistence::reject_mod_or_workspace_directory(app_data_dir, canonical)
 }

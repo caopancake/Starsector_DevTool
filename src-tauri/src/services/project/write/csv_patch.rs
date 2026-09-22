@@ -50,7 +50,7 @@ pub fn save_csv_patch(
         table_data.header = header;
         table_data.next_row_seq = next_row_seq;
     }
-    let write_result: WriteResult<()> = WriteResult::new(changes, key_map, None, Vec::new());
+    let write_result: WriteResult<()> = WriteResult::new(changes, key_map, None);
     debug_assert!(
         write_result
             .invalidation
@@ -59,7 +59,6 @@ pub fn save_csv_patch(
             .all(|path| !path.is_empty())
     );
     debug_assert!(write_result.refreshed_entity().is_none());
-    debug_assert!(write_result.warnings().is_empty());
     Ok(write_result)
 }
 
@@ -89,10 +88,10 @@ fn apply_csv_row_patches(
                         row: patch.row,
                     });
                 } else {
-                    return Err(AppError::message(format!(
-                        "CSV upsert row key does not exist: {}",
-                        patch.row_key
-                    )));
+                    return Err(AppError::message(
+                        "table.row_key_unknown",
+                        format!("CSV upsert row key does not exist: {}", patch.row_key),
+                    ));
                 }
             }
         }
@@ -113,7 +112,10 @@ fn add_associated_spec_change(
     change: &AssociatedSpecChange,
 ) -> AppResult<()> {
     let definition = associated_spec_definition(table).ok_or_else(|| {
-        AppError::message(format!("CSV 表没有关联 spec 定义: {}", table.as_str()))
+        AppError::message(
+            "table.no_associated_spec",
+            format!("CSV 表没有关联 spec 定义: {}", table.as_str()),
+        )
     })?;
     let rel_path = definition.default_rel_path(&change.id);
     match change.action {
@@ -132,7 +134,10 @@ fn add_associated_spec_change(
         }
         AssociatedSpecChangeAction::Rename => {
             let previous_id = change.previous_id.as_deref().ok_or_else(|| {
-                AppError::message(format!("关联 spec 重命名缺少旧 ID: {}", change.id))
+                AppError::message(
+                    "spec.rename_missing_previous_id",
+                    format!("关联 spec 重命名缺少旧 ID: {}", change.id),
+                )
             })?;
             let previous_rel_path = definition.default_rel_path(previous_id);
             let previous_full = builder.root().join(&previous_rel_path);
@@ -155,7 +160,10 @@ fn default_associated_spec_text(
 ) -> AppResult<String> {
     let mut value = strip_internal_fields(&Value::Object(row.clone()));
     let Some(object) = value.as_object_mut() else {
-        return Err(AppError::message("关联 spec 默认数据不是 JSON object"));
+        return Err(AppError::message(
+            "spec.default_data_not_object",
+            "关联 spec 默认数据不是 JSON object",
+        ));
     };
     object.insert(id_field.to_string(), Value::String(id.to_string()));
     serde_json::to_string_pretty(&value).map_err(AppError::from)
@@ -164,10 +172,10 @@ fn default_associated_spec_text(
 fn rewrite_associated_spec_id(id_field: &str, path: &Path, new_id: &str) -> AppResult<String> {
     let mut value = strip_internal_fields(&read_json_file(path)?);
     let Some(object) = value.as_object_mut() else {
-        return Err(AppError::message(format!(
-            "关联 spec 文件不是 JSON object: {}",
-            path.display()
-        )));
+        return Err(AppError::message(
+            "spec.file_not_object",
+            format!("关联 spec 文件不是 JSON object: {}", path.display()),
+        ));
     };
     object.insert(id_field.to_string(), Value::String(new_id.to_string()));
     serde_json::to_string_pretty(&value).map_err(AppError::from)

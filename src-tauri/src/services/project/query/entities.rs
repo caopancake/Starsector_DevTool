@@ -151,7 +151,7 @@ mod tests {
                 starsector_root: None,
                 core_available: false,
                 associated_spec_tables: Vec::new(),
-                mod_info: Value::Object(Map::new()),
+                mod_info: Some(Value::Object(Map::new())),
                 table_summaries: BTreeMap::new(),
                 table_entity_summaries: BTreeMap::new(),
                 entity_summaries: crate::models::EntitySummaries::default(),

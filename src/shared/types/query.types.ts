@@ -18,7 +18,8 @@ export interface ProjectManifest {
   starsectorRoot: string | null;
   coreAvailable: boolean;
   associatedSpecTables: TableKey[];
-  modInfo: RowData;
+  /** Null models a Mod without `mod_info.json` (matches backend Option<Value>). */
+  modInfo: RowData | null;
   tableSummaries: Record<TableKey, TableSummary>;
   tableEntitySummaries: Record<TableKey, number>;
   entitySummaries: EntitySummaries;

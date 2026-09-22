@@ -105,7 +105,12 @@ pub fn resolve_mod_relative_path(mod_root: &str, absolute_path: &str) -> AppResu
     let boundary = FsRootBoundary::new(Path::new(mod_root), "mod root")?;
     boundary
         .resolve_changed_path_to_relative(absolute_path, "selected file")?
-        .ok_or_else(|| AppError::message(format!("所选文件位于 Mod 目录之外：{absolute_path}")))
+        .ok_or_else(|| {
+            AppError::message(
+                "resource.outside_mod",
+                format!("所选文件位于 Mod 目录之外：{absolute_path}"),
+            )
+        })
 }
 
 fn load_sprite_bytes_from_boundary(
@@ -167,9 +172,10 @@ fn validate_sprite_relative_path(sprite: &str) -> AppResult<Option<String>> {
     }
     let path = Path::new(&rel);
     if path.is_absolute() || path_escapes_resource_root(path) {
-        return Err(AppError::message(format!(
-            "sprite path is outside resource root: {rel}"
-        )));
+        return Err(AppError::message(
+            "resource.outside_root",
+            format!("sprite path is outside resource root: {rel}"),
+        ));
     }
     Ok(Some(rel))
 }

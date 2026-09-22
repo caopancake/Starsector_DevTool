@@ -20,10 +20,10 @@ impl FsRootBoundary {
             )
         })?;
         if !root.is_dir() {
-            return Err(AppError::message(format!(
-                "{label} path is not a directory: {}",
-                root.display()
-            )));
+            return Err(AppError::message(
+                "path.not_directory",
+                format!("{label} path is not a directory: {}", root.display()),
+            ));
         }
         Ok(Self { root })
     }
@@ -84,18 +84,21 @@ impl FsRootBoundary {
             canonical
         } else {
             let rel_suffix = path.strip_prefix(&existing).map_err(|error| {
-                AppError::message(format!(
-                    "{label} path cannot be related to existing parent ({}): {error}",
-                    path.display()
-                ))
+                AppError::message(
+                    "path.relative_failed",
+                    format!(
+                        "{label} path cannot be related to existing parent ({}): {error}",
+                        path.display()
+                    ),
+                )
             })?;
             canonical.join(rel_suffix)
         };
         let rel = target.strip_prefix(&self.root).map_err(|error| {
-            AppError::message(format!(
-                "{label} path is outside root: {} ({error})",
-                path.display()
-            ))
+            AppError::message(
+                "path.outside_root",
+                format!("{label} path is outside root: {} ({error})", path.display()),
+            )
         })?;
         Ok(Some(forward_slash_path(rel)))
     }
@@ -103,10 +106,10 @@ impl FsRootBoundary {
     fn validate_target_path(&self, path: &Path, label: &str) -> AppResult<()> {
         reject_existing_path_links(path, label)?;
         let existing = nearest_existing_path(path).ok_or_else(|| {
-            AppError::message(format!(
-                "{label} path has no existing parent: {}",
-                path.display()
-            ))
+            AppError::message(
+                "path.no_existing_parent",
+                format!("{label} path has no existing parent: {}", path.display()),
+            )
         })?;
         reject_existing_path_links(&existing, label)?;
         let canonical = existing.canonicalize().map_err(|error| {
@@ -116,10 +119,10 @@ impl FsRootBoundary {
             )
         })?;
         if !path_belongs_to_root(&canonical, &self.root) {
-            return Err(AppError::message(format!(
-                "{label} path is outside root: {}",
-                path.display()
-            )));
+            return Err(AppError::message(
+                "path.outside_root",
+                format!("{label} path is outside root: {}", path.display()),
+            ));
         }
         Ok(())
     }
@@ -131,10 +134,10 @@ pub fn validate_walk_entry(path: &Path, label: &str) -> AppResult<()> {
 
 pub fn validate_safe_absolute_path<'a>(path: &'a Path, label: &str) -> AppResult<&'a Path> {
     if !path.is_absolute() || path_uses_parent_dir(path) {
-        return Err(AppError::message(format!(
-            "invalid {label} path: {}",
-            path.display()
-        )));
+        return Err(AppError::message(
+            "path.invalid_absolute",
+            format!("invalid {label} path: {}", path.display()),
+        ));
     }
     Ok(path)
 }
@@ -148,10 +151,10 @@ pub fn validate_safe_relative_path<'a>(path: &'a Path, label: &str) -> AppResult
             .split(['/', '\\'])
             .all(|part| !part.is_empty() && part != "." && part != "..")
     {
-        return Err(AppError::message(format!(
-            "invalid {label} path: {}",
-            path.display()
-        )));
+        return Err(AppError::message(
+            "path.invalid_relative",
+            format!("invalid {label} path: {}", path.display()),
+        ));
     }
     Ok(path)
 }
@@ -201,10 +204,13 @@ fn reject_link_path(path: &Path, label: &str) -> AppResult<()> {
     })?;
     let file_type = metadata.file_type();
     if file_type.is_symlink() || is_reparse_point(&metadata) {
-        return Err(AppError::message(format!(
-            "{label} path uses a link or reparse point: {}",
-            path.display()
-        )));
+        return Err(AppError::message(
+            "path.link_rejected",
+            format!(
+                "{label} path uses a link or reparse point: {}",
+                path.display()
+            ),
+        ));
     }
     Ok(())
 }

@@ -4,8 +4,8 @@ pub type AppResult<T> = Result<T, AppError>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
-    #[error("{0}")]
-    Message(String),
+    #[error("{message}")]
+    Message { code: &'static str, message: String },
     #[error("{context}: {source}")]
     Context {
         context: String,
@@ -22,14 +22,30 @@ pub enum AppError {
 }
 
 impl AppError {
-    pub fn message(message: impl Into<String>) -> Self {
-        Self::Message(message.into())
+    /// `code` is the stable wire identifier the frontend maps to user-facing
+    /// copy; `message` is diagnostics-only context and never user-facing.
+    pub fn message(code: &'static str, message: impl Into<String>) -> Self {
+        Self::Message {
+            code,
+            message: message.into(),
+        }
     }
 
     pub fn context(context: impl Into<String>, source: AppError) -> Self {
         Self::Context {
             context: context.into(),
             source: Box::new(source),
+        }
+    }
+
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::Message { code, .. } => code,
+            Self::Context { source, .. } => source.code(),
+            Self::Io(_) => "io.unexpected",
+            Self::Csv(_) => "parse.csv",
+            Self::Json(_) => "parse.json",
+            Self::Base64(_) => "data.base64",
         }
     }
 }
@@ -39,6 +55,10 @@ impl Serialize for AppError {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.to_string())
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("AppError", 2)?;
+        state.serialize_field("code", self.code())?;
+        state.serialize_field("message", &self.to_string())?;
+        state.end()
     }
 }

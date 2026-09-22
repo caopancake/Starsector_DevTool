@@ -27,7 +27,7 @@ pub fn close_project_session(session_id: String) -> AppResult<()> {
     cache::clear_sprite_media_for_session(&session_id);
     sessions()
         .lock()
-        .map_err(|_| AppError::message("project session lock poisoned"))?
+        .map_err(|_| AppError::message("session.lock_poisoned", "project session lock poisoned"))?
         .remove(&session_id);
     Ok(())
 }
@@ -38,9 +38,10 @@ pub fn ensure_project_session_mod_root(session_id: &str, mod_root: &str) -> AppR
     let expected_root = FsRootBoundary::new(Path::new(&session.manifest.mod_root), "mod root")?;
     let actual_root = FsRootBoundary::new(Path::new(mod_root), "mod root")?;
     if expected_root.root() != actual_root.root() {
-        return Err(AppError::message(format!(
-            "project session {session_id} does not own mod root: {mod_root}"
-        )));
+        return Err(AppError::message(
+            "session.mod_root_mismatch",
+            format!("project session {session_id} does not own mod root: {mod_root}"),
+        ));
     }
     Ok(())
 }
@@ -80,7 +81,7 @@ pub(crate) fn open_project_session_traced(
     let manifest = session.manifest.clone();
     let mut guard = sessions()
         .lock()
-        .map_err(|_| AppError::message("project session lock poisoned"))?;
+        .map_err(|_| AppError::message("session.lock_poisoned", "project session lock poisoned"))?;
     while guard.len() >= MAX_OPEN_SESSIONS {
         let Some(oldest) = guard.keys().next().cloned() else {
             break;
@@ -151,10 +152,13 @@ pub(super) fn build_project_session(
             let table = csv_tables
                 .get(definition.spec.key.as_str())
                 .ok_or_else(|| {
-                    AppError::message(format!(
-                        "missing registered CSV table: {}",
-                        definition.spec.key.as_str()
-                    ))
+                    AppError::message(
+                        "table.unknown",
+                        format!(
+                            "missing registered CSV table: {}",
+                            definition.spec.key.as_str()
+                        ),
+                    )
                 })?;
             Ok((
                 definition.spec.key,

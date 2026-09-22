@@ -34,19 +34,22 @@ pub fn save_indexed_config_entity(
         .iter()
         .position(|row| definition.row_matches(row, &header, &next_id));
     if existing_next.is_some() && previous_id.as_deref() != Some(next_id.as_str()) {
-        return Err(AppError::message(format!(
-            "{} 已存在: {next_id}",
-            definition.display_name()
-        )));
+        return Err(AppError::message(
+            "config.entity_exists",
+            format!("{} 已存在: {next_id}", definition.display_name()),
+        ));
     }
     if previous_id.as_deref() != Some(next_id.as_str())
         && definition.target_exists(mod_root, &next_id)
     {
-        return Err(AppError::message(format!(
-            "{}目标已存在: {}",
-            definition.display_name(),
-            definition.target_rel_path(&next_id)
-        )));
+        return Err(AppError::message(
+            "config.target_exists",
+            format!(
+                "{}目标已存在: {}",
+                definition.display_name(),
+                definition.target_rel_path(&next_id)
+            ),
+        ));
     }
     if let Some(previous_id) = previous_id.as_deref() {
         require_index_row(&rows, &header, definition, previous_id)?;
@@ -118,10 +121,10 @@ pub fn delete_indexed_config_entity(
     let index_path = mod_root.join(definition.index_rel_path());
     let (header, mut rows) = read_index_table(&index_path, definition.default_header())?;
     if !remove_index_row(&mut rows, &header, definition, Some(&id)) {
-        return Err(AppError::message(format!(
-            "{}索引不存在: {id}",
-            definition.display_name()
-        )));
+        return Err(AppError::message(
+            "config.index_missing",
+            format!("{}索引不存在: {id}", definition.display_name()),
+        ));
     }
 
     let mut builder = FileChangeSetBuilder::new(mod_root)?;
@@ -182,7 +185,12 @@ fn indexed_config_definition(
     INDEXED_CONFIG_DEFINITIONS
         .iter()
         .find(|definition| definition.kind == kind)
-        .ok_or_else(|| AppError::message(format!("未注册的 indexed config 种类: {kind:?}")))
+        .ok_or_else(|| {
+            AppError::message(
+                "config.kind_unknown",
+                format!("未注册的 indexed config 种类: {kind:?}"),
+            )
+        })
 }
 
 impl IndexedConfigDefinition {
@@ -334,10 +342,10 @@ fn require_index_row(
     {
         return Ok(());
     }
-    Err(AppError::message(format!(
-        "{}索引不存在: {id}",
-        definition.display_name()
-    )))
+    Err(AppError::message(
+        "config.index_missing",
+        format!("{}索引不存在: {id}", definition.display_name()),
+    ))
 }
 
 fn find_header_col(header: &[String], candidates: &[&str]) -> Option<String> {
@@ -391,9 +399,9 @@ fn add_faction_save_changes(
     id: &str,
     entity_data: &Value,
 ) -> AppResult<()> {
-    let file = entity_data
-        .get("file")
-        .ok_or_else(|| AppError::message("missing faction file data"))?;
+    let file = entity_data.get("file").ok_or_else(|| {
+        AppError::message("config.missing_faction_file", "missing faction file data")
+    })?;
     let clean = strip_internal_fields(file);
     builder.text_file(
         definition.target_rel_path(id),
@@ -408,13 +416,18 @@ fn add_mission_save_changes(
     id: &str,
     entity_data: &Value,
 ) -> AppResult<()> {
-    let descriptor = entity_data
-        .get("descriptor")
-        .ok_or_else(|| AppError::message("missing mission descriptor data"))?;
+    let descriptor = entity_data.get("descriptor").ok_or_else(|| {
+        AppError::message(
+            "config.missing_mission_descriptor",
+            "missing mission descriptor data",
+        )
+    })?;
     let text = entity_data
         .get("text")
         .and_then(Value::as_str)
-        .ok_or_else(|| AppError::message("missing mission text data"))?;
+        .ok_or_else(|| {
+            AppError::message("config.missing_mission_text", "missing mission text data")
+        })?;
     let clean = strip_internal_fields(descriptor);
     builder
         .text_file(

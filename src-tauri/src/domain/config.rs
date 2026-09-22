@@ -8,7 +8,7 @@ use std::path::{Component, Path};
 pub fn validate_config_id<'a>(id: &'a str, message: &str) -> AppResult<&'a str> {
     let clean = id.trim();
     if !is_config_entity_id(clean) {
-        return Err(AppError::message(message));
+        return Err(AppError::message("config.id_invalid", message));
     }
     Ok(clean)
 }
@@ -27,7 +27,10 @@ pub fn validate_config_file_rel_path(
         || path.extension().and_then(|value| value.to_str()) != Some(extension)
         || !path_starts_with_dir(path, root_dir)
     {
-        return Err(AppError::message(format!("{message}: {rel_path}")));
+        return Err(AppError::message(
+            "config.path_unsafe",
+            format!("{message}: {rel_path}"),
+        ));
     }
     Ok(())
 }
@@ -98,7 +101,9 @@ fn required_string(value: &Value, key: &str, display_name: &str) -> AppResult<St
         .and_then(Value::as_str)
         .filter(|text| !text.trim().is_empty())
         .map(str::to_string)
-        .ok_or_else(|| AppError::message(format!("{display_name}缺少 {key}")))
+        .ok_or_else(|| {
+            AppError::message("config.missing_field", format!("{display_name}缺少 {key}"))
+        })
 }
 
 fn array_len(value: Option<&Value>) -> usize {

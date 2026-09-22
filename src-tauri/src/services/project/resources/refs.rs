@@ -47,7 +47,12 @@ pub(in crate::services::project) fn sprite_resource_bytes(
                 .starsector_root
                 .as_ref()
                 .map(|root| PathBuf::from(root).join("starsector-core"))
-                .ok_or_else(|| AppError::message("core resource requires starsector root"))?;
+                .ok_or_else(|| {
+                    AppError::message(
+                        "resource.core_root_required",
+                        "core resource requires starsector root",
+                    )
+                })?;
             sprites::load_sprite_bytes_from_root(&root, &resource.rel_path)?
         }
         ResourceSource::Mod => {

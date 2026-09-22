@@ -19,8 +19,9 @@ pub fn scan_core_graphics(starsector_root: &str) -> AppResult<Vec<String>> {
     let core_dir = starsector_root.root().join("starsector-core");
     let mut paths = Vec::new();
     for entry in WalkDir::new(&dir) {
-        let entry =
-            entry.map_err(|error| AppError::message(format!("遍历原版图片目录失败: {error}")))?;
+        let entry = entry.map_err(|error| {
+            AppError::message("io.walk_failed", format!("遍历原版图片目录失败: {error}"))
+        })?;
         validate_walk_entry(entry.path(), "core graphics")?;
         if !entry.file_type().is_file() {
             continue;
@@ -34,10 +35,13 @@ pub fn scan_core_graphics(starsector_root: &str) -> AppResult<Vec<String>> {
             continue;
         }
         let rel = entry.path().strip_prefix(&core_dir).map_err(|error| {
-            AppError::message(format!(
-                "原版图片路径不在 starsector-core 内 ({}): {error}",
-                entry.path().display()
-            ))
+            AppError::message(
+                "path.outside_root",
+                format!(
+                    "原版图片路径不在 starsector-core 内 ({}): {error}",
+                    entry.path().display()
+                ),
+            )
         })?;
         paths.push(rel.to_string_lossy().replace('\\', "/"));
     }

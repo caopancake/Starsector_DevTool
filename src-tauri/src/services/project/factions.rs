@@ -81,10 +81,13 @@ pub(super) fn load_faction_files(mod_root: &Path) -> AppResult<BTreeMap<String, 
 fn read_faction_object(entry: &FactionIndexEntry) -> AppResult<Map<String, Value>> {
     match read_json_file(&entry.path)? {
         Value::Object(obj) => Ok(obj),
-        _ => Err(AppError::message(format!(
-            "faction file must be a JSON object: {}",
-            entry.path.display()
-        ))),
+        _ => Err(AppError::message(
+            "faction.file_not_object",
+            format!(
+                "faction file must be a JSON object: {}",
+                entry.path.display()
+            ),
+        )),
     }
 }
 
@@ -138,9 +141,17 @@ fn faction_index_entry(
         .get(id_col)
         .and_then(Value::as_str)
         .map(str::trim)
-        .ok_or_else(|| AppError::message(format!("missing faction id column: {id_col}")))?;
+        .ok_or_else(|| {
+            AppError::message(
+                "faction.id_column_missing",
+                format!("missing faction id column: {id_col}"),
+            )
+        })?;
     if raw_id.is_empty() {
-        return Err(AppError::message("missing faction id"));
+        return Err(AppError::message(
+            "faction.id_missing",
+            "missing faction id",
+        ));
     }
     let raw_file = file_col
         .and_then(|col| row.get(col))
@@ -154,7 +165,10 @@ fn faction_index_entry(
         raw_id.to_string()
     };
     if id.is_empty() {
-        return Err(AppError::message("missing faction id"));
+        return Err(AppError::message(
+            "faction.id_missing",
+            "missing faction id",
+        ));
     }
     let file = file_value
         .map(ToString::to_string)
