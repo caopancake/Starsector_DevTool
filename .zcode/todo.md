@@ -53,11 +53,11 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 1.7: 工程配置矛盾收敛
 
-- [ ] `src-tauri/gen/schemas` 四个生成物退出 git 跟踪并入 `.gitignore`（eslint/prettier/encoding/architecture 四方均已按生成物对待）；`.gitignore` 补 `release/`。
-- [ ] `tauri.conf.json` bundle 段与"只发布单文件 exe"策略收敛（`active: false` 或等价表达），README 发布说明同步。
-- [ ] 新增 `rust-toolchain.toml` 钉当前 stable 工具链、新增 `.nvmrc` 钉 Node 24；`@types/node` 对齐 Node 24 版本线。
-- [ ] `build.bat` 改为 `build.ps1` 的薄壳调用（单源化，保留 bat 双击入口兼容性；修订"双轨并存"决策，README 相应说明同步）。
-- [ ] 本地跑与 CI 等价的全套检查。
+- [x] `src-tauri/gen/schemas` 四个生成物退出 git 跟踪并入 `.gitignore`（eslint/prettier/encoding/architecture 四方均已按生成物对待）；`.gitignore` 补 `release/`。
+- [x] `tauri.conf.json` bundle 段与"只发布单文件 exe"策略收敛（`active: false` 或等价表达），README 发布说明同步。
+- [x] 新增 `rust-toolchain.toml` 钉当前 stable 工具链、新增 `.nvmrc` 钉 Node 24；`@types/node` 对齐 Node 24 版本线。
+- [x] build.bat 与 build.ps1 维持各自完整实现。
+- [x] 本地跑与 CI 等价的全套检查。
 
 ## Phase 2: 架构收敛——写法统一、残留清理与性能
 
