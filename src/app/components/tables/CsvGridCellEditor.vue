@@ -9,6 +9,13 @@
       @input="handleNativeInput"
       @keydown.enter.prevent="commitAndClose"
     />
+    <CsvCellTextEditor
+      v-else-if="isTextControl && pickerAnchor"
+      :anchor="pickerAnchor"
+      :value="rawValue"
+      @close="$emit('close')"
+      @commit="handleTextCommit"
+    />
     <template v-else>
       <template v-if="isListControl">
         <span v-for="value in listValue" :key="value" class="csv-cell-tag" :title="listValueDescription(value)">{{ value }}</span>
@@ -54,6 +61,7 @@ import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useSchemaSelectMedia } from '@/app/composables/tables/use-schema-select-media';
 import CsvCellPicker from '@/app/components/tables/CsvCellPicker.vue';
+import CsvCellTextEditor from '@/app/components/tables/CsvCellTextEditor.vue';
 
 const props = defineProps<{
   anchorElement: HTMLElement | null;
@@ -78,7 +86,9 @@ const localInputValue = ref('');
 
 const rawValue = computed(() => cell(props.row.row[props.column.key]));
 const control = computed(() => csvColumnControl(props.column.schema));
+const isTextControl = computed(() => control.value === 'text');
 const usesNativeInput = computed(() => {
+  if (isTextControl.value) return false;
   if (settings.isPlainEditMode) return true;
   return csvControlUsesNativeInput(control.value);
 });
@@ -126,6 +136,11 @@ function commitAndClose() {
   if (localInputValue.value !== rawValue.value) {
     emit('update-cell', props.row.rowKey, props.column.key, localInputValue.value);
   }
+  emit('close');
+}
+
+function handleTextCommit(value: string) {
+  if (value !== rawValue.value) emit('update-cell', props.row.rowKey, props.column.key, value);
   emit('close');
 }
 
