@@ -67,12 +67,23 @@ watchEffect(
 const query = ref('');
 const searchRef = useTemplateRef<HTMLInputElement>('searchRef');
 const selectedValues = computed(() => new Set(props.values));
-const pickerStyle = computed(() => ({
-  left: `${props.anchor.left}px`,
-  minWidth: `${Math.max(props.anchor.width, 220)}px`,
-  top: `${props.anchor.top + props.anchor.height + 2}px`,
-  width: `${Math.min(Math.max(props.anchor.width, 300), 600)}px`,
-}));
+
+// Mirrors the .csv-cell-picker max-height in tables.css.
+const PICKER_MAX_HEIGHT = 320;
+
+const pickerStyle = computed(() => {
+  const top = props.anchor.top + props.anchor.height + 2;
+  const spaceBelow = window.innerHeight - top;
+  // Open upward when the downward panel would be clipped by the window edge.
+  const flipUp = spaceBelow < PICKER_MAX_HEIGHT && props.anchor.top - 2 > spaceBelow;
+  return {
+    bottom: flipUp ? `${window.innerHeight - props.anchor.top + 2}px` : undefined,
+    left: `${props.anchor.left}px`,
+    minWidth: `${Math.max(props.anchor.width, 220)}px`,
+    top: flipUp ? undefined : `${top}px`,
+    width: `${Math.min(Math.max(props.anchor.width, 300), 600)}px`,
+  };
+});
 const groups = computed(() => groupSelectOptions(props.options));
 const filteredGroups = computed(() => {
   const needle = query.value.trim().toLowerCase();
