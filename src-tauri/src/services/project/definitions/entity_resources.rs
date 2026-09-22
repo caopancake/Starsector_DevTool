@@ -1,11 +1,14 @@
-use super::model::{ProjectSession, WEAPON_SPRITE_FIELDS, string_field};
-use super::resources::resource_ref;
+use super::super::model::{ProjectSession, WEAPON_SPRITE_FIELDS, string_field};
+use super::super::resources::resource_ref;
 use super::table_definitions::hull_resource_ref;
 use crate::models::{ResourceOwnerKind, ResourceRef, ResourceSource};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
-pub(super) fn ship_resource_refs(id: &str, data: &Value) -> BTreeMap<String, ResourceRef> {
+pub(in crate::services::project) fn ship_resource_refs(
+    id: &str,
+    data: &Value,
+) -> BTreeMap<String, ResourceRef> {
     let mut refs = BTreeMap::new();
     if let Some(sprite) = string_field(data, "spriteName") {
         refs.insert(
@@ -22,7 +25,10 @@ pub(super) fn ship_resource_refs(id: &str, data: &Value) -> BTreeMap<String, Res
     refs
 }
 
-pub(super) fn weapon_resource_refs(id: &str, data: &Value) -> BTreeMap<String, ResourceRef> {
+pub(in crate::services::project) fn weapon_resource_refs(
+    id: &str,
+    data: &Value,
+) -> BTreeMap<String, ResourceRef> {
     let mut refs = BTreeMap::new();
     for field in WEAPON_SPRITE_FIELDS {
         if let Some(sprite) = string_field(data, field) {
@@ -41,15 +47,21 @@ pub(super) fn weapon_resource_refs(id: &str, data: &Value) -> BTreeMap<String, R
     refs
 }
 
-pub(super) fn projectile_resource_refs(_id: &str, _data: &Value) -> BTreeMap<String, ResourceRef> {
+pub(in crate::services::project) fn projectile_resource_refs(
+    _id: &str,
+    _data: &Value,
+) -> BTreeMap<String, ResourceRef> {
     BTreeMap::new()
 }
 
-pub(super) fn system_resource_refs(_id: &str, _data: &Value) -> BTreeMap<String, ResourceRef> {
+pub(in crate::services::project) fn system_resource_refs(
+    _id: &str,
+    _data: &Value,
+) -> BTreeMap<String, ResourceRef> {
     BTreeMap::new()
 }
 
-pub(super) fn variant_resource_refs(
+pub(in crate::services::project) fn variant_resource_refs(
     session: &ProjectSession,
     data: &Value,
 ) -> BTreeMap<String, ResourceRef> {
@@ -62,7 +74,7 @@ pub(super) fn variant_resource_refs(
     refs
 }
 
-pub(super) fn skin_entity_resource_refs(
+pub(in crate::services::project) fn skin_entity_resource_refs(
     session: &ProjectSession,
     id: &str,
     data: &Value,
@@ -87,7 +99,10 @@ pub(super) fn skin_entity_resource_refs(
     refs
 }
 
-pub(super) fn faction_resource_refs(id: &str, data: &Value) -> BTreeMap<String, ResourceRef> {
+pub(in crate::services::project) fn faction_resource_refs(
+    id: &str,
+    data: &Value,
+) -> BTreeMap<String, ResourceRef> {
     let mut refs = BTreeMap::new();
     if let Some(logo) = string_field(data, "logo") {
         refs.insert(
@@ -116,7 +131,10 @@ pub(super) fn faction_resource_refs(id: &str, data: &Value) -> BTreeMap<String, 
     refs
 }
 
-pub(super) fn mission_resource_refs(id: &str, data: &Value) -> BTreeMap<String, ResourceRef> {
+pub(in crate::services::project) fn mission_resource_refs(
+    id: &str,
+    data: &Value,
+) -> BTreeMap<String, ResourceRef> {
     let mut refs = BTreeMap::new();
     if let Some(icon) = data
         .get("descriptor")

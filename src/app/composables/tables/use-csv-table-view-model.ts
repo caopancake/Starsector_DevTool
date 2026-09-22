@@ -5,6 +5,7 @@ import { useTablesStore } from '@/stores/tables.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { createCsvGridModel } from '@/domain/tables/csv-grid-model';
 import { csvColumnSchemaFor } from '@/domain/tables/csv-column-schema';
+import { sourceGroupLabel } from '@/domain/tables/csv-source-options';
 import { recordPerformance } from '@/shared/runtime/performance';
 import { stableStringify } from '@/shared/lib/stable-compare';
 import { querySourceOptionCatalog, queryTableRowPreviewDataUrl, queryTableWindow } from '@/services/csv-table.service';
@@ -199,8 +200,8 @@ export function useCsvTableViewModel() {
           const groups = await querySourceOptionCatalog(sessionId, source);
           const options = groups.map((group) => ({
             type: 'group' as const,
-            label: group.label,
-            value: group.label,
+            label: sourceGroupLabel(group.origin),
+            value: sourceGroupLabel(group.origin),
             children: group.options.map((option) => ({
               label: option.label,
               value: option.value,

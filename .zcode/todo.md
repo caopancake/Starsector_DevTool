@@ -99,18 +99,18 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 - [x] Mod 状态文案单一实现并 domain 化：新增 `domain/workspace/mod-status.ts` 的 `modStatusLabel`，三份本地 statusLabel 删除，页签栏文案对齐"加载中/已加载/读取失败"；保存处理器注册统一为 onMounted/watch + onUnmounted 单模式（AppContent watchEffect 动态注册改写）；naive-ui 接线边界写入 frontend-guidelines。
 - [x] service 层 `.then()` 链统一 async/await（config-entity.service 6 处）；`JSON.stringify` watch 源与缓存键改 `stableStringify`；`WeaponEditor`/`WeaponFirePreview` 的冗余 `deep: true` spriteData watch 删除；事件闭包内 `ref`（faction/mission 删除确认）改普通变量；无谓 `async`（refreshMissionResources）与死防御（use-settings-view-model）清理。query-cache/resource-cache 两处 `.then().finally()` 为 promise 自引用清理模式，裁定保留。
 - [x] `file-history.store` 双重校验删除（orchestrator 为唯一防线，caller 契约注释化）；mission 选中归一化提取 `normalizeSelectedMission()` 两处共用；确认弹窗 + checkbox 裁定保留三处各自渲染（两处单选已去 ref 化，关联 spec 弹窗为多选列表结构不同）；竞态守卫 requestId 递增模式保留原样（15 处守卫 identity 参数各异，抽原语收益不足，裁定不抽）。
-- [ ] `app/composables/` 42 文件按域细分子目录（config 系、editor 系、window 系、canvas 系、tables 系各自归拢），消费方 import 路径同步。
+- [x] `app/composables/` 41 文件按域细分为 5 个子目录：`config/`（9 个配置实体 VM 与 draft session）、`editors/`（7 个编辑器窗口/文件/资源）、`canvas/`（4 个画布）、`tables/`（3 个 CSV 表格）、`settings/`（3 个设置面）；14 个跨域 composable 留根（app-feedback/shortcut/draft-session 等）。消费方 import 经脚本全量改写（26 条子目录路径），`classify.mjs` 的 composable 域名改取路径末段文件名（分组目录不影响 draft-session-boundary 适配器匹配），`naming-boundary` 的 composable 后缀检查改为含子目录匹配；16 份模块文档的参考路径同步。
 - [x] domain 预期错误迁 `AppError`（config-entities 3 处保存链路校验错误，带 action）；`as unknown as` 类型逃逸消除（familyFileId 复用既有 helper，连带修正 domain 内同型实现）。
 - [x] CSS 间距 token 扩充至 `--space-1..9`（4–36px），5 处 `28px 36px` 改 token，非 4 倍数微调值（7/9/14/18px）保留直写；画布颜色收口 `domain/editors/lib/canvas-palette.ts`（8 处字面量，画布固定深色为既定决策）；URL 草稿快照解析失败补 `console.warn` 诊断。
 - [x] 跑前端全套检查。
 
 ### Phase 2.6: Rust 写法统一
 
-- [ ] 定义注册表族归拢 `services/project/definitions/` 子目录（`entity_definitions`、`table_definitions`、`entity_resources`、`factions`、`projectiles`），`rust-project-layer-boundary` 的 root 层路径分类同步；与 Phase 2.3 触碰定义注册表的改动同批执行。
-- [ ] 未使用参数统一 `_` 前缀惯例（`entity_definitions.rs` 函数体丢弃式改写）；`push_unique_all` 双实现上收 models 唯一实现；MISSION_LIST 默认表头函数化；`refresh_variant`/`refresh_skin` 镜像合并（warnings 合并态唯一 owner）；符号链接测试助手收敛 `testutil`（7 份→1）；`SessionModScope` 手写 impl 收敛；changeset 落盘三入口统一单一通道；`hull_references` 四段同构分组构建提取；`_source` 注入两实现合一。
-- [ ] 查询结果中的 UI 分组文案（"当前 Mod/原版/蓝图"标签与描述）迁出 Rust：wire 携带结构化来源语义，文案归前端呈现（与 Phase 1.3 错误码方向一致）。
-- [ ] variant/skin 删除载荷字段名统一为单一实体 id 字段（`variant_id`/`skin_hull_id` 合一，wire 前后端同步）。
-- [ ] 跑 cargo 全套。
+- [x] 定义注册表族归拢 `services/project/definitions/` 子目录（`entity_definitions`、`table_definitions`、`entity_resources`、`factions`、`projectiles`，mod 内可见性 `pub(in crate::services::project)`），`rust-project-layer-boundary` 的 root 层路径分类同步。
+- [x] 未使用参数统一 `_` 前缀惯例（`entity_definitions.rs` 函数体丢弃式改写）；`push_unique_all` 双实现上收 models 唯一实现；MISSION_LIST 默认表头函数化；`refresh_variant`/`refresh_skin` 镜像合并（warnings 合并态唯一 owner，variant→skin 顺序为规范序）；符号链接测试助手收敛 `testutil`（`temp_linked_dir`/`temp_linked_file`，7 份→2）；`SessionModScope` 手写 impl 宏化（required/optional 两宏）；changeset 落盘统一单一通道（`file_editor` 改走 `apply_file_change_set`，service 边白名单同步）；`hull_references` 提取 `push_non_empty_group`；`_source` 标记经核实全仓零消费方后整体删除（`CACHE_FORMAT_VERSION` 1→2 丢弃旧快照，合并测试改内容级断言）。
+- [x] 查询结果中的 UI 分组文案迁出 Rust：`HullReferenceGroup` 与 `SourceOptionGroup` 的 `label: String` 改为结构化 `origin`/`kind` 字段（wire 前后端同步），分组展示文案归前端组合（新增 `domain/tables/csv-source-options.ts::sourceGroupLabel`）；蓝图 option 的动态标签/描述（含势力名，属查询内容）保留 Rust，模板迁移并入 2.9。
+- [x] variant/skin 删除载荷字段名统一为单一实体 id 字段（`variant_id`/`skin_hull_id` 合一为 `entity_id`，wire 前后端同步）。
+- [x] 跑 cargo 全套。
 
 ### Phase 2.7: 缓存与热路径性能收敛
 

@@ -1,4 +1,4 @@
-use crate::models::{ProjectInvalidation, required_nullable};
+use crate::models::{ProjectInvalidation, push_unique_all, required_nullable};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -180,24 +180,20 @@ impl<T> WriteResult<T> {
 fn changed_paths_for_changes(changes: &[FileChangeRecord]) -> Vec<String> {
     let mut paths = Vec::new();
     for change in changes {
-        push_unique_path(&mut paths, change.path.clone());
+        push_unique_all(&mut paths, vec![change.path.clone()]);
         for file in change.before_files.iter().chain(change.after_files.iter()) {
-            push_unique_path(
+            push_unique_all(
                 &mut paths,
-                Path::new(&change.path)
-                    .join(&file.rel_path)
-                    .to_string_lossy()
-                    .to_string(),
+                vec![
+                    Path::new(&change.path)
+                        .join(&file.rel_path)
+                        .to_string_lossy()
+                        .to_string(),
+                ],
             );
         }
     }
     paths
-}
-
-fn push_unique_path(paths: &mut Vec<String>, path: String) {
-    if !paths.iter().any(|candidate| candidate == &path) {
-        paths.push(path);
-    }
 }
 
 #[cfg(test)]

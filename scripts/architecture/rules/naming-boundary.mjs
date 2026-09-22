@@ -27,7 +27,7 @@ export const namingBoundaryRule = {
       if (!isSpec && file.rel.startsWith('src/windows/') && !file.rel.endsWith('.window.ts') && !file.rel.endsWith('.events.ts')) {
         failures.push(`${file.rel}: window files must use .window.ts or .events.ts`);
       }
-      if (file.rel.startsWith('src/app/composables/use-') && !file.rel.endsWith('.ts')) {
+      if (file.rel.includes('/composables/use-') && !file.rel.endsWith('.ts')) {
         failures.push(`${file.rel}: ViewModel/composable files must be TypeScript modules`);
       }
       if (file.rel.startsWith('src/app/components/config/') && file.rel.endsWith('.vue') && !/\/Config[A-Za-z0-9]+\.vue$/.test(file.rel)) {

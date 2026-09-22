@@ -112,7 +112,7 @@ import { useSettingsStore } from '@/stores/settings.store';
 import { MAX_HISTORY_LIMIT } from '@/domain/settings/rules';
 import { ACCENT_PRESETS } from '@/domain/settings/theme';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
-import { useSettingsViewModel } from '@/app/composables/use-settings-view-model';
+import { useSettingsViewModel } from '@/app/composables/settings/use-settings-view-model';
 
 const settings = useSettingsStore();
 const customAccentDraft = ref(settings.customAccent);

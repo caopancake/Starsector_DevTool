@@ -104,7 +104,7 @@ import { useShortcutDispatch } from '@/app/composables/use-shortcut-dispatch';
 import { openProjectileEditorWindow, openWeaponPreviewWindow } from '@/windows/editor.window';
 import { useSettingsStore } from '@/stores/settings.store';
 import { closeCurrentWindow } from '@/windows/current.window';
-import { useEditorWindowViewModel } from '@/app/composables/use-editor-window-view-model';
+import { useEditorWindowViewModel } from '@/app/composables/editors/use-editor-window-view-model';
 import type { EditorSpecKind, EditorWindowKind, RowData } from '@/shared/types';
 import { isEditorWindowKind } from '@/domain/editors/editor-definitions';
 

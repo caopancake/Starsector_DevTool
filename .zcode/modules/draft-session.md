@@ -9,7 +9,7 @@
 `src/domain/edit-session.ts`：编辑会话与撤销栈原语 owner，拥有 base/draft/dirty/revision/pending external 状态机与双栈状态工厂。
 `src/app/composables/use-draft-session.ts`：通用 Draft Session 适配器 owner，保持 Ref API。
 `src/app/composables/use-edit-target-draft-session.ts`：按目标管理的 Draft Session 适配器 owner。
-`src/app/composables/use-config-editor-draft-session.ts`：配置目标 Draft Session 组合 owner。
+`src/app/composables/config/use-config-editor-draft-session.ts`：配置目标 Draft Session 组合 owner。
 `src/stores/draft-sessions.store.ts`：未保存工作注册表 owner，按 `modRoot` 聚合会话登记与判定源。
 `src/app/table-save.orchestrator.spec.ts`：表保存编排行为测试。
 

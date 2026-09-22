@@ -68,7 +68,7 @@ import { useTablesStore } from '@/stores/tables.store';
 import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
-import { useSchemaSelectMedia } from '@/app/composables/use-schema-select-media';
+import { useSchemaSelectMedia } from '@/app/composables/tables/use-schema-select-media';
 import { cell, MODULE_LABELS, rowDisplayId } from '@/shared/lib/starsector';
 import { detailActionKey, detailActionLabel, detailActionsForRow, type TableDetailAction } from '@/domain/tables/table-detail-actions';
 import { isCsvCommentRow } from '@/domain/tables/csv-comment-row';

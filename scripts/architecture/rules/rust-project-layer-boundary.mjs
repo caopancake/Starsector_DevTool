@@ -50,6 +50,7 @@ function rustLayer(path) {
   if (path.startsWith('src-tauri/src/services/project/write/')) return 'project-write';
   if (path.startsWith('src-tauri/src/services/project/resources/')) return 'project-resources';
   if (path.startsWith('src-tauri/src/services/project/cache/')) return 'project-cache';
+  if (path.startsWith('src-tauri/src/services/project/definitions/')) return 'project-root';
   if (projectServiceModule(path, 'session')) return 'project-session';
   if (projectServiceModule(path, 'model')) return 'project-model';
   if (/^src-tauri\/src\/services\/project\/[^/]+\.rs$/.test(path)) return 'project-root';

@@ -211,7 +211,7 @@ describe('config-save orchestrator', () => {
       sessionId: SESSION_ID,
       modRoot: MOD_ROOT,
       relPath: 'variants/old.variant',
-      variantId: 'old',
+      entityId: 'old',
     });
   });
 
@@ -269,7 +269,7 @@ describe('config-save orchestrator', () => {
       sessionId: SESSION_ID,
       modRoot: MOD_ROOT,
       relPath: 'skins/old.skin',
-      skinHullId: 'old',
+      entityId: 'old',
     });
   });
 });

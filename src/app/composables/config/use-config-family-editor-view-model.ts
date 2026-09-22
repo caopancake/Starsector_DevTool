@@ -1,6 +1,6 @@
 import { computed, watch, type Ref } from 'vue';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
-import { useConfigEditorDraftSession } from '@/app/composables/use-config-editor-draft-session';
+import { useConfigEditorDraftSession } from '@/app/composables/config/use-config-editor-draft-session';
 import type { ConfigEntityFamilyDefinition, ConfigFamilyFile } from '@/domain/config/config-entity-families';
 import { familyFileId } from '@/domain/config/config-entity-families';
 import type { RowData } from '@/shared/types';

@@ -87,7 +87,7 @@ export interface EntitySummaries {
 }
 
 export interface SourceOptionGroup {
-  label: string;
+  origin: ResourceSource;
   options: SourceOption[];
 }
 
@@ -160,7 +160,8 @@ export interface HullReferenceOption {
 export type HullReferenceKind = 'ship' | 'skin';
 
 export interface HullReferenceGroup {
-  label: string;
+  origin: ResourceSource;
+  kind: HullReferenceKind;
   options: HullReferenceOption[];
 }
 

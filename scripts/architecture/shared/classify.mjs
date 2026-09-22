@@ -34,7 +34,12 @@ function segment(path, index) {
 function appDomain(path) {
   const parts = path.split('/');
   if (parts[2] === 'components') return parts[3] ?? null;
-  if (parts[2] === 'composables') return composableDomain(parts[3] ?? '');
+  if (parts[2] === 'composables') {
+    // Composables may sit in domain subdirectories; the semantic domain is
+    // always derived from the file name, never from the group folder.
+    const fileName = parts.at(-1) ?? '';
+    return composableDomain(fileName);
+  }
   if ((parts[2] ?? '').startsWith('EditorWindow')) return 'editor-window';
   if ((parts[2] ?? '').endsWith('Window.vue')) return 'window-root';
   return parts[2]?.replace(/\.(?:ts|vue)$/, '') ?? null;

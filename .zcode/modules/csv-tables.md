@@ -12,7 +12,7 @@
 `src/app/components/tables/CsvGridRow.vue`：行渲染与选中态 owner。
 `src/app/components/tables/CsvGridCellEditor.vue`：单元格编辑 owner，按列控件类型分派编辑器。
 `src/app/components/tables/DataTable.vue`：表格工作区组合 owner。
-`src/app/composables/use-csv-table-view-model.ts`：表格 ViewModel owner，连接 query、store、列 schema 与网格。
+`src/app/composables/tables/use-csv-table-view-model.ts`：表格 ViewModel owner，连接 query、store、列 schema 与网格。
 `src/domain/tables/csv-grid-model.ts`：网格列模型 owner。
 `src/domain/schema/schema-registry.ts`：列 schema 唯一加载入口。
 `src/domain/tables/table-row-key.ts`：行身份规则 owner。

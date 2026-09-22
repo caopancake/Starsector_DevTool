@@ -12,7 +12,7 @@
 `src/services/resource-cache.service.ts`：前端资源缓存 service owner。
 `src/services/resource-media.service.ts`：通用媒体服务 owner，资源缓存之上的响应式投影视图。
 `src/shared/runtime/cache.ts`：统一缓存原语 owner。
-`src/app/composables/use-resource-reference.ts`：贴图引用选择 owner。
+`src/app/composables/editors/use-resource-reference.ts`：贴图引用选择 owner。
 `src/app/composables/use-visible-resource-media.ts`：可视区媒体解析 owner。
 `src/domain/schema/schema-options.ts`：引用选项与 ResourceRef 消费规则 owner。
 

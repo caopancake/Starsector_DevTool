@@ -9,8 +9,8 @@
 `src/shared/runtime/performance.ts`：性能记录 owner，拥有计时格式化、记录入口与可注入日志 sink。
 `src/services/app-feedback-log.service.ts`：日志 sink 注册 owner，把性能记录导入应用日志。
 `src/app/composables/use-performance-logger.ts`：业务打点 hook。
-`src/app/composables/use-csv-table-view-model.ts`：source 目录与查询缓存打点消费方。
-`src/app/composables/use-config-family-view-model.ts`：配置列表首帧打点消费方。
+`src/app/composables/tables/use-csv-table-view-model.ts`：source 目录与查询缓存打点消费方。
+`src/app/composables/config/use-config-family-view-model.ts`：配置列表首帧打点消费方。
 `src/services/resource-media.service.ts`：可视区媒体批次打点消费方。
 `src-tauri/src/services/project/performance.rs`：后端 ProjectSession 阶段打点 owner。
 

@@ -42,7 +42,7 @@ export type VariantEntityWrite = ConfigFileEntityWrite;
 export interface DeleteVariantEntityWrite {
   sessionId: string;
   modRoot: string;
-  variantId: string;
+  entityId: string;
   relPath: string;
 }
 
@@ -51,7 +51,7 @@ export type SkinEntityWrite = ConfigFileEntityWrite;
 export interface DeleteSkinEntityWrite {
   sessionId: string;
   modRoot: string;
-  skinHullId: string;
+  entityId: string;
   relPath: string;
 }
 

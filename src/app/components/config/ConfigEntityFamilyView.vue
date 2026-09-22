@@ -39,7 +39,7 @@ import { computed } from 'vue';
 import ConfigEntityFamilyEditor from '@/app/components/config/ConfigEntityFamilyEditor.vue';
 import ConfigEntityFamilyList from '@/app/components/config/ConfigEntityFamilyList.vue';
 import { useDraftTransitionConfirmation } from '@/app/composables/use-draft-transition-confirmation';
-import { useConfigFamilyViewModel } from '@/app/composables/use-config-family-view-model';
+import { useConfigFamilyViewModel } from '@/app/composables/config/use-config-family-view-model';
 import { skinFamily, variantFamily } from '@/domain/config/config-entity-families';
 
 const props = defineProps<{ familyId: 'variant' | 'skin' }>();

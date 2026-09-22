@@ -99,7 +99,7 @@ fn validate_imported_editor_spec_path(
 mod tests {
     use super::*;
     use crate::io::{read_utf8_no_bom, write_utf8_no_bom};
-    use crate::testutil::temp_dir;
+    use crate::testutil::{temp_dir, temp_linked_file};
     use std::fs;
 
     #[test]
@@ -245,7 +245,8 @@ mod tests {
 
     #[test]
     fn load_imported_editor_spec_file_rejects_link_file() {
-        let Some((root, outside, link)) = temp_linked_file("load_imported_spec_link") else {
+        let Some((root, outside, link)) = temp_linked_file("load_imported_spec_link", "demo.wpn")
+        else {
             return;
         };
         write_utf8_no_bom(&outside, r#"{"id":"demo","weaponType":"ENERGY"}"#).unwrap();
@@ -274,37 +275,6 @@ mod tests {
 
         let _ = fs::remove_dir_all(root);
         assert_eq!(value.get("id").and_then(Value::as_str), Some("demo"));
-    }
-
-    fn temp_linked_file(
-        name: &str,
-    ) -> Option<(std::path::PathBuf, std::path::PathBuf, std::path::PathBuf)> {
-        let root = temp_dir(&format!("{name}_root"));
-        let outside = std::env::temp_dir().join(format!("{name}_outside.wpn"));
-        let link = root.join("demo.wpn");
-        if create_file_link(&outside, &link).is_err() {
-            let _ = fs::remove_dir_all(root);
-            return None;
-        }
-        Some((root, outside, link))
-    }
-
-    #[cfg(windows)]
-    fn create_file_link(target: &std::path::Path, link: &std::path::Path) -> std::io::Result<()> {
-        std::os::windows::fs::symlink_file(target, link)
-    }
-
-    #[cfg(unix)]
-    fn create_file_link(target: &std::path::Path, link: &std::path::Path) -> std::io::Result<()> {
-        std::os::unix::fs::symlink(target, link)
-    }
-
-    #[cfg(not(any(windows, unix)))]
-    fn create_file_link(_target: &std::path::Path, _link: &std::path::Path) -> std::io::Result<()> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Unsupported,
-            "file links are unsupported on this platform",
-        ))
     }
 
     fn invalidation_paths(result: &WriteResult) -> Vec<PathBuf> {

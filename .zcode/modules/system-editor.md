@@ -8,8 +8,8 @@
 
 `src/app/components/editors/SystemEditor.vue`：编辑器组件 owner，拥有表单、显式提交与条件区段。
 `src/domain/editors/lib/normalize.ts`：`.system` 规格归一化 owner。
-`src/app/composables/use-object-field.ts`：对象字段绑定 owner。
-`src/app/composables/use-editor-window-view-model.ts`：窗口 ViewModel owner，维护目标 Draft Session。
+`src/app/composables/editors/use-object-field.ts`：对象字段绑定 owner。
+`src/app/composables/editors/use-editor-window-view-model.ts`：窗口 ViewModel owner，维护目标 Draft Session。
 `src/shared/ui/JsonFieldEditor.vue`：额外字段结构化编辑 owner。
 `src/domain/schema/schema.types.ts`：schema 输出类型 owner。
 `scripts/architecture/rules/editor-module-boundary.mjs`：编辑器组件边界规则 owner。

@@ -261,7 +261,7 @@ import { arr, str } from '@/shared/lib/starsector';
 import { isInternalJsonFieldKey } from '@/shared/lib/json-fields';
 import { normalizeSystemSpec } from '@/domain/editors/lib/normalize';
 import { SYSTEM_STRUCTURED_FIELD_KEYS, TYPE_EXCLUSIVE_FIELDS } from '@/domain/editors/lib/system-fields';
-import { useObjectField } from '@/app/composables/use-object-field';
+import { useObjectField } from '@/app/composables/editors/use-object-field';
 import { editorCollapseTheme, toOptions } from '@/domain/editors/lib/editor-constants';
 
 const props = defineProps<{

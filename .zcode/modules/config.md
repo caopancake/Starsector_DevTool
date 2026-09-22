@@ -7,10 +7,10 @@
 ## 参考
 
 `src/app/components/config/`：配置页面组件目录，拥有列表、编辑器、Mod 信息与文件历史视图。
-`src/app/composables/use-config-mod-info-view-model.ts`：Mod 信息 ViewModel。
-`src/app/composables/use-config-faction-view-model.ts`：势力列表与新建 ViewModel。
-`src/app/composables/use-config-family-view-model.ts`：装配/皮肤族列表 ViewModel。
-`src/app/composables/use-config-mission-view-model.ts`：战役列表与编辑 ViewModel。
+`src/app/composables/config/use-config-mod-info-view-model.ts`：Mod 信息 ViewModel。
+`src/app/composables/config/use-config-faction-view-model.ts`：势力列表与新建 ViewModel。
+`src/app/composables/config/use-config-family-view-model.ts`：装配/皮肤族列表 ViewModel。
+`src/app/composables/config/use-config-mission-view-model.ts`：战役列表与编辑 ViewModel。
 `src/services/config-entity.service.ts`：配置实体读 service。
 `src/services/config-resource.service.ts`：配置资源 service。
 `src/orchestrators/config-save.orchestrator.ts`：配置保存编排 owner，拥有十个写动作族。

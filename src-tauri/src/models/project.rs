@@ -133,7 +133,7 @@ impl ProjectInvalidation {
     }
 }
 
-fn push_unique_all<T: PartialEq>(target: &mut Vec<T>, values: Vec<T>) {
+pub(crate) fn push_unique_all<T: PartialEq>(target: &mut Vec<T>, values: Vec<T>) {
     for value in values {
         if !target.contains(&value) {
             target.push(value);
@@ -259,7 +259,7 @@ pub struct CsvRowPreview {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceOptionGroup {
-    pub label: String,
+    pub origin: ResourceSource,
     pub options: Vec<SourceOption>,
 }
 
@@ -395,7 +395,8 @@ pub enum HullReferenceKind {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct HullReferenceGroup {
-    pub label: String,
+    pub origin: ResourceSource,
+    pub kind: HullReferenceKind,
     pub options: Vec<HullReferenceOption>,
 }
 

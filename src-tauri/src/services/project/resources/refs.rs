@@ -139,7 +139,7 @@ pub(in crate::services::project) fn resource_ref(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::services::project::table_definitions;
+    use crate::services::project::definitions::table_definitions;
     use serde_json::Map;
 
     #[test]

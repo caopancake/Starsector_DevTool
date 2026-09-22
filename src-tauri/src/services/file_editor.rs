@@ -1,7 +1,8 @@
 use crate::{
     errors::AppResult,
-    io::{ChangeDirection, FsRootBoundary, apply_changes, build_text_change, read_utf8_no_bom},
-    models::{EditableFileData, WriteResult},
+    io::{FsRootBoundary, build_text_change, read_utf8_no_bom},
+    models::{EditableFileData, FileChangeReplayDirection, WriteResult},
+    services::file_changes::apply_file_change_set,
 };
 use std::path::Path;
 
@@ -10,7 +11,11 @@ pub fn save_text_file(mod_root: &str, path: &str, text: String) -> AppResult<Wri
     let boundary = FsRootBoundary::new(Path::new(mod_root), "mod root")?;
     let path = boundary.resolve_absolute(path, "file path")?;
     let change = build_text_change(&path, Some(text))?;
-    apply_changes(std::slice::from_ref(&change), ChangeDirection::Redo)?;
+    apply_file_change_set(
+        mod_root,
+        FileChangeReplayDirection::Redo,
+        vec![change.clone()],
+    )?;
     Ok(WriteResult::from_changes(vec![change]))
 }
 
@@ -28,11 +33,8 @@ pub fn load_editable_file(mod_root: &str, path: String) -> AppResult<EditableFil
 mod tests {
     use super::*;
     use crate::io::write_utf8_no_bom;
-    use crate::testutil::temp_dir;
-    use std::{
-        fs,
-        path::{Path, PathBuf},
-    };
+    use crate::testutil::{temp_dir, temp_linked_dir};
+    use std::fs;
 
     #[test]
     fn recovery_editor_loads_file_inside_mod_root() {
@@ -133,7 +135,8 @@ mod tests {
 
     #[test]
     fn save_text_file_rejects_link_parent_escape() {
-        let Some((root, outside, linked)) = temp_linked_dir("save_text_link_escape") else {
+        let Some((root, outside, linked)) = temp_linked_dir("save_text_link_escape", "linked")
+        else {
             return;
         };
 
@@ -150,7 +153,8 @@ mod tests {
 
     #[test]
     fn load_editable_file_rejects_link_parent_escape() {
-        let Some((root, outside, linked)) = temp_linked_dir("load_text_link_escape") else {
+        let Some((root, outside, linked)) = temp_linked_dir("load_text_link_escape", "linked")
+        else {
             return;
         };
         write_utf8_no_bom(&outside.join("outside.txt"), "bad").unwrap();
@@ -163,35 +167,5 @@ mod tests {
         let _ = fs::remove_dir_all(root);
         let _ = fs::remove_dir_all(outside);
         assert!(result.is_err());
-    }
-
-    fn temp_linked_dir(name: &str) -> Option<(PathBuf, PathBuf, PathBuf)> {
-        let root = temp_dir(&format!("{name}_root"));
-        let outside = temp_dir(&format!("{name}_outside"));
-        let link = root.join("linked");
-        if create_dir_link(&outside, &link).is_err() {
-            let _ = fs::remove_dir_all(root);
-            let _ = fs::remove_dir_all(outside);
-            return None;
-        }
-        Some((root, outside, link))
-    }
-
-    #[cfg(windows)]
-    fn create_dir_link(target: &Path, link: &Path) -> std::io::Result<()> {
-        std::os::windows::fs::symlink_dir(target, link)
-    }
-
-    #[cfg(unix)]
-    fn create_dir_link(target: &Path, link: &Path) -> std::io::Result<()> {
-        std::os::unix::fs::symlink(target, link)
-    }
-
-    #[cfg(not(any(windows, unix)))]
-    fn create_dir_link(_target: &Path, _link: &Path) -> std::io::Result<()> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Unsupported,
-            "directory links are unsupported on this platform",
-        ))
     }
 }

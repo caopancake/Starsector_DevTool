@@ -3,8 +3,10 @@ use super::super::{
         ensure_registered_table_rows, load_core_csv_table, load_core_source_data, loaded_csv_rows,
         loaded_registered_csv_rows, lock_session, session_handle,
     },
+    definitions::table_definitions::{
+        csv_table_source_display_name, csv_table_source_resource_ref,
+    },
     model::{CoreSourceData, ProjectSession, SessionCsvRow, is_comment_row, string_from_row},
-    table_definitions::{csv_table_source_display_name, csv_table_source_resource_ref},
 };
 use crate::{
     errors::{AppError, AppResult},
@@ -90,7 +92,7 @@ pub fn query_csv_source_options(
     )?;
     if !options.is_empty() {
         groups.push(SourceOptionGroup {
-            label: "当前 Mod".to_string(),
+            origin: ResourceSource::Mod,
             options,
         });
     }
@@ -107,7 +109,7 @@ pub fn query_csv_source_options(
         )?;
         if !options.is_empty() {
             groups.push(SourceOptionGroup {
-                label: "原版".to_string(),
+                origin: ResourceSource::Core,
                 options,
             });
         }
@@ -1473,9 +1475,9 @@ mod tests {
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
         assert_eq!(groups.len(), 2);
-        assert_eq!(groups[0].label, "当前 Mod");
+        assert_eq!(groups[0].origin, ResourceSource::Mod);
         assert_eq!(groups[0].options.len(), 501);
-        assert_eq!(groups[1].label, "原版");
+        assert_eq!(groups[1].origin, ResourceSource::Core);
         assert_eq!(groups[1].options.len(), 501);
         assert_eq!(
             groups
@@ -1544,7 +1546,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
         let option = groups
             .iter()
-            .find(|group| group.label == "当前 Mod")
+            .find(|group| group.origin == ResourceSource::Mod)
             .and_then(|group| group.options.first())
             .unwrap();
         assert_eq!(option.label, "Ship A (ship_a)");
@@ -1585,7 +1587,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
         let option = groups
             .iter()
-            .find(|group| group.label == "原版")
+            .find(|group| group.origin == ResourceSource::Core)
             .and_then(|group| group.options.first())
             .unwrap();
         assert_eq!(option.label, "Core Ship (core_ship)");
@@ -1740,7 +1742,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
         let option = groups
             .iter()
-            .find(|group| group.label == "原版")
+            .find(|group| group.origin == ResourceSource::Core)
             .and_then(|group| {
                 group
                     .options
@@ -1783,7 +1785,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
         let option = groups
             .iter()
-            .find(|group| group.label == "原版")
+            .find(|group| group.origin == ResourceSource::Core)
             .and_then(|group| {
                 group
                     .options

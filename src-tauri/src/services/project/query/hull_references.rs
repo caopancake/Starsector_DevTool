@@ -67,10 +67,12 @@ fn build_hull_references(
         })
         .collect();
     if !ship_options.is_empty() {
-        groups.push(HullReferenceGroup {
-            label: "当前 Mod".to_string(),
-            options: ship_options,
-        });
+        push_non_empty_group(
+            &mut groups,
+            ResourceSource::Mod,
+            HullReferenceKind::Ship,
+            ship_options,
+        );
     }
 
     let skin_options: Vec<HullReferenceOption> = session
@@ -93,10 +95,12 @@ fn build_hull_references(
         })
         .collect();
     if !skin_options.is_empty() {
-        groups.push(HullReferenceGroup {
-            label: "舰船皮肤".to_string(),
-            options: skin_options,
-        });
+        push_non_empty_group(
+            &mut groups,
+            ResourceSource::Mod,
+            HullReferenceKind::Skin,
+            skin_options,
+        );
     }
 
     if let Some(root) = session.manifest.starsector_root.as_ref() {
@@ -134,10 +138,12 @@ fn build_hull_references(
             });
         }
         if !core_ship_options.is_empty() {
-            groups.push(HullReferenceGroup {
-                label: "原版".to_string(),
-                options: core_ship_options,
-            });
+            push_non_empty_group(
+                &mut groups,
+                ResourceSource::Core,
+                HullReferenceKind::Ship,
+                core_ship_options,
+            );
         }
 
         let mut core_skin_options = Vec::new();
@@ -160,10 +166,12 @@ fn build_hull_references(
             });
         }
         if !core_skin_options.is_empty() {
-            groups.push(HullReferenceGroup {
-                label: "原版皮肤".to_string(),
-                options: core_skin_options,
-            });
+            push_non_empty_group(
+                &mut groups,
+                ResourceSource::Core,
+                HullReferenceKind::Skin,
+                core_skin_options,
+            );
         }
     }
 
@@ -344,6 +352,24 @@ fn resolve_core_hull_sprite(
                     )
                 })
         })
+}
+
+/// Group identity is structured (origin + kind); the frontend composes its
+/// own display label, so no chrome strings live here.
+fn push_non_empty_group(
+    groups: &mut Vec<HullReferenceGroup>,
+    origin: ResourceSource,
+    kind: HullReferenceKind,
+    options: Vec<HullReferenceOption>,
+) {
+    if options.is_empty() {
+        return;
+    }
+    groups.push(HullReferenceGroup {
+        origin,
+        kind,
+        options,
+    });
 }
 
 fn hull_reference_label(

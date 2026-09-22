@@ -5,7 +5,7 @@ import {
   selectOptionText,
   type SelectOption,
 } from '@/domain/schema/schema-options';
-import { TABLE_KEYS, type TableKey } from '@/shared/types';
+import { TABLE_KEYS, type ResourceSource, type TableKey } from '@/shared/types';
 
 export interface CsvSourceIndex {
   optionsBySource: Map<string, SelectOption[]>;
@@ -16,6 +16,12 @@ export interface CsvSourceIndex {
 export interface ParsedCsvSource {
   column: string;
   table: TableKey;
+}
+
+/// Group chrome is composed frontend-side from the backend's structured
+/// origin; the backend never sends display labels for groups.
+export function sourceGroupLabel(origin: ResourceSource): string {
+  return origin === 'core' ? '原版' : '当前 Mod';
 }
 
 const EMPTY_OPTIONS: SelectOption[] = [];

@@ -8,7 +8,7 @@ use std::path::Path;
 
 use super::super::model::{
     MISSION_LIST_TABLE_KEY, ProjectSession, SessionCsvRow, SessionCsvTable, csv_table_spec,
-    is_comment_row,
+    is_comment_row, mission_list_default_header,
 };
 use super::core::load_core_csv_table;
 
@@ -80,7 +80,7 @@ pub(crate) fn ensure_session_table_rows(
     } else {
         CsvTable {
             header: if table == MISSION_LIST_TABLE_KEY {
-                vec!["mission".to_string()]
+                mission_list_default_header()
             } else {
                 Vec::new()
             },
@@ -95,10 +95,10 @@ pub(crate) fn ensure_session_table_rows(
                     csv.header = core_table.header.clone();
                 }
             } else if table == MISSION_LIST_TABLE_KEY {
-                csv.header = vec!["mission".to_string()];
+                csv.header = mission_list_default_header();
             }
         } else if table == MISSION_LIST_TABLE_KEY {
-            csv.header = vec!["mission".to_string()];
+            csv.header = mission_list_default_header();
         }
     }
     if CsvTableKey::from_key(table).is_some_and(|key| csv_table_spec(key).supports_faction_filter) {

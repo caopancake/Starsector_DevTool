@@ -19,7 +19,7 @@
 import { computed, onMounted, onUnmounted } from 'vue';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { useCoreSchema } from '@/app/composables/use-core-assets';
-import { useConfigModInfoViewModel } from '@/app/composables/use-config-mod-info-view-model';
+import { useConfigModInfoViewModel } from '@/app/composables/config/use-config-mod-info-view-model';
 import { useSaveCommandStore } from '@/stores/save-command.store';
 
 const { getMergedSchema, loadCoreFields } = useCoreSchema();

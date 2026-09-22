@@ -6,9 +6,9 @@
 
 ## 参考
 
-`src/app/composables/use-canvas-editor.ts`：骨架唯一 owner，拥有指针生命周期、命中检测、选区状态、镜像模式、undo、窗口事件与 draft 提交引擎。
-`src/app/composables/use-canvas-viewport.ts`：视口缩放与平移 owner。
-`src/app/composables/use-canvas-drawing.ts`：画布基础绘制 owner，拥有清屏与网格。
+`src/app/composables/canvas/use-canvas-editor.ts`：骨架唯一 owner，拥有指针生命周期、命中检测、选区状态、镜像模式、undo、窗口事件与 draft 提交引擎。
+`src/app/composables/canvas/use-canvas-viewport.ts`：视口缩放与平移 owner。
+`src/app/composables/canvas/use-canvas-drawing.ts`：画布基础绘制 owner，拥有清屏与网格。
 `src/domain/editors/lib/canvas-visuals.ts`：实体视觉绘制 owner，拥有槽位、引擎、边界、发射点与贴图层绘制。
 `src/domain/editors/lib/mirror.ts`：镜像规则 owner，拥有对称判定、镜像角度与成对新增。
 `src/shared/lib/entry-keys.ts`：稳定条目键 owner，为列表渲染提供结构化稳定 key。

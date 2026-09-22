@@ -1,6 +1,6 @@
 import { computed, ref, watch, type Ref } from 'vue';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
-import { useConfigEditorDraftSession } from '@/app/composables/use-config-editor-draft-session';
+import { useConfigEditorDraftSession } from '@/app/composables/config/use-config-editor-draft-session';
 import { configFactionEditorModel } from '@/domain/config/config-entities';
 import type { FileSchema } from '@/domain/schema/schema.types';
 import { cell, deepClone } from '@/shared/lib/starsector';

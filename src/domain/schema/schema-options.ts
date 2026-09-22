@@ -1,5 +1,6 @@
 import type { ResourceRef, SourceOptionGroup } from '@/shared/types';
 import type { FieldSchema } from '@/domain/schema/schema.types';
+import { sourceGroupLabel } from '@/domain/tables/csv-source-options';
 import { schemaArrayStringValues, schemaKeyValueEntries, schemaStringValue, schemaTagValues } from '@/domain/schema/schema-values';
 
 export interface SelectOption {
@@ -94,18 +95,21 @@ export function fieldSourceCurrentValues(field: FieldSchema, value: unknown): st
 }
 
 export function mapSourceGroupsToSelectOptions(groups: SourceOptionGroup[]): SelectOption[] {
-  return groups.map((group) => ({
-    type: 'group',
-    key: `group:${group.label}`,
-    label: group.label,
-    value: group.label,
-    children: group.options.map((option) => ({
-      label: option.label,
-      value: option.value,
-      description: option.description,
-      resourceRef: option.resourceRef ?? null,
-    })),
-  }));
+  return groups.map((group) => {
+    const label = sourceGroupLabel(group.origin);
+    return {
+      type: 'group',
+      key: `group:${label}`,
+      label,
+      value: label,
+      children: group.options.map((option) => ({
+        label: option.label,
+        value: option.value,
+        description: option.description,
+        resourceRef: option.resourceRef ?? null,
+      })),
+    };
+  });
 }
 
 function flatSelectOption(option: SelectOption): FlatSelectOption {

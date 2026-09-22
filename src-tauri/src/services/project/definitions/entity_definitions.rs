@@ -1,21 +1,23 @@
-use super::{
+use super::super::{
     cache::{
         ensure_registered_table_rows, ensure_session_table_rows, loaded_csv_rows,
         loaded_registered_csv_rows,
         spec_files::{load_skin_files, load_variant_files},
     },
-    entity_resources::{
-        faction_resource_refs, mission_resource_refs, projectile_resource_refs, ship_resource_refs,
-        skin_entity_resource_refs, system_resource_refs, variant_resource_refs,
-        weapon_resource_refs,
-    },
-    factions,
     model::{
         MISSION_LIST_REL_PATH, MISSION_LIST_TABLE_KEY, ProjectSession, SessionCsvRow,
         is_comment_row, string_from_row,
     },
     resources::resource_ref,
     root,
+};
+use super::{
+    entity_resources::{
+        faction_resource_refs, mission_resource_refs, projectile_resource_refs, ship_resource_refs,
+        skin_entity_resource_refs, system_resource_refs, variant_resource_refs,
+        weapon_resource_refs,
+    },
+    factions,
     table_definitions::csv_table_icon_resource_ref,
 };
 use crate::{
@@ -37,7 +39,7 @@ use crate::{
 use serde_json::{Map, Value};
 use std::{collections::BTreeMap, path::Path};
 
-pub(super) struct ProjectEntityDefinition {
+pub(in crate::services::project) struct ProjectEntityDefinition {
     pub kind: EntityKind,
     pub spec: Option<&'static EntitySpecDefinition>,
     pub csv_table: Option<CsvTableKey>,
@@ -51,7 +53,9 @@ pub(super) struct ProjectEntityDefinition {
     pub refresh: fn(&mut ProjectSession) -> AppResult<()>,
 }
 
-pub(super) fn entity_definition(kind: EntityKind) -> AppResult<&'static ProjectEntityDefinition> {
+pub(in crate::services::project) fn entity_definition(
+    kind: EntityKind,
+) -> AppResult<&'static ProjectEntityDefinition> {
     PROJECT_ENTITY_DEFINITIONS
         .iter()
         .find(|definition| definition.kind == kind)
@@ -60,17 +64,17 @@ pub(super) fn entity_definition(kind: EntityKind) -> AppResult<&'static ProjectE
         })
 }
 
-pub(super) fn entity_definitions() -> &'static [ProjectEntityDefinition] {
+pub(in crate::services::project) fn entity_definitions() -> &'static [ProjectEntityDefinition] {
     &PROJECT_ENTITY_DEFINITIONS
 }
 
-pub(super) fn associated_spec_definition(
+pub(in crate::services::project) fn associated_spec_definition(
     table: CsvTableKey,
 ) -> Option<&'static EntitySpecDefinition> {
     domain_associated_spec_definition(table)
 }
 
-pub(super) fn associated_spec_tables() -> Vec<CsvTableKey> {
+pub(in crate::services::project) fn associated_spec_tables() -> Vec<CsvTableKey> {
     domain_associated_spec_tables()
 }
 
@@ -369,49 +373,44 @@ fn plain_entity(
 }
 
 fn weapon_entity_resources(
-    session: &ProjectSession,
+    _session: &ProjectSession,
     id: &str,
     data: &Value,
 ) -> BTreeMap<String, ResourceRef> {
-    let _ = session;
     data.get("spec")
         .map(|spec| weapon_resource_refs(id, spec))
         .unwrap_or_default()
 }
 
 fn ship_resources(
-    session: &ProjectSession,
+    _session: &ProjectSession,
     id: &str,
     data: &Value,
 ) -> BTreeMap<String, ResourceRef> {
-    let _ = session;
     ship_resource_refs(id, data)
 }
 
 fn projectile_resources(
-    session: &ProjectSession,
+    _session: &ProjectSession,
     id: &str,
     data: &Value,
 ) -> BTreeMap<String, ResourceRef> {
-    let _ = session;
     projectile_resource_refs(id, data)
 }
 
 fn system_resources(
-    session: &ProjectSession,
+    _session: &ProjectSession,
     id: &str,
     data: &Value,
 ) -> BTreeMap<String, ResourceRef> {
-    let _ = session;
     system_resource_refs(id, data)
 }
 
 fn skill_resources(
-    session: &ProjectSession,
-    id: &str,
+    _session: &ProjectSession,
+    _id: &str,
     data: &Value,
 ) -> BTreeMap<String, ResourceRef> {
-    let _ = (session, id);
     data.get("csvRow")
         .and_then(Value::as_object)
         .and_then(|row| csv_table_icon_resource_ref(ResourceSource::Mod, CsvTableKey::Skills, row))
@@ -420,29 +419,26 @@ fn skill_resources(
 }
 
 fn faction_resources(
-    session: &ProjectSession,
+    _session: &ProjectSession,
     id: &str,
     data: &Value,
 ) -> BTreeMap<String, ResourceRef> {
-    let _ = session;
     faction_resource_refs(id, data)
 }
 
 fn mission_resources(
-    session: &ProjectSession,
+    _session: &ProjectSession,
     id: &str,
     data: &Value,
 ) -> BTreeMap<String, ResourceRef> {
-    let _ = session;
     mission_resource_refs(id, data)
 }
 
 fn variant_resources(
     session: &ProjectSession,
-    id: &str,
+    _id: &str,
     data: &Value,
 ) -> BTreeMap<String, ResourceRef> {
-    let _ = id;
     variant_resource_refs(session, data)
 }
 
@@ -501,12 +497,12 @@ fn skin_file_data(item: &SkinFile) -> AppResult<Value> {
 }
 
 #[derive(Debug)]
-pub(super) struct RegisteredCsvEntityRow {
+pub(in crate::services::project) struct RegisteredCsvEntityRow {
     id: String,
     row: Map<String, Value>,
 }
 
-pub(super) fn registered_mission_rows(
+pub(in crate::services::project) fn registered_mission_rows(
     session: &ProjectSession,
 ) -> AppResult<Vec<RegisteredCsvEntityRow>> {
     let table = session
@@ -771,27 +767,29 @@ fn refresh_mission(session: &mut ProjectSession) -> AppResult<()> {
     Ok(())
 }
 
-fn refresh_variant(session: &mut ProjectSession) -> AppResult<()> {
+/// Variant and skin warnings form one merged state, so refreshing either
+/// kind reloads both directories; the variant→skin warning order is canonical.
+fn refresh_variant_and_skin_files(session: &mut ProjectSession) -> AppResult<()> {
     let mod_root = Path::new(&session.manifest.mod_root);
-    let (files, warnings) = load_variant_files(mod_root)?;
-    session.variant_files = files;
+    let (variants, variant_warnings) = load_variant_files(mod_root)?;
+    let (skins, skin_warnings) = load_skin_files(mod_root)?;
+    session.variant_files = variants;
+    session.skin_files = skins;
     session.manifest.entity_summaries.variants = session.variant_files.len();
-    let (_, skin_warnings) = load_skin_files(mod_root)?;
-    session.manifest.warnings = warnings.into_iter().chain(skin_warnings).collect();
+    session.manifest.entity_summaries.skins = session.skin_files.len();
+    session.manifest.warnings = variant_warnings.into_iter().chain(skin_warnings).collect();
     Ok(())
+}
+
+fn refresh_variant(session: &mut ProjectSession) -> AppResult<()> {
+    refresh_variant_and_skin_files(session)
 }
 
 fn refresh_skin(session: &mut ProjectSession) -> AppResult<()> {
-    let mod_root = Path::new(&session.manifest.mod_root);
-    let (files, warnings) = load_skin_files(mod_root)?;
-    session.skin_files = files;
-    session.manifest.entity_summaries.skins = session.skin_files.len();
-    let (_, variant_warnings) = load_variant_files(mod_root)?;
-    session.manifest.warnings = variant_warnings.into_iter().chain(warnings).collect();
-    Ok(())
+    refresh_variant_and_skin_files(session)
 }
 
-pub(super) fn source_option_origin_scopes(
+pub(in crate::services::project) fn source_option_origin_scopes(
     definition: &ProjectEntityDefinition,
 ) -> impl Iterator<Item = String> + '_ {
     definition

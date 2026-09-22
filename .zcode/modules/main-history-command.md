@@ -9,7 +9,7 @@
 `src/domain/workspace/main-window-commands.ts`：快捷键命令映射唯一 owner，拥有 undo/redo/save/close 键位表与输入焦点豁免策略。
 `src/app/composables/use-shortcut-dispatch.ts`：快捷键分发唯一 owner，拥有 window 监听、命令路由、纯键表分发与命中拦截。
 `src/app/composables/use-main-window-shortcuts.ts`：主窗口快捷键装配 owner，连接保存注册表与历史编排。
-`src/app/composables/use-canvas-editor.ts`：画布骨架快捷键消费方，经分发器路由 undo/redo 与画布纯键。
+`src/app/composables/canvas/use-canvas-editor.ts`：画布骨架快捷键消费方，经分发器路由 undo/redo 与画布纯键。
 `src/stores/save-command.store.ts`：活动保存目标注册表。
 `src/orchestrators/main-history-command.orchestrator.ts`：历史分派 owner，CSV 草稿优先于文件 history。
 `src/orchestrators/file-history-replay.orchestrator.ts`：文件历史回放 owner。

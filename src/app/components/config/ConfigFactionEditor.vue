@@ -37,7 +37,7 @@ import type { FileSchema } from '@/domain/schema/schema.types';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { useCoreSchema } from '@/app/composables/use-core-assets';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
-import { useConfigFactionEditorViewModel } from '@/app/composables/use-config-faction-editor-view-model';
+import { useConfigFactionEditorViewModel } from '@/app/composables/config/use-config-faction-editor-view-model';
 import { useSaveCommandStore } from '@/stores/save-command.store';
 
 const props = defineProps<{

@@ -3,8 +3,10 @@ use super::super::{
         ensure_registered_table_rows, loaded_registered_csv_rows, lock_session,
         registered_session_table, session_handle,
     },
+    definitions::table_definitions::{
+        csv_table_row_resource_ref, csv_table_supports_faction_filter,
+    },
     model::SessionCsvRow,
-    table_definitions::{csv_table_row_resource_ref, csv_table_supports_faction_filter},
 };
 use crate::{
     errors::AppResult,

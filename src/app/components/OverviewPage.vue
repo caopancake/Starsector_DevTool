@@ -73,7 +73,7 @@ import { computed } from 'vue';
 import GameOverviewPanel from '@/app/components/GameOverviewPanel.vue';
 import LoadedModsPanel from '@/app/components/LoadedModsPanel.vue';
 import ModOpeningFailureList from '@/app/components/ModOpeningFailureList.vue';
-import { useCreateModViewModel } from '@/app/composables/use-create-mod-view-model';
+import { useCreateModViewModel } from '@/app/composables/config/use-create-mod-view-model';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import type { GameScanWarning, ModOpeningFailure } from '@/shared/types';
 

@@ -28,7 +28,7 @@ import { getSchema } from '@/domain/schema/schema-registry';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { createSchemaRuntimeContext } from '@/app/composables/use-schema-runtime-context';
 import type { FileSchema } from '@/domain/schema/schema.types';
-import { useConfigMissionEditorViewModel } from '@/app/composables/use-config-mission-editor-view-model';
+import { useConfigMissionEditorViewModel } from '@/app/composables/config/use-config-mission-editor-view-model';
 import { useSaveCommandStore } from '@/stores/save-command.store';
 
 const props = defineProps<{

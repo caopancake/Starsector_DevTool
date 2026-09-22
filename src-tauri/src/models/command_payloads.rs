@@ -194,7 +194,7 @@ pub type SkinEntityPayload = ConfigFileEntityPayload;
 pub struct DeleteVariantEntityPayload {
     pub session_id: ProjectSessionId,
     pub mod_root: String,
-    pub variant_id: String,
+    pub entity_id: String,
     pub rel_path: String,
 }
 
@@ -203,7 +203,7 @@ pub struct DeleteVariantEntityPayload {
 pub struct DeleteSkinEntityPayload {
     pub session_id: ProjectSessionId,
     pub mod_root: String,
-    pub skin_hull_id: String,
+    pub entity_id: String,
     pub rel_path: String,
 }
 
@@ -216,113 +216,46 @@ pub trait SessionModScope {
     fn mod_root(&self) -> &str;
 }
 
-impl SessionModScope for SaveEditorSpecPayload {
-    fn session_id(&self) -> Option<&ProjectSessionId> {
-        Some(&self.session_id)
-    }
-    fn mod_root(&self) -> &str {
-        &self.mod_root
-    }
+macro_rules! impl_session_mod_scope_required {
+    ($($ty:ty),* $(,)?) => {$(
+        impl SessionModScope for $ty {
+            fn session_id(&self) -> Option<&ProjectSessionId> {
+                Some(&self.session_id)
+            }
+            fn mod_root(&self) -> &str {
+                &self.mod_root
+            }
+        }
+    )*};
 }
 
-impl SessionModScope for IndexedConfigEntityPayload {
-    fn session_id(&self) -> Option<&ProjectSessionId> {
-        Some(&self.session_id)
-    }
-    fn mod_root(&self) -> &str {
-        &self.mod_root
-    }
+macro_rules! impl_session_mod_scope_optional {
+    ($($ty:ty),* $(,)?) => {$(
+        impl SessionModScope for $ty {
+            fn session_id(&self) -> Option<&ProjectSessionId> {
+                self.session_id.as_ref()
+            }
+            fn mod_root(&self) -> &str {
+                &self.mod_root
+            }
+        }
+    )*};
 }
 
-impl SessionModScope for DeleteIndexedConfigEntityPayload {
-    fn session_id(&self) -> Option<&ProjectSessionId> {
-        Some(&self.session_id)
-    }
-    fn mod_root(&self) -> &str {
-        &self.mod_root
-    }
-}
+impl_session_mod_scope_required!(
+    SaveEditorSpecPayload,
+    IndexedConfigEntityPayload,
+    DeleteIndexedConfigEntityPayload,
+    ConfigFileEntityPayload,
+    DeleteVariantEntityPayload,
+    DeleteSkinEntityPayload,
+    SaveCsvPatchPayload,
+    SaveModFilesPayload,
+    ApplyFileChangeSetPayload,
+    ResolveModRelativePathPayload,
+);
 
-impl SessionModScope for ConfigFileEntityPayload {
-    fn session_id(&self) -> Option<&ProjectSessionId> {
-        Some(&self.session_id)
-    }
-    fn mod_root(&self) -> &str {
-        &self.mod_root
-    }
-}
-
-impl SessionModScope for DeleteVariantEntityPayload {
-    fn session_id(&self) -> Option<&ProjectSessionId> {
-        Some(&self.session_id)
-    }
-    fn mod_root(&self) -> &str {
-        &self.mod_root
-    }
-}
-
-impl SessionModScope for DeleteSkinEntityPayload {
-    fn session_id(&self) -> Option<&ProjectSessionId> {
-        Some(&self.session_id)
-    }
-    fn mod_root(&self) -> &str {
-        &self.mod_root
-    }
-}
-
-impl SessionModScope for SaveCsvPatchPayload {
-    fn session_id(&self) -> Option<&ProjectSessionId> {
-        Some(&self.session_id)
-    }
-    fn mod_root(&self) -> &str {
-        &self.mod_root
-    }
-}
-
-impl SessionModScope for SaveModFilesPayload {
-    fn session_id(&self) -> Option<&ProjectSessionId> {
-        Some(&self.session_id)
-    }
-    fn mod_root(&self) -> &str {
-        &self.mod_root
-    }
-}
-
-impl SessionModScope for ApplyFileChangeSetPayload {
-    fn session_id(&self) -> Option<&ProjectSessionId> {
-        Some(&self.session_id)
-    }
-    fn mod_root(&self) -> &str {
-        &self.mod_root
-    }
-}
-
-impl SessionModScope for ResolveModRelativePathPayload {
-    fn session_id(&self) -> Option<&ProjectSessionId> {
-        Some(&self.session_id)
-    }
-    fn mod_root(&self) -> &str {
-        &self.mod_root
-    }
-}
-
-impl SessionModScope for SaveTextFilePayload {
-    fn session_id(&self) -> Option<&ProjectSessionId> {
-        self.session_id.as_ref()
-    }
-    fn mod_root(&self) -> &str {
-        &self.mod_root
-    }
-}
-
-impl SessionModScope for LoadEditableFilePayload {
-    fn session_id(&self) -> Option<&ProjectSessionId> {
-        self.session_id.as_ref()
-    }
-    fn mod_root(&self) -> &str {
-        &self.mod_root
-    }
-}
+impl_session_mod_scope_optional!(SaveTextFilePayload, LoadEditableFilePayload);
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

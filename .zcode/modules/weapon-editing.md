@@ -10,7 +10,7 @@
 `src/app/components/editors/ProjectileEditor.vue`：弹体编辑器组件 owner，拥有 projectile/missile 分支表单。
 `src/app/components/editors/WeaponFirePreview.vue`：发射预览组件 owner，拥有弹道模拟、光束与播放控制。
 `src/domain/editors/lib/weapon-sprite-fields.ts`：武器贴图字段、键映射与 origin 比例 owner。
-`src/app/composables/use-editor-window-view-model.ts`：窗口 ViewModel owner，维护目标 Draft Session、弹体 bundle 与资源。
+`src/app/composables/editors/use-editor-window-view-model.ts`：窗口 ViewModel owner，维护目标 Draft Session、弹体 bundle 与资源。
 `src/windows/editor.window.ts`：编辑器窗口请求 owner，承载武器、弹体与预览三种窗口类型。
 `src-tauri/src/services/editor_config/spec_entities.rs` 同层的编辑器写链路：武器与弹体保存。
 `scripts/architecture/rules/editor-module-boundary.mjs`：编辑器组件边界规则 owner。

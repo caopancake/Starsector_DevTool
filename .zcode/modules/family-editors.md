@@ -7,8 +7,8 @@
 ## 参考
 
 `src/domain/config/config-entity-families.ts`：族定义 owner，拥有装配与皮肤的标识字段、伴随字段、文案、图标路径与媒体面。
-`src/app/composables/use-config-family-view-model.ts`：族列表 ViewModel owner，拥有加载、新建、删除校验与资源引用。
-`src/app/composables/use-config-family-editor-view-model.ts`：族编辑 ViewModel owner，拥有目标 Draft Session 接线与保存。
+`src/app/composables/config/use-config-family-view-model.ts`：族列表 ViewModel owner，拥有加载、新建、删除校验与资源引用。
+`src/app/composables/config/use-config-family-editor-view-model.ts`：族编辑 ViewModel owner，拥有目标 Draft Session 接线与保存。
 `src/app/components/config/ConfigEntityFamilyList.vue`：族列表组件。
 `src/app/components/config/ConfigEntityFamilyEditor.vue`：族编辑组件。
 `src/app/components/config/ConfigEntityFamilyView.vue`：族视图组合 owner。

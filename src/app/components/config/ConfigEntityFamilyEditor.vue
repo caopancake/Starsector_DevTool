@@ -27,7 +27,7 @@ import type { RowData } from '@/shared/types';
 import SchemaFormRenderer from '@/app/components/schema/SchemaFormRenderer.vue';
 import { getSchema } from '@/domain/schema/schema-registry';
 import { createSchemaRuntimeContext } from '@/app/composables/use-schema-runtime-context';
-import { useConfigFamilyEditorViewModel } from '@/app/composables/use-config-family-editor-view-model';
+import { useConfigFamilyEditorViewModel } from '@/app/composables/config/use-config-family-editor-view-model';
 import { useSaveCommandStore } from '@/stores/save-command.store';
 import type { ConfigEntityFamilyDefinition, ConfigFamilyFile } from '@/domain/config/config-entity-families';
 import { familyFileId } from '@/domain/config/config-entity-families';

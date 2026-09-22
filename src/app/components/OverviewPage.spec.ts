@@ -5,7 +5,7 @@ import OverviewPage from '@/app/components/OverviewPage.vue';
 import { nButtonStub } from '@/test/stubs';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 
-vi.mock('@/app/composables/use-create-mod-view-model', async () => {
+vi.mock('@/app/composables/config/use-create-mod-view-model', async () => {
   const { ref } = await import('vue');
   return {
     useCreateModViewModel: () => ({

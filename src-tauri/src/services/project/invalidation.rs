@@ -5,7 +5,7 @@ use crate::{
     models::{
         CsvTableKey, EntityKind, FileChangeKind, FileChangeRecord, InvalidatedEntityRef,
         InvalidatedQueryKind, InvalidatedQueryScope, InvalidatedResourceScope, ProjectInvalidation,
-        ResourceSource,
+        ResourceSource, push_unique_all,
     },
     parsers::parse_starsector_json,
 };
@@ -15,7 +15,11 @@ use std::{
     path::Path,
 };
 
-use super::{entity_definitions, model::ProjectSession, root, table_definitions};
+use super::{
+    definitions::{entity_definitions, table_definitions},
+    model::ProjectSession,
+    root,
+};
 
 pub(crate) fn invalidate_session_changes(
     session: &mut ProjectSession,
@@ -356,14 +360,6 @@ fn faction_annotated_tables() -> impl Iterator<Item = CsvTableKey> {
         .iter()
         .filter(|definition| definition.spec.supports_faction_filter)
         .map(|definition| definition.spec.key)
-}
-
-fn push_unique_all<T: PartialEq>(target: &mut Vec<T>, values: Vec<T>) {
-    for value in values {
-        if !target.contains(&value) {
-            target.push(value);
-        }
-    }
 }
 
 fn query_scopes_for_invalidation(

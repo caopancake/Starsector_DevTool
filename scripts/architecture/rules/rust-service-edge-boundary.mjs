@@ -18,6 +18,7 @@ const allowedServiceEdges = new Set([
   'directory_opening -> app_paths',
   'directory_opening -> project',
   'editor_config -> file_changes',
+  'file_editor -> file_changes',
   'mod_creation -> directory_opening',
   'workspace_persistence -> app_paths',
 ]);

@@ -14,7 +14,7 @@
 `src/windows/file-editor.window.ts`：文件编辑器窗口请求 owner，承载常规与错误恢复两种请求形状。
 `src/app/composables/use-dirty-window-close-guard.ts`：dirty 关闭守卫 owner，在关闭请求上确认放弃并销毁。
 `src/app/EditorWindowContent.vue`：编辑器窗口内容，消费窗口参数并触发保存同步。
-`src/app/composables/use-editor-window-view-model.ts`：编辑器窗口 ViewModel，消费外部保存事件与失效刷新。
+`src/app/composables/editors/use-editor-window-view-model.ts`：编辑器窗口 ViewModel，消费外部保存事件与失效刷新。
 
 ## 边界
 

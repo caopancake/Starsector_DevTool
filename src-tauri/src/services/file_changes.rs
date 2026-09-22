@@ -55,7 +55,7 @@ fn validate_snapshot_relative_path(path: &str) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testutil::temp_dir;
+    use crate::testutil::{temp_dir, temp_linked_dir};
     use crate::{
         io::{
             build_directory_delete_change, build_file_change, read_utf8_no_bom, write_utf8_no_bom,
@@ -63,10 +63,7 @@ mod tests {
         models::{AssociatedFileChange, FileChangeKind, FileChangeReplayDirection, FileSnapshot},
     };
     use base64::{Engine as _, engine::general_purpose};
-    use std::{
-        fs,
-        path::{Path, PathBuf},
-    };
+    use std::fs;
 
     #[test]
     fn save_mod_files_writes_multiple_files_in_one_changeset() {
@@ -144,7 +141,9 @@ mod tests {
 
     #[test]
     fn save_mod_files_rejects_link_parent_escape() {
-        let Some((root, outside, _linked)) = temp_linked_dir("save_mod_files_link_escape") else {
+        let Some((root, outside, _linked)) =
+            temp_linked_dir("save_mod_files_link_escape", "linked")
+        else {
             return;
         };
 
@@ -368,7 +367,7 @@ mod tests {
 
     #[test]
     fn replay_rejects_link_parent_escape() {
-        let Some((root, outside, linked)) = temp_linked_dir("replay_link_escape") else {
+        let Some((root, outside, linked)) = temp_linked_dir("replay_link_escape", "linked") else {
             return;
         };
         let change = FileChangeRecord {
@@ -397,7 +396,9 @@ mod tests {
 
     #[test]
     fn replay_rejects_link_directory_delete() {
-        let Some((root, outside, linked)) = temp_linked_dir("replay_link_directory_delete") else {
+        let Some((root, outside, linked)) =
+            temp_linked_dir("replay_link_directory_delete", "linked")
+        else {
             return;
         };
         let change = FileChangeRecord {
@@ -496,36 +497,6 @@ mod tests {
         }
 
         let _ = fs::remove_dir_all(root);
-    }
-
-    fn temp_linked_dir(name: &str) -> Option<(PathBuf, PathBuf, PathBuf)> {
-        let root = temp_dir(&format!("{name}_root"));
-        let outside = temp_dir(&format!("{name}_outside"));
-        let link = root.join("linked");
-        if create_dir_link(&outside, &link).is_err() {
-            let _ = fs::remove_dir_all(root);
-            let _ = fs::remove_dir_all(outside);
-            return None;
-        }
-        Some((root, outside, link))
-    }
-
-    #[cfg(windows)]
-    fn create_dir_link(target: &Path, link: &Path) -> std::io::Result<()> {
-        std::os::windows::fs::symlink_dir(target, link)
-    }
-
-    #[cfg(unix)]
-    fn create_dir_link(target: &Path, link: &Path) -> std::io::Result<()> {
-        std::os::unix::fs::symlink(target, link)
-    }
-
-    #[cfg(not(any(windows, unix)))]
-    fn create_dir_link(_target: &Path, _link: &Path) -> std::io::Result<()> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Unsupported,
-            "directory links are unsupported on this platform",
-        ))
     }
 
     fn change_paths(changes: &[crate::models::FileChangeRecord]) -> Vec<String> {

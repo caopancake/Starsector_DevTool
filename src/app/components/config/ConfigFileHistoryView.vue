@@ -80,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { useFileHistoryViewModel } from '@/app/composables/use-file-history-view-model';
+import { useFileHistoryViewModel } from '@/app/composables/editors/use-file-history-view-model';
 import type { FileChangeRecord, FileHistoryItem } from '@/shared/types';
 
 const {

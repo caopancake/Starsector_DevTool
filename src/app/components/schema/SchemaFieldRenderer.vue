@@ -352,8 +352,8 @@
 import { computed, h, ref, watch } from 'vue';
 import { NTag } from 'naive-ui/es/tag';
 import type { JsonValue, ResourceRef } from '@/shared/types';
-import { useSchemaPathPicker } from '@/app/composables/use-schema-path-picker';
-import { useSchemaSourceOptions } from '@/app/composables/use-schema-source-options';
+import { useSchemaPathPicker } from '@/app/composables/editors/use-schema-path-picker';
+import { useSchemaSourceOptions } from '@/app/composables/editors/use-schema-source-options';
 import type { SchemaRuntimeContext } from '@/domain/schema/schema-runtime';
 import type { FieldSchema } from '@/domain/schema/schema.types';
 import {
@@ -391,7 +391,7 @@ import { entryKey } from '@/shared/lib/entry-keys';
 import { useCoreGraphics } from '@/app/composables/use-core-assets';
 import { useSettingsStore } from '@/stores/settings.store';
 import { isCsvSource } from '@/domain/tables/csv-source-options';
-import { useSchemaSelectMedia } from '@/app/composables/use-schema-select-media';
+import { useSchemaSelectMedia } from '@/app/composables/tables/use-schema-select-media';
 
 const props = defineProps<{
   field: FieldSchema;

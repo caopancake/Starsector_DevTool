@@ -147,8 +147,8 @@ import type { RowData } from '@/shared/types';
 import { arr, str } from '@/shared/lib/starsector';
 import { entryKey } from '@/shared/lib/entry-keys';
 import { normalizeProjectileSpec } from '@/domain/editors/lib/normalize';
-import { useObjectField } from '@/app/composables/use-object-field';
-import { useResourceReference } from '@/app/composables/use-resource-reference';
+import { useObjectField } from '@/app/composables/editors/use-object-field';
+import { useResourceReference } from '@/app/composables/editors/use-resource-reference';
 import { editorCollapseTheme, toOptions } from '@/domain/editors/lib/editor-constants';
 
 const props = defineProps<{

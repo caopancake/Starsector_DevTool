@@ -8,7 +8,7 @@
 
 `src/app/FileEditorApp.vue`：窗口根 owner，装配唯一窗口壳与文件编辑器内容。
 `src/app/FileEditorContent.vue`：窗口内容 owner，拥有行号槽、文本域、快捷键与外部文本呈现。
-`src/app/composables/use-file-editor-view-model.ts`：编辑 ViewModel owner，拥有文本 Draft Session、加载、保存、undo/redo 与行列聚焦。
+`src/app/composables/editors/use-file-editor-view-model.ts`：编辑 ViewModel owner，拥有文本 Draft Session、加载、保存、undo/redo 与行列聚焦。
 `src/windows/file-editor.window.ts`：窗口请求 owner，承载常规与错误恢复两种请求形状。
 `src/orchestrators/file-editor-window.orchestrator.ts`：窗口打开编排 owner，处理 warning 与失败目标的窗口化。
 `src-tauri/src/services/file_editor.rs`：后端编辑 service owner，拥有路径校验与文本读写。

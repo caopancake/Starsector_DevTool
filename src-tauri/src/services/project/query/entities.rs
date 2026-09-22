@@ -1,6 +1,6 @@
 use super::super::{
     cache::{lock_session, session_handle},
-    entity_definitions::entity_definition,
+    definitions::entity_definitions::entity_definition,
 };
 use crate::{
     errors::AppResult,
@@ -35,7 +35,7 @@ pub fn query_entity_list(session_id: &str, kind: EntityKind) -> AppResult<Vec<En
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::entity_definitions::registered_mission_rows;
+    use super::super::super::definitions::entity_definitions::registered_mission_rows;
     use super::super::super::model::MISSION_LIST_TABLE_KEY;
     use super::super::super::session::{close_project_session, open_project_session_traced};
     use super::*;

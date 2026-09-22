@@ -2,7 +2,7 @@ use super::super::cache::{
     ensure_registered_table_rows, loaded_registered_csv_rows, lock_session,
     registered_session_table, registered_session_table_mut, session_handle,
 };
-use super::super::entity_definitions::associated_spec_definition;
+use super::super::definitions::entity_definitions::associated_spec_definition;
 use super::super::model::SessionCsvRow;
 use crate::{
     errors::{AppError, AppResult},

@@ -38,7 +38,7 @@
 import ConfigMissionList from '@/app/components/config/ConfigMissionList.vue';
 import ConfigMissionEditor from '@/app/components/config/ConfigMissionEditor.vue';
 import { useDraftTransitionConfirmation } from '@/app/composables/use-draft-transition-confirmation';
-import { useConfigMissionViewModel } from '@/app/composables/use-config-mission-view-model';
+import { useConfigMissionViewModel } from '@/app/composables/config/use-config-mission-view-model';
 
 const {
   selectedMission,

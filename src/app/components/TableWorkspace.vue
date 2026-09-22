@@ -49,7 +49,7 @@
 import { computed } from 'vue';
 import DataTable from '@/app/components/tables/DataTable.vue';
 import DetailPane from '@/app/components/tables/DetailPane.vue';
-import { useCsvTableViewModel } from '@/app/composables/use-csv-table-view-model';
+import { useCsvTableViewModel } from '@/app/composables/tables/use-csv-table-view-model';
 import { useWorkspaceShellActions } from '@/app/composables/use-workspace-shell-actions';
 import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useTablesStore } from '@/stores/tables.store';

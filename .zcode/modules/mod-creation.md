@@ -6,7 +6,7 @@
 
 ## 参考
 
-`src/app/composables/use-create-mod-view-model.ts`：创建对话框 ViewModel owner，拥有游戏根/父目录分流、表单校验与保存中状态。
+`src/app/composables/config/use-create-mod-view-model.ts`：创建对话框 ViewModel owner，拥有游戏根/父目录分流、表单校验与保存中状态。
 `src/orchestrators/mod-creation.orchestrator.ts`：创建编排 owner，负责创建调用、性能打点与打开结果分流。
 `src/orchestrators/directory-opening.orchestrator.ts`：创建结果打开 owner，复用 Mod 打开链路。
 `src/domain/mod-creation/new-mod-template.ts`：模板与校验 owner，拥有 ID/名称/版本规则与 mod-info 默认值。

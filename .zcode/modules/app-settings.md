@@ -9,12 +9,12 @@
 `src/stores/settings.store.ts`：settings 运行态 owner，只持状态、setter 与派生值；初始快照经统一初始化入口注入。
 `src/domain/settings/theme.ts`：主题令牌与色彩数学 owner，拥有 accent 预设、light/dark 中性色与 `createThemeColors` 纯函数。
 `src/domain/settings/rules.ts`：设置校验 owner，拥有主题/accent/自定义色/历史上限/editMode/日志目录的读取校验与归一化。
-`src/app/composables/use-theme-dom-effect.ts`：主题 DOM 副作用 owner，watch 主题令牌并写 root dataset 与 CSS 变量。
+`src/app/composables/settings/use-theme-dom-effect.ts`：主题 DOM 副作用 owner，watch 主题令牌并写 root dataset 与 CSS 变量。
 `src/app/WindowShell.vue`：唯一窗口壳，main 模式启动设置持久化、child 模式启动设置镜像并挂载主题 effect。
 `src/orchestrators/settings-persistence.orchestrator.ts`：设置持久化与镜像 owner，负责保存、广播、接收镜像与 historyLimit 同步。
 `src/services/app-settings.service.ts`：settings 读写 service，经 shared API 调用后端。
 `src/app/components/SettingsPage.vue`：设置页组件，消费 accent 预设与历史上限常量。
-`src/app/composables/use-settings-view-model.ts`：设置页 ViewModel，拥有日志目录保存与清空动作。
+`src/app/composables/settings/use-settings-view-model.ts`：设置页 ViewModel，拥有日志目录保存与清空动作。
 
 ## 边界
 

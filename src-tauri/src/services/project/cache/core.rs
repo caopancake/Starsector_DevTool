@@ -141,16 +141,7 @@ pub(crate) fn load_core_projectile_specs(
     }
     let core_dir = core_dir(starsector_root)?;
     let files = if core_dir.exists() {
-        let mut files = load_json_dir_by_id(&core_dir.join("data/weapons/proj"), "proj", "id")?;
-        for value in files.values_mut() {
-            if let Value::Object(object) = value {
-                object.insert(
-                    "_source".to_string(),
-                    Value::String(crate::models::ResourceSource::Core.as_str().to_string()),
-                );
-            }
-        }
-        files
+        load_json_dir_by_id(&core_dir.join("data/weapons/proj"), "proj", "id")?
     } else {
         BTreeMap::new()
     };

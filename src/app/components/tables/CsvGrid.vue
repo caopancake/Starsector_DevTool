@@ -24,7 +24,7 @@
 import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue';
 import type { CsvGridRowSlot, CsvWindowRow, ModTableState } from '@/shared/types';
 import type { CsvGridColumn, CsvGridModel } from '@/domain/tables/csv-grid-model';
-import { useCsvGridViewport } from '@/app/composables/use-csv-grid-viewport';
+import { useCsvGridViewport } from '@/app/composables/tables/use-csv-grid-viewport';
 import CsvGridBody from '@/app/components/tables/CsvGridBody.vue';
 import CsvGridHeader from '@/app/components/tables/CsvGridHeader.vue';
 import { usePerformanceLogger } from '@/app/composables/use-performance-logger';

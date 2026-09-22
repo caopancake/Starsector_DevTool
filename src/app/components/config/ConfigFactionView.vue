@@ -34,7 +34,7 @@
 import ConfigFactionList from '@/app/components/config/ConfigFactionList.vue';
 import ConfigFactionEditor from '@/app/components/config/ConfigFactionEditor.vue';
 import { useDraftTransitionConfirmation } from '@/app/composables/use-draft-transition-confirmation';
-import { useConfigFactionViewModel } from '@/app/composables/use-config-faction-view-model';
+import { useConfigFactionViewModel } from '@/app/composables/config/use-config-faction-view-model';
 
 const {
   selectedFaction,

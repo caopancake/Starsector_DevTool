@@ -1,4 +1,4 @@
-use super::{
+use super::super::{
     cache::{load_core_ship_files, load_core_skin_files},
     model::{
         ABILITIES_SPEC, COMMODITIES_SPEC, CoreSourceData, CsvTableSpec, DESCRIPTIONS_SPEC,
@@ -40,7 +40,7 @@ type CsvSourceDisplayNameExtractor = fn(
     &ProjectSession,
 ) -> AppResult<Option<String>>;
 
-pub(super) struct ProjectCsvTableDefinition {
+pub(in crate::services::project) struct ProjectCsvTableDefinition {
     pub spec: &'static CsvTableSpec,
     pub resource_owner: Option<ResourceOwnerKind>,
     pub icon_field: Option<&'static str>,
@@ -49,11 +49,14 @@ pub(super) struct ProjectCsvTableDefinition {
     pub source_display_name: CsvSourceDisplayNameExtractor,
 }
 
-pub(super) fn csv_table_definitions() -> &'static [ProjectCsvTableDefinition] {
+pub(in crate::services::project) fn csv_table_definitions() -> &'static [ProjectCsvTableDefinition]
+{
     &CSV_TABLE_DEFINITIONS
 }
 
-pub(super) fn csv_table_definition(table: CsvTableKey) -> &'static ProjectCsvTableDefinition {
+pub(in crate::services::project) fn csv_table_definition(
+    table: CsvTableKey,
+) -> &'static ProjectCsvTableDefinition {
     match table {
         CsvTableKey::Ships => &SHIPS_TABLE,
         CsvTableKey::Weapons => &WEAPONS_TABLE,
@@ -72,7 +75,7 @@ pub(super) fn csv_table_definition(table: CsvTableKey) -> &'static ProjectCsvTab
     }
 }
 
-pub(super) fn csv_table_definition_by_key(
+pub(in crate::services::project) fn csv_table_definition_by_key(
     table: &str,
 ) -> Option<&'static ProjectCsvTableDefinition> {
     csv_table_definitions()
@@ -80,15 +83,15 @@ pub(super) fn csv_table_definition_by_key(
         .find(|definition| definition.spec.key.as_str() == table)
 }
 
-pub(super) fn csv_table_entity_id_field(table: CsvTableKey) -> &'static str {
+pub(in crate::services::project) fn csv_table_entity_id_field(table: CsvTableKey) -> &'static str {
     csv_table_spec(table).entity_id_field
 }
 
-pub(super) fn csv_table_supports_faction_filter(table: CsvTableKey) -> bool {
+pub(in crate::services::project) fn csv_table_supports_faction_filter(table: CsvTableKey) -> bool {
     csv_table_spec(table).supports_faction_filter
 }
 
-pub(super) fn csv_table_entity_summary(
+pub(in crate::services::project) fn csv_table_entity_summary(
     table: CsvTableKey,
     summaries: &EntitySummaries,
 ) -> Option<usize> {
@@ -97,7 +100,7 @@ pub(super) fn csv_table_entity_summary(
         .map(|summary| summary(summaries))
 }
 
-pub(super) fn build_table_entity_summaries(
+pub(in crate::services::project) fn build_table_entity_summaries(
     mod_root: &Path,
     entity_summaries: &EntitySummaries,
 ) -> AppResult<BTreeMap<CsvTableKey, usize>> {
@@ -116,7 +119,7 @@ pub(super) fn build_table_entity_summaries(
         .collect()
 }
 
-pub(super) fn count_valid_csv_entities(
+pub(in crate::services::project) fn count_valid_csv_entities(
     mod_root: &Path,
     table: CsvTableKey,
     rel_path: &str,
@@ -131,7 +134,7 @@ pub(super) fn count_valid_csv_entities(
         .count())
 }
 
-pub(super) fn csv_table_row_resource_ref(
+pub(in crate::services::project) fn csv_table_row_resource_ref(
     session: &ProjectSession,
     table: CsvTableKey,
     row: &Map<String, Value>,
@@ -141,7 +144,7 @@ pub(super) fn csv_table_row_resource_ref(
         .flatten()
 }
 
-pub(super) fn csv_table_source_resource_ref(
+pub(in crate::services::project) fn csv_table_source_resource_ref(
     source: ResourceSource,
     table: CsvTableKey,
     value: &str,
@@ -152,7 +155,7 @@ pub(super) fn csv_table_source_resource_ref(
     (csv_table_definition(table).source_resource)(source, table, value, row, core_data, session)
 }
 
-pub(super) fn csv_table_source_display_name(
+pub(in crate::services::project) fn csv_table_source_display_name(
     source: ResourceSource,
     table: CsvTableKey,
     value: &str,
@@ -163,7 +166,7 @@ pub(super) fn csv_table_source_display_name(
     (csv_table_definition(table).source_display_name)(source, table, value, row, core_data, session)
 }
 
-pub(super) fn csv_table_icon_resource_ref(
+pub(in crate::services::project) fn csv_table_icon_resource_ref(
     source: ResourceSource,
     table: CsvTableKey,
     row: &Map<String, Value>,
@@ -532,7 +535,7 @@ fn no_source_display_name(
     Ok(None)
 }
 
-pub(super) fn hull_resource_ref(
+pub(in crate::services::project) fn hull_resource_ref(
     session: &ProjectSession,
     source: ResourceSource,
     hull_id: &str,

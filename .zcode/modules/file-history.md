@@ -13,7 +13,7 @@
 `src/orchestrators/main-history-command.orchestrator.ts`：主窗口历史分派 owner。
 `src-tauri/src/services/file_changes.rs`：后端 changeset 回放 owner。
 `src-tauri/src/commands/file_changes.rs`：回放 command 边界。
-`src/app/composables/use-file-history-view-model.ts`：文件历史视图 ViewModel。
+`src/app/composables/editors/use-file-history-view-model.ts`：文件历史视图 ViewModel。
 
 ## 边界
 

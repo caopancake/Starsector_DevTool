@@ -103,7 +103,7 @@ pub fn delete_variant_entity(payload: DeleteVariantEntityPayload) -> Result<Writ
     services::editor_config::delete_spec_entity(
         &payload.mod_root,
         EntityKind::Variant,
-        &payload.variant_id,
+        &payload.entity_id,
         &payload.rel_path,
     )
 }
@@ -137,7 +137,7 @@ pub fn delete_skin_entity(payload: DeleteSkinEntityPayload) -> Result<WriteResul
     services::editor_config::delete_spec_entity(
         &payload.mod_root,
         EntityKind::Skin,
-        &payload.skin_hull_id,
+        &payload.entity_id,
         &payload.rel_path,
     )
 }

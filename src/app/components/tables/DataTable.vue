@@ -24,7 +24,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import CsvGrid from '@/app/components/tables/CsvGrid.vue';
-import type { CsvTableViewModel } from '@/app/composables/use-csv-table-view-model';
+import type { CsvTableViewModel } from '@/app/composables/tables/use-csv-table-view-model';
 
 const props = defineProps<{ csvTable: CsvTableViewModel }>();
 const effectiveGridModel = computed(() => ({

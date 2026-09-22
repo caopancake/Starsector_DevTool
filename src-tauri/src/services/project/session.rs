@@ -6,9 +6,9 @@ use super::{
         self, lock_session, session_handle,
         spec_files::{load_skin_files, load_variant_files},
     },
-    factions,
+    definitions::{factions, projectiles, table_definitions},
     performance::PerformanceTrace,
-    projectiles, root, table_definitions,
+    root,
 };
 use crate::{
     errors::{AppError, AppResult},
@@ -141,7 +141,7 @@ pub(super) fn build_project_session(
         spec_bundle,
         table_entity_summaries,
     } = cached_index;
-    let table_summaries = super::table_definitions::csv_table_definitions()
+    let table_summaries = super::definitions::table_definitions::csv_table_definitions()
         .iter()
         .map(|definition| {
             let table = csv_tables
@@ -182,7 +182,7 @@ pub(super) fn build_project_session(
         mod_root: mod_root.to_string_lossy().to_string(),
         starsector_root: starsector_root.map(|path| path.to_string_lossy().to_string()),
         core_available,
-        associated_spec_tables: super::entity_definitions::associated_spec_tables(),
+        associated_spec_tables: super::definitions::entity_definitions::associated_spec_tables(),
         mod_info,
         table_summaries,
         table_entity_summaries,
@@ -269,7 +269,7 @@ fn build_project_index(
 
 pub(super) fn build_registered_session_csv_tables() -> BTreeMap<String, SessionCsvTable> {
     let mut tables: BTreeMap<String, SessionCsvTable> =
-        super::table_definitions::csv_table_definitions()
+        super::definitions::table_definitions::csv_table_definitions()
             .iter()
             .map(|definition| {
                 (
@@ -286,7 +286,7 @@ pub(super) fn build_registered_session_csv_tables() -> BTreeMap<String, SessionC
     tables.insert(
         MISSION_LIST_TABLE_KEY.to_string(),
         SessionCsvTable {
-            header: vec!["mission".to_string()],
+            header: super::model::mission_list_default_header(),
             path: MISSION_LIST_REL_PATH.to_string(),
             rows: None,
             next_row_seq: 0,

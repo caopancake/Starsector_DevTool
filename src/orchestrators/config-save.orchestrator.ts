@@ -102,7 +102,7 @@ export async function createVariantAction(sessionId: string, modRoot: string, hu
 }
 
 export async function deleteVariantAction(sessionId: string, modRoot: string, relPath: string, variantId: string): Promise<WriteResult> {
-  const result = await writeDeleteVariantEntity({ sessionId, modRoot, relPath, variantId });
+  const result = await writeDeleteVariantEntity({ sessionId, modRoot, relPath, entityId: variantId });
   await recordConfigWrite(modRoot, sessionId, result, `删除装配 ${variantId}`);
   return result;
 }
@@ -140,7 +140,7 @@ export async function createSkinAction(sessionId: string, modRoot: string, baseH
 }
 
 export async function deleteSkinAction(sessionId: string, modRoot: string, relPath: string, skinHullId: string): Promise<WriteResult> {
-  const result = await writeDeleteSkinEntity({ sessionId, modRoot, relPath, skinHullId });
+  const result = await writeDeleteSkinEntity({ sessionId, modRoot, relPath, entityId: skinHullId });
   await recordConfigWrite(modRoot, sessionId, result, `删除舰船皮肤 ${skinHullId}`);
   return result;
 }

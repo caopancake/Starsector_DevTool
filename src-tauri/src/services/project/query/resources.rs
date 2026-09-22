@@ -40,7 +40,7 @@ mod tests {
     use crate::models::{ResourceOwnerKind, ResourceRef, ResourceSource};
     use crate::services::project::cache::media::cached_sprite_media_contains;
 
-    use crate::testutil::temp_dir;
+    use crate::testutil::{temp_dir, temp_linked_dir};
 
     fn general_purpose_base64(bytes: &[u8]) -> String {
         use base64::{Engine as _, engine::general_purpose};
@@ -174,7 +174,9 @@ mod tests {
 
     #[test]
     fn resource_query_rejects_mod_link_parent_escape() {
-        let Some((root, outside, _linked)) = temp_linked_dir("resource_query_link_escape") else {
+        let Some((root, outside, _linked)) =
+            temp_linked_dir("resource_query_link_escape", "linked")
+        else {
             return;
         };
         std::fs::write(outside.join("outside.png"), [137, 80, 78, 71]).unwrap();
@@ -324,37 +326,5 @@ mod tests {
             &resource_cache_key(&resource)
         ));
         let _ = std::fs::remove_dir_all(root);
-    }
-
-    fn temp_linked_dir(
-        name: &str,
-    ) -> Option<(std::path::PathBuf, std::path::PathBuf, std::path::PathBuf)> {
-        let root = temp_dir(&format!("{name}_root"));
-        let outside = temp_dir(&format!("{name}_outside"));
-        let link = root.join("linked");
-        if create_dir_link(&outside, &link).is_err() {
-            let _ = std::fs::remove_dir_all(root);
-            let _ = std::fs::remove_dir_all(outside);
-            return None;
-        }
-        Some((root, outside, link))
-    }
-
-    #[cfg(windows)]
-    fn create_dir_link(target: &std::path::Path, link: &std::path::Path) -> std::io::Result<()> {
-        std::os::windows::fs::symlink_dir(target, link)
-    }
-
-    #[cfg(unix)]
-    fn create_dir_link(target: &std::path::Path, link: &std::path::Path) -> std::io::Result<()> {
-        std::os::unix::fs::symlink(target, link)
-    }
-
-    #[cfg(not(any(windows, unix)))]
-    fn create_dir_link(_target: &std::path::Path, _link: &std::path::Path) -> std::io::Result<()> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Unsupported,
-            "directory links are unsupported on this platform",
-        ))
     }
 }

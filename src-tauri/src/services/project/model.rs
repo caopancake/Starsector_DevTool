@@ -7,6 +7,12 @@ use std::collections::{BTreeMap, HashMap};
 
 pub(super) const MISSION_LIST_TABLE_KEY: &str = "missions";
 pub(super) const MISSION_LIST_REL_PATH: &str = "data/missions/mission_list.csv";
+
+/// The missions index table has a single fixed column.
+pub(super) fn mission_list_default_header() -> Vec<String> {
+    vec!["mission".to_string()]
+}
+
 pub(super) const WEAPON_SPRITE_FIELDS: [&str; 8] = [
     "turretSprite",
     "hardpointSprite",

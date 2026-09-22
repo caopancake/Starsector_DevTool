@@ -9,14 +9,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::model::is_comment_row;
+use super::super::model::is_comment_row;
 
 struct FactionIndexEntry {
     id: String,
     path: PathBuf,
 }
 
-pub(super) fn discover_factions(
+pub(in crate::services::project) fn discover_factions(
     mod_root: &Path,
 ) -> AppResult<(BTreeMap<String, FactionMeta>, HashMap<String, String>)> {
     let mut factions = BTreeMap::new();
@@ -64,7 +64,9 @@ pub(super) fn discover_factions(
     Ok((factions, tag_map))
 }
 
-pub(super) fn load_faction_files(mod_root: &Path) -> AppResult<BTreeMap<String, Value>> {
+pub(in crate::services::project) fn load_faction_files(
+    mod_root: &Path,
+) -> AppResult<BTreeMap<String, Value>> {
     let mut defs = BTreeMap::new();
     for entry in read_faction_index(mod_root)? {
         let obj = read_faction_object(&entry)?;

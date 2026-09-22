@@ -133,11 +133,8 @@ fn infer_type(value: &Value) -> DiscoveredFieldType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testutil::temp_dir;
-    use std::{
-        fs,
-        path::{Path, PathBuf},
-    };
+    use crate::testutil::{temp_dir, temp_linked_dir};
+    use std::fs;
 
     #[test]
     fn core_field_scan_reports_broken_json() {
@@ -185,7 +182,7 @@ mod tests {
 
     #[test]
     fn core_field_scan_rejects_link_entry() {
-        let Some((root, outside, _linked)) = temp_core_linked_dir(
+        let Some((root, outside, _linked)) = temp_linked_dir(
             "core_fields_link_entry",
             "starsector-core/data/weapons/linked",
         ) else {
@@ -198,36 +195,5 @@ mod tests {
         let _ = fs::remove_dir_all(root);
         let _ = fs::remove_dir_all(outside);
         assert!(result.is_err());
-    }
-
-    fn temp_core_linked_dir(name: &str, rel_link: &str) -> Option<(PathBuf, PathBuf, PathBuf)> {
-        let root = temp_dir(&format!("{name}_root"));
-        let outside = temp_dir(&format!("{name}_outside"));
-        let link = root.join(rel_link);
-        fs::create_dir_all(link.parent().unwrap()).unwrap();
-        if create_dir_link(&outside, &link).is_err() {
-            let _ = fs::remove_dir_all(root);
-            let _ = fs::remove_dir_all(outside);
-            return None;
-        }
-        Some((root, outside, link))
-    }
-
-    #[cfg(windows)]
-    fn create_dir_link(target: &Path, link: &Path) -> std::io::Result<()> {
-        std::os::windows::fs::symlink_dir(target, link)
-    }
-
-    #[cfg(unix)]
-    fn create_dir_link(target: &Path, link: &Path) -> std::io::Result<()> {
-        std::os::unix::fs::symlink(target, link)
-    }
-
-    #[cfg(not(any(windows, unix)))]
-    fn create_dir_link(_target: &Path, _link: &Path) -> std::io::Result<()> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Unsupported,
-            "directory links are unsupported on this platform",
-        ))
     }
 }

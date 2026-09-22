@@ -1,16 +1,12 @@
 mod cache;
-pub(crate) mod entity_definitions;
-mod entity_resources;
-mod factions;
+mod definitions;
 mod invalidation;
 mod model;
 mod performance;
-mod projectiles;
 mod query;
 mod resources;
 mod root;
 mod session;
-mod table_definitions;
 mod write;
 
 pub(crate) use cache::persistent::configure_persistent_index_cache;

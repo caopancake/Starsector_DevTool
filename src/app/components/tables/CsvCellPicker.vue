@@ -32,7 +32,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watchEffect } from 'vue';
 import { groupSelectOptions, type SelectOption } from '@/domain/schema/schema-options';
 import { useProjectStore } from '@/stores/project.store';
-import { useSchemaSelectMedia } from '@/app/composables/use-schema-select-media';
+import { useSchemaSelectMedia } from '@/app/composables/tables/use-schema-select-media';
 
 const props = defineProps<{
   anchor: { height: number; left: number; top: number; width: number };

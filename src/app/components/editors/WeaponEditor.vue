@@ -265,10 +265,10 @@ import {
   type CanvasModifiers,
   type CanvasPick,
   type CanvasTarget,
-} from '@/app/composables/use-canvas-editor';
-import { useCanvasViewport } from '@/app/composables/use-canvas-viewport';
-import { useObjectField } from '@/app/composables/use-object-field';
-import { useResourceReference } from '@/app/composables/use-resource-reference';
+} from '@/app/composables/canvas/use-canvas-editor';
+import { useCanvasViewport } from '@/app/composables/canvas/use-canvas-viewport';
+import { useObjectField } from '@/app/composables/editors/use-object-field';
+import { useResourceReference } from '@/app/composables/editors/use-resource-reference';
 import { editorCollapseTheme, snapToStep, toOptions } from '@/domain/editors/lib/editor-constants';
 import { drawBarrelVisual, drawCrossMarker, drawWeaponSpriteLayer } from '@/domain/editors/lib/canvas-visuals';
 import { findMirrorBarrelIndex, mirrorLateral, mirrorAngleDeg, MIRROR_EPSILON } from '@/domain/editors/lib/mirror';

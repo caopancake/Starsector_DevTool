@@ -1,9 +1,9 @@
 import { nextTick, onMounted, onUnmounted, ref, type Ref, type ShallowRef } from 'vue';
 import type { Point } from '@/domain/editors/editor-types';
 import type { RowData } from '@/shared/types';
-import { useCanvasHistory } from '@/app/composables/use-canvas-history';
-import { useCanvasDrawing } from '@/app/composables/use-canvas-drawing';
-import type { CanvasViewport } from '@/app/composables/use-canvas-viewport';
+import { useCanvasHistory } from '@/app/composables/canvas/use-canvas-history';
+import { useCanvasDrawing } from '@/app/composables/canvas/use-canvas-drawing';
+import type { CanvasViewport } from '@/app/composables/canvas/use-canvas-viewport';
 import { useShortcutDispatch } from '@/app/composables/use-shortcut-dispatch';
 import {
   CANVAS_HANDLE_COLOR,

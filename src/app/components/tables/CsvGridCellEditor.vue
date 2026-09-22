@@ -52,7 +52,7 @@ import {
 } from '@/domain/tables/csv-column-schema';
 import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
-import { useSchemaSelectMedia } from '@/app/composables/use-schema-select-media';
+import { useSchemaSelectMedia } from '@/app/composables/tables/use-schema-select-media';
 import CsvCellPicker from '@/app/components/tables/CsvCellPicker.vue';
 
 const props = defineProps<{

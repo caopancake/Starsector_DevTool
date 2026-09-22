@@ -53,7 +53,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 import { useDirtyWindowCloseGuard } from '@/app/composables/use-dirty-window-close-guard';
-import { useFileEditorViewModel } from '@/app/composables/use-file-editor-view-model';
+import { useFileEditorViewModel } from '@/app/composables/editors/use-file-editor-view-model';
 import { useShortcutDispatch } from '@/app/composables/use-shortcut-dispatch';
 import { useSettingsStore } from '@/stores/settings.store';
 import { closeCurrentWindow } from '@/windows/current.window';
