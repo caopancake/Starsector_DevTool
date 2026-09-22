@@ -34,6 +34,24 @@ pub(crate) fn sessions() -> &'static Mutex<BTreeMap<ProjectSessionId, Arc<Mutex<
     &PROJECT_SESSIONS
 }
 
+/// Lock the session registry; poison maps to the shared AppError form. The
+/// registry lock is only ever held for map insert/remove/get plus Arc clones.
+pub(crate) fn lock_registry()
+-> AppResult<std::sync::MutexGuard<'static, BTreeMap<ProjectSessionId, Arc<Mutex<ProjectSession>>>>>
+{
+    sessions()
+        .lock()
+        .map_err(|_| AppError::message("session.lock_poisoned", "project session lock poisoned"))
+}
+
+/// Lock the core-cache registry; poison maps to the shared AppError form.
+pub(crate) fn lock_core_caches()
+-> AppResult<std::sync::MutexGuard<'static, BTreeMap<String, CoreCache>>> {
+    core_caches()
+        .lock()
+        .map_err(|_| AppError::message("cache.lock_poisoned", "core cache lock poisoned"))
+}
+
 pub(crate) fn core_caches() -> &'static Mutex<BTreeMap<String, CoreCache>> {
     &CORE_CACHES
 }
@@ -42,17 +60,12 @@ pub(crate) fn core_caches() -> &'static Mutex<BTreeMap<String, CoreCache>> {
 /// clone returned here; all session work — including disk IO — happens on the
 /// per-session lock so one session can never block another.
 pub(crate) fn session_handle(session_id: &str) -> AppResult<Arc<Mutex<ProjectSession>>> {
-    sessions()
-        .lock()
-        .map_err(|_| AppError::message("session.lock_poisoned", "project session lock poisoned"))?
-        .get(session_id)
-        .cloned()
-        .ok_or_else(|| {
-            AppError::message(
-                "session.unknown",
-                format!("unknown project session: {session_id}"),
-            )
-        })
+    lock_registry()?.get(session_id).cloned().ok_or_else(|| {
+        AppError::message(
+            "session.unknown",
+            format!("unknown project session: {session_id}"),
+        )
+    })
 }
 
 /// Lock a session handle, mapping poisoning to the shared AppError form.
@@ -66,9 +79,6 @@ pub(crate) fn lock_session(
 
 pub(super) fn invalidate_core_cache(starsector_root: &str) -> AppResult<()> {
     let cache_key = core::core_cache_key(starsector_root)?;
-    core_caches()
-        .lock()
-        .map_err(|_| AppError::message("cache.lock_poisoned", "core cache lock poisoned"))?
-        .remove(&cache_key);
+    lock_core_caches()?.remove(&cache_key);
     persistent::invalidate_core_fingerprint(&cache_key)
 }

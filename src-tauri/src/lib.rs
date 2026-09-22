@@ -1,4 +1,5 @@
 mod commands;
+mod diagnostics;
 mod domain;
 mod errors;
 mod io;
@@ -9,6 +10,7 @@ mod services;
 #[cfg(test)]
 pub(crate) mod testutil;
 
+use models::{AppLogEntry, AppLogLevel};
 use tauri::Manager;
 
 pub fn run() {
@@ -20,6 +22,21 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            let handle = app.handle().clone();
+            diagnostics::install(Box::new(move |message| {
+                let _ = services::app_log::append_app_log(
+                    handle.clone(),
+                    AppLogEntry {
+                        level: AppLogLevel::Warning,
+                        message: message.to_string(),
+                        path: None,
+                        line: None,
+                    },
+                );
+            }));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::open_project_session,
             commands::close_project_session,

@@ -1,5 +1,5 @@
 use crate::{
-    errors::{AppError, AppResult},
+    errors::AppResult,
     io::{FsRootBoundary, load_json_dir_by_id, read_csv_data},
     models::{CsvTableKey, SkinFile, VariantFile},
 };
@@ -13,18 +13,13 @@ use super::super::model::{
     CoreCache, CoreSourceData, SessionCsvRow, SessionCsvTable, csv_table_spec,
 };
 use super::{
-    core_caches, persistent,
+    lock_core_caches, persistent,
     spec_files::{load_skin_files, load_variant_files},
 };
 
 pub(crate) fn core_cache_snapshot(starsector_root: &str) -> AppResult<CoreCache> {
     let cache_key = core_cache_key(starsector_root)?;
-    if let Some(cache) = core_caches()
-        .lock()
-        .map_err(|_| AppError::message("cache.lock_poisoned", "core cache lock poisoned"))?
-        .get(&cache_key)
-        .cloned()
-    {
+    if let Some(cache) = lock_core_caches()?.get(&cache_key).cloned() {
         return Ok(cache);
     }
     let cache = persistent::load_core_cache(starsector_root)?.unwrap_or_else(|| CoreCache {
@@ -35,9 +30,7 @@ pub(crate) fn core_cache_snapshot(starsector_root: &str) -> AppResult<CoreCache>
         weapon_specs: None,
         projectile_specs: None,
     });
-    let mut guard = core_caches()
-        .lock()
-        .map_err(|_| AppError::message("cache.lock_poisoned", "core cache lock poisoned"))?;
+    let mut guard = lock_core_caches()?;
     Ok(guard
         .entry(cache_key)
         .or_insert_with(|| cache.clone())
@@ -46,12 +39,11 @@ pub(crate) fn core_cache_snapshot(starsector_root: &str) -> AppResult<CoreCache>
 
 pub(crate) fn replace_core_cache(starsector_root: &str, cache: CoreCache) -> AppResult<()> {
     let cache_key = core_cache_key(starsector_root)?;
-    core_caches()
-        .lock()
-        .map_err(|_| AppError::message("cache.lock_poisoned", "core cache lock poisoned"))?
-        .insert(cache_key, cache);
+    lock_core_caches()?.insert(cache_key, cache);
     let snapshot = core_cache_snapshot(starsector_root)?;
-    let _ = persistent::save_core_cache(starsector_root, &snapshot);
+    if let Err(error) = persistent::save_core_cache(starsector_root, &snapshot) {
+        crate::diagnostics::record(format!("core cache save failed: {error}"));
+    }
     Ok(())
 }
 

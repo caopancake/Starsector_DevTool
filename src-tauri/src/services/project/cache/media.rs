@@ -39,7 +39,7 @@ pub(in crate::services::project) fn lookup_data_url(
     let cache = match sprite_media_cache().lock() {
         Ok(cache) => cache,
         Err(_) => {
-            eprintln!("sprite media cache lock poisoned");
+            crate::diagnostics::record("sprite media cache lock poisoned");
             return None;
         }
     };
@@ -62,7 +62,7 @@ pub(in crate::services::project) fn insert_entry(
     data_url: String,
 ) {
     let Ok(mut cache) = sprite_media_cache().lock() else {
-        eprintln!("sprite media cache lock poisoned");
+        crate::diagnostics::record("sprite media cache lock poisoned");
         return;
     };
     let media_key = (session_id.to_string(), cache_key.to_string());
@@ -88,7 +88,7 @@ pub(in crate::services::project) fn insert_entry(
 
 pub(in crate::services::project) fn clear_sprite_media_for_session(session_id: &str) {
     let Ok(mut cache) = sprite_media_cache().lock() else {
-        eprintln!("sprite media cache lock poisoned");
+        crate::diagnostics::record("sprite media cache lock poisoned");
         return;
     };
     cache.order.retain(|key| key.0 != session_id);
@@ -103,7 +103,7 @@ pub(in crate::services::project) fn cached_sprite_media_contains(
     cache_key: &str,
 ) -> bool {
     let Ok(cache) = sprite_media_cache().lock() else {
-        eprintln!("sprite media cache lock poisoned");
+        crate::diagnostics::record("sprite media cache lock poisoned");
         return false;
     };
     cache

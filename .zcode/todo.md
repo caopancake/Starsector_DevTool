@@ -30,11 +30,11 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 1.4: 静默失败与诊断收敛
 
-- [ ] 三处持久化静默吞错接 `app_log`：`session.rs` 项目索引落盘、`cache/core.rs` 核心缓存落盘、`session_opening.rs` 缓存目录 configure；`resources/refs.rs` 四处 `eprintln!` poison 诊断收敛到统一设施。
-- [ ] 注册表锁获取封装统一（poison→错误映射不再逐处复制）；`session.rs` 关闭与驱逐两处相反的锁获取顺序统一或补锁序注释。
-- [ ] session 归属校验统一下沉：全部携带 `sessionId + modRoot` 的命令强制经单一校验入口（`SessionModScope` trait 全覆盖或 service 层统一守卫），删除 `tables.rs`、`file_changes.rs`、`assets.rs`、`file_editor.rs` 的手调散布。
-- [ ] `io/file_changes.rs` 文本快照仅对 UTF-8 语义错误降级二进制路径，权限/IO 错误显式报错。
-- [ ] 跑 cargo 全套。
+- [x] 三处持久化静默吞错接 `app_log`：`session.rs` 项目索引落盘、`cache/core.rs` 核心缓存落盘、`session_opening.rs` 缓存目录 configure；`resources/refs.rs` 四处 `eprintln!` poison 诊断收敛到统一设施。
+- [x] 注册表锁获取封装统一（poison→错误映射不再逐处复制）；`session.rs` 关闭与驱逐两处相反的锁获取顺序统一或补锁序注释。
+- [x] session 归属校验统一下沉：全部携带 `sessionId + modRoot` 的命令强制经单一校验入口（`SessionModScope` trait 全覆盖或 service 层统一守卫），删除 `tables.rs`、`file_changes.rs`、`assets.rs`、`file_editor.rs` 的手调散布。
+- [x] `io/file_changes.rs` 文本快照仅对 UTF-8 语义错误降级二进制路径，权限/IO 错误显式报错。
+- [x] 跑 cargo 全套。
 
 ### Phase 1.5: 前端错误反馈补全与链路宣称对齐
 

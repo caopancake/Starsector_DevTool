@@ -1,3 +1,4 @@
+use super::ensure_session_mod_scope;
 use crate::{
     errors::AppError,
     models::{
@@ -12,7 +13,7 @@ use std::collections::BTreeMap;
 pub fn resolve_mod_relative_path(
     payload: ResolveModRelativePathPayload,
 ) -> Result<String, AppError> {
-    services::project::ensure_project_session_mod_root(&payload.session_id, &payload.mod_root)?;
+    ensure_session_mod_scope(&payload)?;
     services::project::resolve_mod_relative_path(&payload.mod_root, &payload.absolute_path)
 }
 

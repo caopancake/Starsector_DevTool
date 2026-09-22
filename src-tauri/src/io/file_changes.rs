@@ -375,10 +375,13 @@ fn snapshot_file(path: &Path, rel_path: String) -> AppResult<FileSnapshot> {
 fn snapshot_file_content(path: &Path) -> AppResult<(Option<String>, Option<String>)> {
     match read_utf8_no_bom(path) {
         Ok(text) => Ok((Some(text), None)),
-        Err(_) => {
+        // Only text-semantics failures degrade to a binary snapshot; IO and
+        // permission errors are real failures and must surface.
+        Err(error) if matches!(error.code(), "text.invalid_utf8" | "text.bom") => {
             let bytes = fs::read(path)?;
             Ok((None, Some(general_purpose::STANDARD.encode(bytes))))
         }
+        Err(error) => Err(error),
     }
 }
 

@@ -3,7 +3,7 @@ use super::model::{
 };
 use super::{
     cache::{
-        self, lock_session, session_handle, sessions,
+        self, lock_session, session_handle,
         spec_files::{load_skin_files, load_variant_files},
     },
     factions,
@@ -24,11 +24,8 @@ use std::{
 };
 
 pub fn close_project_session(session_id: String) -> AppResult<()> {
+    cache::lock_registry()?.remove(&session_id);
     cache::clear_sprite_media_for_session(&session_id);
-    sessions()
-        .lock()
-        .map_err(|_| AppError::message("session.lock_poisoned", "project session lock poisoned"))?
-        .remove(&session_id);
     Ok(())
 }
 
@@ -79,9 +76,7 @@ pub(crate) fn open_project_session_traced(
 ) -> AppResult<ProjectManifest> {
     let session = build_project_session(mod_root, starsector_root_override, trace)?;
     let manifest = session.manifest.clone();
-    let mut guard = sessions()
-        .lock()
-        .map_err(|_| AppError::message("session.lock_poisoned", "project session lock poisoned"))?;
+    let mut guard = cache::lock_registry()?;
     while guard.len() >= MAX_OPEN_SESSIONS {
         let Some(oldest) = guard.keys().next().cloned() else {
             break;
@@ -264,7 +259,11 @@ fn build_project_index(
         spec_bundle,
         table_entity_summaries,
     };
-    let _ = cache::persistent::save_project_index(mod_root, starsector_root, index.clone());
+    if let Err(error) =
+        cache::persistent::save_project_index(mod_root, starsector_root, index.clone())
+    {
+        crate::diagnostics::record(format!("persistent index save failed: {error}"));
+    }
     Ok(index)
 }
 

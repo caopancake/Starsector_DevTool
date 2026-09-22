@@ -13,6 +13,7 @@
 `src/shared/runtime/performance.ts`：性能日志 sink 注入口，由应用日志 service 注册。
 `src/app/composables/use-performance-logger.ts`：业务性能打点 hook。
 `src-tauri/src/services/app_log.rs`：后端日志 owner，固定日志文件名与目录解析。
+`src-tauri/src/diagnostics.rs`：后端诊断 sink owner，无法触达日志服务的内部层经 `record` 记录，应用启动时安装为 Warning 级应用日志。
 `src-tauri/src/services/app_config.rs`：工具私有配置维护 owner，拥有清空配置与清空日志。
 `src-tauri/src/commands/app_feedback_log.rs`：应用日志与配置维护 command。
 
@@ -21,6 +22,7 @@
 - 组件只允许经反馈 hook 获取 `AppFeedback`；非组件代码只允许接收注入的 `AppFeedback` 或使用日志 service。
 - 反馈工厂只允许被反馈 hook 消费，由架构规则锚定；工厂内错误文件的 store 读取与窗口打开维持现状。
 - warning 与 error 记录应用日志，success 与 info 不记录；日志失败不改变主业务语义。
+- 降级类内部错误（持久化缓存不可写、锁中毒等）必须经诊断 sink 记录后才能按降级语义继续，严禁静默吞掉。
 - 错误文件入口只在路径命中已加载 `modRoot` 且有 `sessionId` 时启用；否则只提示不显示按钮。
 - 每次日志操作从已保存 settings 解析目录：默认 app data 可创建，自定义目录必须已存在且可写。
 - 清空配置保留日志；清空日志仅清空内容；两者严禁写 settings、workspace 或 Mod 目标。

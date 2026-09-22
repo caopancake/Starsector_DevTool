@@ -1,18 +1,15 @@
+use super::ensure_session_mod_scope;
 use crate::{
-    errors::{AppError, AppResult},
+    errors::AppError,
     models::command_payloads::{
         DeleteIndexedConfigEntityPayload, DeleteSkinEntityPayload, DeleteVariantEntityPayload,
         IndexedConfigEntityPayload, LoadImportedEditorSpecPayload, SaveEditorSpecPayload,
-        SessionModScope, SkinEntityPayload, VariantEntityPayload,
+        SkinEntityPayload, VariantEntityPayload,
     },
     models::{EntityKind, WriteResult},
     services,
 };
 use serde_json::Value;
-
-fn ensure_session_mod_scope<T: SessionModScope>(payload: &T) -> AppResult<()> {
-    services::project::ensure_project_session_mod_root(payload.session_id(), payload.mod_root())
-}
 
 #[tauri::command(async)]
 pub fn load_imported_editor_spec_file(
