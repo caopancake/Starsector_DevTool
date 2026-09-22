@@ -7,6 +7,7 @@
       placeholder="搜索或输入自定义值"
       @keydown.enter.prevent="submitCustom"
     />
+    <button v-if="!multiple && selectedValues.size > 0" class="csv-cell-picker-clear" type="button" @click="clearValue">清除当前值</button>
     <div class="csv-cell-picker-list">
       <template v-for="group in filteredGroups" :key="group.key">
         <div v-if="group.label" class="csv-cell-picker-group">{{ group.label }}</div>
@@ -104,6 +105,11 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('mousedown', handleDocumentMouseDown, true);
 });
+
+function clearValue() {
+  emit('update', ['']);
+  emit('close');
+}
 
 function selectOption(value: string) {
   if (!props.multiple) {

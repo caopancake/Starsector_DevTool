@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils';
 import { createPinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SelectOption } from '@/domain/schema/schema-options';
 import CsvCellPicker from './CsvCellPicker.vue';
 
 vi.mock('@/services/resource-media.service', () => ({
@@ -8,9 +9,12 @@ vi.mock('@/services/resource-media.service', () => ({
   resourceMediaDataUrl: vi.fn().mockReturnValue(undefined),
 }));
 
-function mountPicker(anchor: { height: number; left: number; top: number; width: number }) {
+function mountPicker(
+  anchor: { height: number; left: number; top: number; width: number },
+  props: { multiple?: boolean; options?: SelectOption[]; values?: string[] } = {},
+) {
   return mount(CsvCellPicker, {
-    props: { anchor, multiple: false, options: [], values: [] },
+    props: { anchor, multiple: false, options: [], values: [], ...props },
     global: { plugins: [createPinia()] },
   });
 }
@@ -49,6 +53,30 @@ describe('CsvCellPicker placement', () => {
     const style = wrapper.attributes('style');
     expect(style).toContain('top: 42px');
     expect(style).not.toContain('bottom');
+    wrapper.unmount();
+  });
+
+  it('offers a clear action for single-select with a current value', async () => {
+    const wrapper = mountPicker({ height: 30, left: 40, top: 100, width: 200 }, { values: ['phase'] });
+
+    await wrapper.find('.csv-cell-picker-clear').trigger('click');
+
+    expect(wrapper.emitted('update')).toEqual([[['']]]);
+    expect(wrapper.emitted('close')).toHaveLength(1);
+    wrapper.unmount();
+  });
+
+  it('hides the clear action when no value is selected', () => {
+    const wrapper = mountPicker({ height: 30, left: 40, top: 100, width: 200 });
+
+    expect(wrapper.find('.csv-cell-picker-clear').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it('hides the clear action for multiple select', () => {
+    const wrapper = mountPicker({ height: 30, left: 40, top: 100, width: 200 }, { multiple: true, values: ['a', 'b'] });
+
+    expect(wrapper.find('.csv-cell-picker-clear').exists()).toBe(false);
     wrapper.unmount();
   });
 });
