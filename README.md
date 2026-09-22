@@ -56,6 +56,8 @@ npm.cmd run tauri -- dev
 npm.cmd run tauri -- build --no-bundle
 ```
 
+该命令会经 `tauri.conf.json` 的 `beforeBuildCommand` 自动执行 `npm run build`（先 `vue-tsc` 类型检查，再 vite 构建前端产物）。
+
 构建完成后产物位于：
 
 ```text
@@ -70,12 +72,14 @@ src-tauri\target\release\starsector-devtool.exe
 
 ```powershell
 npm.cmd run format:check
+npm.cmd run encoding:check
 npm.cmd run lint
 npm.cmd run typecheck
-npm.cmd run encoding:check
-cargo test --manifest-path src-tauri\Cargo.toml
-cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings
+npm.cmd run test
+npm.cmd run build
 cargo fmt --manifest-path src-tauri\Cargo.toml --check
+cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings
+cargo test --manifest-path src-tauri\Cargo.toml
 ```
 
 ## 仓库结构

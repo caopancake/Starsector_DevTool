@@ -44,9 +44,10 @@ npm.cmd run tauri -- build --no-bundle
 
 ```powershell
 npm.cmd run format:check
+npm.cmd run encoding:check
 npm.cmd run lint
 npm.cmd run typecheck
-npm.cmd run encoding:check
+npm.cmd run test
 npm.cmd run build
 cargo fmt --manifest-path src-tauri\Cargo.toml --check
 cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings

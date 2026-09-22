@@ -10,7 +10,7 @@
 `src/app/composables/use-canvas-editor.ts` 同族：画布交互骨架（见画布骨架模块）。
 `src/domain/editors/lib/normalize.ts`：`.ship` 规格归一化 owner。
 `src/domain/editors/lib/mirror.ts`：镜像规则 owner。
-`src/domain/editors/normalize.ts` 与 `src/domain/editors/lib/canvas-visuals.ts`：实体视觉绘制 owner。
+`src/domain/editors/lib/canvas-visuals.ts`：实体视觉绘制 owner。
 `src/app/composables/use-editor-window-view-model.ts`：窗口 ViewModel owner，维护目标 Draft Session 与 bundle。
 `src/app/composables/use-resource-reference.ts`：贴图引用选择 owner。
 `scripts/architecture/rules/editor-module-boundary.mjs`：编辑器组件边界规则 owner。

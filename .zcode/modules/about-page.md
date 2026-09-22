@@ -9,8 +9,8 @@
 `src/app/components/AboutPage.vue`：页面组件 owner，拥有静态元信息模板与 Markdown 渲染。
 `src/app/AppContent.vue`：挂载入口，按当前视图挂载关于页面。
 `src/stores/workspace.store.ts`：视图状态 owner，只持有 `currentView='about'`。
-`src/app/components/ModNavigation.vue`：侧栏入口，触发 `showAbout` 导航。
-`vite.config.ts`：`CHANGELOG.md?raw` 构建时内联声明。
+`src/app/TitleBar.vue`：标题栏入口，触发 `showAbout` 导航。
+`src/app/components/AboutPage.vue`：`CHANGELOG.md?raw` 构建时内联声明。
 
 ## 边界
 

@@ -5,7 +5,7 @@
 ## 结构
 
 - `src-tauri/src/commands/`：Tauri command 边界，负责参数接收、状态访问、错误转换和调用后端实现。
-- `src-tauri/src/services/`：后端能力实现，涵盖目录打开、ProjectSession、配置实体、文件变更、文件编辑器、settings、日志、workspace 与资源。
+- `src-tauri/src/services/`：后端能力实现，涵盖目录打开、ProjectSession、配置实体、文件变更、文件编辑器、新建 Mod、schema 字段扫描、系统打开、应用配置、应用路径、应用设置、应用日志、workspace 持久化与资源。
 - `src-tauri/src/services/project/`：ProjectSession 内部按 `root`、`session`、`query`、`write`、`resources`、`cache` 与 `model` 分层。
 - `src-tauri/src/domain/`：纯业务规则（配置实体定义、Mod 创建规则）。
 - `src-tauri/src/io/`：路径边界、文件读写与 changeset 应用。

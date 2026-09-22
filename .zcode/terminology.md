@@ -36,4 +36,4 @@
 
 - `wing_data.csv`（联队）、`hull_mods.csv`（舰船插件）、`industries.csv`（工业）走表格链路；不要假定有专用编辑器。
 - 文件：`.ship/.wpn/.proj/.variant` 与 `mod_info.json`。资源写入：舰船 `graphics/ships/`、武器 `graphics/weapons/`、弹体/导弹 `graphics/missiles/`。
-- 预览倍速：`0.25/1/2/4`。`preview` 只是打开只读预览的交互名，不表示保存或编辑。
+- 预览倍速：`0.5–5.0` 连续滑杆，步进 `0.1`。`preview` 只是打开只读预览的交互名，不表示保存或编辑。

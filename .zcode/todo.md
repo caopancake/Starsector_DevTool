@@ -45,11 +45,11 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 1.6: 文档失实修正与验证口径统一
 
-- [ ] 修正模块文档失实：`main-history-command.md` 删除已不存在的 `save-command-registry.ts` 引用与迁移措辞；`ship-editor.md` 修正 `normalize.ts` 幽灵路径与视觉绘制职责矛盾；`about-page.md` 修正入口组件（TitleBar）与 CHANGELOG 内联载体（AboutPage `?raw`）；`terminology.md` 预览倍速改为 0.5–5.0 步进 0.1 滑杆现实。
-- [ ] `backend-guidelines.md` 与 `overview.md` 的 services 枚举补齐 `mod_creation`、`schema`、`system_open`、`app_paths`，两份措辞统一为一份清单。
-- [ ] `README.md` 与 `CONTRIBUTING.md` 验证清单与 `workflow.md` 对齐：补 `npm.cmd run test`，完整集合口径全仓唯一。
-- [ ] `README.md` 构建节点明 `beforeBuildCommand` 与 `npm run build` 的链路关系。
-- [ ] 跑 `format:check`、`encoding:check`、`node scripts/check-architecture.mjs`、`git diff --check`。
+- [x] 修正模块文档失实：`main-history-command.md` 删除已不存在的 `save-command-registry.ts` 引用与迁移措辞；`ship-editor.md` 修正 `normalize.ts` 幽灵路径与视觉绘制职责矛盾；`about-page.md` 修正入口组件（TitleBar）与 CHANGELOG 内联载体（AboutPage `?raw`）；`terminology.md` 预览倍速改为 0.5–5.0 步进 0.1 滑杆现实。
+- [x] `backend-guidelines.md` 与 `overview.md` 的 services 枚举补齐 `mod_creation`、`schema`、`system_open`、`app_paths`，两份措辞统一为一份清单。
+- [x] `README.md` 与 `CONTRIBUTING.md` 验证清单与 `workflow.md` 对齐：补 `npm.cmd run test`，完整集合口径全仓唯一。
+- [x] `README.md` 构建节点明 `beforeBuildCommand` 与 `npm run build` 的链路关系。
+- [x] 跑 `format:check`、`encoding:check`、`node scripts/check-architecture.mjs`、`git diff --check`。
 
 ### Phase 1.7: 工程配置矛盾收敛
 

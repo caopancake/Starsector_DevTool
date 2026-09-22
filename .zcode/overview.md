@@ -37,7 +37,7 @@ Starsector_DevTool 是一个 Windows 桌面 Starsector Mod 配置工具，目标
 ### Rust
 
 - `src-tauri/src/commands/`：处理 wire 参数、错误转换和 service 调用。
-- `src-tauri/src/services/`：提供目录、ProjectSession、配置实体、文件、settings、日志、workspace 与资源能力。
+- `src-tauri/src/services/`：提供目录打开、ProjectSession、配置实体、文件变更、文件编辑器、新建 Mod、schema 字段扫描、系统打开、应用配置、应用路径、应用设置、应用日志、workspace 持久化与资源能力。
 - `src-tauri/src/services/project/`：按 root、session、query、write、resources、cache 与 model 分工；query 只读，write 返回 changeset 与结构化 invalidation。
 - `src-tauri/src/domain/`：保存纯业务规则。
 - `src-tauri/src/io/`：保存路径和文件边界。
