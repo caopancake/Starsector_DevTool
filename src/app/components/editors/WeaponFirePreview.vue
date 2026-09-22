@@ -65,6 +65,7 @@ import EditorInspector from '@/app/components/editors/common/EditorInspector.vue
 import type { RowData } from '@/shared/types';
 import { num, rgba, str } from '@/shared/lib/starsector';
 import { drawWeaponSpriteLayer } from '@/domain/editors/lib/canvas-visuals';
+import { CANVAS_CLEAR_COLOR, CANVAS_GRID_COLOR } from '@/domain/editors/lib/canvas-palette';
 import {
   WEAPON_SPRITE_DRAW_ORDER,
   WEAPON_SPRITE_ORIGIN_RATIO,
@@ -400,9 +401,9 @@ function draw() {
   const p = params.value;
   const end = weaponOrigin().x + rangePx();
   ctx.clearRect(0, 0, c.width, c.height);
-  ctx.fillStyle = '#08111f';
+  ctx.fillStyle = CANVAS_CLEAR_COLOR;
   ctx.fillRect(0, 0, c.width, c.height);
-  ctx.strokeStyle = '#31415f55';
+  ctx.strokeStyle = CANVAS_GRID_COLOR;
   for (let x = 80; x < c.width; x += 50) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
@@ -510,5 +511,5 @@ onUnmounted(() => {
   cancelAnimationFrame(anim);
   window.removeEventListener('resize', resize);
 });
-watch(() => props.spriteData, loadSpriteImages, { deep: true });
+watch(() => props.spriteData, loadSpriteImages);
 </script>

@@ -30,7 +30,8 @@ export interface ConfigFamilyFile {
 }
 
 export function familyFileId(family: ConfigEntityFamilyDefinition, file: ConfigFamilyFile): string {
-  return String((file as unknown as Record<string, unknown>)[family.idField] ?? '');
+  const raw = (file.data as Record<string, unknown>)[family.idField];
+  return String(raw ?? '');
 }
 
 export function familyFileTitle(family: ConfigEntityFamilyDefinition, file: ConfigFamilyFile, hullNames: Record<string, string>): string {

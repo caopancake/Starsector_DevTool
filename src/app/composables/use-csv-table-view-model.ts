@@ -6,6 +6,7 @@ import { useWorkspaceStore } from '@/stores/workspace.store';
 import { createCsvGridModel } from '@/domain/tables/csv-grid-model';
 import { csvColumnSchemaFor } from '@/domain/tables/csv-column-schema';
 import { recordPerformance } from '@/shared/runtime/performance';
+import { stableStringify } from '@/shared/lib/stable-compare';
 import { querySourceOptionCatalog, queryTableRowPreviewDataUrl, queryTableWindow } from '@/services/csv-table.service';
 import type { SelectOption } from '@/domain/schema/schema-options';
 import { hasSourceInvalidation, hasTableInvalidation, subscribeQueryInvalidations } from '@/services/query-cache.service';
@@ -76,7 +77,7 @@ export function useCsvTableViewModel() {
   );
 
   watch(
-    () => JSON.stringify(gridModel.value.columns.map((column) => column.key)),
+    () => stableStringify(gridModel.value.columns.map((column) => column.key)),
     () => {
       lockColumnWidthsForLoadedModel();
     },
@@ -163,7 +164,7 @@ export function useCsvTableViewModel() {
     const requestId = windowRequestId;
     const alignedStart = Math.max(0, Math.floor(start / 80) * 80);
     const windowCount = Math.max(160, Math.ceil(count / 80) * 80);
-    const key = JSON.stringify([sessionId, table, searchText, factionOptionValue, alignedStart, windowCount]);
+    const key = stableStringify([sessionId, table, searchText, factionOptionValue, alignedStart, windowCount]);
     if (loadedWindowKeys.value.has(key)) return;
     loadedWindowKeys.value.add(key);
     try {

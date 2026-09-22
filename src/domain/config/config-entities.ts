@@ -1,4 +1,5 @@
 import { cell } from '@/shared/lib/starsector';
+import { AppError } from '@/shared/lib/errors';
 import type { IndexedConfigKind, JsonValue, RowData, VariantFile } from '@/shared/types';
 import type { FileSchema } from '@/domain/schema/schema.types';
 import { isSchemaInternalKey } from '@/domain/schema/schema-sections';
@@ -205,7 +206,7 @@ export function configFactionSaveDraft(local: RowData, schema: FileSchema): Conf
   const file = requireConfigObjectSource(split.file, '势力文件数据无效');
   const nextId = trimmedConfigStringField(file, 'id');
   if (!nextId) {
-    throw new Error('势力 id 不能为空');
+    throw new AppError('势力 id 不能为空', { action: 'config-faction-save-draft' });
   }
   return {
     nextId,
@@ -273,10 +274,10 @@ function configColorCss(color: JsonValue): string {
 
 function requireConfigObjectSource(value: unknown, errorMessage: string): RowData {
   if (value && typeof value === 'object' && !Array.isArray(value)) return value as RowData;
-  throw new Error(errorMessage);
+  throw new AppError(errorMessage, { action: 'config-entity-source' });
 }
 
 function requireConfigTextSource(value: unknown, errorMessage: string): string {
   if (typeof value === 'string') return value;
-  throw new Error(errorMessage);
+  throw new AppError(errorMessage, { action: 'config-entity-source' });
 }

@@ -17,7 +17,7 @@
         >
           <span class="mod-tab-name">{{ mod.displayName }}</span>
           <span v-if="hasDirtyChanges(mod.modRoot)" class="mod-tab-dirty" title="有未保存修改" />
-          <span v-else class="mod-tab-status" :class="mod.status" :title="statusLabel(mod.status)" />
+          <span v-else class="mod-tab-status" :class="mod.status" :title="modStatusLabel(mod.status)" />
           <span v-if="mod.status === 'error' && mod.error" class="mod-tab-error-label" :title="mod.error"> 读取失败 </span>
         </button>
         <button class="mod-tab-close" type="button" title="从工作区移除" @click.stop="$emit('remove-mod', mod.modRoot)">
@@ -40,6 +40,7 @@
 </template>
 
 <script setup lang="ts">
+import { modStatusLabel } from '@/domain/workspace/mod-status';
 import { useWorkspaceNavigationActions } from '@/app/composables/use-workspace-navigation-actions';
 import { useDraftSessionsStore } from '@/stores/draft-sessions.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
@@ -52,11 +53,5 @@ const navigation = useWorkspaceNavigationActions();
 
 function hasDirtyChanges(modRoot: string): boolean {
   return draftSessions.hasUnsavedWorkForMod(modRoot);
-}
-
-function statusLabel(status: 'loading' | 'ready' | 'error'): string {
-  if (status === 'loading') return '正在读取';
-  if (status === 'ready') return '已读取';
-  return '读取失败';
 }
 </script>

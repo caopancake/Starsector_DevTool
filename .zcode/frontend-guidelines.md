@@ -62,6 +62,7 @@
 - 状态归属按顺序选择：组件局部 state -> composable -> store；能放局部的不上收。
 - 拆分依据是状态与职责边界，不是行数或复用次数；跨视图共享的派生信息抽 composable。
 - 组件不得兼管缓存、失效或状态恢复；超出展示职责的复杂度移回编排或 ViewModel。
+- Naive UI 组件接线：模板直接使用的组件经 `naive-ui.runtime.ts` 全局异步注册；仅 script 内动态渲染（h 调用）或非模板场景允许直接 `import` 自 `naive-ui/es/*`。
 
 ### Store 形态
 

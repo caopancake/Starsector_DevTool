@@ -5,6 +5,12 @@ import { useCanvasHistory } from '@/app/composables/use-canvas-history';
 import { useCanvasDrawing } from '@/app/composables/use-canvas-drawing';
 import type { CanvasViewport } from '@/app/composables/use-canvas-viewport';
 import { useShortcutDispatch } from '@/app/composables/use-shortcut-dispatch';
+import {
+  CANVAS_HANDLE_COLOR,
+  CANVAS_HIGHLIGHT_COLOR,
+  CANVAS_HIGHLIGHT_FILL_COLOR,
+  CANVAS_SHADOW_COLOR,
+} from '@/domain/editors/lib/canvas-palette';
 
 export interface CanvasTarget {
   kind: string;
@@ -122,8 +128,8 @@ export function useCanvasEditor<TPreview>(options: {
   function drawMirrorAxis(ctx: CanvasRenderingContext2D) {
     const axisY = hooks.mirrorAxisCanvasY();
     ctx.save();
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.95)';
+    ctx.strokeStyle = CANVAS_HIGHLIGHT_COLOR;
+    ctx.fillStyle = CANVAS_HIGHLIGHT_FILL_COLOR;
     ctx.lineWidth = 1;
     ctx.setLineDash([6, 6]);
     ctx.beginPath();
@@ -146,8 +152,8 @@ export function useCanvasEditor<TPreview>(options: {
     const marker = hooks.cursorMarker(last.x, last.y);
     if (!marker) return;
     ctx.save();
-    ctx.strokeStyle = '#f8fafc';
-    ctx.fillStyle = '#f8fafc';
+    ctx.strokeStyle = CANVAS_HANDLE_COLOR;
+    ctx.fillStyle = CANVAS_HANDLE_COLOR;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(marker.point.x - 6, marker.point.y);
@@ -157,7 +163,7 @@ export function useCanvasEditor<TPreview>(options: {
     ctx.stroke();
     ctx.font = '11px sans-serif';
     ctx.textBaseline = 'top';
-    ctx.strokeStyle = '#020617';
+    ctx.strokeStyle = CANVAS_SHADOW_COLOR;
     ctx.lineWidth = 3;
     ctx.strokeText(marker.label, marker.point.x + 12, marker.point.y + 12);
     ctx.fillText(marker.label, marker.point.x + 12, marker.point.y + 12);

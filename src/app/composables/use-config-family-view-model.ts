@@ -14,7 +14,7 @@ import {
   isConfigEntityId,
   trimmedConfigStringField,
 } from '@/domain/config/config-entities';
-import type { ConfigEntityFamilyDefinition, ConfigFamilyFile } from '@/domain/config/config-entity-families';
+import { familyFileId, type ConfigEntityFamilyDefinition, type ConfigFamilyFile } from '@/domain/config/config-entity-families';
 import { listSkinRecords, listVariantRecords } from '@/services/config-entity.service';
 import { queryHullPreviewMetadata, queryHullReferenceOptions } from '@/services/config-resource.service';
 import { useProjectStore } from '@/stores/project.store';
@@ -47,7 +47,7 @@ export function useConfigFamilyViewModel(family: ConfigEntityFamilyDefinition) {
   }
 
   function idOfFamilyFile(file: ConfigFamilyFile): string {
-    return String((file as unknown as Record<string, unknown>)[family.idField] ?? '');
+    return familyFileId(family, file);
   }
 
   async function loadFiles() {

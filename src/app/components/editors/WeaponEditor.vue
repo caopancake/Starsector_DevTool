@@ -725,6 +725,5 @@ watch(
     localSpriteData.value = { ...(spriteData || {}) };
     loadAllSpriteImages();
   },
-  { deep: true },
 );
 </script>

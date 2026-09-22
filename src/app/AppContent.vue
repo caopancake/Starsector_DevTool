@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, onUnmounted, watchEffect } from 'vue';
+import { computed, defineAsyncComponent, onMounted, onUnmounted, watch } from 'vue';
 import TitleBar from '@/app/TitleBar.vue';
 import ModNavigation from '@/app/components/ModNavigation.vue';
 import ModTabsBar from '@/app/components/ModTabsBar.vue';
@@ -65,26 +65,26 @@ const closeGuard = useDirtyWindowCloseGuard({
   title: '放弃未保存修改并关闭？',
 });
 
-let currentSaveHandler: (() => void | Promise<void>) | null = null;
+const isTableView = computed(() => workspace.currentView === 'table' && Boolean(project.activeManifest));
 
-watchEffect(() => {
-  if (currentSaveHandler) {
-    saveCommand.unregisterActiveSaveHandler(currentSaveHandler);
-    currentSaveHandler = null;
-  }
-
-  if (workspace.currentView === 'table' && project.activeManifest) {
-    currentSaveHandler = actions.saveChanges;
-    saveCommand.registerActiveSaveHandler(currentSaveHandler);
-  }
-});
+// Registration follows the same onMounted/onUnmounted pattern as the config
+// editors; the table-view condition is watched so the handler is swapped the
+// moment the view changes.
+watch(
+  isTableView,
+  (active) => {
+    if (active) {
+      saveCommand.registerActiveSaveHandler(actions.saveChanges);
+    } else {
+      saveCommand.unregisterActiveSaveHandler(actions.saveChanges);
+    }
+  },
+  { immediate: true },
+);
 
 onUnmounted(() => {
   closeGuard.dispose();
-  if (currentSaveHandler) {
-    saveCommand.unregisterActiveSaveHandler(currentSaveHandler);
-    currentSaveHandler = null;
-  }
+  saveCommand.unregisterActiveSaveHandler(actions.saveChanges);
 });
 
 onMounted(() => {

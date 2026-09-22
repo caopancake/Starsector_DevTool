@@ -9,27 +9,22 @@
     >
       <div class="mod-card-header">
         <strong>{{ mod.displayName }}</strong>
-        <span class="mod-card-status" :class="mod.status">{{ statusLabel(mod.status) }}</span>
+        <span class="mod-card-status" :class="mod.status">{{ modStatusLabel(mod.status) }}</span>
       </div>
       <div class="mod-card-version">{{ mod.version || '未声明版本' }}</div>
       <div class="mod-card-path">{{ mod.modRoot }}</div>
-      <div v-if="tables.hasModDirtyChanges(mod.modRoot)" class="mod-card-dirty">有未保存修改</div>
+      <div v-if="draftSessions.hasUnsavedWorkForMod(mod.modRoot)" class="mod-card-dirty">有未保存修改</div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { useTablesStore } from '@/stores/tables.store';
+import { modStatusLabel } from '@/domain/workspace/mod-status';
+import { useDraftSessionsStore } from '@/stores/draft-sessions.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { useWorkspaceNavigationActions } from '@/app/composables/use-workspace-navigation-actions';
 
 const workspace = useWorkspaceStore();
-const tables = useTablesStore();
+const draftSessions = useDraftSessionsStore();
 const { navigateToModOverview } = useWorkspaceNavigationActions();
-
-function statusLabel(status: string): string {
-  if (status === 'ready') return '已加载';
-  if (status === 'loading') return '加载中';
-  return '错误';
-}
 </script>

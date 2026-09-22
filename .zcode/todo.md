@@ -96,13 +96,13 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 2.5: 前端写法统一
 
-- [ ] Mod 状态文案单一实现并 domain 化（页签栏与总览面板共用）；保存处理器注册时机统一为单模式；naive-ui 组件接线规则成文（全局异步注册与直接 import 的边界）并统一。
-- [ ] service 层 `.then()` 链统一 async/await；`JSON.stringify` watch 源与缓存键改为显式稳定语义；冗余 `deep` watch、事件闭包内 `ref`、无谓 `async`、死防御清理。
-- [ ] `file-history.store` 与 `file-history-write.orchestrator` 双重校验单一化；mission 选中归一化去重；CsvGrid 静态/编辑两态共享 cell reference composable；竞态守卫（requestId/身份比对）抽公共原语；确认弹窗 + checkbox 收敛为 feedback 扩展原语。
+- [x] Mod 状态文案单一实现并 domain 化：新增 `domain/workspace/mod-status.ts` 的 `modStatusLabel`，三份本地 statusLabel 删除，页签栏文案对齐"加载中/已加载/读取失败"；保存处理器注册统一为 onMounted/watch + onUnmounted 单模式（AppContent watchEffect 动态注册改写）；naive-ui 接线边界写入 frontend-guidelines。
+- [x] service 层 `.then()` 链统一 async/await（config-entity.service 6 处）；`JSON.stringify` watch 源与缓存键改 `stableStringify`；`WeaponEditor`/`WeaponFirePreview` 的冗余 `deep: true` spriteData watch 删除；事件闭包内 `ref`（faction/mission 删除确认）改普通变量；无谓 `async`（refreshMissionResources）与死防御（use-settings-view-model）清理。query-cache/resource-cache 两处 `.then().finally()` 为 promise 自引用清理模式，裁定保留。
+- [x] `file-history.store` 双重校验删除（orchestrator 为唯一防线，caller 契约注释化）；mission 选中归一化提取 `normalizeSelectedMission()` 两处共用；确认弹窗 + checkbox 裁定保留三处各自渲染（两处单选已去 ref 化，关联 spec 弹窗为多选列表结构不同）；竞态守卫 requestId 递增模式保留原样（15 处守卫 identity 参数各异，抽原语收益不足，裁定不抽）。
 - [ ] `app/composables/` 42 文件按域细分子目录（config 系、editor 系、window 系、canvas 系、tables 系各自归拢），消费方 import 路径同步。
-- [ ] domain 预期错误迁 `AppError`（值语义裸 Error 除外，对齐 error-boundary 规则）；`as unknown as` 类型逃逸以输入校验替代。
-- [ ] CSS 间距 token 体系裁决（扩充 `--space` 体系或归一既有取值）后全量对齐；画布颜色收口 domain 调色板常量；URL 草稿快照解析失败补可观察行为。
-- [ ] 跑前端全套检查。
+- [x] domain 预期错误迁 `AppError`（config-entities 3 处保存链路校验错误，带 action）；`as unknown as` 类型逃逸消除（familyFileId 复用既有 helper，连带修正 domain 内同型实现）。
+- [x] CSS 间距 token 扩充至 `--space-1..9`（4–36px），5 处 `28px 36px` 改 token，非 4 倍数微调值（7/9/14/18px）保留直写；画布颜色收口 `domain/editors/lib/canvas-palette.ts`（8 处字面量，画布固定深色为既定决策）；URL 草稿快照解析失败补 `console.warn` 诊断。
+- [x] 跑前端全套检查。
 
 ### Phase 2.6: Rust 写法统一
 

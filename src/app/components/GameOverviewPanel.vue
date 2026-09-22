@@ -45,7 +45,7 @@
       >
         <div class="mod-card-header">
           <strong>{{ mod.name }}</strong>
-          <span class="mod-card-status" :class="modStatus(mod.modRoot)">{{ modStatusLabel(mod.modRoot) }}</span>
+          <span class="mod-card-status" :class="modStatus(mod.modRoot)">{{ statusText(mod.modRoot) }}</span>
         </div>
         <div class="mod-card-version">{{ mod.version || '未声明版本' }}</div>
         <div class="mod-card-path">{{ mod.modRoot }}</div>
@@ -62,6 +62,7 @@
 <script setup lang="ts">
 import ModOpeningFailureList from '@/app/components/ModOpeningFailureList.vue';
 import type { GameOverviewData, GameScanWarning, ModOpeningFailure } from '@/shared/types';
+import { modStatusLabel } from '@/domain/workspace/mod-status';
 import { appendFileReferenceLocation, extractFileReferenceFromError } from '@/shared/lib/errors';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { useWorkspaceNavigationActions } from '@/app/composables/use-workspace-navigation-actions';
@@ -79,20 +80,13 @@ defineEmits<{
 const workspace = useWorkspaceStore();
 const { navigateToModOverview } = useWorkspaceNavigationActions();
 
-function statusLabel(status: string): string {
-  if (status === 'ready') return '已加载';
-  if (status === 'loading') return '加载中';
-  return '错误';
-}
-
 function modStatus(modRoot: string): string {
   return workspace.mods.get(modRoot)?.status ?? 'pending';
 }
 
-function modStatusLabel(modRoot: string): string {
+function statusText(modRoot: string): string {
   const status = workspace.mods.get(modRoot)?.status;
-  if (status) return statusLabel(status);
-  return '未读取';
+  return status ? modStatusLabel(status) : '未读取';
 }
 
 function warningKey(warning: GameScanWarning): string {

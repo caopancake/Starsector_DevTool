@@ -13,7 +13,6 @@ import {
   setUndoStackLimit,
   type UndoStackState,
 } from '@/domain/edit-session';
-import { AppError } from '@/shared/lib/errors';
 import type { FileChangeRecord } from '@/shared/types';
 import type { FileSaveHistoryEntry } from '@/shared/types';
 
@@ -39,9 +38,9 @@ export const useFileHistoryStore = defineStore('file-history', () => {
     return modRoot ? stateMap.get(modRoot) : undefined;
   }
 
+  // Caller contract (validated by file-history-write.orchestrator): modRoot
+  // is non-empty and changes is non-empty.
   function pushSavedWriteEntry(modRoot: string, changes: FileChangeRecord[], label: string) {
-    if (!modRoot) throw new AppError('无法记录文件历史：缺少 Mod 根目录', { action: 'push-saved-write-entry' });
-    if (changes.length === 0) throw new AppError('无法记录文件历史：写入结果没有文件变更', { action: 'push-saved-write-entry' });
     const stack = getStack(modRoot) ?? stateMap.set(modRoot, createFileHistoryStack()).get(modRoot)!;
     pushUndoEntry(stack, { id: nextUndoStackId(stack, 'file_hist'), timestamp: Date.now(), kind: 'file-save', changes, label });
   }

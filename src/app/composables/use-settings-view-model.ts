@@ -16,7 +16,7 @@ export function useSettingsViewModel() {
 
   async function pickStarsectorRoot() {
     const selected = await pickDirectoryDialog('选择 Starsector 安装目录');
-    if (selected && typeof selected === 'string') {
+    if (selected) {
       settings.setStarsectorRoot(selected);
     }
   }

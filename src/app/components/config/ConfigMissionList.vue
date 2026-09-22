@@ -137,7 +137,7 @@ function confirmDeleteMission(id: string) {
   const deleteModRoot = props.modRoot;
   const deleteSessionId = props.sessionId;
   if (!deleteModRoot || !deleteSessionId) return;
-  const deleteMissionDirectory = ref(false);
+  let deleteMissionDirectory = false;
   feedback.confirmDanger({
     title: '删除战役',
     content: () =>
@@ -146,9 +146,9 @@ function confirmDeleteMission(id: string) {
         h(
           NCheckbox,
           {
-            checked: deleteMissionDirectory.value,
+            checked: deleteMissionDirectory,
             'onUpdate:checked': (checked: boolean) => {
-              deleteMissionDirectory.value = checked;
+              deleteMissionDirectory = checked;
             },
           },
           { default: () => '同时删除战役目录' },
@@ -156,7 +156,7 @@ function confirmDeleteMission(id: string) {
       ]),
     actionText: '删除',
     onConfirm: async () => {
-      await deleteMissionTarget(deleteSessionId, deleteModRoot, id, deleteMissionDirectory.value);
+      await deleteMissionTarget(deleteSessionId, deleteModRoot, id, deleteMissionDirectory);
     },
   });
 }

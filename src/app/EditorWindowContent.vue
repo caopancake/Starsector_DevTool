@@ -157,7 +157,8 @@ function parseDraftSnapshot(value: string | null): RowData | null {
   try {
     const parsed = JSON.parse(value) as unknown;
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as RowData) : null;
-  } catch {
+  } catch (error) {
+    console.warn('draft snapshot ignored: unparseable URL payload', error);
     return null;
   }
 }

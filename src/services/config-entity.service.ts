@@ -16,30 +16,34 @@ import type { ConfigMissionEditorData, ProjectSessionId } from '@/shared/types';
  * to domain/config/config-records; write paths belong to write.service and the
  * config-save orchestration, never to this service.
  */
-export function listConfigFactionRecords(sessionId: ProjectSessionId) {
-  return querySessionEntityList(sessionId, 'faction').then((entities) => entities.map(toConfigFactionRecord));
+export async function listConfigFactionRecords(sessionId: ProjectSessionId) {
+  const entities = await querySessionEntityList(sessionId, 'faction');
+  return entities.map(toConfigFactionRecord);
 }
 
-export function listConfigMissionRecords(sessionId: ProjectSessionId) {
-  return querySessionEntityList(sessionId, 'mission').then((entities) => entities.map(toConfigMissionRecord));
+export async function listConfigMissionRecords(sessionId: ProjectSessionId) {
+  const entities = await querySessionEntityList(sessionId, 'mission');
+  return entities.map(toConfigMissionRecord);
 }
 
-export function listVariantRecords(sessionId: ProjectSessionId) {
-  return querySessionEntityList(sessionId, 'variant').then((entities) => entities.map(toConfigVariantRecord));
+export async function listVariantRecords(sessionId: ProjectSessionId) {
+  const entities = await querySessionEntityList(sessionId, 'variant');
+  return entities.map(toConfigVariantRecord);
 }
 
-export function listSkinRecords(sessionId: ProjectSessionId) {
-  return querySessionEntityList(sessionId, 'skin').then((entities) => entities.map(toConfigSkinRecord));
+export async function listSkinRecords(sessionId: ProjectSessionId) {
+  const entities = await querySessionEntityList(sessionId, 'skin');
+  return entities.map(toConfigSkinRecord);
 }
 
-export function queryFactionPreviewImages(sessionId: ProjectSessionId, id: string): Promise<ConfigFactionPreviewImages> {
-  return querySessionEntity(sessionId, 'faction', id).then((entity) => hydrateFactionPreviewImages(sessionId, entity));
+export async function queryFactionPreviewImages(sessionId: ProjectSessionId, id: string): Promise<ConfigFactionPreviewImages> {
+  const entity = await querySessionEntity(sessionId, 'faction', id);
+  return hydrateFactionPreviewImages(sessionId, entity);
 }
 
-export function getConfigMissionEditorData(sessionId: ProjectSessionId, id: string): Promise<ConfigMissionEditorData | null> {
-  return querySessionEntity(sessionId, 'mission', id).then(async (entity) => {
-    if (!entity) return null;
-    const iconSrc = await hydrateMissionIcon(sessionId, entity);
-    return missionEditorDataFromEntity(entity, iconSrc);
-  });
+export async function getConfigMissionEditorData(sessionId: ProjectSessionId, id: string): Promise<ConfigMissionEditorData | null> {
+  const entity = await querySessionEntity(sessionId, 'mission', id);
+  if (!entity) return null;
+  const iconSrc = await hydrateMissionIcon(sessionId, entity);
+  return missionEditorDataFromEntity(entity, iconSrc);
 }

@@ -58,13 +58,17 @@ export function useConfigMissionViewModel() {
       missionRows.value = records.map((record) => record.list);
       missionIconRefs.value = Object.fromEntries(records.map((record) => [record.id, record.iconRef]));
       missionIconResourceRefs.value = records.flatMap((record) => (record.iconRef ? [record.iconRef] : []));
-      const missions = missionItems.value.map((mission) => mission.id);
-      if (!selectedMission.value && missions[0]) selectedMission.value = missions[0];
-      if (selectedMission.value && !missions.includes(selectedMission.value)) selectedMission.value = missions[0] ?? null;
+      normalizeSelectedMission();
     } catch (error) {
       if (requestId !== missionsRequestId || activeSessionId !== sessionId.value) return;
       feedback.error(error, '加载战役失败');
     }
+  }
+
+  function normalizeSelectedMission() {
+    const missions = missionItems.value.map((mission) => mission.id);
+    if (!selectedMission.value && missions[0]) selectedMission.value = missions[0];
+    if (selectedMission.value && !missions.includes(selectedMission.value)) selectedMission.value = missions[0] ?? null;
   }
 
   async function queryMissionEditorData(targetSessionId: string, id: string): Promise<ConfigMissionEditorData | null> {
@@ -152,10 +156,7 @@ export function useConfigMissionViewModel() {
 
   async function refreshMissionList() {
     await queryMissions();
-    if (!selectedMission.value && missionItems.value[0]) selectedMission.value = missionItems.value[0].id;
-    if (selectedMission.value && !missionItems.value.some((mission) => mission.id === selectedMission.value)) {
-      selectedMission.value = missionItems.value[0]?.id ?? null;
-    }
+    normalizeSelectedMission();
   }
 
   function missionExists(id: string): boolean {
@@ -189,7 +190,7 @@ export function useConfigMissionViewModel() {
     missionIconRefreshToken.value += 1;
   }
 
-  async function refreshMissionResources() {
+  function refreshMissionResources() {
     missionIconRefreshToken.value += 1;
   }
 

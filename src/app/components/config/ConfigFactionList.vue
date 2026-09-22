@@ -124,7 +124,7 @@ function confirmDelete(id: string) {
   const deleteModRoot = props.modRoot;
   const deleteSessionId = props.sessionId;
   if (!deleteModRoot || !deleteSessionId) return;
-  const deleteFactionDataFile = ref(false);
+  let deleteFactionDataFile = false;
   feedback.confirmDanger({
     title: '删除势力',
     content: () =>
@@ -133,9 +133,9 @@ function confirmDelete(id: string) {
         h(
           NCheckbox,
           {
-            checked: deleteFactionDataFile.value,
+            checked: deleteFactionDataFile,
             'onUpdate:checked': (checked: boolean) => {
-              deleteFactionDataFile.value = checked;
+              deleteFactionDataFile = checked;
             },
           },
           { default: () => '同时删除势力文件' },
@@ -143,7 +143,7 @@ function confirmDelete(id: string) {
       ]),
     actionText: '删除',
     onConfirm: async () => {
-      await doDelete(deleteSessionId, deleteModRoot, id, deleteFactionDataFile.value);
+      await doDelete(deleteSessionId, deleteModRoot, id, deleteFactionDataFile);
     },
   });
 }
