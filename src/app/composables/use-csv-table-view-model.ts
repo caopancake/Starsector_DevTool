@@ -1,4 +1,5 @@
 import { computed, onUnmounted, ref, watch } from 'vue';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useProjectStore } from '@/stores/project.store';
 import { useTablesStore } from '@/stores/tables.store';
 import { useWorkspaceStore } from '@/stores/workspace.store';
@@ -15,6 +16,7 @@ export function useCsvTableViewModel() {
   const tables = useTablesStore();
   const project = useProjectStore();
   const workspace = useWorkspaceStore();
+  const feedback = useAppFeedback();
   const loadedWindowKeys = ref(new Set<string>());
   const loadedSourceOptions = ref(new Map<string, SelectOption[]>());
   const columnWidthOverrides = ref<Record<string, number>>({});
@@ -164,17 +166,24 @@ export function useCsvTableViewModel() {
     const key = JSON.stringify([sessionId, table, searchText, factionOptionValue, alignedStart, windowCount]);
     if (loadedWindowKeys.value.has(key)) return;
     loadedWindowKeys.value.add(key);
-    const window = await queryTableWindow(sessionId, table, alignedStart, windowCount, searchText, faction);
-    if (
-      requestId !== windowRequestId ||
-      sessionId !== project.activeSessionId ||
-      table !== tables.currentTab ||
-      searchText !== tables.searchText ||
-      factionOptionValue !== tables.currentFactionOptionValue
-    ) {
-      return;
+    try {
+      const window = await queryTableWindow(sessionId, table, alignedStart, windowCount, searchText, faction);
+      if (
+        requestId !== windowRequestId ||
+        sessionId !== project.activeSessionId ||
+        table !== tables.currentTab ||
+        searchText !== tables.searchText ||
+        factionOptionValue !== tables.currentFactionOptionValue
+      ) {
+        return;
+      }
+      tables.applyTableWindow(window);
+    } catch (error) {
+      // Release the window key so a retry can re-query the failed window.
+      loadedWindowKeys.value.delete(key);
+      if (requestId !== windowRequestId || sessionId !== project.activeSessionId) return;
+      feedback.error(error, '加载表格数据失败');
     }
-    tables.applyTableWindow(window);
   }
 
   async function reloadVisibleSourceOptions() {
@@ -183,25 +192,30 @@ export function useCsvTableViewModel() {
     const requestId = ++sourceOptionsRequestId;
     const table = tables.currentTab;
     const sources = [...visibleSourceIds()];
-    const entries = await Promise.all(
-      sources.map(async (source) => {
-        const groups = await querySourceOptionCatalog(sessionId, source);
-        const options = groups.map((group) => ({
-          type: 'group' as const,
-          label: group.label,
-          value: group.label,
-          children: group.options.map((option) => ({
-            label: option.label,
-            value: option.value,
-            description: option.description,
-            resourceRef: option.resourceRef ?? null,
-          })),
-        }));
-        return [source, options] as const;
-      }),
-    );
-    if (requestId !== sourceOptionsRequestId || sessionId !== project.activeSessionId || table !== tables.currentTab) return;
-    loadedSourceOptions.value = new Map(entries);
+    try {
+      const entries = await Promise.all(
+        sources.map(async (source) => {
+          const groups = await querySourceOptionCatalog(sessionId, source);
+          const options = groups.map((group) => ({
+            type: 'group' as const,
+            label: group.label,
+            value: group.label,
+            children: group.options.map((option) => ({
+              label: option.label,
+              value: option.value,
+              description: option.description,
+              resourceRef: option.resourceRef ?? null,
+            })),
+          }));
+          return [source, options] as const;
+        }),
+      );
+      if (requestId !== sourceOptionsRequestId || sessionId !== project.activeSessionId || table !== tables.currentTab) return;
+      loadedSourceOptions.value = new Map(entries);
+    } catch (error) {
+      if (requestId !== sourceOptionsRequestId || sessionId !== project.activeSessionId || table !== tables.currentTab) return;
+      feedback.error(error, '加载来源选项失败');
+    }
   }
 
   function visibleSourceIds(): Set<string> {

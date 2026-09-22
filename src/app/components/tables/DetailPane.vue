@@ -63,6 +63,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useTablesStore } from '@/stores/tables.store';
 import { useProjectStore } from '@/stores/project.store';
 import { useSettingsStore } from '@/stores/settings.store';
@@ -95,6 +96,7 @@ defineEmits<{
 
 const tables = useTablesStore();
 const project = useProjectStore();
+const feedback = useAppFeedback();
 const { schemaSelectSprite, ensureSchemaSelectSprites } = useSchemaSelectMedia();
 const settings = useSettingsStore();
 const workspace = useWorkspaceStore();
@@ -201,9 +203,13 @@ async function loadPreviewResource() {
   const rowKey = tables.selectedRowKey;
   if (!manifest || !row || !rowKey || isCommentRow.value) return;
   const target = { rowKey, sessionId: manifest.sessionId, table: tables.currentTab };
-  const dataUrl = await props.queryRowPreview(target);
-  if (project.activeSessionId === target.sessionId && tables.currentTab === target.table && tables.selectedRowKey === target.rowKey) {
-    previewSrc.value = dataUrl;
+  try {
+    const dataUrl = await props.queryRowPreview(target);
+    if (project.activeSessionId === target.sessionId && tables.currentTab === target.table && tables.selectedRowKey === target.rowKey) {
+      previewSrc.value = dataUrl;
+    }
+  } catch (error) {
+    feedback.error(error, '加载行预览失败');
   }
 }
 

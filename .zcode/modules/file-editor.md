@@ -18,6 +18,7 @@
 ## 边界
 
 - 常规模式窗口身份为 `sessionId + modRoot + path`；错误恢复模式身份为调用链提供的 `modRoot + path`，无 ProjectSession。
+- 恢复模式保存仅写当前文件，严禁进入文件历史、严禁触发 ProjectSession refresh；该特例以保存处 `sessionId` 判定显式表达。
 - 前端严禁从错误文本推导授权根目录或直接写盘；Rust 必须校验 `modRoot` 归属、绝对路径、父目录与链接边界。
 - 错误恢复入口只允许消费 Rust 游戏概览 warning 或目录打开链路携带的结构化编辑目标；无编辑目标的错误严禁显示文件按钮。
 - 保存只允许写当前文件；恢复模式保存只走无 session 文件写入能力，严禁发送依赖 ProjectSession 的保存同步事件。
@@ -53,6 +54,7 @@
 1. 错误呈现携带结构化编辑目标时显示文件按钮。
 2. 以 recovery 模式打开无 session 窗口，身份为 `modRoot + path`。
 3. 保存走无 session 文件写入能力并仅写当前文件。
+4. 恢复模式保存不入文件历史、不触发 ProjectSession refresh，写盘即终点。
 
 ## 规范
 

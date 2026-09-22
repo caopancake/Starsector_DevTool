@@ -46,12 +46,12 @@ Starsector_DevTool 是一个 Windows 桌面 Starsector Mod 配置工具，目标
 
 ### 跨层链路
 
-- 实体读取：`组件 -> ViewModel/composable -> service -> shared/api -> Rust command -> project query -> parser/IO/cache`，返回 manifest 与前端查询缓存。
-- 保存：`组件动作 -> orchestrator -> write service -> shared/api -> Rust write -> changeset -> File History -> ProjectSession refresh -> 结构化失效 -> 界面同步`。
-- 目录打开：`组件 -> directory-opening orchestrator -> 后端识别 -> 游戏概览或 ProjectSession -> workspace/project 运行态`。
-- 撤销重做：`快捷键命令 -> 主窗口历史分派 -> CSV 草稿历史优先 -> 文件历史回放 -> session refresh -> 编辑器同步`。
-- 资源读取：`后端 ResourceRef -> Mod/Core 解析 -> 批量 data URL -> 前端资源缓存 -> 组件`；上传进入二进制 changeset 与缓存失效。
-- 窗口同步：`完整窗口 identity -> managed window -> 结构化事件 -> 主窗口保存与 refresh -> dirty 外部版本交接`。
+- 实体读取：`组件 -> ViewModel/composable -> service -> shared/api -> Rust command -> project query -> parser/IO/cache`，返回实体数据与资源引用，写入前端按 session 隔离的查询缓存（manifest 由目录打开链路返回）。
+- 保存：`组件动作 -> orchestrator -> write service -> shared/api -> Rust write -> changeset -> File History -> ProjectSession refresh -> 结构化失效 -> 界面同步`；编辑器子窗口保存经结构化事件回主窗口补登记历史与 refresh。
+- 目录打开：`组件 -> directory-opening orchestrator -> 后端识别（game-root / mod-in-game / external-mod / unknown 类型化 outcome，边界失败走错误通道）-> 游戏概览或 ProjectSession -> workspace/project 运行态`。
+- 撤销重做：`快捷键命令 -> 主窗口历史分派 -> CSV 草稿历史优先 -> 文件历史回放（强制用户确认，按已加载会话逐一刷新）-> 编辑器同步`。
+- 资源读取：`后端 ResourceRef -> Mod/Core 解析（Core 兜底）-> 批量 data URL -> 前端 query/resource/media 三级缓存与后端 media cache -> 组件`；无上传入口，路径字段只能选择当前 Mod 目录内的文件。
+- 窗口同步：`窗口 identity（managed singletonKey + URL 参数 + ViewModel target key）-> managed window -> 全局广播结构化事件、消费端按身份过滤 -> 主窗口保存与 refresh -> dirty 外部版本交接`；草稿快照超 8000 字符丢弃、URL 超 12000 字符报错。
 
 ## 边界速查
 

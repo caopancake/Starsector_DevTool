@@ -47,6 +47,8 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
     },
     save: async (target, draft) => {
       const result = await writeEditableFileText(target.sessionId, target.modRoot, target.filePath, draft);
+      // Recovery mode (no sessionId) must stay a side-effect-free file write:
+      // no file history entry and no project session refresh.
       if (target.sessionId) {
         await emitFileEditorSaved({
           modRoot: target.modRoot,

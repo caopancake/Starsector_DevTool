@@ -38,10 +38,10 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 1.5: 前端错误反馈补全与链路宣称对齐
 
-- [ ] `use-csv-table-view-model.ts` 表格窗口加载、reload、来源选项加载补 catch + feedback，对齐 Config 系列错误反馈模式；全前端异步链路复核无裸 rejection（无全局兜底是既定事实）。
-- [ ] recovery 文件编辑器写为显式特例：`file-editor` 模块文档立约"无 session 保存不入文件历史、不触发 session refresh"的边界与适用场景，代码侧显式表达；不实现新链路。
-- [ ] `.zcode/overview.md` 链路描述与现实对齐：实体读取不返回 manifest（manifest 归目录打开链路）；撤销重做补强制确认框与多会话刷新；资源链路改为现实（无上传入口，文件选择限于 Mod 内；前端 query/resource/media 三级缓存 + 后端 media cache）；窗口同步补全局广播 + 消费端过滤模型、窗口身份拼装与 draftSnapshot/URL 两条降级路径；删除"上传进入二进制 changeset 与缓存失效"宣称。
-- [ ] 跑前端全套检查、`node scripts/check-architecture.mjs`、`format:check`、`encoding:check`。
+- [x] `use-csv-table-view-model.ts` 表格窗口加载、reload、来源选项加载补 catch + feedback，对齐 Config 系列错误反馈模式；全前端异步链路复核无裸 rejection（无全局兜底是既定事实）。
+- [x] recovery 文件编辑器写为显式特例：`file-editor` 模块文档立约"无 session 保存不入文件历史、不触发 session refresh"的边界与适用场景，代码侧显式表达；不实现新链路。
+- [x] `.zcode/overview.md` 链路描述与现实对齐：实体读取不返回 manifest（manifest 归目录打开链路）；撤销重做补强制确认框与多会话刷新；资源链路改为现实（无上传入口，文件选择限于 Mod 内；前端 query/resource/media 三级缓存 + 后端 media cache）；窗口同步补全局广播 + 消费端过滤模型、窗口身份拼装与 draftSnapshot/URL 两条降级路径；删除"上传进入二进制 changeset 与缓存失效"宣称。
+- [x] 跑前端全套检查、`node scripts/check-architecture.mjs`、`format:check`、`encoding:check`。
 
 ### Phase 1.6: 文档失实修正与验证口径统一
 
