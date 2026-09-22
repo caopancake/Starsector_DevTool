@@ -22,7 +22,7 @@ export interface ChooseOptions {
 export interface AppFeedback {
   success(message: string): void;
   info(message: string): void;
-  warning(message: string): void;
+  warning(message: string, code?: string): void;
   error(error: unknown, contextMessage?: string): void;
   confirmDanger(options: ConfirmOptions): void;
   confirmWarning(options: ConfirmOptions): void;

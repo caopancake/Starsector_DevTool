@@ -23,10 +23,11 @@ export function useWorkspaceShellLifecycle(feedback: AppFeedback) {
   let workspacePersistence: WorkspacePersistenceWatcher | null = null;
 
   onMounted(async () => {
-    recordLogBestEffort({ level: 'info', message: '程序启动', path: null, line: null });
+    recordLogBestEffort({ level: 'info', code: null, message: 'app started', path: null, line: null });
     workspacePersistence = watchWorkspacePersistence();
     stopWindowSaveEvents = await listenWindowSaveEvents({
       onEditorSpecSaved: (event) => {
+        recordLogBestEffort({ level: 'info', code: null, message: `editor spec saved: ${event.id}`, path: null, line: null });
         feedback.success(`${event.id} 已保存`);
       },
     });
@@ -44,7 +45,7 @@ export function useWorkspaceShellLifecycle(feedback: AppFeedback) {
         },
         onModRestoreWarnings: (displayName, warnings) => {
           for (const warning of warnings) {
-            feedback.warning(`${displayName}：${warning}`);
+            feedback.warning(`${displayName}：${warning}`, 'mod.scan_warning');
           }
         },
       });
@@ -61,7 +62,7 @@ export function useWorkspaceShellLifecycle(feedback: AppFeedback) {
   });
 
   onUnmounted(() => {
-    recordLogBestEffort({ level: 'info', message: '程序关闭', path: null, line: null });
+    recordLogBestEffort({ level: 'info', code: null, message: 'app exited', path: null, line: null });
     stopWindowSaveEvents?.();
     stopWindowSaveEvents = null;
     workspacePersistence?.stop();

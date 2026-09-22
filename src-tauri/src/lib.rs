@@ -29,7 +29,8 @@ pub fn run() {
                     handle.clone(),
                     AppLogEntry {
                         level: AppLogLevel::Warning,
-                        message: message.to_string(),
+                        code: Some("diagnostics".to_string()),
+                        message: Some(message.to_string()),
                         path: None,
                         line: None,
                     },

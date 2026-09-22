@@ -4,7 +4,7 @@ import type { DialogApiInjection } from 'naive-ui/es/dialog/src/DialogProvider';
 import type { MessageApiInjection } from 'naive-ui/es/message/src/MessageProvider';
 import { NSpace } from 'naive-ui/es/space';
 import { NText } from 'naive-ui/es/typography';
-import { extractFileReferenceFromError, formatError } from '@/shared/lib/errors';
+import { commandErrorCode, extractFileReferenceFromError, formatError } from '@/shared/lib/errors';
 import type { AppFeedback, ChooseOptions, ConfirmOptions } from '@/shared/types';
 import { openFileEditorWindow } from '@/windows/file-editor.window';
 import { recordLogBestEffort } from '@/services/app-feedback-log.service';
@@ -16,8 +16,8 @@ export function createAppFeedback(message: MessageApiInjection, dialog: DialogAp
   return {
     success: (text) => message.success(text),
     info: (text) => message.info(text),
-    warning: (text) => {
-      recordLogBestEffort({ level: 'warning', message: text, path: null, line: null });
+    warning: (text, code) => {
+      recordLogBestEffort({ level: 'warning', code: code ?? 'ui.warning', message: null, path: null, line: null });
       message.warning(text);
     },
     error: (error, contextMessage) => showError(message, error, contextMessage),
@@ -42,7 +42,8 @@ function showError(message: MessageApiInjection, error: unknown, contextMessage?
   const reference = extractFileReferenceFromError(error) ?? extractFileReferenceFromError(text);
   recordLogBestEffort({
     level: 'error',
-    message: text,
+    code: commandErrorCode(error) ?? 'unknown',
+    message: null,
     path: reference?.path ?? null,
     line: reference?.line ?? null,
   });
@@ -85,8 +86,14 @@ function showError(message: MessageApiInjection, error: unknown, contextMessage?
                     contextLabel: '错误',
                     contextSeverity: 'error',
                     message: reference.message,
-                  }).catch((error) => {
-                    recordLogBestEffort({ level: 'error', message: `打开错误文件失败：${formatError(error)}`, path: null, line: null });
+                  }).catch((err) => {
+                    recordLogBestEffort({
+                      level: 'error',
+                      code: commandErrorCode(err) ?? 'unknown',
+                      message: 'error file open failed',
+                      path: null,
+                      line: null,
+                    });
                   }),
               },
               { default: () => '打开错误文件' },

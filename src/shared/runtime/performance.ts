@@ -9,7 +9,8 @@ export interface PerformanceFields {
 }
 
 export interface PerformanceLogEntry {
-  level: 'info';
+  level: 'debug';
+  code: null;
   message: string;
   path: null;
   line: null;
@@ -47,7 +48,8 @@ export function recordPerformance(name: string, ms: number, fields: PerformanceF
     .map(([key, value]) => `${key}=${sanitizePerformanceValue(String(value))}`)
     .join(' ');
   logSink({
-    level: 'info',
+    level: 'debug',
+    code: null,
     message: `PERF ${name} ms=${Math.round(ms)}${suffix ? ` ${suffix}` : ''}`,
     path: null,
     line: null,

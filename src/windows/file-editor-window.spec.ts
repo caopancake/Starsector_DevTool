@@ -15,6 +15,7 @@ const settings: AppSettings = {
   editMode: 'smart',
   starsectorRoot: 'D:\\game',
   logDirectory: null,
+  logLevel: 'info',
 };
 
 describe('workspace warning file editor window', () => {

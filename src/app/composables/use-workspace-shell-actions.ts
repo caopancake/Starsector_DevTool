@@ -1,6 +1,6 @@
 import { h, ref, type Ref } from 'vue';
 import { NCheckbox } from 'naive-ui/es/checkbox';
-import type { AppFeedback, GameScanWarning, ModOpeningFailure } from '@/shared/types';
+import type { AppFeedback, GameScanWarning, ModOpeningFailure, TableKey } from '@/shared/types';
 import { useSettingsStore } from '@/stores/settings.store';
 import { openEditorWindow } from '@/windows/editor.window';
 import { useProjectStore } from '@/stores/project.store';
@@ -37,7 +37,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     try {
       const selected = await pickDirectory();
       if (!selected) return;
-      recordLogBestEffort({ level: 'info', message: `打开目录：${selected}`, path: null, line: null });
+      recordLogBestEffort({ level: 'info', code: null, message: `directory opened: ${selected}`, path: null, line: null });
       const outcome = await openDirectoryTarget(selected, settings.starsectorRoot);
       handleDirectoryOpeningOutcome(outcome);
     } catch (err) {
@@ -62,7 +62,13 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
       workspace.clearModOpeningFailures();
       workspace.setGameOverview(overview);
       settings.setStarsectorRoot(overview.starsectorRoot);
-      recordLogBestEffort({ level: 'info', message: `刷新工作区：${overview.starsectorRoot}`, path: null, line: null });
+      recordLogBestEffort({
+        level: 'info',
+        code: null,
+        message: `workspace refreshed: ${overview.starsectorRoot}`,
+        path: null,
+        line: null,
+      });
       feedback.success(`工作区已刷新：${overview.mods.length} 个 Mod`);
     } catch (err) {
       feedback.error(err, '刷新工作区失败');
@@ -115,7 +121,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
                   row,
                 }));
               const result = await saveCapturedTableChanges(target, selected);
-              showSaveResult(result);
+              showSaveResult(result, target.table);
             } catch (err) {
               feedback.error(err, '保存 CSV 失败');
             }
@@ -124,24 +130,33 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
         return;
       }
       const result = await saveCapturedTableChanges(target, []);
-      showSaveResult(result);
+      showSaveResult(result, target.table);
     } catch (err) {
       feedback.error(err, '保存 CSV 失败');
     }
   }
 
   function undoCurrentTableEdit() {
-    if (!tables.undoCurrentTableEdit()) feedback.error('撤销 CSV 编辑失败');
+    if (!tables.undoCurrentTableEdit()) {
+      feedback.error('撤销 CSV 编辑失败');
+      return;
+    }
+    recordLogBestEffort({ level: 'info', code: null, message: `csv undo applied: ${tables.currentTab}`, path: null, line: null });
   }
 
   function redoCurrentTableEdit() {
-    if (!tables.redoCurrentTableEdit()) feedback.error('重做 CSV 编辑失败');
+    if (!tables.redoCurrentTableEdit()) {
+      feedback.error('重做 CSV 编辑失败');
+      return;
+    }
+    recordLogBestEffort({ level: 'info', code: null, message: `csv redo applied: ${tables.currentTab}`, path: null, line: null });
   }
 
   async function addNewRow() {
     if (!project.activeManifest) return;
     try {
       await tables.addNewRow();
+      recordLogBestEffort({ level: 'info', code: null, message: `row created: ${tables.currentTab}`, path: null, line: null });
     } catch (err) {
       feedback.error(err, '新建 CSV 行失败');
     }
@@ -151,6 +166,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     if (!project.activeManifest || !tables.selectedRowKey) return;
     try {
       await tables.deleteSelected();
+      recordLogBestEffort({ level: 'info', code: null, message: `row deleted: ${tables.currentTab}`, path: null, line: null });
     } catch (err) {
       feedback.error(err, '删除 CSV 行失败');
     }
@@ -165,6 +181,13 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   }
 
   function openRequestedFileEditor(request: FileEditorRequest) {
+    recordLogBestEffort({
+      level: 'info',
+      code: null,
+      message: `file editor opened: ${request.path}`,
+      path: request.path,
+      line: request.line ?? null,
+    });
     openFileEditorWindow({ ...request, settings: settings.settingsSnapshot() }).catch((error) =>
       feedback.error(error, '打开文件编辑器失败'),
     );
@@ -182,11 +205,17 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     if (outcome.type === 'game-overview') {
       if (workspace.gameOverview?.starsectorRoot) settings.setStarsectorRoot(workspace.gameOverview.starsectorRoot);
       feedback.success(`游戏目录已扫描：${outcome.availableModCount} 个 Mod`);
-      recordLogBestEffort({ level: 'info', message: `游戏目录已扫描：${outcome.availableModCount} 个 Mod`, path: null, line: null });
+      recordLogBestEffort({
+        level: 'info',
+        code: null,
+        message: `game directory scanned: ${outcome.availableModCount} mods`,
+        path: null,
+        line: null,
+      });
     } else if (outcome.type === 'mod-loaded') {
       if (workspace.gameOverview?.starsectorRoot) settings.setStarsectorRoot(workspace.gameOverview.starsectorRoot);
       feedback.success(`Mod 已导入：${outcome.modName}`);
-      recordLogBestEffort({ level: 'info', message: `Mod 已导入：${outcome.modName}`, path: null, line: null });
+      recordLogBestEffort({ level: 'info', code: null, message: `mod imported: ${outcome.modName}`, path: null, line: null });
       for (const warning of outcome.warnings) {
         feedback.warning(warning);
       }
@@ -204,13 +233,17 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
 
   async function closeWorkspace(target: WorkspaceCloseTarget) {
     await closeWorkspaceRuntime(target);
-    recordLogBestEffort({ level: 'info', message: '关闭工作区', path: null, line: null });
+    recordLogBestEffort({ level: 'info', code: null, message: 'workspace closed', path: null, line: null });
     feedback.success('工作区已关闭');
   }
 
-  function showSaveResult(result: 'saved' | 'noop') {
-    if (result === 'saved') feedback.success('当前 CSV 表已保存');
-    else feedback.info('没有需要保存的修改');
+  function showSaveResult(result: 'saved' | 'noop', table: TableKey) {
+    if (result === 'saved') {
+      recordLogBestEffort({ level: 'info', code: null, message: `csv saved: ${table}`, path: null, line: null });
+      feedback.success('当前 CSV 表已保存');
+    } else {
+      feedback.info('没有需要保存的修改');
+    }
   }
 
   function renderAssociatedSpecDialog(candidates: AssociatedSpecCandidate[], selectedKeys: Ref<Set<string>>) {
@@ -239,6 +272,13 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   }
 
   function openRequestedEditorWindow(action: Extract<TableDetailAction, { type: 'editor-window' }>) {
+    recordLogBestEffort({
+      level: 'info',
+      code: null,
+      message: `editor window opened: ${action.kind} ${action.id}`,
+      path: null,
+      line: null,
+    });
     openEditorWindow({
       kind: action.kind,
       modRoot: action.modRoot,

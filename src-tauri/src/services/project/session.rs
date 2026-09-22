@@ -83,6 +83,7 @@ pub(crate) fn open_project_session_traced(
         };
         guard.remove(&oldest);
         cache::clear_sprite_media_for_session(&oldest);
+        crate::diagnostics::record(format!("session evicted: {oldest}"));
     }
     guard.insert(manifest.session_id.clone(), Arc::new(Mutex::new(session)));
     drop(guard);

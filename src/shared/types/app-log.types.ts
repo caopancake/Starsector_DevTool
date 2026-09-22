@@ -1,9 +1,10 @@
-export const APP_LOG_LEVELS = ['info', 'warning', 'error'] as const;
+export const APP_LOG_LEVELS = ['debug', 'info', 'warning', 'error'] as const;
 export type AppLogLevel = (typeof APP_LOG_LEVELS)[number];
 
 export interface AppLogEntry {
   level: AppLogLevel;
-  message: string;
+  code: string | null;
+  message: string | null;
   path: string | null;
   line: number | null;
 }

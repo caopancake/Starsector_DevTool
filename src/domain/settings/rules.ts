@@ -2,10 +2,12 @@ import {
   ACCENT_PRESET_VALUES,
   APP_THEMES,
   EDIT_MODES,
+  LOG_LEVELS,
   type AccentPreset,
   type AppSettings,
   type AppTheme,
   type EditMode,
+  type LogLevel,
 } from '@/shared/types';
 
 export const MAX_HISTORY_LIMIT = 100;
@@ -31,6 +33,7 @@ export function assertValidSettings(settings: AppSettings): void {
   readCustomAccent(settings.customAccent);
   readHistoryLimit(settings.historyLimit);
   readEditMode(settings.editMode);
+  readLogLevel(settings.logLevel);
   readOptionalLogDirectory(settings.logDirectory);
 }
 
@@ -57,6 +60,11 @@ export function readHistoryLimit(value: number): number {
 
 export function readEditMode(value: EditMode): EditMode {
   if (!isSharedSettingValue(EDIT_MODES, value)) throw new Error(`Invalid edit mode: ${value}`);
+  return value;
+}
+
+export function readLogLevel(value: LogLevel): LogLevel {
+  if (!isSharedSettingValue(LOG_LEVELS, value)) throw new Error(`Invalid log level: ${value}`);
   return value;
 }
 

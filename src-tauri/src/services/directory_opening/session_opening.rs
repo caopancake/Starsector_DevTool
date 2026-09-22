@@ -48,8 +48,9 @@ fn write_performance_trace(
         let _ = app_log::append_app_log(
             app_handle.clone(),
             AppLogEntry {
-                level: AppLogLevel::Info,
-                message,
+                level: AppLogLevel::Debug,
+                code: Some("perf".to_string()),
+                message: Some(message),
                 path: None,
                 line: None,
             },

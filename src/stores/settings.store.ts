@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { darkTheme, lightTheme } from 'naive-ui/es/themes';
-import type { AccentPreset, AppSettings, AppTheme, EditMode } from '@/shared/types';
+import type { AccentPreset, AppSettings, AppTheme, EditMode, LogLevel } from '@/shared/types';
 import { ACCENT_PRESETS, createThemeColors } from '@/domain/settings/theme';
 import {
   assertValidSettings,
@@ -9,6 +9,7 @@ import {
   readCustomAccent,
   readEditMode,
   readHistoryLimit,
+  readLogLevel,
   readOptionalLogDirectory,
   readTheme,
   normalizeHex,
@@ -31,6 +32,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const editMode = ref<EditMode>(readEditMode(initialSettings.editMode));
   const starsectorRoot = ref(initialSettings.starsectorRoot);
   const logDirectory = ref(readOptionalLogDirectory(initialSettings.logDirectory));
+  const logLevel = ref<LogLevel>(readLogLevel(initialSettings.logLevel));
   const naiveTheme = computed(() => (theme.value === 'dark' ? darkTheme : lightTheme));
   const isDark = computed(() => theme.value === 'dark');
   const isPlainEditMode = computed(() => editMode.value === 'plain');
@@ -78,6 +80,10 @@ export const useSettingsStore = defineStore('settings', () => {
     logDirectory.value = readOptionalLogDirectory(path);
   }
 
+  function setLogLevel(level: LogLevel) {
+    logLevel.value = level;
+  }
+
   function settingsSnapshot() {
     return {
       theme: theme.value,
@@ -87,6 +93,7 @@ export const useSettingsStore = defineStore('settings', () => {
       editMode: editMode.value,
       starsectorRoot: starsectorRoot.value,
       logDirectory: logDirectory.value,
+      logLevel: logLevel.value,
     };
   }
 
@@ -98,6 +105,7 @@ export const useSettingsStore = defineStore('settings', () => {
     editMode.value = readEditMode(settings.editMode);
     starsectorRoot.value = settings.starsectorRoot;
     logDirectory.value = readOptionalLogDirectory(settings.logDirectory);
+    logLevel.value = readLogLevel(settings.logLevel);
   }
 
   return {
@@ -107,6 +115,7 @@ export const useSettingsStore = defineStore('settings', () => {
     editMode,
     historyLimit,
     logDirectory,
+    logLevel,
     isDark,
     isPlainEditMode,
     naiveTheme,
@@ -118,6 +127,7 @@ export const useSettingsStore = defineStore('settings', () => {
     setEditMode,
     setHistoryLimit,
     setLogDirectory,
+    setLogLevel,
     setStarsectorRoot,
     setTheme,
     toggleTheme,

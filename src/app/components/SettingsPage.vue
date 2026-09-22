@@ -91,6 +91,12 @@
         </div>
       </div>
       <div class="settings-row">
+        <span>日志级别</span>
+        <div class="settings-control-row">
+          <n-select :value="settings.logLevel" :options="LOG_LEVEL_OPTIONS" size="small" @update:value="updateLogLevel" />
+        </div>
+      </div>
+      <div class="settings-row">
         <span>Log 文件大小</span>
         <strong>{{ formattedLogSize }}</strong>
       </div>
@@ -107,12 +113,22 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue';
-import type { JsonValue } from '@/shared/types';
+import type { JsonValue, LogLevel } from '@/shared/types';
 import { useSettingsStore } from '@/stores/settings.store';
 import { MAX_HISTORY_LIMIT } from '@/domain/settings/rules';
 import { ACCENT_PRESETS } from '@/domain/settings/theme';
 import ColorPicker from '@/shared/ui/ColorPicker.vue';
 import { useSettingsViewModel } from '@/app/composables/settings/use-settings-view-model';
+
+const LOG_LEVEL_OPTIONS: { label: string; value: LogLevel }[] = [
+  { label: '默认（INFO）', value: 'info' },
+  { label: '详细（DEBUG）', value: 'debug' },
+];
+
+function updateLogLevel(value: string) {
+  const level = LOG_LEVEL_OPTIONS.find((option) => option.value === value);
+  if (level) settings.setLogLevel(level.value);
+}
 
 const settings = useSettingsStore();
 const customAccentDraft = ref(settings.customAccent);

@@ -7,6 +7,9 @@ export type AccentPreset = (typeof ACCENT_PRESET_VALUES)[number];
 export const EDIT_MODES = ['plain', 'smart'] as const;
 export type EditMode = (typeof EDIT_MODES)[number];
 
+export const LOG_LEVELS = ['info', 'debug'] as const;
+export type LogLevel = (typeof LOG_LEVELS)[number];
+
 export interface AppSettings {
   theme: AppTheme;
   accent: AccentPreset;
@@ -15,4 +18,5 @@ export interface AppSettings {
   editMode: EditMode;
   starsectorRoot: string | null;
   logDirectory: string | null;
+  logLevel: LogLevel;
 }

@@ -1,4 +1,4 @@
-use crate::models::optional_non_empty_string;
+use crate::models::{AppLogLevel, optional_non_empty_string};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -45,6 +45,8 @@ pub struct AppSettings {
     pub starsector_root: Option<String>,
     #[serde(default, deserialize_with = "optional_non_empty_string")]
     pub log_directory: Option<String>,
+    #[serde(default = "default_log_level")]
+    pub log_level: AppLogLevel,
 }
 
 impl Default for AppSettings {
@@ -57,6 +59,7 @@ impl Default for AppSettings {
             edit_mode: default_edit_mode(),
             starsector_root: None,
             log_directory: None,
+            log_level: default_log_level(),
         }
     }
 }
@@ -79,6 +82,10 @@ fn default_history_limit() -> u32 {
 
 fn default_edit_mode() -> EditMode {
     EditMode::Smart
+}
+
+fn default_log_level() -> AppLogLevel {
+    AppLogLevel::Info
 }
 
 #[cfg(test)]

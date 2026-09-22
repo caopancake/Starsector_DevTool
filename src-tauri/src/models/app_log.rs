@@ -1,9 +1,10 @@
 use crate::models::required_nullable;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "camelCase")]
 pub enum AppLogLevel {
+    Debug,
     Info,
     Warning,
     Error,
@@ -12,6 +13,7 @@ pub enum AppLogLevel {
 impl AppLogLevel {
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Debug => "debug",
             Self::Info => "info",
             Self::Warning => "warning",
             Self::Error => "error",
@@ -23,7 +25,10 @@ impl AppLogLevel {
 #[serde(rename_all = "camelCase")]
 pub struct AppLogEntry {
     pub level: AppLogLevel,
-    pub message: String,
+    #[serde(default, deserialize_with = "required_nullable")]
+    pub code: Option<String>,
+    #[serde(default, deserialize_with = "required_nullable")]
+    pub message: Option<String>,
     #[serde(deserialize_with = "required_nullable")]
     pub path: Option<String>,
     #[serde(deserialize_with = "required_nullable")]
@@ -40,6 +45,7 @@ pub struct AppLogStatus {
 #[cfg(test)]
 mod tests {
     use super::AppLogEntry;
+    use super::AppLogLevel;
     use serde_json::json;
 
     #[test]
@@ -51,5 +57,12 @@ mod tests {
         }));
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn app_log_levels_order_debug_lowest_error_highest() {
+        assert!(AppLogLevel::Debug < AppLogLevel::Info);
+        assert!(AppLogLevel::Info < AppLogLevel::Warning);
+        assert!(AppLogLevel::Warning < AppLogLevel::Error);
     }
 }

@@ -20,6 +20,12 @@ export function commandErrorCode(error: unknown): string | null {
   return wireCommandError(error)?.code ?? null;
 }
 
+/// Stable code for log records: command errors keep their wire code, anything
+/// else (plain exceptions, legacy strings) falls back to 'unknown'.
+export function errorCodeOf(error: unknown): string {
+  return commandErrorCode(error) ?? 'unknown';
+}
+
 export class AppError extends Error {
   readonly action?: string;
   readonly cause?: unknown;

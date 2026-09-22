@@ -6,7 +6,7 @@ import { useProjectStore } from '@/stores/project.store';
 import { mergeSchemaWithCoreFields } from '@/domain/schema/schema-core-fields';
 import { getSchema } from '@/domain/schema/schema-registry';
 import { recordLogBestEffort } from '@/services/app-feedback-log.service';
-import { formatError } from '@/shared/lib/errors';
+import { errorCodeOf } from '@/shared/lib/errors';
 import type { FileSchema } from '@/domain/schema/schema.types';
 
 type CoreFields = Awaited<ReturnType<typeof queryCoreFields>>;
@@ -63,7 +63,7 @@ export const useCoreAssetsStore = defineStore('core-assets', () => {
         coreFields.value = {};
         coreFieldsLoadedRoot.value = null;
         coreFieldsLoaded.value = false;
-        recordLogBestEffort({ level: 'error', message: `加载原版字段失败：${formatError(error)}`, path: root, line: null });
+        recordLogBestEffort({ level: 'error', code: errorCodeOf(error), message: 'core fields load failed', path: root, line: null });
       }
     } finally {
       coreFieldsLoading.value = false;
@@ -93,7 +93,8 @@ export const useCoreAssetsStore = defineStore('core-assets', () => {
         graphicsLoaded.value = false;
         recordLogBestEffort({
           level: 'error',
-          message: `加载原版图片索引失败：${formatError(error)}`,
+          code: errorCodeOf(error),
+          message: 'core graphics index load failed',
           path: root,
           line: null,
         });

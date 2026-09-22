@@ -8,12 +8,24 @@ use std::{
     fs::{self, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 pub fn append_app_log(app_handle: tauri::AppHandle, entry: AppLogEntry) -> AppResult<()> {
     let app_data = app_paths::app_data_dir(app_handle)?;
-    let log_directory = configured_log_directory(&app_data)?;
+    let settings = app_settings::load_settings(&app_data)?;
+    if entry.level < settings.log_level {
+        return Ok(());
+    }
+    if settings.log_directory.is_none() {
+        fs::create_dir_all(&app_data).map_err(|error| {
+            AppError::context(
+                format!("创建日志目录失败 ({})", app_data.display()),
+                error.into(),
+            )
+        })?;
+    }
+    let log_directory = app_settings::log_output_directory(&app_data, &settings)?;
+    rotate_log_file(&log_directory);
     append_log(&log_directory, &entry)
 }
 
@@ -52,6 +64,7 @@ fn configured_log_directory(app_data_dir: &Path) -> AppResult<PathBuf> {
 
 pub fn append_log(app_data_dir: &Path, entry: &AppLogEntry) -> AppResult<()> {
     ensure_log_directory_writable(app_data_dir)?;
+    rotate_log_file(app_data_dir);
     let path = log_path(app_data_dir);
     let mut file = OpenOptions::new()
         .create(true)
@@ -119,12 +132,14 @@ fn ensure_log_directory_writable(app_data_dir: &Path) -> AppResult<()> {
 }
 
 fn render_log_entry(entry: &AppLogEntry) -> String {
-    let mut line = format!(
-        "[{}] [{}] {}",
-        timestamp_seconds(),
-        entry.level.as_str(),
-        entry.message
-    );
+    let mut line = format!("[{}] [{}]", local_timestamp(), entry.level.as_str());
+    if let Some(code) = &entry.code {
+        line.push_str(&format!(" [{code}]"));
+    }
+    if let Some(message) = &entry.message {
+        line.push(' ');
+        line.push_str(message);
+    }
     if let Some(path) = &entry.path {
         line.push_str(" | path=");
         line.push_str(path);
@@ -137,11 +152,27 @@ fn render_log_entry(entry: &AppLogEntry) -> String {
     line
 }
 
-fn timestamp_seconds() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_secs())
-        .unwrap_or(0)
+fn local_timestamp() -> String {
+    chrono::Local::now()
+        .format("%Y-%m-%d %H:%M:%S%.3f")
+        .to_string()
+}
+
+const MAX_LOG_SIZE_BYTES: u64 = 5 * 1024 * 1024;
+
+/// Single-backup rotation: the current file becomes `.log.1` once it reaches
+/// the size cap, discarding the previous `.log.1`.
+fn rotate_log_file(log_directory: &Path) {
+    let path = log_path(log_directory);
+    let Ok(metadata) = fs::metadata(&path) else {
+        return;
+    };
+    if metadata.len() < MAX_LOG_SIZE_BYTES {
+        return;
+    }
+    let rotated = log_directory.join(format!("{LOG_FILE}.1"));
+    let _ = fs::remove_file(&rotated);
+    let _ = fs::rename(&path, &rotated);
 }
 
 #[cfg(test)]
@@ -157,7 +188,8 @@ mod tests {
             &dir,
             &AppLogEntry {
                 level: crate::models::AppLogLevel::Warning,
-                message: "测试 warning".to_string(),
+                code: Some("test.code".to_string()),
+                message: Some("测试 warning".to_string()),
                 path: Some("D:/test/file.csv".to_string()),
                 line: Some(3),
             },
@@ -167,9 +199,34 @@ mod tests {
         let text = read_utf8_no_bom(&dir.join(LOG_FILE)).unwrap();
         let _ = fs::remove_dir_all(dir);
         assert!(status.size_bytes > 0);
-        assert!(text.contains("[warning] 测试 warning"));
+        assert!(text.contains("[warning] [test.code] 测试 warning"));
         assert!(text.contains("path=D:/test/file.csv"));
         assert!(text.contains("line=3"));
+    }
+
+    #[test]
+    fn append_log_rotates_file_at_size_cap() {
+        let dir = temp_dir("log_rotate");
+        let filler = "x".repeat(5 * 1024 * 1024);
+        crate::io::write_utf8_no_bom(&log_path(&dir), &filler).unwrap();
+        append_log(
+            &dir,
+            &AppLogEntry {
+                level: crate::models::AppLogLevel::Info,
+                code: None,
+                message: Some("after rotation".to_string()),
+                path: None,
+                line: None,
+            },
+        )
+        .unwrap();
+
+        let rotated = fs::read_to_string(dir.join(format!("{LOG_FILE}.1"))).unwrap();
+        let current = fs::read_to_string(log_path(&dir)).unwrap();
+        assert_eq!(rotated.len(), 5 * 1024 * 1024);
+        assert!(current.contains("after rotation"));
+        assert!(!current.contains("xxxx"));
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
@@ -179,7 +236,8 @@ mod tests {
             &dir,
             &AppLogEntry {
                 level: crate::models::AppLogLevel::Info,
-                message: "hello".to_string(),
+                code: None,
+                message: Some("hello".to_string()),
                 path: None,
                 line: None,
             },

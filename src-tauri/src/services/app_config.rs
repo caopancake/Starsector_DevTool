@@ -82,7 +82,8 @@ mod tests {
             &dir,
             &AppLogEntry {
                 level: AppLogLevel::Info,
-                message: "keep".to_string(),
+                code: None,
+                message: Some("keep".to_string()),
                 path: None,
                 line: None,
             },

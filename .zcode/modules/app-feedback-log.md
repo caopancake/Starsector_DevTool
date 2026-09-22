@@ -12,7 +12,7 @@
 `src/shared/api/app-feedback-log-api.ts`：应用日志 wire API，映射后端日志与配置命令。
 `src/shared/runtime/performance.ts`：性能日志 sink 注入口，由应用日志 service 注册。
 `src/app/composables/use-performance-logger.ts`：业务性能打点 hook。
-`src-tauri/src/services/app_log.rs`：后端日志 owner，固定日志文件名与目录解析。
+`src-tauri/src/services/app_log.rs`：后端日志 owner，固定日志文件名与目录解析、级别阈值过滤、本地时间渲染与 5MB 单份轮转。
 `src-tauri/src/diagnostics.rs`：后端诊断 sink owner，无法触达日志服务的内部层经 `record` 记录，应用启动时安装为 Warning 级应用日志。
 `src-tauri/src/services/app_config.rs`：工具私有配置维护 owner，拥有清空配置与清空日志。
 `src-tauri/src/commands/app_feedback_log.rs`：应用日志与配置维护 command。
@@ -21,7 +21,9 @@
 
 - 组件只允许经反馈 hook 获取 `AppFeedback`；非组件代码只允许接收注入的 `AppFeedback` 或使用日志 service。
 - 反馈工厂只允许被反馈 hook 消费，由架构规则锚定；工厂内错误文件的 store 读取与窗口打开维持现状。
-- warning 与 error 记录应用日志，success 与 info 不记录；日志失败不改变主业务语义。
+- warning 与 error 记录应用日志，success 与 info 反馈不记录；info/debug 级日志条目按设置的级别阈值落盘（默认 INFO 阈值丢弃 debug，详细档 DEBUG 全量保留）；日志失败不改变主业务语义。
+- 日志条目采用稳定码+参数制：warning/error 必须携带稳定码（如 `mod.scan_warning`、后端 AppError 稳定码），message 仅允许英文短语与数据参数，严禁落中文文案；弹窗文案与日志文本分离。
+- 级别阈值来自已保存 settings 的 `logLevel`（默认 INFO）；每次写入单点过滤，前端不做预过滤。
 - 降级类内部错误（持久化缓存不可写、锁中毒等）必须经诊断 sink 记录后才能按降级语义继续，严禁静默吞掉。
 - 错误文件入口只在路径命中已加载 `modRoot` 且有 `sessionId` 时启用；否则只提示不显示按钮。
 - 每次日志操作从已保存 settings 解析目录：默认 app data 可创建，自定义目录必须已存在且可写。
@@ -56,7 +58,8 @@
 
 - 反馈工厂必须保持纯组装：message 与 dialog 实例由 hook 注入。
 - 错误呈现必须保留原始错误链，格式化时父子消息不得重复拼接。
-- warning/error 日志条目必须携带消息与可选的文件位置；success/info 严禁产生日志条目。
+- warning/error 日志条目必须携带稳定码与可选的文件位置；success/info 反馈严禁产生日志条目。
+- 时间戳由后端写入时按本地时区渲染（`YYYY-MM-DD HH:MM:SS.mmm`）；文件达到 5MB 上限时轮转为 `.log.1`（单份历史）。
 - 日志写入失败严禁抛出到业务链路，也不得产生递归日志。
 - 日志与配置目录解析必须来自已保存 settings，禁止现场推断。
 - 日志名固定，严禁按时间或会话改名。

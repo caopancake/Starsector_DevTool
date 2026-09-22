@@ -1,5 +1,5 @@
 import { watch } from 'vue';
-import { formatError } from '@/shared/lib/errors';
+import { errorCodeOf } from '@/shared/lib/errors';
 import { cell, formatModVersion } from '@/shared/lib/starsector';
 import type { PersistedMod, ProjectManifest } from '@/shared/types';
 import { useWorkspaceStore } from '@/stores/workspace.store';
@@ -29,7 +29,7 @@ export function watchWorkspacePersistence() {
       if (saveTimer !== null) window.clearTimeout(saveTimer);
       saveTimer = window.setTimeout(() => {
         savePersistedWorkspace(state).catch((error) => {
-          recordLogBestEffort({ level: 'error', message: `保存工作区状态失败：${formatError(error)}`, path: null, line: null });
+          recordLogBestEffort({ level: 'error', code: errorCodeOf(error), message: 'workspace state save failed', path: null, line: null });
         });
       }, 500);
     },
