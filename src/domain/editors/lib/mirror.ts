@@ -21,7 +21,7 @@ export function isMirrorPointPair(a: number[], b: number[], epsilon = MIRROR_EPS
   return Math.abs((a[0] || 0) - (b[0] || 0)) <= epsilon && Math.abs((a[1] || 0) + (b[1] || 0)) <= epsilon;
 }
 
-function rowPoint(value: unknown): number[] {
+function rowPoint(value: unknown): [number, number] {
   return Array.isArray(value) ? [Number(value[0]) || 0, Number(value[1]) || 0] : [0, 0];
 }
 
@@ -33,6 +33,7 @@ export function findMirrorWeaponSlotIndex(slots: RowData[], sourceIndex: number,
   for (let index = 0; index < slots.length; index += 1) {
     if (index === sourceIndex) continue;
     const other = slots[index];
+    if (!other) continue;
     if (!isMirrorPointPair(point, rowPoint(other.locations), epsilon)) continue;
     if (str(other.size) !== str(source.size) || str(other.type) !== str(source.type)) continue;
     return index;
@@ -48,6 +49,7 @@ export function findMirrorEngineIndex(engines: RowData[], sourceIndex: number, e
   for (let index = 0; index < engines.length; index += 1) {
     if (index === sourceIndex) continue;
     const other = engines[index];
+    if (!other) continue;
     if (!isMirrorPointPair(point, rowPoint(other.location), epsilon)) continue;
     if (num(other.length) !== num(source.length) || num(other.width) !== num(source.width)) continue;
     return index;

@@ -28,10 +28,10 @@ describe('resource data URL cache', () => {
     const sessionId = 'resource-cache-lru';
     const initial = Array.from({ length: RESOURCE_DATA_URL_CACHE_CAPACITY }, (_, index) => resource(index));
     await queryResources(sessionId, initial);
-    await queryResources(sessionId, [initial[0]]);
+    await queryResources(sessionId, [initial[0]!]);
     await queryResources(sessionId, [resource(RESOURCE_DATA_URL_CACHE_CAPACITY)]);
-    await queryResources(sessionId, [initial[1]]);
-    await queryResources(sessionId, [initial[0]]);
+    await queryResources(sessionId, [initial[1]!]);
+    await queryResources(sessionId, [initial[0]!]);
 
     expect(mocks.queryBatch.mock.calls.map((call) => call[1]?.length)).toEqual([512, 1, 1]);
   });

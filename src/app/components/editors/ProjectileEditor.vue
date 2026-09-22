@@ -211,9 +211,11 @@ function slotLoc(slot: RowData) {
   return arr(slot.loc, [0, 0]);
 }
 function setSlotLoc(i: number, axis: number, value: number | null) {
-  const loc = slotLoc(engineSlots.value[i]);
+  const slot = engineSlots.value[i];
+  if (!slot) return;
+  const loc = slotLoc(slot);
   loc[axis] = value || 0;
-  engineSlots.value[i].loc = loc;
+  slot.loc = loc;
   commitDraft();
 }
 function addEngineSlot() {

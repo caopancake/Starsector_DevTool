@@ -1,4 +1,4 @@
-export const WEAPON_COLORS: Record<string, string> = {
+export const WEAPON_COLORS = {
   BALLISTIC: 'rgb(255 215 0)',
   ENERGY: 'rgb(70 200 255)',
   MISSILE: 'rgb(155 255 0)',
@@ -10,9 +10,9 @@ export const WEAPON_COLORS: Record<string, string> = {
   DECORATIVE: 'rgb(160 19 19)',
   SYSTEM: 'rgb(168 168 168)',
   STATION_MODULE: 'rgb(182 50 182)',
-};
+} satisfies Record<string, string>;
 
-export const SLOT_RADIUS: Record<string, number> = { LARGE: 32, MEDIUM: 24, SMALL: 16 };
+export const SLOT_RADIUS = { LARGE: 32, MEDIUM: 24, SMALL: 16 } satisfies Record<string, number>;
 
 export function rgba(color: unknown, alpha = 1): string {
   const c = Array.isArray(color) ? color : [255, 255, 255, 255];

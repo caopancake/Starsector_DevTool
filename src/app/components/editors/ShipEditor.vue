@@ -489,22 +489,22 @@ function shipToCanvas(loc: number[]) {
 function relativeToCanvas(loc: number[]) {
   return shipToCanvas(relativeToAbsolute(loc));
 }
-function canvasToShip(x: number, y: number) {
+function canvasToShip(x: number, y: number): [number, number] {
   const point = rawCanvasToShip(x, y);
   return [snapToStep(point[0]), snapToStep(point[1])];
 }
-function rawCanvasToShip(x: number, y: number) {
+function rawCanvasToShip(x: number, y: number): [number, number] {
   const origin = canvasCenter();
   return [(y - origin.y) / scale.value, (x - origin.x) / scale.value];
 }
-function canvasToRelative(x: number, y: number) {
+function canvasToRelative(x: number, y: number): [number, number] {
   const point = canvasToShip(x, y);
   return absoluteToRelative(point);
 }
-function relativeToAbsolute(loc: number[]) {
+function relativeToAbsolute(loc: number[]): [number, number] {
   return [(center.value[0] || 0) - (loc[1] || 0), (center.value[1] || 0) + (loc[0] || 0)];
 }
-function absoluteToRelative(loc: number[]) {
+function absoluteToRelative(loc: number[]): [number, number] {
   return [snapToStep((loc[1] || 0) - (center.value[1] || 0)), snapToStep((center.value[0] || 0) - (loc[0] || 0))];
 }
 function targetKindAt(mx: number, my: number): string | null {
@@ -635,7 +635,7 @@ function shouldPauseAutoSnap(modifiers: CanvasModifiers) {
 function drawPreviewBounds(ctx: CanvasRenderingContext2D, preview: NonNullable<HoverPreview>) {
   if (preview.kind !== 'boundAppend' && preview.kind !== 'boundInsert') return;
   const points = [];
-  for (let i = 0; i < bounds.value.length; i += 2) points.push([bounds.value[i], bounds.value[i + 1]]);
+  for (let i = 0; i < bounds.value.length; i += 2) points.push([bounds.value[i] ?? 0, bounds.value[i + 1] ?? 0]);
   if (preview.kind === 'boundAppend') {
     points.push(preview.coord);
     if (mirrorMode.value && Math.abs(preview.coord[1] || 0) > MIRROR_EPSILON) points.push(mirrorOffsetPoint(preview.coord));
@@ -754,7 +754,7 @@ function drawPreview(ctx: CanvasRenderingContext2D, preview: NonNullable<HoverPr
   drawPreviewBounds(ctx, preview);
 }
 function formatCoord(coord: number[]) {
-  return `${coord[0].toFixed(1)}, ${coord[1].toFixed(1)}`;
+  return `${(coord[0] || 0).toFixed(1)}, ${(coord[1] || 0).toFixed(1)}`;
 }
 function cursorLabel(coord: number[]): string {
   if (dragKind.value === 'weaponAngle' && selectedSlot.value) return `${Math.round(num(selectedSlot.value.angle, 0))}°`;
@@ -793,7 +793,7 @@ function draw() {
   }
   if (bounds.value.length >= 4 && (mode.value === 'bounds' || mode.value === 'overview')) {
     const points = [];
-    for (let i = 0; i < bounds.value.length; i += 2) points.push(relativeToCanvas([bounds.value[i], bounds.value[i + 1]]));
+    for (let i = 0; i < bounds.value.length; i += 2) points.push(relativeToCanvas([bounds.value[i] ?? 0, bounds.value[i + 1] ?? 0]));
     drawBoundsVisual(
       ctx,
       points,
@@ -866,22 +866,26 @@ function selectableTargets(mx: number, my: number): CanvasTarget[] {
   if (mode.value === 'overview') return targets;
   if (mode.value === 'weapon' || mode.value === 'launchBay') {
     for (let i = weaponSlots.value.length - 1; i >= 0; i--) {
-      const isLaunchBay = str(weaponSlots.value[i].type).toUpperCase() === 'LAUNCH_BAY';
+      const slot = weaponSlots.value[i];
+      if (!slot) continue;
+      const isLaunchBay = str(slot.type).toUpperCase() === 'LAUNCH_BAY';
       if (mode.value === 'weapon' && isLaunchBay) continue;
       if (mode.value === 'launchBay' && !isLaunchBay) continue;
-      const p = relativeToCanvas(arr(weaponSlots.value[i].locations, [0, 0]));
+      const p = relativeToCanvas(arr(slot.locations, [0, 0]));
       targets.push({ kind: 'weapon', i, distance: Math.hypot(mx - p.x, my - p.y) });
     }
   }
   if (mode.value === 'engine') {
     for (let i = engineSlots.value.length - 1; i >= 0; i--) {
-      const p = relativeToCanvas(arr(engineSlots.value[i].location, [0, 0]));
+      const engine = engineSlots.value[i];
+      if (!engine) continue;
+      const p = relativeToCanvas(arr(engine.location, [0, 0]));
       targets.push({ kind: 'engine', i, distance: Math.hypot(mx - p.x, my - p.y) });
     }
   }
   if (mode.value === 'bounds') {
     for (let i = 0; i < bounds.value.length; i += 2) {
-      const p = relativeToCanvas([bounds.value[i], bounds.value[i + 1]]);
+      const p = relativeToCanvas([bounds.value[i] ?? 0, bounds.value[i + 1] ?? 0]);
       targets.push({ kind: 'bound', i: i / 2, distance: Math.hypot(mx - p.x, my - p.y) });
     }
   }
@@ -917,9 +921,9 @@ function nearestBoundsSegmentIndex(point: number[]) {
   let bestIndex = 0;
   let bestDistance = Number.POSITIVE_INFINITY;
   for (let i = 0; i < count; i += 1) {
-    const a = [bounds.value[i * 2], bounds.value[i * 2 + 1]];
+    const a = [bounds.value[i * 2] ?? 0, bounds.value[i * 2 + 1] ?? 0];
     const next = (i + 1) % count;
-    const b = [bounds.value[next * 2], bounds.value[next * 2 + 1]];
+    const b = [bounds.value[next * 2] ?? 0, bounds.value[next * 2 + 1] ?? 0];
     const d = distanceToSegment(point, a, b);
     if (d < bestDistance) {
       bestDistance = d;
@@ -928,7 +932,7 @@ function nearestBoundsSegmentIndex(point: number[]) {
   }
   return bestIndex;
 }
-function shiftRelativePosition(value: RowData[string], dxAbsolute: number, dyAbsolute: number) {
+function shiftRelativePosition(value: RowData[string] | undefined, dxAbsolute: number, dyAbsolute: number) {
   const loc = arr(value, [0, 0]);
   loc[0] = snapToStep((loc[0] || 0) - dyAbsolute);
   loc[1] = snapToStep((loc[1] || 0) + dxAbsolute);
@@ -947,9 +951,10 @@ function copyWeaponSlotAt(coord: number[]) {
   const source = selectedSlot.value ? deepClone(selectedSlot.value) : {};
   const relativeCoord = absoluteToRelative(coord);
   const sourceIndex = weaponSlots.value.length;
-  weaponSlots.value.push(weaponSlotWithDefaults(source, nextWeaponSlotId(), relativeCoord));
+  const created = weaponSlotWithDefaults(source, nextWeaponSlotId(), relativeCoord);
+  weaponSlots.value.push(created);
   if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
-    weaponSlots.value.push({ ...mirrorWeaponSlotForAdd(weaponSlots.value[sourceIndex]), id: nextWeaponSlotId() });
+    weaponSlots.value.push({ ...mirrorWeaponSlotForAdd(created), id: nextWeaponSlotId() });
     mirrorPair.value = { kind: 'weapon', i: sourceIndex + 1 };
   } else {
     mirrorPair.value = null;
@@ -961,9 +966,10 @@ function copyWeaponSlotAt(coord: number[]) {
 function addLaunchBayAt(coord: number[]) {
   const relativeCoord = absoluteToRelative(coord);
   const sourceIndex = weaponSlots.value.length;
-  weaponSlots.value.push(launchBayWithDefaults({}, nextLaunchBayId(), relativeCoord));
+  const created = launchBayWithDefaults({}, nextLaunchBayId(), relativeCoord);
+  weaponSlots.value.push(created);
   if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
-    weaponSlots.value.push({ ...mirrorWeaponSlotForAdd(weaponSlots.value[sourceIndex]), id: nextLaunchBayId() });
+    weaponSlots.value.push({ ...mirrorWeaponSlotForAdd(created), id: nextLaunchBayId() });
     mirrorPair.value = { kind: 'weapon', i: sourceIndex + 1 };
   } else {
     mirrorPair.value = null;
@@ -976,9 +982,10 @@ function copyEngineAt(coord: number[]) {
   const source = selectedEngine.value ? deepClone(selectedEngine.value) : {};
   const relativeCoord = absoluteToRelative(coord);
   const sourceIndex = engineSlots.value.length;
-  engineSlots.value.push(engineWithDefaults(source, relativeCoord));
+  const created = engineWithDefaults(source, relativeCoord);
+  engineSlots.value.push(created);
   if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
-    engineSlots.value.push(mirrorEngineForAdd(engineSlots.value[sourceIndex]));
+    engineSlots.value.push(mirrorEngineForAdd(created));
     mirrorPair.value = { kind: 'engine', i: sourceIndex + 1 };
   } else {
     mirrorPair.value = null;
@@ -1078,9 +1085,9 @@ function applyMirrorInteraction(kind: string) {
 }
 function startBoundsInsert(coord: number[], insertAfter: number) {
   const at = Math.max(0, Math.min(bounds.value.length, (insertAfter + 1) * 2));
-  bounds.value.splice(at, 0, coord[0], coord[1]);
+  bounds.value.splice(at, 0, coord[0] ?? 0, coord[1] ?? 0);
   if (mirrorMode.value && Math.abs(coord[1] || 0) > MIRROR_EPSILON) {
-    bounds.value.splice(at + 2, 0, coord[0], mirrorLateral(coord[1]));
+    bounds.value.splice(at + 2, 0, coord[0] ?? 0, mirrorLateral(coord[1] || 0));
     mirrorPair.value = { kind: 'bound', i: at / 2 + 1 };
   } else {
     mirrorPair.value = null;
@@ -1259,10 +1266,11 @@ function addLaunchBay() {
 function addEngine() {
   pushUndo();
   const sourceIndex = engineSlots.value.length;
-  engineSlots.value.push({ angle: 180, contrailSize: 12, length: 30, width: 10, location: [-50, 0], style: 'LOW_TECH' });
-  const engineLocation = arr(engineSlots.value[sourceIndex]?.location, [0, 0]);
+  const created = { angle: 180, contrailSize: 12, length: 30, width: 10, location: [-50, 0], style: 'LOW_TECH' };
+  engineSlots.value.push(created);
+  const engineLocation = arr(created.location, [0, 0]);
   if (mirrorMode.value && Math.abs(engineLocation[1] || 0) > MIRROR_EPSILON) {
-    engineSlots.value.push(mirrorEngineForAdd(engineSlots.value[sourceIndex]));
+    engineSlots.value.push(mirrorEngineForAdd(created));
     mirrorPair.value = { kind: 'engine', i: sourceIndex + 1 };
   } else {
     mirrorPair.value = null;

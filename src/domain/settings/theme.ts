@@ -101,7 +101,27 @@ export function createThemeColors(hex: string, themeValue: AppTheme): ThemeColor
   };
 }
 
-function lightThemeColors(hex: string): Record<string, string> {
+type NeutralColorName =
+  | '--color-bg'
+  | '--color-panel'
+  | '--color-panel-muted'
+  | '--color-surface'
+  | '--color-surface-hover'
+  | '--color-surface-active'
+  | '--color-border'
+  | '--color-border-strong'
+  | '--color-text-soft'
+  | '--color-muted'
+  | '--color-faint'
+  | '--color-canvas-bg'
+  | '--scrollbar-thumb'
+  | '--scrollbar-thumb-hover'
+  | '--shadow-floating'
+  | '--shadow-subtle';
+
+type NeutralColors = Record<NeutralColorName, string>;
+
+function lightThemeColors(hex: string): NeutralColors {
   const hue = hueFromHex(hex);
   return {
     '--color-bg': themedGray(hue, 3, 97),
@@ -123,7 +143,7 @@ function lightThemeColors(hex: string): Record<string, string> {
   };
 }
 
-function darkThemeColors(hex: string): Record<string, string> {
+function darkThemeColors(hex: string): NeutralColors {
   const hue = hueFromHex(hex);
   return {
     '--color-bg': themedGray(hue, 4, 3),

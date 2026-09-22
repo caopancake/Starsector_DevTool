@@ -36,24 +36,23 @@ const dataUrlCache = createRuntimeCache<string, CachedResourceDataUrl>({ capacit
 const invalidationListeners = new Set<ResourceCacheInvalidationListener>();
 
 export async function queryResourceDataUrls(sessionId: ProjectSessionId, resources: ResourceRef[]): Promise<(string | null)[]> {
-  const keys = resources.map((resource) => resourceCacheKey(sessionId, resource));
+  const entries = resources.map((resource) => ({ resource, key: resourceCacheKey(sessionId, resource) }));
   const missing = new Map<string, { key: string; resource: ResourceRef }>();
   const pendingLoads: Promise<void>[] = [];
-  resources.forEach((resource, index) => {
-    const key = keys[index];
-    if (dataUrlCache.get(key) !== undefined) return;
+  for (const { resource, key } of entries) {
+    if (dataUrlCache.get(key) !== undefined) continue;
     const pendingResource = dataUrlCache.getPending<PendingResource>(key);
     if (pendingResource) {
       pendingLoads.push(pendingResource.promise);
-      return;
+      continue;
     }
     missing.set(key, { key, resource });
-  });
+  }
   if (missing.size > 0) {
     pendingLoads.push(loadMissingResources(sessionId, [...missing.values()]));
   }
   if (pendingLoads.length > 0) await Promise.all(pendingLoads);
-  return keys.map((key) => dataUrlCache.peek(key)?.dataUrl ?? null);
+  return entries.map(({ key }) => dataUrlCache.peek(key)?.dataUrl ?? null);
 }
 
 export function invalidateResourceCacheForSession(sessionId: ProjectSessionId) {
@@ -153,7 +152,7 @@ function cacheResourceBatchResult(
     throw new AppError('资源批量查询返回数量和请求数量不一致', { action: 'query-resource-data-urls' });
   }
   entries.forEach((entry, index) => {
-    const resource = request[index];
+    const resource = request[index]!;
     ensureResourceEntryMatch(entry, resource);
     const key = resourceCacheKey(sessionId, resource);
     if (dataUrlCache.versionOf(key) !== versions.get(key)) return;

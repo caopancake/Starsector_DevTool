@@ -134,8 +134,8 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 2.10: noUncheckedIndexedAccess 消化启用
 
-- [ ] `tsconfig.json` 启用 `noUncheckedIndexedAccess`，实测 108 处错误按文件分批消化（ShipEditor 30、settings.store 16、resource-cache 9 等）。
-- [ ] 跑前端全套检查。
+- [x] `tsconfig.json` 启用 `noUncheckedIndexedAccess`，实测 105 处错误（20 文件）全部消化：ShipEditor 28（坐标转换族改元组返回、bounds 索引 `?? 0`、新建槽位对象捕获复用、可选槽位守卫）、theme.ts 16（中性色查表改字面量键联合 Record）、mirror.ts 9（rowPoint 改 `[number, number]` 元组 + 循环元素守卫）、colors.ts 查表常量改 `satisfies` + canvas-visuals `keyof` 收窄、resource-cache 8（批量查询键值对数组消并行索引）、schema-values 7（`setNestedValue` 改 `pop()` 叶子惯用法）、spec 文件按既有 `!` 惯用法收窄；未新增行为语义，`!` 仅用于存在性可由相邻守卫证明的站点。
+- [x] 跑前端全套检查（format/encoding/lint 三件套/typecheck/test 103/build）全绿。
 
 ### Phase 2.11: 收尾复核与文档同步
 

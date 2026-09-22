@@ -304,7 +304,9 @@ function mergeWindowRows(
     (_, index) => currentRows[index] ?? null,
   );
   for (let index = 0; index < windowRows.length; index += 1) {
-    nextRows[start + index] = windowRows[index];
+    const row = windowRows[index];
+    if (row === undefined) continue;
+    nextRows[start + index] = row;
   }
   return nextRows;
 }

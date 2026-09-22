@@ -175,7 +175,7 @@ describe('config-save orchestrator', () => {
     const variant = await createVariantAction(SESSION_ID, MOD_ROOT, 'npc_dave', 'variant_new');
 
     expect(variant.variantId).toBe('variant_new');
-    const payload = mocks.writeCreateVariantEntity.mock.calls[0][0];
+    const payload = mocks.writeCreateVariantEntity.mock.calls[0]![0];
     expect(payload.nextId).toBe('variant_new');
     expect(payload.data).toEqual(createDefaultVariant('npc_dave', 'variant_new'));
   });

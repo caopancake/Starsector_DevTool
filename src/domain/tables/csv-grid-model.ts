@@ -133,7 +133,7 @@ function tagColumnWidthPx(key: string, rows: CsvLoadedRowSlot[]): number {
     .sort((a, b) => a - b);
   if (rowWidths.length === 0) return 160;
   const index = Math.min(rowWidths.length - 1, Math.floor(rowWidths.length * 0.9));
-  return rowWidths[index] + 20;
+  return (rowWidths[index] ?? 160) + 20;
 }
 
 function tagRowWidthPx(value: string): number {

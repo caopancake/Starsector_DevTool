@@ -276,12 +276,13 @@ function parseArrayString(value: string): RgbaColor | null {
 
 function parseCssColor(value: string): RgbaColor | null {
   const match = value.match(/^rgba?\((.+)\)$/i);
-  if (!match) return null;
-  const parts = match[1].split(/[\s,/]+/).filter(Boolean);
+  const args = match?.[1];
+  if (!args) return null;
+  const parts = args.split(/[\s,/]+/).filter(Boolean);
   if (parts.length < 3) return null;
-  const r = parseCssChannel(parts[0]);
-  const g = parseCssChannel(parts[1]);
-  const b = parseCssChannel(parts[2]);
+  const r = parseCssChannel(parts[0] ?? '');
+  const g = parseCssChannel(parts[1] ?? '');
+  const b = parseCssChannel(parts[2] ?? '');
   const a = parts[3] === undefined ? 255 : parseAlpha(parts[3]);
   if ([r, g, b, a].some((part) => part === null)) return null;
   return { r: r!, g: g!, b: b!, a: a! };
@@ -341,6 +342,7 @@ function numberToRgba(value: number): RgbaColor {
 
 function formatColor(color: RgbaColor, output: ColorOutput): number[] | string {
   const rgba = [color.r, color.g, color.b, props.channels === 'rgb' ? 255 : color.a].map(clampChannel);
+  const [r = 0, g = 0, b = 0, a = 255] = rgba;
   switch (output) {
     case 'rgb-array':
       return rgba.slice(0, 3);
@@ -351,9 +353,9 @@ function formatColor(color: RgbaColor, output: ColorOutput): number[] | string {
     case 'hex-rgba':
       return `#${rgba.map(toHex).join('')}`;
     case 'css-rgb':
-      return `rgb(${rgba[0]}, ${rgba[1]}, ${rgba[2]})`;
+      return `rgb(${r}, ${g}, ${b})`;
     case 'css-rgba':
-      return `rgba(${rgba[0]}, ${rgba[1]}, ${rgba[2]}, ${rgba[3] / 255})`;
+      return `rgba(${r}, ${g}, ${b}, ${a / 255})`;
   }
 }
 

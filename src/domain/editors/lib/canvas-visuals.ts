@@ -30,12 +30,14 @@ interface BarrelVisualOptions {
   hovered?: boolean;
 }
 
-function colorFor(type: string) {
-  return WEAPON_COLORS[type] ?? '#9ca3af';
+function colorFor(type: string): string {
+  const color = WEAPON_COLORS[type as keyof typeof WEAPON_COLORS];
+  return color ?? '#9ca3af';
 }
 
-function radiusFor(size: string) {
-  return SLOT_RADIUS[size] ?? SLOT_RADIUS.MEDIUM;
+function radiusFor(size: string): number {
+  const radius = SLOT_RADIUS[size as keyof typeof SLOT_RADIUS];
+  return radius ?? SLOT_RADIUS.MEDIUM;
 }
 
 function usesSizeLayers(type: string) {

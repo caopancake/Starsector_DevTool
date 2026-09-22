@@ -665,19 +665,19 @@ function emitKvUpdate(entries: SchemaKeyValueEntry[]) {
 
 function updateKvKey(idx: number, newKey: string) {
   const entries = [...kvEntries.value];
-  entries[idx] = { ...entries[idx], key: newKey };
+  entries[idx] = { ...entries[idx]!, key: newKey };
   emitKvUpdate(entries);
 }
 
 function updateKvVal(idx: number, newVal: string) {
   const entries = [...kvEntries.value];
-  entries[idx] = { ...entries[idx], val: parseSchemaKeyValueText(newVal) };
+  entries[idx] = { ...entries[idx]!, val: parseSchemaKeyValueText(newVal) };
   emitKvUpdate(entries);
 }
 
 function updateKvValue(idx: number, newVal: unknown) {
   const entries = [...kvEntries.value];
-  entries[idx] = { ...entries[idx], val: newVal };
+  entries[idx] = { ...entries[idx]!, val: newVal };
   emitKvUpdate(entries);
 }
 

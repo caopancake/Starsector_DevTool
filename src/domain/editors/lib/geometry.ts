@@ -25,7 +25,7 @@ export function distance(a: number[], b: number[]): number {
 
 /// Angle from origin to point in the flipped ship coordinate system.
 export function pointAngle(origin: number[], point: number[]): number {
-  const relativePoint = [point[1] - (origin[1] || 0), (origin[0] || 0) - point[0]];
+  const relativePoint = [(point[1] || 0) - (origin[1] || 0), (origin[0] || 0) - (point[0] || 0)];
   return normalizeDegree((Math.atan2(relativePoint[1] || 0, relativePoint[0] || 0) * 180) / Math.PI);
 }
 

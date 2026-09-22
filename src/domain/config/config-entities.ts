@@ -193,7 +193,7 @@ export function configFactionListItems(files: Record<string, RowData>): ConfigFa
     .map((id) => ({
       id,
       displayName: cell(files[id]?.displayName) || id,
-      colorCss: configColorCss(files[id]?.color),
+      colorCss: configColorCss(files[id]?.color ?? null),
     }));
 }
 

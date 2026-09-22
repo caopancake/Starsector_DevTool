@@ -116,18 +116,18 @@ describe('useVisibleResourceMedia', () => {
     await Promise.resolve();
 
     expect(mocks.ensure).toHaveBeenCalledTimes(1);
-    expect(mocks.ensure.mock.calls[0][0]).toBe('session-a');
-    expect(mocks.ensure.mock.calls[0][1]).toEqual([resource(1), resource(2)]);
+    expect(mocks.ensure.mock.calls[0]![0]).toBe('session-a');
+    expect(mocks.ensure.mock.calls[0]![1]).toEqual([resource(1), resource(2)]);
   });
 
   it('handles rapid visibility changes and repeated visibility without losing resources', async () => {
     const wrapper = mountHarness();
     const rows = wrapper.findAll('[data-row]');
     const observer = activeObserver();
-    observer.trigger([{ target: rows[0].element, isIntersecting: true }]);
-    observer.trigger([{ target: rows[0].element, isIntersecting: false }]);
-    observer.trigger([{ target: rows[1].element, isIntersecting: true }]);
-    observer.trigger([{ target: rows[1].element, isIntersecting: true }]);
+    observer.trigger([{ target: rows[0]!.element, isIntersecting: true }]);
+    observer.trigger([{ target: rows[0]!.element, isIntersecting: false }]);
+    observer.trigger([{ target: rows[1]!.element, isIntersecting: true }]);
+    observer.trigger([{ target: rows[1]!.element, isIntersecting: true }]);
     await Promise.resolve();
 
     expect(mocks.ensure.mock.calls.map((call) => call[1])).toEqual([[resource(1)], [resource(2)], [resource(2)]]);
@@ -146,7 +146,7 @@ describe('useVisibleResourceMedia', () => {
 
   it('re-ensures visible resources after invalidation and uses the new session', async () => {
     const wrapper = mountHarness();
-    const row = wrapper.findAll('[data-row]')[0].element;
+    const row = wrapper.findAll('[data-row]')[0]!.element;
     activeObserver().trigger([{ target: row, isIntersecting: true }]);
     await Promise.resolve();
     mocks.invalidationListener?.({ invalidation: null, resources: [resource(1)], sessionId: 'session-a', scope: 'resources' });
@@ -168,7 +168,7 @@ describe('useVisibleResourceMedia', () => {
       failedResources: [resource(1)],
     });
     const wrapper = mountHarness();
-    const row = wrapper.findAll('[data-row]')[0].element;
+    const row = wrapper.findAll('[data-row]')[0]!.element;
     activeObserver().trigger([{ target: row, isIntersecting: true }]);
     await Promise.resolve();
     activeObserver().trigger([{ target: row, isIntersecting: true }]);

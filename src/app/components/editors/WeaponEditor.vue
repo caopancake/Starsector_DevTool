@@ -593,8 +593,9 @@ function resolveDragKind(e: MouseEvent, _mx: number, _my: number, _target: Canva
 }
 function updateInteraction(kind: string, mx: number, my: number) {
   if (kind === 'angle' && selected.value !== null) {
-    angles.value[selected.value] = previewAngle(mx, my);
-    setPreview({ kind: 'angle', angle: angles.value[selected.value] });
+    const angle = previewAngle(mx, my);
+    angles.value[selected.value] = angle;
+    setPreview({ kind: 'angle', angle });
     return;
   }
   if (kind === 'offset' && selected.value !== null) {

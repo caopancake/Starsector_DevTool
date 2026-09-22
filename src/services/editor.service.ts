@@ -203,7 +203,12 @@ async function queryWeaponSprites(sessionId: ProjectSessionId, refs: Record<stri
     sessionId,
     resources.map((entry) => entry.resource),
   );
-  return Object.fromEntries(dataUrls.flatMap((dataUrl, index) => (dataUrl ? [[resources[index].field, dataUrl] as const] : [])));
+  return Object.fromEntries(
+    dataUrls.flatMap((dataUrl, index) => {
+      const entry = resources[index];
+      return dataUrl && entry ? [[entry.field, dataUrl] as const] : [];
+    }),
+  );
 }
 
 async function querySpriteData(sessionId: ProjectSessionId, resource: ResourceRef | null): Promise<string> {

@@ -445,7 +445,7 @@ function draw() {
     }
     if (o.trail?.length > 1) {
       ctx.beginPath();
-      ctx.moveTo(o.trail[0].x, o.trail[0].y);
+      ctx.moveTo(o.trail[0]!.x, o.trail[0]!.y);
       for (const t of o.trail) ctx.lineTo(t.x, t.y);
       ctx.strokeStyle = '#f59e0b66';
       ctx.lineWidth = 3;

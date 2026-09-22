@@ -87,8 +87,8 @@ export function schemaKeyValueEntries(value: unknown, format: FieldSchema['forma
   if (format === 'array-of-entries' && Array.isArray(value)) {
     return value.map((item) => {
       if (item && typeof item === 'object' && !Array.isArray(item)) {
-        const keys = Object.keys(item);
-        if (keys.length > 0) return { key: keys[0], val: (item as Record<string, unknown>)[keys[0]] };
+        const firstKey = Object.keys(item)[0];
+        if (firstKey !== undefined) return { key: firstKey, val: (item as Record<string, unknown>)[firstKey] };
       }
       return { key: '', val: '' };
     });
@@ -179,17 +179,18 @@ export function getNestedValue(obj: RowData, key: string): unknown {
 
 export function setNestedValue(obj: RowData, key: string, value: unknown): RowData {
   const parts = key.split('.');
-  if (parts.length === 1) {
-    return { ...obj, [parts[0]]: value as RowData[string] };
+  const leaf = parts.pop() ?? '';
+  if (parts.length === 0) {
+    return { ...obj, [leaf]: value as RowData[string] };
   }
   const result = { ...obj };
   let target: Record<string, unknown> = result;
-  for (let i = 0; i < parts.length - 1; i++) {
-    const next = target[parts[i]];
-    target[parts[i]] = typeof next === 'object' && next !== null ? { ...(next as Record<string, unknown>) } : {};
-    target = target[parts[i]] as Record<string, unknown>;
+  for (const part of parts) {
+    const next = target[part];
+    target[part] = typeof next === 'object' && next !== null ? { ...(next as Record<string, unknown>) } : {};
+    target = target[part] as Record<string, unknown>;
   }
-  target[parts[parts.length - 1]] = value;
+  target[leaf] = value;
   return result;
 }
 

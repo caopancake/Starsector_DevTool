@@ -170,8 +170,9 @@ watch(
       emit('select', null);
       return;
     }
-    if (!items.some((file) => fileId(file) === props.selectedId)) {
-      emit('select', fileId(items[0]));
+    const first = items[0];
+    if (first && !items.some((file) => fileId(file) === props.selectedId)) {
+      emit('select', fileId(first));
     }
   },
   { immediate: true },
