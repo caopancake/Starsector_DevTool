@@ -267,6 +267,7 @@ pub(super) fn build_registered_session_csv_tables() -> BTreeMap<String, SessionC
                         header: Vec::new(),
                         path: definition.rel_path.to_string(),
                         rows: None,
+                        next_row_seq: 0,
                     },
                 )
             })
@@ -277,6 +278,7 @@ pub(super) fn build_registered_session_csv_tables() -> BTreeMap<String, SessionC
             header: vec!["mission".to_string()],
             path: MISSION_LIST_REL_PATH.to_string(),
             rows: None,
+            next_row_seq: 0,
         },
     );
     tables

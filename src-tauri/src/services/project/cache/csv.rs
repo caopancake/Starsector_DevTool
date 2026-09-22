@@ -106,7 +106,7 @@ pub(crate) fn ensure_session_table_rows(
     {
         annotate_faction_rows(&mut csv.rows, &session.tag_map);
     }
-    let rows = csv
+    let rows: Vec<SessionCsvRow> = csv
         .rows
         .into_iter()
         .enumerate()
@@ -115,11 +115,13 @@ pub(crate) fn ensure_session_table_rows(
             row,
         })
         .collect();
+    let next_row_seq = rows.len() as u64;
     let table_state = session_table_mut(session, table)?;
     if table_state.header.is_empty() {
         table_state.header = csv.header;
     }
     table_state.rows = Some(rows);
+    table_state.next_row_seq = next_row_seq;
     Ok(())
 }
 
@@ -250,6 +252,7 @@ mod tests {
                         header: Vec::new(),
                         path: "data/hulls/ship_data.csv".to_string(),
                         rows: None,
+                        next_row_seq: 0,
                     },
                 ),
                 (
@@ -258,6 +261,7 @@ mod tests {
                         header: Vec::new(),
                         path: "data/characters/skills/skill_data.csv".to_string(),
                         rows: None,
+                        next_row_seq: 0,
                     },
                 ),
             ]),

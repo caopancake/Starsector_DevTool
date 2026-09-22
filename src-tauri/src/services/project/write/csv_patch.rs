@@ -25,16 +25,17 @@ pub fn save_csv_patch(
     let handle = session_handle(session_id)?;
     let mut session = lock_session(&handle)?;
     ensure_registered_table_rows(&mut session, table)?;
-    let (mod_root, rel_path, header, mut rows) = {
+    let (mod_root, rel_path, header, mut rows, mut next_row_seq) = {
         let table_data = registered_session_table(&session, table)?;
         (
             session.manifest.mod_root.clone(),
             table_data.path.clone(),
             table_data.header.clone(),
             loaded_registered_csv_rows(&session, table)?.to_vec(),
+            table_data.next_row_seq,
         )
     };
-    let key_map = apply_csv_row_patches(table, &mut rows, patches)?;
+    let key_map = apply_csv_row_patches(table, &mut rows, &mut next_row_seq, patches)?;
     let row_values: Vec<Map<String, Value>> = rows.iter().map(|row| row.row.clone()).collect();
     let csv_text = render_csv_text(&header, &row_values)?;
     let mut builder = FileChangeSetBuilder::new(Path::new(&mod_root))?;
@@ -47,6 +48,7 @@ pub fn save_csv_patch(
         let table_data = registered_session_table_mut(&mut session, table)?;
         table_data.rows = Some(rows);
         table_data.header = header;
+        table_data.next_row_seq = next_row_seq;
     }
     let write_result: WriteResult<()> = WriteResult::new(changes, key_map, None, Vec::new());
     debug_assert!(
@@ -64,6 +66,7 @@ pub fn save_csv_patch(
 fn apply_csv_row_patches(
     table: CsvTableKey,
     rows: &mut Vec<SessionCsvRow>,
+    next_row_seq: &mut u64,
     patches: Vec<CsvRowPatch>,
 ) -> AppResult<Vec<CsvRowKeyMapping>> {
     let table_key = table.as_str();
@@ -75,7 +78,8 @@ fn apply_csv_row_patches(
                 if let Some(row) = rows.iter_mut().find(|row| row.row_key == patch.row_key) {
                     row.row = patch.row;
                 } else if is_new_csv_row_key(table_key, &patch.row_key) {
-                    let next_key = format!("{table_key}:row:{}", rows.len());
+                    let next_key = format!("{table_key}:row:{next_row_seq}");
+                    *next_row_seq += 1;
                     key_map.push(CsvRowKeyMapping {
                         previous_key: patch.row_key,
                         next_key: next_key.clone(),
@@ -442,6 +446,189 @@ mod tests {
         let _ = close_project_session(manifest.session_id);
         let _ = std::fs::remove_dir_all(root);
         assert!(error.contains("CSV upsert row key does not exist"));
+    }
+
+    #[test]
+    fn apply_csv_row_patches_allocates_uncolliding_key_after_delete() {
+        let mut rows = vec![
+            SessionCsvRow {
+                row_key: "ships:row:0".to_string(),
+                row: row_with_id("id", "a"),
+            },
+            SessionCsvRow {
+                row_key: "ships:row:1".to_string(),
+                row: row_with_id("id", "b"),
+            },
+        ];
+        let mut next_row_seq = 2;
+
+        let key_map = apply_csv_row_patches(
+            CsvTableKey::Ships,
+            &mut rows,
+            &mut next_row_seq,
+            vec![
+                CsvRowPatch {
+                    row_key: "ships:row:0".to_string(),
+                    action: CsvRowPatchAction::Delete,
+                    row: Map::new(),
+                },
+                CsvRowPatch {
+                    row_key: "ships:new:1".to_string(),
+                    action: CsvRowPatchAction::Upsert,
+                    row: row_with_id("id", "c"),
+                },
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(key_map.len(), 1);
+        assert_eq!(key_map[0].previous_key, "ships:new:1");
+        assert_eq!(key_map[0].next_key, "ships:row:2");
+        assert_eq!(row_keys(&rows), vec!["ships:row:1", "ships:row:2"]);
+        assert_eq!(next_row_seq, 3);
+    }
+
+    #[test]
+    fn apply_csv_row_patches_updates_surviving_row_after_delete_without_new_keys() {
+        let mut rows = vec![
+            SessionCsvRow {
+                row_key: "ships:row:0".to_string(),
+                row: row_with_id("id", "a"),
+            },
+            SessionCsvRow {
+                row_key: "ships:row:1".to_string(),
+                row: row_with_id("id", "b"),
+            },
+        ];
+        let mut next_row_seq = 2;
+
+        let key_map = apply_csv_row_patches(
+            CsvTableKey::Ships,
+            &mut rows,
+            &mut next_row_seq,
+            vec![
+                CsvRowPatch {
+                    row_key: "ships:row:0".to_string(),
+                    action: CsvRowPatchAction::Delete,
+                    row: Map::new(),
+                },
+                CsvRowPatch {
+                    row_key: "ships:row:1".to_string(),
+                    action: CsvRowPatchAction::Upsert,
+                    row: row_with_id("id", "b2"),
+                },
+            ],
+        )
+        .unwrap();
+
+        assert!(key_map.is_empty());
+        assert_eq!(next_row_seq, 2);
+        assert_eq!(row_keys(&rows), vec!["ships:row:1"]);
+        assert_eq!(rows[0].row["id"], "b2");
+    }
+
+    #[test]
+    fn apply_csv_row_patches_keeps_keys_unique_across_interleaved_patches() {
+        let mut rows = vec![
+            SessionCsvRow {
+                row_key: "ships:row:0".to_string(),
+                row: row_with_id("id", "a"),
+            },
+            SessionCsvRow {
+                row_key: "ships:row:1".to_string(),
+                row: row_with_id("id", "b"),
+            },
+        ];
+        let mut next_row_seq = 2;
+
+        let key_map = apply_csv_row_patches(
+            CsvTableKey::Ships,
+            &mut rows,
+            &mut next_row_seq,
+            vec![
+                CsvRowPatch {
+                    row_key: "ships:new:1".to_string(),
+                    action: CsvRowPatchAction::Upsert,
+                    row: row_with_id("id", "c"),
+                },
+                CsvRowPatch {
+                    row_key: "ships:row:1".to_string(),
+                    action: CsvRowPatchAction::Delete,
+                    row: Map::new(),
+                },
+                CsvRowPatch {
+                    row_key: "ships:new:2".to_string(),
+                    action: CsvRowPatchAction::Upsert,
+                    row: row_with_id("id", "d"),
+                },
+            ],
+        )
+        .unwrap();
+
+        let allocated: Vec<&str> = key_map
+            .iter()
+            .map(|mapping| mapping.next_key.as_str())
+            .collect();
+        assert_eq!(allocated, vec!["ships:row:2", "ships:row:3"]);
+        let mut all_keys = row_keys(&rows);
+        all_keys.sort_unstable();
+        assert_eq!(all_keys, vec!["ships:row:0", "ships:row:2", "ships:row:3"]);
+    }
+
+    #[test]
+    fn apply_csv_row_patches_does_not_reset_keys_after_full_table_delete() {
+        let mut rows = vec![
+            SessionCsvRow {
+                row_key: "ships:row:0".to_string(),
+                row: row_with_id("id", "a"),
+            },
+            SessionCsvRow {
+                row_key: "ships:row:1".to_string(),
+                row: row_with_id("id", "b"),
+            },
+        ];
+        let mut next_row_seq = 2;
+
+        let key_map = apply_csv_row_patches(
+            CsvTableKey::Ships,
+            &mut rows,
+            &mut next_row_seq,
+            vec![
+                CsvRowPatch {
+                    row_key: "ships:row:0".to_string(),
+                    action: CsvRowPatchAction::Delete,
+                    row: Map::new(),
+                },
+                CsvRowPatch {
+                    row_key: "ships:row:1".to_string(),
+                    action: CsvRowPatchAction::Delete,
+                    row: Map::new(),
+                },
+                CsvRowPatch {
+                    row_key: "ships:new:1".to_string(),
+                    action: CsvRowPatchAction::Upsert,
+                    row: row_with_id("id", "c"),
+                },
+                CsvRowPatch {
+                    row_key: "ships:new:2".to_string(),
+                    action: CsvRowPatchAction::Upsert,
+                    row: row_with_id("id", "d"),
+                },
+            ],
+        )
+        .unwrap();
+
+        let allocated: Vec<&str> = key_map
+            .iter()
+            .map(|mapping| mapping.next_key.as_str())
+            .collect();
+        assert_eq!(allocated, vec!["ships:row:2", "ships:row:3"]);
+        assert_eq!(row_keys(&rows), vec!["ships:row:2", "ships:row:3"]);
+        assert_eq!(next_row_seq, 4);
+    }
+
+    fn row_keys(rows: &[SessionCsvRow]) -> Vec<&str> {
+        rows.iter().map(|row| row.row_key.as_str()).collect()
     }
 
     fn row_with_id(field: &str, id: &str) -> Map<String, Value> {

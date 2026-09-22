@@ -6,9 +6,9 @@
 
 ### Phase 1.1: CSV row_key 正确性修复
 
-- [ ] `src-tauri/src/services/project/write/csv_patch.rs` 新增行键分配改为与既有键和删除历史无关的单调递增分配器，消灭"先删后增时 `rows.len()` 生成重复 row_key"缺陷；`key_map` 的 previous→next 映射保持唯一。
-- [ ] 补测试：删后增、删后改、乱序 patch 序列、整表删除后重建；`parsers/alex_csv.rs` 补 parse→render→parse 往返恒等属性测试。
-- [ ] 跑 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test`。
+- [x] `src-tauri/src/services/project/write/csv_patch.rs` 新增行键分配改为与既有键和删除历史无关的单调递增分配器，消灭"先删后增时 `rows.len()` 生成重复 row_key"缺陷；`key_map` 的 previous→next 映射保持唯一。
+- [x] 补测试：删后增、删后改、乱序 patch 序列、整表删除后重建；`parsers/alex_csv.rs` 补 parse→render→parse 往返恒等属性测试。
+- [x] 跑 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test`。
 
 ### Phase 1.2: Rust 分层规则修复与违规边归位
 

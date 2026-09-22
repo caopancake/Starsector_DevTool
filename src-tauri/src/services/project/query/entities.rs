@@ -141,6 +141,7 @@ mod tests {
                 header: vec!["mission".to_string()],
                 path: "data/missions/mission_list.csv".to_string(),
                 rows: None,
+                next_row_seq: 0,
             },
         );
         let session = super::super::super::model::ProjectSession {

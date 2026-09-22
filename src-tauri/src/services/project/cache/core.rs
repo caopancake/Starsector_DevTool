@@ -84,19 +84,21 @@ pub(crate) fn load_core_csv_table(
         return Ok(None);
     }
     let csv = read_csv_data(&core_dir.join(rel))?;
+    let rows: Vec<SessionCsvRow> = csv
+        .rows
+        .into_iter()
+        .enumerate()
+        .map(|(index, row)| SessionCsvRow {
+            row_key: format!("core:{table_key}:row:{index}"),
+            row,
+        })
+        .collect();
+    let next_row_seq = rows.len() as u64;
     let table_state = SessionCsvTable {
         header: csv.header,
         path: rel.to_string(),
-        rows: Some(
-            csv.rows
-                .into_iter()
-                .enumerate()
-                .map(|(index, row)| SessionCsvRow {
-                    row_key: format!("core:{table_key}:row:{index}"),
-                    row,
-                })
-                .collect(),
-        ),
+        rows: Some(rows),
+        next_row_seq,
     };
     cache
         .csv_tables

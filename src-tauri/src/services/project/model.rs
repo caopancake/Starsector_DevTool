@@ -33,6 +33,9 @@ pub(super) struct SessionCsvTable {
     pub header: Vec<String>,
     pub path: String,
     pub rows: Option<Vec<SessionCsvRow>>,
+    /// Sole allocator state for `{table}:row:{seq}` keys; only grows while rows
+    /// stay loaded so deletes can never make a future allocation collide.
+    pub next_row_seq: u64,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

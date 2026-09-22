@@ -467,4 +467,56 @@ mod tests {
         assert!(out.lines().next().is_some_and(|line| line == "id,name"));
         assert!(out.contains("x,X"));
     }
+
+    fn row_of(pairs: [(&str, &str); 4]) -> Map<String, Value> {
+        pairs
+            .into_iter()
+            .map(|(key, value)| (key.to_string(), Value::String(value.to_string())))
+            .collect()
+    }
+
+    #[test]
+    fn parse_render_parse_round_trip_is_semantic_identity_and_render_is_stable() {
+        let header = vec![
+            "id".to_string(),
+            "name".to_string(),
+            "desc".to_string(),
+            "notes".to_string(),
+        ];
+        let rows = vec![
+            row_of([
+                ("id", "a"),
+                ("name", "A, with comma"),
+                ("desc", "he said \"hi\""),
+                ("notes", "plain"),
+            ]),
+            row_of([
+                ("id", "#Disabled Name"),
+                ("name", "disabled"),
+                ("desc", "first\r\n\r\nthird"),
+                ("notes", "graphics/a.png"),
+            ]),
+            row_of([
+                ("id", "#section"),
+                ("name", ""),
+                ("desc", ""),
+                ("notes", ""),
+            ]),
+            row_of([("id", ""), ("name", ""), ("desc", ""), ("notes", "")]),
+            row_of([
+                ("id", "b"),
+                ("name", "舰船, 引号\"与换行\r\n混合"),
+                ("desc", ""),
+                ("notes", "x"),
+            ]),
+        ];
+
+        let first = render_csv_text(&header, &rows).unwrap();
+        let reparsed = parse_csv_bytes("csv_round_trip.csv", first.as_bytes()).unwrap();
+        let second = render_csv_text(&reparsed.header, &reparsed.rows).unwrap();
+
+        assert_eq!(reparsed.header, header);
+        assert_eq!(reparsed.rows, rows);
+        assert_eq!(second, first);
+    }
 }
