@@ -16,12 +16,15 @@
 `src/app/components/schema/SchemaFormRenderer.vue`：表单渲染 owner。
 `src/app/components/schema/SchemaFieldRenderer.vue`：字段渲染 owner。
 `src/shared/ui/JsonFieldEditor.vue`：额外字段结构化编辑 owner。
-`schemas/*.schema.json`、`schemas/csv/*.schema.json`：schema 资产本体。
+`schemas/*.schema.json`、`schemas/csv/*.schema.json`、`schemas/well-known-labels.json`：schema 资产本体。
+`src-tauri/src/domain/well_known_labels.rs`：well-known 标签资产唯一加载入口，编译期内嵌并校验版本头。
 
 ## 边界
 
 - schema 资产只能经唯一加载入口消费，入口处执行逐属性运行时校验；资产外严禁二次强转。
-- 资产正式形态统一为 `field-schema/v1` 加 `sections`（可选 `sources`）；扁平 fields 结构已迁移。
+- 资产正式形态统一带 `$schema` 版本头：spec 资产为 `field-schema/v1` 加 `sections`（可选 `sources`），CSV 列资产为 `csv-columns/v1` 加与表注册表 key 一致的 `table` 与 `columns`。
+- CSV 列 schema 文件命名依据为表注册表 key；游戏原文件名的映射唯一归后端表注册表所有，资产命名严禁复制第二套游戏文件名体系。
+- well-known 标签资产只允许经后端唯一加载入口编译期内嵌消费，加载时必须校验版本头，严禁在查询逻辑内重建标签表。
 - domain/schema runtime 拥有字段语义、source、归一化与纯转换；组件只渲染与提交字段事件。
 - `csv:` source 目录必须只由 `(sessionId, source)` 标识，并完整返回当前 Mod 非注释唯一值与原版补集，保持 CSV 原始行顺序。
 - 引用 source 必须经统一 query/service 返回选项元数据与 ResourceRef；缩略图只在下拉展开或已选值变化时按需合批解析。

@@ -32,6 +32,7 @@ import weaponsColumnsRaw from '../../../schemas/csv/weapons.schema.json';
 import wingsColumnsRaw from '../../../schemas/csv/wings.schema.json';
 
 const FIELD_SCHEMA_VERSION = 'starsector-devtool/field-schema/v1';
+const CSV_COLUMNS_VERSION = 'starsector-devtool/csv-columns/v1';
 
 const SCHEMAS: Record<string, FileSchema> = {
   'mod-info': parseFileSchema('mod-info', modInfoSchemaRaw),
@@ -185,10 +186,17 @@ function parseSources(id: string, raw: unknown): FileSchema['sources'] {
 }
 
 function parseCsvColumnSchemas(table: string, raw: unknown): CsvColumnSchema[] {
-  if (!Array.isArray(raw)) {
-    throw new Error(`csv column schema ${table}: 必须是数组`);
+  const asset = asRecord(raw, `csv column schema ${table}`);
+  if (asset.$schema !== CSV_COLUMNS_VERSION) {
+    throw new Error(`csv column schema ${table}: $schema 必须是 ${CSV_COLUMNS_VERSION}`);
   }
-  return raw.map((column, index) => {
+  if (asset.table !== table) {
+    throw new Error(`csv column schema ${table}: table 必须是 ${table}`);
+  }
+  if (!Array.isArray(asset.columns)) {
+    throw new Error(`csv column schema ${table}: columns 必须是数组`);
+  }
+  return asset.columns.map((column, index) => {
     const record = asRecord(column, `csv column schema ${table}[${index}]`);
     if (typeof record.key !== 'string') {
       throw new Error(`csv column schema ${table}[${index}]: 缺少 key`);

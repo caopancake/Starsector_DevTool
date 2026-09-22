@@ -4,3 +4,4 @@ pub mod config;
 pub mod editor_config_definitions;
 pub mod faction_annotation;
 pub mod mod_creation;
+pub mod well_known_labels;

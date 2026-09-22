@@ -16,14 +16,7 @@
           "description": "势力的唯一标识符，用于内部引用",
           "required": true,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "danger": "修改 ID 会导致存档不兼容",
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "danger": "修改 ID 会导致存档不兼容"
         },
         {
           "key": "file.displayName",
@@ -31,14 +24,7 @@
           "label": "显示名称",
           "description": "势力的短显示名称",
           "required": true,
-          "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "editable": true
         },
         {
           "key": "file.displayNameWithArticle",
@@ -46,14 +32,7 @@
           "label": "带冠词的名称",
           "description": "带冠词的势力名称（英文为 the X，中文可与 displayName 相同）",
           "required": true,
-          "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "editable": true
         },
         {
           "key": "file.displayNameLong",
@@ -61,14 +40,7 @@
           "label": "长名称",
           "description": "势力的完整长名称",
           "required": false,
-          "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "editable": true
         },
         {
           "key": "file.displayNameLongWithArticle",
@@ -76,14 +48,7 @@
           "label": "带冠词的长名称",
           "description": "带冠词的势力完整名称",
           "required": false,
-          "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "editable": true
         },
         {
           "key": "file.displayNameIsOrAre",
@@ -92,13 +57,7 @@
           "description": "英文语法中 is/are 的选择（中文留空即可）",
           "required": false,
           "editable": true,
-          "default": "",
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "default": ""
         },
         {
           "key": "file.personNamePrefixAOrAn",
@@ -107,13 +66,7 @@
           "description": "人名前的不定冠词 a/an（中文留空即可）",
           "required": false,
           "editable": true,
-          "default": "",
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "default": ""
         },
         {
           "key": "file.entityNamePrefix",
@@ -121,14 +74,7 @@
           "label": "实体名称前缀",
           "description": "势力实体（如基地、站点）名称的前缀",
           "required": false,
-          "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "editable": true
         },
         {
           "key": "file.personNamePrefix",
@@ -136,14 +82,7 @@
           "label": "人物名称前缀",
           "description": "势力人物名称的前缀修饰词",
           "required": false,
-          "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "editable": true
         },
         {
           "key": "file.logo",
@@ -151,14 +90,7 @@
           "label": "势力标志",
           "description": "势力标志图片路径（相对于游戏/mod 根目录）",
           "required": true,
-          "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "editable": true
         },
         {
           "key": "file.crest",
@@ -166,14 +98,7 @@
           "label": "势力徽章",
           "description": "势力徽章图片路径（用于 intel 等界面）",
           "required": true,
-          "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "editable": true
         },
         {
           "key": "file.shipNamePrefix",
@@ -182,13 +107,7 @@
           "description": "势力舰船名称的前缀缩写（如 HSS, TTS）",
           "required": false,
           "editable": true,
-          "default": "",
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "default": ""
         },
         {
           "key": "file.color",
@@ -198,12 +117,8 @@
           "required": true,
           "editable": true,
           "default": [255, 255, 255, 255],
-          "warning": null,
-          "source": null,
           "min": 0,
-          "max": 255,
-          "options": null,
-          "nested": null
+          "max": 255
         },
         {
           "key": "file.baseUIColor",
@@ -212,13 +127,8 @@
           "description": "势力 UI 界面基础颜色 [R, G, B, A]",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
           "min": 0,
-          "max": 255,
-          "options": null,
-          "nested": null
+          "max": 255
         },
         {
           "key": "file.darkUIColor",
@@ -227,13 +137,8 @@
           "description": "势力 UI 界面深色 [R, G, B, A]",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
           "min": 0,
-          "max": 255,
-          "options": null,
-          "nested": null
+          "max": 255
         },
         {
           "key": "file.gridUIColor",
@@ -242,13 +147,8 @@
           "description": "势力 UI 网格线颜色 [R, G, B, A]",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
           "min": 0,
-          "max": 255,
-          "options": null,
-          "nested": null
+          "max": 255
         },
         {
           "key": "file.brightUIColor",
@@ -257,13 +157,8 @@
           "description": "势力 UI 界面高亮颜色 [R, G, B, A]",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
           "min": 0,
-          "max": 255,
-          "options": null,
-          "nested": null
+          "max": 255
         },
         {
           "key": "file.shipNameSources",
@@ -273,12 +168,7 @@
           "required": false,
           "editable": true,
           "default": {},
-          "warning": null,
-          "source": "enum:BRITISH_NAVY,ROMAN,GREEK,NORSE,EGYPTIAN,JAPANESE,CELTIC,AZTEC,SPACE,GENERAL,MERCANTILE,PIRATES,KNIGHTS,HEGEMONY",
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "source": "enum:BRITISH_NAVY,ROMAN,GREEK,NORSE,EGYPTIAN,JAPANESE,CELTIC,AZTEC,SPACE,GENERAL,MERCANTILE,PIRATES,KNIGHTS,HEGEMONY"
         },
         {
           "key": "file.names",
@@ -288,12 +178,7 @@
           "required": false,
           "editable": true,
           "default": {},
-          "warning": null,
-          "source": "enum:modern,world,future,myth,old english,fringe,pirate",
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "source": "enum:modern,world,future,myth,old english,fringe,pirate"
         },
         {
           "key": "file.variantOverrides",
@@ -302,13 +187,7 @@
           "description": "限制特定船体使用指定装配并调整其出现概率",
           "required": false,
           "editable": true,
-          "default": {},
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "default": {}
         },
         {
           "key": "file.hullFrequency",
@@ -317,12 +196,6 @@
           "description": "船体在势力舰队中出现的频率乘数",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "tags",
@@ -332,12 +205,7 @@
               "required": false,
               "editable": true,
               "default": {},
-              "warning": null,
-              "source": "csv:ships.tags",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:ships.tags"
             },
             {
               "key": "hulls",
@@ -347,12 +215,7 @@
               "required": false,
               "editable": true,
               "default": {},
-              "warning": null,
-              "source": "csv:ships.id",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:ships.id"
             }
           ]
         },
@@ -363,12 +226,6 @@
           "description": "势力在从其他势力进口蓝图时可额外获得的舰船",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "tags",
@@ -378,12 +235,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:ships.tags",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:ships.tags"
             },
             {
               "key": "hulls",
@@ -393,12 +245,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:ships.id",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:ships.id"
             }
           ]
         },
@@ -409,12 +256,6 @@
           "description": "势力已知（可生产/使用）的舰船蓝图",
           "required": true,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "tags",
@@ -424,12 +265,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:ships.tags",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:ships.tags"
             },
             {
               "key": "hulls",
@@ -439,12 +275,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:ships.id",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:ships.id"
             }
           ]
         },
@@ -455,12 +286,6 @@
           "description": "势力优先使用的舰船（即使有其他可用船体也倾向使用这些）",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "tags",
@@ -470,12 +295,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:ships.tags",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:ships.tags"
             },
             {
               "key": "hulls",
@@ -485,12 +305,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:ships.id",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:ships.id"
             }
           ]
         },
@@ -501,12 +316,6 @@
           "description": "势力已知（可生产/使用）的战机联队蓝图",
           "required": true,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "tags",
@@ -516,12 +325,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:wings.tags",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:wings.tags"
             },
             {
               "key": "fighters",
@@ -531,12 +335,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:wings.id",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:wings.id"
             }
           ]
         },
@@ -547,12 +346,6 @@
           "description": "势力优先使用的战机联队",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "tags",
@@ -562,12 +355,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:wings.tags",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:wings.tags"
             },
             {
               "key": "fighters",
@@ -577,12 +365,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:wings.id",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:wings.id"
             }
           ]
         },
@@ -593,12 +376,6 @@
           "description": "势力已知（可生产/使用）的武器蓝图",
           "required": true,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "tags",
@@ -608,12 +385,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:weapons.tags",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:weapons.tags"
             },
             {
               "key": "weapons",
@@ -623,12 +395,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:weapons.id",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:weapons.id"
             }
           ]
         },
@@ -639,12 +406,6 @@
           "description": "势力优先使用的武器",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "tags",
@@ -654,12 +415,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:weapons.tags",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:weapons.tags"
             },
             {
               "key": "weapons",
@@ -669,12 +425,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:weapons.id",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:weapons.id"
             }
           ]
         },
@@ -685,12 +436,6 @@
           "description": "势力已知（可使用）的舰船插件蓝图",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "tags",
@@ -700,12 +445,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:hullmods.tags",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:hullmods.tags"
             },
             {
               "key": "hullMods",
@@ -715,12 +455,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:hullmods.id",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:hullmods.id"
             }
           ]
         },
@@ -732,12 +467,7 @@
           "required": false,
           "editable": true,
           "default": {},
-          "warning": null,
-          "source": "csv:weapons.id",
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "source": "csv:weapons.id"
         },
         {
           "key": "file.fighterSellFrequency",
@@ -747,12 +477,7 @@
           "required": false,
           "editable": true,
           "default": {},
-          "warning": null,
-          "source": "csv:wings.id",
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "source": "csv:wings.id"
         },
         {
           "key": "file.hullmodSellFrequency",
@@ -762,12 +487,7 @@
           "required": false,
           "editable": true,
           "default": {},
-          "warning": null,
-          "source": "csv:hullmods.id",
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "source": "csv:hullmods.id"
         },
         {
           "key": "file.factionDoctrine",
@@ -776,12 +496,6 @@
           "description": "势力舰队生成的教条参数，决定舰队组成偏好",
           "required": true,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "warships",
@@ -791,12 +505,8 @@
               "required": true,
               "editable": true,
               "default": 5,
-              "warning": null,
-              "source": null,
               "min": 0,
-              "max": 7,
-              "options": null,
-              "nested": null
+              "max": 7
             },
             {
               "key": "carriers",
@@ -806,12 +516,8 @@
               "required": true,
               "editable": true,
               "default": 2,
-              "warning": null,
-              "source": null,
               "min": 0,
-              "max": 7,
-              "options": null,
-              "nested": null
+              "max": 7
             },
             {
               "key": "phaseShips",
@@ -821,12 +527,8 @@
               "required": true,
               "editable": true,
               "default": 0,
-              "warning": null,
-              "source": null,
               "min": 0,
-              "max": 7,
-              "options": null,
-              "nested": null
+              "max": 7
             },
             {
               "key": "officerQuality",
@@ -836,12 +538,8 @@
               "required": true,
               "editable": true,
               "default": 3,
-              "warning": null,
-              "source": null,
               "min": 1,
-              "max": 5,
-              "options": null,
-              "nested": null
+              "max": 5
             },
             {
               "key": "shipQuality",
@@ -851,12 +549,8 @@
               "required": true,
               "editable": true,
               "default": 3,
-              "warning": null,
-              "source": null,
               "min": 1,
-              "max": 5,
-              "options": null,
-              "nested": null
+              "max": 5
             },
             {
               "key": "numShips",
@@ -866,12 +560,8 @@
               "required": true,
               "editable": true,
               "default": 3,
-              "warning": null,
-              "source": null,
               "min": 1,
-              "max": 5,
-              "options": null,
-              "nested": null
+              "max": 5
             },
             {
               "key": "shipSize",
@@ -881,12 +571,8 @@
               "required": true,
               "editable": true,
               "default": 3,
-              "warning": null,
-              "source": null,
               "min": 1,
-              "max": 5,
-              "options": null,
-              "nested": null
+              "max": 5
             },
             {
               "key": "aggression",
@@ -896,12 +582,8 @@
               "required": true,
               "editable": true,
               "default": 3,
-              "warning": null,
-              "source": null,
               "min": 1,
-              "max": 5,
-              "options": null,
-              "nested": null
+              "max": 5
             },
             {
               "key": "combatFreighterProbability",
@@ -911,12 +593,8 @@
               "required": false,
               "editable": true,
               "default": 0,
-              "warning": null,
-              "source": null,
               "min": 0,
-              "max": 1,
-              "options": null,
-              "nested": null
+              "max": 1
             },
             {
               "key": "combatFreighterCombatUseFraction",
@@ -926,12 +604,8 @@
               "required": false,
               "editable": true,
               "default": 0,
-              "warning": null,
-              "source": null,
               "min": 0,
-              "max": 1,
-              "options": null,
-              "nested": null
+              "max": 1
             },
             {
               "key": "combatFreighterCombatUseFractionWhenPriority",
@@ -941,12 +615,8 @@
               "required": false,
               "editable": true,
               "default": 0,
-              "warning": null,
-              "source": null,
               "min": 0,
-              "max": 1,
-              "options": null,
-              "nested": null
+              "max": 1
             },
             {
               "key": "autofitRandomizeProbability",
@@ -956,12 +626,8 @@
               "required": false,
               "editable": true,
               "default": 0.1,
-              "warning": null,
-              "source": null,
               "min": 0,
-              "max": 1,
-              "options": null,
-              "nested": null
+              "max": 1
             },
             {
               "key": "officerSkillsShuffleProbability",
@@ -971,12 +637,8 @@
               "required": false,
               "editable": true,
               "default": 1,
-              "warning": null,
-              "source": null,
               "min": 0,
-              "max": 1,
-              "options": null,
-              "nested": null
+              "max": 1
             },
             {
               "key": "officerSkills",
@@ -986,12 +648,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:skills.id",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:skills.id"
             },
             {
               "key": "commanderSkillsShuffleProbability",
@@ -1001,12 +658,8 @@
               "required": false,
               "editable": true,
               "default": 1,
-              "warning": null,
-              "source": null,
               "min": 0,
-              "max": 1,
-              "options": null,
-              "nested": null
+              "max": 1
             },
             {
               "key": "commanderSkills",
@@ -1016,12 +669,7 @@
               "required": false,
               "editable": true,
               "default": [],
-              "warning": null,
-              "source": "csv:skills.id",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "csv:skills.id"
             }
           ]
         },
@@ -1032,13 +680,7 @@
           "description": "按角色分类的舰船装配权重配置。每个角色（如 combatSmall, combatLarge）的值是一个对象，包含 includeDefault (boolean) 和若干 装配ID: 权重(number) 的键值对",
           "required": false,
           "editable": true,
-          "default": {},
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "default": {}
         },
         {
           "key": "file.illegalCommodities",
@@ -1048,12 +690,7 @@
           "required": false,
           "editable": true,
           "default": [],
-          "warning": null,
-          "source": "csv:commodities.id",
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "source": "csv:commodities.id"
         },
         {
           "key": "file.music",
@@ -1062,12 +699,6 @@
           "description": "势力在各场景下播放的音乐 ID",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "theme",
@@ -1075,14 +706,7 @@
               "label": "主题音乐",
               "description": "势力默认主题音乐",
               "required": false,
-              "editable": true,
-              "default": null,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "editable": true
             },
             {
               "key": "market_neutral",
@@ -1090,14 +714,7 @@
               "label": "中立市场音乐",
               "description": "与势力关系中立时的市场音乐",
               "required": false,
-              "editable": true,
-              "default": null,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "editable": true
             },
             {
               "key": "market_hostile",
@@ -1105,14 +722,7 @@
               "label": "敌对市场音乐",
               "description": "与势力关系敌对时的市场音乐",
               "required": false,
-              "editable": true,
-              "default": null,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "editable": true
             },
             {
               "key": "market_friendly",
@@ -1120,14 +730,7 @@
               "label": "友好市场音乐",
               "description": "与势力关系友好时的市场音乐",
               "required": false,
-              "editable": true,
-              "default": null,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "editable": true
             },
             {
               "key": "encounter_neutral",
@@ -1135,14 +738,7 @@
               "label": "中立遭遇音乐",
               "description": "与势力舰队中立遭遇时的音乐",
               "required": false,
-              "editable": true,
-              "default": null,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "editable": true
             },
             {
               "key": "encounter_hostile",
@@ -1150,14 +746,7 @@
               "label": "敌对遭遇音乐",
               "description": "与势力舰队敌对遭遇时的音乐",
               "required": false,
-              "editable": true,
-              "default": null,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "editable": true
             },
             {
               "key": "encounter_friendly",
@@ -1165,14 +754,7 @@
               "label": "友好遭遇音乐",
               "description": "与势力舰队友好遭遇时的音乐",
               "required": false,
-              "editable": true,
-              "default": null,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "editable": true
             }
           ]
         },
@@ -1182,14 +764,7 @@
           "label": "内部通讯 ID",
           "description": "势力内部通讯对话的引用 ID",
           "required": false,
-          "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "editable": true
         },
         {
           "key": "file.portraits",
@@ -1198,12 +773,6 @@
           "description": "势力人物肖像图片路径",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "standard_male",
@@ -1212,13 +781,7 @@
               "description": "男性人物肖像图片路径列表",
               "required": false,
               "editable": true,
-              "default": [],
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": []
             },
             {
               "key": "standard_female",
@@ -1227,13 +790,7 @@
               "description": "女性人物肖像图片路径列表",
               "required": false,
               "editable": true,
-              "default": [],
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": []
             }
           ]
         },
@@ -1244,12 +801,6 @@
           "description": "势力特有的军衔和职位名称定义",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "ranks",
@@ -1259,12 +810,7 @@
               "required": false,
               "editable": true,
               "default": {},
-              "warning": null,
-              "source": "enum:factionLeader,spaceAdmiral,spaceCommander,spaceCaptain,spaceLieutenant,spaceChief,spaceEnsign,groundGeneral,groundColonel,groundMajor,groundCaptain,groundLieutenant,groundSergeant,groundPrivate,citizen",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "enum:factionLeader,spaceAdmiral,spaceCommander,spaceCaptain,spaceLieutenant,spaceChief,spaceEnsign,groundGeneral,groundColonel,groundMajor,groundCaptain,groundLieutenant,groundSergeant,groundPrivate,citizen"
             },
             {
               "key": "posts",
@@ -1274,12 +820,7 @@
               "required": false,
               "editable": true,
               "default": {},
-              "warning": null,
-              "source": "enum:factionLeader,patrolCommander,fleetCommander,baseCommander,stationCommander,portmaster,administrator,militaryAdministrator,intelligenceDirector,supplyOfficer",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "enum:factionLeader,patrolCommander,fleetCommander,baseCommander,stationCommander,portmaster,administrator,militaryAdministrator,intelligenceDirector,supplyOfficer"
             }
           ]
         },
@@ -1290,12 +831,6 @@
           "description": "势力人物在不同重要性等级下使用的对话人格权重",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "LOW",
@@ -1305,12 +840,7 @@
               "required": false,
               "editable": true,
               "default": {},
-              "warning": null,
-              "source": "enum:soldier,spacer,faithful,official,business,aristo,scientist,villain",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "enum:soldier,spacer,faithful,official,business,aristo,scientist,villain"
             },
             {
               "key": "MEDIUM",
@@ -1320,12 +850,7 @@
               "required": false,
               "editable": true,
               "default": {},
-              "warning": null,
-              "source": "enum:soldier,spacer,faithful,official,business,aristo,scientist,villain",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "enum:soldier,spacer,faithful,official,business,aristo,scientist,villain"
             },
             {
               "key": "HIGH",
@@ -1335,12 +860,7 @@
               "required": false,
               "editable": true,
               "default": {},
-              "warning": null,
-              "source": "enum:soldier,spacer,faithful,official,business,aristo,scientist,villain",
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "source": "enum:soldier,spacer,faithful,official,business,aristo,scientist,villain"
             }
           ]
         },
@@ -1351,12 +871,6 @@
           "description": "势力特有的行为标记和自定义配置",
           "required": false,
           "editable": true,
-          "default": null,
-          "warning": null,
-          "source": null,
-          "min": null,
-          "max": null,
-          "options": null,
           "nested": [
             {
               "key": "offersCommissions",
@@ -1365,13 +879,7 @@
               "description": "势力是否向玩家提供佣金委托",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "engagesInHostilities",
@@ -1380,13 +888,7 @@
               "description": "势力是否会主动参与敌对军事行动",
               "required": false,
               "editable": true,
-              "default": true,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": true
             },
             {
               "key": "buysAICores",
@@ -1395,13 +897,7 @@
               "description": "势力是否收购 AI 核心",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "AICoreValueMult",
@@ -1410,13 +906,7 @@
               "description": "AI 核心在该势力处的价值倍率",
               "required": false,
               "editable": true,
-              "default": 1,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": 1
             },
             {
               "key": "AICoreRepMult",
@@ -1425,13 +915,7 @@
               "description": "上交 AI 核心获得的声望倍率",
               "required": false,
               "editable": true,
-              "default": 1,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": 1
             },
             {
               "key": "buysSurveyData",
@@ -1440,13 +924,7 @@
               "description": "势力是否收购行星勘探数据",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "hostilityImpactOnGrowth",
@@ -1455,13 +933,7 @@
               "description": "与该势力敌对是否影响殖民地发展",
               "required": false,
               "editable": true,
-              "default": true,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": true
             },
             {
               "key": "caresAboutAtrocities",
@@ -1470,13 +942,7 @@
               "description": "势力是否对玩家的暴行（如饱和轰炸）作出反应",
               "required": false,
               "editable": true,
-              "default": true,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": true
             },
             {
               "key": "decentralized",
@@ -1485,13 +951,7 @@
               "description": "势力是否为去中心化组织（如海盗）",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "engageWhenEvenStrength",
@@ -1500,13 +960,7 @@
               "description": "势力舰队在双方实力相当时是否主动交战",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "exemptFromFoodShortages",
@@ -1515,13 +969,7 @@
               "description": "势力殖民地是否免受食物短缺影响",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "willTradeWhenHostile",
@@ -1530,13 +978,7 @@
               "description": "势力在敌对状态下是否仍允许交易",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "ignoreTradeWithEnemiesForReputation",
@@ -1545,13 +987,7 @@
               "description": "与敌对势力交易时是否不影响声望",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "postsNoBounties",
@@ -1560,13 +996,7 @@
               "description": "势力是否不发布悬赏任务",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "offerMissionsWhenHostile",
@@ -1575,13 +1005,7 @@
               "description": "势力在敌对状态下是否仍提供任务",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "allowsTransponderOffTrade",
@@ -1590,13 +1014,7 @@
               "description": "势力是否允许关闭应答器的船只进行交易",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "patrolsHaveNoPatrolMemoryKey",
@@ -1605,13 +1023,7 @@
               "description": "巡逻队是否没有巡逻记忆键（影响 AI 行为）",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "pirateBehavior",
@@ -1620,13 +1032,7 @@
               "description": "势力舰队是否使用海盗式行为模式",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "makesPirateBases",
@@ -1635,13 +1041,7 @@
               "description": "势力是否会自动生成海盗基地",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "fightToTheLast",
@@ -1650,13 +1050,7 @@
               "description": "势力舰队是否在大多数情况下全力进攻而非撤退",
               "required": false,
               "editable": true,
-              "default": false,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "default": false
             },
             {
               "key": "pirateBaseStationTypes",
@@ -1664,14 +1058,7 @@
               "label": "海盗基地站类型",
               "description": "海盗基地使用的空间站类型及其权重",
               "required": false,
-              "editable": true,
-              "default": null,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
-              "nested": null
+              "editable": true
             },
             {
               "key": "punitiveExpeditionData",
@@ -1680,12 +1067,6 @@
               "description": "势力发动惩罚性远征的条件",
               "required": false,
               "editable": true,
-              "default": null,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
               "nested": [
                 {
                   "key": "vsCompetitors",
@@ -1694,13 +1075,7 @@
                   "description": "是否对商业竞争者发动远征",
                   "required": false,
                   "editable": true,
-                  "default": false,
-                  "warning": null,
-                  "source": null,
-                  "min": null,
-                  "max": null,
-                  "options": null,
-                  "nested": null
+                  "default": false
                 },
                 {
                   "key": "vsFreePort",
@@ -1709,13 +1084,7 @@
                   "description": "是否对自由港发动远征",
                   "required": false,
                   "editable": true,
-                  "default": false,
-                  "warning": null,
-                  "source": null,
-                  "min": null,
-                  "max": null,
-                  "options": null,
-                  "nested": null
+                  "default": false
                 },
                 {
                   "key": "canBombard",
@@ -1724,13 +1093,7 @@
                   "description": "远征舰队是否可以轰炸殖民地",
                   "required": false,
                   "editable": true,
-                  "default": false,
-                  "warning": null,
-                  "source": null,
-                  "min": null,
-                  "max": null,
-                  "options": null,
-                  "nested": null
+                  "default": false
                 },
                 {
                   "key": "territorial",
@@ -1739,13 +1102,7 @@
                   "description": "是否对被夺走的领土发动远征",
                   "required": false,
                   "editable": true,
-                  "default": true,
-                  "warning": null,
-                  "source": null,
-                  "min": null,
-                  "max": null,
-                  "options": null,
-                  "nested": null
+                  "default": true
                 }
               ]
             },
@@ -1756,12 +1113,6 @@
               "description": "战斗模拟器相关配置",
               "required": false,
               "editable": true,
-              "default": null,
-              "warning": null,
-              "source": null,
-              "min": null,
-              "max": null,
-              "options": null,
               "nested": [
                 {
                   "key": "showInSimulator",
@@ -1770,13 +1121,7 @@
                   "description": "势力舰船是否出现在战斗模拟器选项中",
                   "required": false,
                   "editable": true,
-                  "default": true,
-                  "warning": null,
-                  "source": null,
-                  "min": null,
-                  "max": null,
-                  "options": null,
-                  "nested": null
+                  "default": true
                 }
               ]
             }
@@ -1790,12 +1135,7 @@
           "required": false,
           "editable": true,
           "default": {},
-          "warning": null,
-          "source": "enum:trade,tradeLiner,tradeSmuggler,smallTrader,patrolSmall,patrolMedium,patrolLarge,inspectionFleet,taskForce,foodReliefFleet,mercScout,mercBountyHunter,mercPrivateer,mercPatrol,mercArmada",
-          "min": null,
-          "max": null,
-          "options": null,
-          "nested": null
+          "source": "enum:trade,tradeLiner,tradeSmuggler,smallTrader,patrolSmall,patrolMedium,patrolLarge,inspectionFleet,taskForce,foodReliefFleet,mercScout,mercBountyHunter,mercPrivateer,mercPatrol,mercArmada"
         }
       ]
     }

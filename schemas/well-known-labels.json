@@ -1,0 +1,871 @@
+{
+  "$schema": "starsector-devtool/well-known-labels/v1",
+  "tags": {
+    "base_bp": {
+      "label": "基础蓝图",
+      "description": "所有势力默认拥有的蓝图。玩家也默认拥有。"
+    },
+    "rare_bp": {
+      "label": "稀有蓝图",
+      "description": "可在遗迹中找到或打捞科研空间站得到的蓝图。"
+    },
+    "no_bp": {
+      "label": "无蓝图",
+      "description": "不存在单独的蓝图。注意，依然可能被蓝图包所包含。"
+    },
+    "no_drop": {
+      "label": "不可掉落",
+      "description": "不会作为战斗掉落物生成，也不会在遗迹中找到或在打捞空间站找到。"
+    },
+    "no_drop_salvage": {
+      "label": "打捞不掉落",
+      "description": "不会在残骸区找到。"
+    },
+    "no_loss_from_combat": {
+      "label": "战斗不损失",
+      "description": "仅适用于货物。不会因为舰队战斗损失。"
+    },
+    "restricted": {
+      "label": "受限(RES)",
+      "description": "表示该组件是特殊的，仅作为标记。"
+    },
+    "codex_unlockable": {
+      "label": "百科可解锁",
+      "description": "在百科中默认锁定，需要遇见或获取后解锁。"
+    },
+    "hide_in_codex": {
+      "label": "在百科中隐藏",
+      "description": "仅适用于武器。舰船的隐藏在 hints 中定义。"
+    },
+    "show_in_codex": {
+      "label": "显示于百科",
+      "description": "仅适用于武器。强制该条目在百科中显示。"
+    },
+    "show_in_codex_as_ship": {
+      "label": "按舰船显示于百科",
+      "description": "让该条目在百科中按舰船条目显示。"
+    },
+    "show_in_planet_list": {
+      "label": "显示于行星列表",
+      "description": "仅适用于市场条件。会显示在行星列表中。"
+    },
+    "no_autofit": {
+      "label": "不自动装配",
+      "description": "仅适用于舰船。不会触发随机装配。"
+    },
+    "no_sell": {
+      "label": "不可出售",
+      "description": "市场不会出售该组件。"
+    },
+    "no_dealer": {
+      "label": "不可交易",
+      "description": "交易商不会交易该组件。"
+    },
+    "no_build_in": {
+      "label": "不可内置",
+      "description": "仅适用于舰船插件。不能作为内置插件。"
+    },
+    "no_standard_data": {
+      "label": "无标准数据",
+      "description": "仅适用于武器。不按标准数据方式展示或处理。"
+    },
+    "no_sim": {
+      "label": "模拟战不可用",
+      "description": "仅适用于舰船。不会出现在模拟战相关选择中。"
+    },
+    "no_derelict": {
+      "label": "不生成遗弃船",
+      "description": "仅适用于舰船。舰船不会以遗弃船的形式生成，无论实际上是否可打捞。"
+    },
+    "no_battle_salvage": {
+      "label": "战后不打捞",
+      "description": "仅适用于舰船。战后无法从中打捞到任何东西。"
+    },
+    "no_armor_schematic": {
+      "label": "无装甲图示",
+      "description": "仅适用于舰船。不在解析面部中显示其装甲。"
+    },
+    "no_auto_penalty": {
+      "label": "无自动舰船惩罚",
+      "description": "仅适用于舰船。不受任何自动舰船相关机制惩罚，包括安装 AI 核心时的部署点惩罚。"
+    },
+    "fighter": {
+      "label": "战斗机",
+      "description": "仅适用于战机联队。分类为战斗机。"
+    },
+    "interceptor": {
+      "label": "截击机",
+      "description": "仅适用于战机联队。分类为截击机。"
+    },
+    "bomber": {
+      "label": "轰炸机",
+      "description": "仅适用于战机联队。分类为轰炸机。"
+    },
+    "support": {
+      "label": "支援机",
+      "description": "仅适用于战机联队。分类为支援机。"
+    },
+    "attack_at_an_angle": {
+      "label": "斜角攻击",
+      "description": "仅适用于战机联队。战机 AI 将环绕目标并攻击。"
+    },
+    "auto_fighter": {
+      "label": "自动战机",
+      "description": "仅适用于战机联队。视为无人机，允许由自动舰船搭载。"
+    },
+    "drone": {
+      "label": "无人机",
+      "description": "仅适用于战机联队。分类为无人机。"
+    },
+    "independent_of_carrier": {
+      "label": "独立于航母",
+      "description": "仅适用于战机联队。战机行为不完全依赖母舰。"
+    },
+    "leader_no_swarm": {
+      "label": "长机不聚集",
+      "description": "仅适用于战机联队。联队长机不会刻意聚集。"
+    },
+    "match_leader_facing": {
+      "label": "匹配长机朝向",
+      "description": "仅适用于战机联队。联队僚机会匹配长机朝向。"
+    },
+    "rapid_reform": {
+      "label": "快速重组",
+      "description": "仅适用于战机联队。理论上重整阵型时更快，但实际上效果非常不显著。"
+    },
+    "stay_in_front_of_ship": {
+      "label": "停留在舰船前方",
+      "description": "仅适用于战机联队的支援机联队。支援机会倾向保持在母舰前方，而非默认的后方。"
+    },
+    "swarm_fighter": {
+      "label": "集群战机联队",
+      "description": "集群威胁的战机标签。"
+    },
+    "wingmen_no_swarm": {
+      "label": "僚机不聚集",
+      "description": "仅适用于战机联队。联队僚机不会刻意聚集。"
+    },
+    "ind": {
+      "label": "非势力团体",
+      "description": "非势力团体会携带该组件。"
+    },
+    "merc": {
+      "label": "雇佣兵",
+      "description": "非势力团体的高级雇佣兵会携带该组件。"
+    },
+    "threat": {
+      "label": "集群威胁",
+      "description": "集群威胁的战机或威胁相关内容标签。"
+    },
+    "monster": {
+      "label": "怪物",
+      "description": "怪物类特殊内容标签。"
+    },
+    "hist1t": {
+      "label": "历史学家 1",
+      "description": "让历史学家相关事件可能指出该组件的蓝图。较为稀有。"
+    },
+    "hist2t": {
+      "label": "历史学家 2",
+      "description": "让历史学家相关事件可能指出该组件的蓝图。非常稀有。"
+    },
+    "hist3t": {
+      "label": "历史学家 3",
+      "description": "让历史学家相关事件可能指出该组件的蓝图。极其稀有。"
+    },
+    "kanta_gift": {
+      "label": "Kanta 赠礼",
+      "description": "仅适用于舰船。Kanta 将接受其作为礼物。"
+    },
+    "req_military": {
+      "label": "需要军事市场",
+      "description": "仅适用于舰船。只会在军用市场出现。"
+    },
+    "military": {
+      "label": "军用品",
+      "description": "适用于商品或殖民地设施。表示商品是军用物资，或殖民地设施作为 patrol/military/command 中的二级。"
+    },
+    "crew": {
+      "label": "船员",
+      "description": "仅适用于商品。船员货物标签。"
+    },
+    "personnel": {
+      "label": "人员",
+      "description": "仅适用于商品。人员货物标签。"
+    },
+    "marines": {
+      "label": "陆战队员",
+      "description": "仅适用于商品。陆战队员货物标签。"
+    },
+    "food": {
+      "label": "食品",
+      "description": "仅适用于商品。食品货物标签。"
+    },
+    "luxury": {
+      "label": "奢侈品",
+      "description": "仅适用于商品。奢侈品货物标签。"
+    },
+    "medical": {
+      "label": "医疗品",
+      "description": "仅适用于商品。医疗品货物标签。"
+    },
+    "ai_core": {
+      "label": "AI 核心",
+      "description": "仅适用于商品。AI 核心货物标签。"
+    },
+    "nonecon": {
+      "label": "非经济商品",
+      "description": "仅适用于商品。不作为普通经济商品处理。"
+    },
+    "exotic": {
+      "label": "特异商品",
+      "description": "仅适用于商品。特异货物标签。"
+    },
+    "expensive": {
+      "label": "高价值商品",
+      "description": "仅适用于商品。高价值货物标签。"
+    },
+    "meta": {
+      "label": "代码适配商品",
+      "description": "仅适用于商品。用于适配代码的商品标签。不应该直接在游戏出现。"
+    },
+    "colony_item": {
+      "label": "殖民地物品",
+      "description": "仅适用于特殊物品。可安装于殖民地设施的物品。"
+    },
+    "mission_item": {
+      "label": "任务物品",
+      "description": "仅适用于特殊物品。各类与任务相关的物品。"
+    },
+    "single_bp": {
+      "label": "单项蓝图",
+      "description": "仅适用于特殊物品。用于适配代码的商品标签。不应该直接在游戏出现。"
+    },
+    "package_bp": {
+      "label": "蓝图包",
+      "description": "仅适用于特殊物品。可能包含武器、舰船、战机联队的蓝图包。plugin params 指向关联的蓝图标签。"
+    },
+    "modspec": {
+      "label": "插件规格",
+      "description": "仅适用于特殊物品。用于适配代码的商品标签。不应该直接在游戏出现。"
+    },
+    "nanoforge": {
+      "label": "纳米锻炉",
+      "description": "仅适用于特殊物品。纳米锻炉类殖民地物品。"
+    },
+    "planet_search": {
+      "label": "行星搜索",
+      "description": "仅适用于特殊物品。可在行星搜索面板出现。"
+    },
+    "pather1": {
+      "label": "左径兴趣 1",
+      "description": "仅适用于特殊物品。卢德左径兴趣等级标签，数字越大兴趣越高，范围仅限 1/2/4/6/8/10。"
+    },
+    "pather2": {
+      "label": "左径兴趣 2",
+      "description": "仅适用于特殊物品。卢德左径兴趣等级标签，数字越大兴趣越高，范围仅限 1/2/4/6/8/10。"
+    },
+    "pather4": {
+      "label": "左径兴趣 4",
+      "description": "仅适用于特殊物品。卢德左径兴趣等级标签，数字越大兴趣越高，范围仅限 1/2/4/6/8/10。"
+    },
+    "pather6": {
+      "label": "左径兴趣 6",
+      "description": "仅适用于特殊物品。卢德左径兴趣等级标签，数字越大兴趣越高，范围仅限 1/2/4/6/8/10。"
+    },
+    "pather8": {
+      "label": "左径兴趣 8",
+      "description": "仅适用于特殊物品。卢德左径兴趣等级标签，数字越大兴趣越高，范围仅限 1/2/4/6/8/10。"
+    },
+    "pather10": {
+      "label": "左径兴趣 10",
+      "description": "仅适用于特殊物品。卢德左径兴趣等级标签，数字越大兴趣越高，范围仅限 1/2/4/6/8/10。"
+    },
+    "battlestation": {
+      "label": "战斗空间站",
+      "description": "仅适用于殖民地设施。和 station 同时使用时，表示空间站是二级战斗空间站。"
+    },
+    "starfortress": {
+      "label": "星堡",
+      "description": "仅适用于殖民地设施。和 station 同时使用时，表示空间站是三级星堡。"
+    },
+    "station": {
+      "label": "空间站",
+      "description": "仅适用于殖民地设施。表示这是一种空间站，并且会产生附属空间站实体。"
+    },
+    "industry": {
+      "label": "工业设施",
+      "description": "仅适用于殖民地设施。需要占用工业设施位置数。"
+    },
+    "structure": {
+      "label": "常规设施",
+      "description": "仅适用于殖民地设施。不需要占用工业设施位置数。"
+    },
+    "industrial": {
+      "label": "工业倾向",
+      "description": "仅适用于殖民地设施。让殖民地的被视作工业殖民地的因素增加。"
+    },
+    "rural": {
+      "label": "乡村倾向",
+      "description": "仅适用于殖民地设施。让殖民地的被视作乡村殖民地的因素增加。"
+    },
+    "urban": {
+      "label": "城市倾向",
+      "description": "仅适用于殖民地设施。让殖民地的被视作城市殖民地的因素增加。"
+    },
+    "unraidable": {
+      "label": "不可劫掠",
+      "description": "仅适用于殖民地设施。该设施无法被劫掠。"
+    },
+    "uses_blueprints": {
+      "label": "含有蓝图",
+      "description": "仅适用于殖民地设施。可以从该设施劫掠得到蓝图。"
+    },
+    "parent_item": {
+      "label": "父设施",
+      "description": "仅适用于殖民地设施。该设施在建造界面中被视作 '一类' 殖民地设施的统一入口。"
+    },
+    "sub_item": {
+      "label": "子设施",
+      "description": "仅适用于殖民地设施。该设施在建造界面中被视作 '一类' 的殖民地设施入口内的次级标签。"
+    },
+    "patrol": {
+      "label": "巡逻",
+      "description": "仅适用于殖民地设施。作为 patrol/military/command 中的一级。"
+    },
+    "command": {
+      "label": "指挥",
+      "description": "仅适用于殖民地设施。作为 patrol/military/command 中的三级。"
+    },
+    "cryorevival": {
+      "label": "低温复苏设施",
+      "description": "仅适用于殖民地设施。低温复苏设施行业标签。"
+    },
+    "cryosanctum": {
+      "label": "低温避难所",
+      "description": "仅适用于殖民地设施。低温避难所行业标签。"
+    },
+    "farming": {
+      "label": "农业",
+      "description": "仅适用于殖民地设施。农业行业标签。"
+    },
+    "fuelprod": {
+      "label": "燃料生产",
+      "description": "仅适用于殖民地设施。燃料生产行业标签。"
+    },
+    "grounddefenses": {
+      "label": "地面防御",
+      "description": "仅适用于殖民地设施。表示该设施具备提供地面防御能力加成的效果。"
+    },
+    "heavyindustry": {
+      "label": "重工业",
+      "description": "仅适用于殖民地设施。重工业行业标签。"
+    },
+    "lightindustry": {
+      "label": "轻工业",
+      "description": "仅适用于殖民地设施。轻工业行业标签。"
+    },
+    "mining": {
+      "label": "采矿",
+      "description": "仅适用于殖民地设施。采矿行业标签。"
+    },
+    "population": {
+      "label": "人口",
+      "description": "仅适用于殖民地设施。人口行业标签。"
+    },
+    "refining": {
+      "label": "精炼",
+      "description": "仅适用于殖民地设施。精炼行业标签。"
+    },
+    "spaceport": {
+      "label": "太空港",
+      "description": "仅适用于殖民地设施。太空港行业标签。"
+    },
+    "tactical_bombardment": {
+      "label": "可被战术轰炸",
+      "description": "仅适用于殖民地设施。表示该设施可被选为战术轰炸目标。"
+    },
+    "techmining": {
+      "label": "技术采矿",
+      "description": "仅适用于殖民地设施。技术采矿行业标签。"
+    },
+    "waystation": {
+      "label": "中转站",
+      "description": "仅适用于殖民地设施。中转站行业标签。"
+    },
+    "active_defenses": {
+      "label": "主动防御",
+      "description": "仅适用于技能。具有主动防御能力。"
+    },
+    "ai_core_only": {
+      "label": "仅 AI 核心",
+      "description": "仅适用于技能。仅 AI 核心可用的技能。"
+    },
+    "ballistic_weapons": {
+      "label": "实弹武器",
+      "description": "仅适用于技能。加成实弹武器的能力。"
+    },
+    "carrier": {
+      "label": "航母",
+      "description": "仅适用于技能。加成航母能力加成。"
+    },
+    "elite_player_only": {
+      "label": "仅玩家精英",
+      "description": "仅适用于技能。仅玩家可将其精英化。"
+    },
+    "energy_weapons": {
+      "label": "能量武器",
+      "description": "仅适用于技能。加成能量武器的能力。"
+    },
+    "missile_weapons": {
+      "label": "导弹武器",
+      "description": "仅适用于技能。加成导弹武器的能力。"
+    },
+    "npc_only": {
+      "label": "仅 NPC",
+      "description": "仅适用于技能。仅 NPC 可用的技能。"
+    },
+    "phase": {
+      "label": "相位",
+      "description": "仅适用于技能。加成相位舰的能力。"
+    },
+    "player_only": {
+      "label": "仅玩家",
+      "description": "仅适用于技能。仅玩家可用的技能。"
+    },
+    "spec": {
+      "label": "专业化",
+      "description": "仅适用于技能。该标签已不再使用。"
+    },
+    "deprecated": {
+      "label": "已废弃",
+      "description": "仅适用于技能。该技能已废弃。"
+    },
+    "damage": {
+      "label": "受损",
+      "description": "仅适用于舰船插件。被归类为受损类。"
+    },
+    "defensive": {
+      "label": "防御",
+      "description": "仅适用于舰船插件。被归类为防御类。"
+    },
+    "offensive": {
+      "label": "进攻",
+      "description": "仅适用于舰船插件。被归类为进攻类。"
+    },
+    "movement": {
+      "label": "机动",
+      "description": "仅适用于舰船插件。被归类为机动类。"
+    },
+    "engines": {
+      "label": "引擎",
+      "description": "仅适用于舰船插件。被归类为引擎类。"
+    },
+    "shields": {
+      "label": "护盾",
+      "description": "仅适用于舰船插件。被归类为护盾类。"
+    },
+    "weapons": {
+      "label": "武器",
+      "description": "仅适用于舰船插件。被归类为武器类。"
+    },
+    "standard": {
+      "label": "标准插件",
+      "description": "仅适用于舰船插件。所有势力默认拥有的插件。"
+    },
+    "special": {
+      "label": "特殊插件",
+      "description": "仅适用于舰船插件。被归类为特殊类。"
+    },
+    "dmod": {
+      "label": "D 插",
+      "description": "仅适用于舰船插件。被归类为 D-Mod 插件。"
+    },
+    "civ": {
+      "label": "民用 D 插",
+      "description": "仅适用于舰船插件。与 dmod 同时使用时，让该 dmod 会在民用船上出现。"
+    },
+    "civ_package": {
+      "label": "民用插件包",
+      "description": "仅适用于舰船插件。被归类为民用插件包。"
+    },
+    "civOnly": {
+      "label": "仅民用 D 插",
+      "description": "仅适用于舰船插件。与 dmod 同时使用时，让该 dmod 只会在民用船上出现，不会在非民用船上出现。"
+    },
+    "non_phase": {
+      "label": "非相位",
+      "description": "仅适用于舰船插件。无法在相位舰上安装。"
+    },
+    "notPhase": {
+      "label": "非相位 D 插",
+      "description": "仅适用于舰船插件。与 dmod 同时使用时，让该 dmod 不会在相位舰上出现。"
+    },
+    "notAuto": {
+      "label": "非自动舰船 D 插",
+      "description": "仅适用于舰船插件。与 dmod 同时使用时，让该 dmod 不会在自动舰船上出现。"
+    },
+    "req_spaceport": {
+      "label": "需要太空港",
+      "description": "仅适用于舰船插件。需要在太空港中才可安装或卸载。"
+    },
+    "reqShields": {
+      "label": "需要护盾",
+      "description": "仅适用于舰船插件。需要舰船拥有护盾才可安装。"
+    },
+    "damageStruct": {
+      "label": "结构伤害 D 插",
+      "description": "仅适用于舰船插件。相较于其它 dmod，有更高概率出现。"
+    },
+    "destroyedDamageAlways": {
+      "label": "摧毁必带 D 插",
+      "description": "仅适用于舰船插件。舰船摧毁后必定带有的 dmod。"
+    },
+    "fighterBayDamage": {
+      "label": "甲板 D 插",
+      "description": "仅适用于舰船插件。与 dmod 同时使用时，让该 dmod 只会在带有甲板的舰船上出现。"
+    },
+    "phaseDamage": {
+      "label": "相位 D 插",
+      "description": "仅适用于舰船插件。与 dmod 同时使用时，让该 dmod 只会在相位舰上出现。"
+    },
+    "phase_brawler": {
+      "label": "相位搏斗者",
+      "description": "仅适用于舰船插件。让 AI 倾向于更积极的战斗方式。"
+    },
+    "peak_time": {
+      "label": "峰值 D 插",
+      "description": "仅适用于舰船插件。与 dmod 同时使用时，让该 dmod 只会在有峰值时间限制的舰船上出现。"
+    },
+    "shrouded": {
+      "label": "渊幕",
+      "description": "仅适用于舰船插件。渊幕原种相关插件标签。"
+    },
+    "codex_require_related": {
+      "label": "百科连带显示",
+      "description": "仅适用于舰船插件。只需要接触过携带该插件的舰船，即可显示，而不必实际拥有该插件或带有该插件的舰船。"
+    },
+    "limited_tooltip_if_locked": {
+      "label": "未解锁时限制提示",
+      "description": "仅适用于舰船。百科未解锁时，只显示非常有限的描述内容。"
+    },
+    "module_hull_bar_only": {
+      "label": "仅模块舰体条",
+      "description": "仅适用于舰船。只显示结构条。"
+    },
+    "center_diamond_on_hull_center": {
+      "label": "菱形居中",
+      "description": "仅适用于舰船。战术图标菱形以舰体中心为准。"
+    },
+    "full_cr_recovery": {
+      "label": "完整 CR 恢复",
+      "description": "仅适用于舰船。战斗结束后恢复完整战备值。"
+    },
+    "special_allows_system_use": {
+      "label": "特殊允许系统",
+      "description": "仅适用于舰船。让 AI 在右键战术系统启动时，允许使用 F 战术系统。"
+    },
+    "system_allows_special_use": {
+      "label": "系统允许特殊",
+      "description": "仅适用于舰船。让 AI 在 F 战术系统启动时，允许使用右键战术系统。"
+    },
+    "uses_damper_ai": {
+      "label": "使用阻尼 AI",
+      "description": "仅适用于战术系统。使用阻尼类 AI。"
+    },
+    "burn-": {
+      "label": "降低最大航速",
+      "description": "仅适用于能力。降低最大航速。"
+    },
+    "burn+": {
+      "label": "提高最大航速",
+      "description": "仅适用于能力。提高最大航速。"
+    },
+    "sensors-": {
+      "label": "降低感应强度",
+      "description": "仅适用于能力。降低感应强度。"
+    },
+    "sensors+": {
+      "label": "提高感应强度",
+      "description": "仅适用于能力。提高感应强度。"
+    },
+    "stealth-": {
+      "label": "降低隐蔽",
+      "description": "仅适用于能力。降低隐蔽效果。"
+    },
+    "stealth+": {
+      "label": "提高隐蔽",
+      "description": "仅适用于能力。提高隐蔽效果。"
+    },
+    "disabled_by_interdict": {
+      "label": "可被阻断脉冲禁用",
+      "description": "仅适用于能力。能力会被阻断脉冲脉冲所打断。"
+    },
+    "fixed_range": {
+      "label": "固定射程",
+      "description": "仅适用于武器。射程不受任何因素影响。"
+    },
+    "fires_one_burst": {
+      "label": "单轮爆发",
+      "description": "仅适用于武器。一般只会在 DEM 弹头出现。一次发射一个完整爆发周期。"
+    },
+    "damage_soft_flux": {
+      "label": "软幅能伤害",
+      "description": "仅适用于武器。造成软幅能伤害。"
+    },
+    "damage_special": {
+      "label": "特殊伤害",
+      "description": "仅适用于武器。不显示伤害数值。"
+    },
+    "fragment": {
+      "label": "碎片",
+      "description": "仅适用于武器。接入集群威胁的碎片类武器机制。"
+    },
+    "fragment_glow": {
+      "label": "碎片发光",
+      "description": "仅适用于武器。接入集群威胁的碎片类武器机制，且碎片发光。"
+    },
+    "lidar": {
+      "label": "激光雷达",
+      "description": "仅适用于武器。激光雷达武器标签。"
+    },
+    "LR": {
+      "label": "远程",
+      "description": "仅适用于武器。让 AI 倾向于和其它远程武器分为同一武器组。"
+    },
+    "SR": {
+      "label": "近程",
+      "description": "仅适用于武器。让 AI 倾向于和其它近程武器分为同一武器组。"
+    },
+    "pusherplate": {
+      "label": "推力板",
+      "description": "仅适用于武器。该武器是某种猎户座驱动式战术系统的推力板。"
+    },
+    "reload_1pt": {
+      "label": "导弹装填机 1 消耗",
+      "description": "仅适用于武器。当导弹自动装填机恢复其备弹量时，固定消耗 1 点资源。"
+    },
+    "reload_1_and_a_half_pt": {
+      "label": "导弹装填机 1.5 消耗",
+      "description": "仅适用于武器。当导弹自动装填机恢复其备弹量时，固定消耗 1.5 点资源。"
+    },
+    "reload_2pt": {
+      "label": "导弹装填机 2 消耗",
+      "description": "仅适用于武器。当导弹自动装填机恢复其备弹量时，固定消耗 2 点资源。"
+    },
+    "reload_3pt": {
+      "label": "导弹装填机 3 消耗",
+      "description": "仅适用于武器。当导弹自动装填机恢复其备弹量时，固定消耗 3 点资源。"
+    },
+    "reload_4pt": {
+      "label": "导弹装填机 4 消耗",
+      "description": "仅适用于武器。当导弹自动装填机恢复其备弹量时，固定消耗 4 点资源。"
+    },
+    "reload_5pt": {
+      "label": "导弹装填机 5 消耗",
+      "description": "仅适用于武器。当导弹自动装填机恢复其备弹量时，固定消耗 5 点资源。"
+    },
+    "reload_6pt": {
+      "label": "导弹装填机 6 消耗",
+      "description": "仅适用于武器。当导弹自动装填机恢复其备弹量时，固定消耗 6 点资源。"
+    },
+    "no_reload": {
+      "label": "不适用于导弹装填机",
+      "description": "仅适用于武器。被导弹自动装填机强制忽略。"
+    }
+  },
+  "hints": {
+    "PD": {
+      "label": "点防御",
+      "description": "仅适用于武器。会自动对导弹开火，且优先对导弹开火。"
+    },
+    "PD_ALSO": {
+      "label": "兼作点防御",
+      "description": "仅适用于武器。与 PD 一同使用时才有效，优先对非导弹开火，其次才是对导弹开火。"
+    },
+    "PD_ONLY": {
+      "label": "仅点防御",
+      "description": "仅适用于武器。与 PD 一同使用时才有效，只会对导弹开火。"
+    },
+    "STRIKE": {
+      "label": "打击武器",
+      "description": "仅适用于武器。让 AI 认为该武器具备某种斩杀性质，且尽可能避免对战机和护卫舰开火。"
+    },
+    "USE_VS_FRIGATES": {
+      "label": "可对抗护卫舰",
+      "description": "仅适用于武器。与 STRIKE 一同使用时才有效，不再避免对护卫舰开火。"
+    },
+    "ANTI_FTR": {
+      "label": "优先对抗战机",
+      "description": "仅适用于武器。优先对战机开火。与 STRIKE 一同使用时，不再避免对战机开火。"
+    },
+    "BOMB": {
+      "label": "炸弹",
+      "description": "仅适用于武器。标记为炸弹类武器。"
+    },
+    "SYSTEM": {
+      "label": "系统武器",
+      "description": "仅适用于武器。表示这是一个系统武器，且还会自动在百科中隐藏。"
+    },
+    "DO_NOT_AIM": {
+      "label": "无需瞄准",
+      "description": "仅适用于武器。让 AI 认为这是一个制导武器，无需瞄准目标即可开火。"
+    },
+    "DIRECT_AIM": {
+      "label": "直接瞄准",
+      "description": "仅适用于武器。让 AI 直接瞄准目标。"
+    },
+    "NO_AUTO_FIRE": {
+      "label": "不自动开火",
+      "description": "仅适用于武器。让 AI 不自动开火。"
+    },
+    "NO_MANUAL_FIRE": {
+      "label": "不可手动开火",
+      "description": "仅适用于武器。玩家不能手动开火。"
+    },
+    "DO_NOT_CONSERVE": {
+      "label": "不节省弹药",
+      "description": "仅适用于武器。AI 不按节省弹药逻辑保留弹药。"
+    },
+    "CONSERVE_1": {
+      "label": "节省弹药 1",
+      "description": "仅适用于武器。让 AI 倾向于保留至少 1 轮发射的弹药。"
+    },
+    "CONSERVE_2": {
+      "label": "节省弹药 2",
+      "description": "仅适用于武器。让 AI 倾向于保留至少 2 轮发射的弹药。"
+    },
+    "CONSERVE_3": {
+      "label": "节省弹药 3",
+      "description": "仅适用于武器。让 AI 倾向于保留至少 3 轮发射的弹药。"
+    },
+    "CONSERVE_4": {
+      "label": "节省弹药 4",
+      "description": "仅适用于武器。让 AI 倾向于保留至少 4 轮发射的弹药。"
+    },
+    "CONSERVE_5": {
+      "label": "节省弹药 5",
+      "description": "仅适用于武器。让 AI 倾向于保留至少 5 轮发射的弹药。"
+    },
+    "CONSERVE_ALL": {
+      "label": "节省全部弹药",
+      "description": "仅适用于武器。AI 尽量保留全部弹药。"
+    },
+    "CONSERVE_FOR_ANTI_ARMOR": {
+      "label": "节省反装甲弹药",
+      "description": "仅适用于武器。与 CONSERVE_ 系列 hints 同时使用时，AI 倾向为反装甲目标保留弹药。"
+    },
+    "FIRE_WHEN_INEFFICIENT": {
+      "label": "频繁开火",
+      "description": "仅适用于武器。即使命中收益不大或伤害效率较低，也允许开火。"
+    },
+    "DANGEROUS": {
+      "label": "危险武器",
+      "description": "仅适用于武器。让 AI 在被该武器指向时倾向于认为自己处境危险。"
+    },
+    "IMPORTANT": {
+      "label": "重要武器",
+      "description": "仅适用于武器。让 AI 更倾向于直接操作该武器，而非自动开火。"
+    },
+    "GROUP_ALTERNATING": {
+      "label": "武器组交替开火",
+      "description": "仅适用于武器。含有该武器的武器组默认设为交替开火。"
+    },
+    "GROUP_LINKED": {
+      "label": "武器组同时开火",
+      "description": "仅适用于武器。含有该武器的武器组默认设为同时开火。"
+    },
+    "GUIDED_POOR": {
+      "label": "弱制导",
+      "description": "仅适用于武器。DO_NOT_AIM 的弱化版，让 AI 认为目标在一定角度范围内即可开火。"
+    },
+    "HEATSEEKER": {
+      "label": "追尾",
+      "description": "仅适用于武器。让 AI 认为这种武器发射的弹体会追尾目标的引擎。对于导弹武器，将修改其飞行 AI 为追尾。"
+    },
+    "MISSILE_SPREAD": {
+      "label": "导弹散开",
+      "description": "仅适用于武器。让 AI 认为这种武器发射的弹体会散开。"
+    },
+    "RANGE_FROM_SHIP_RADIUS": {
+      "label": "射程从舰体半径计算",
+      "description": "仅适用于武器。让 AI 基于舰船半径计算武器射程，而非根据实际武器的位置计算。"
+    },
+    "RANGE_FROM_TARGETING_OVAL": {
+      "label": "射程从瞄准椭圆计算",
+      "description": "仅适用于武器。让 AI 基于舰船凸包椭圆计算武器射程，而非根据实际武器的位置计算。"
+    },
+    "USE_LESS_VS_SHIELDS": {
+      "label": "少用于护盾",
+      "description": "仅适用于武器。让 AI 只会在备弹量满 (如果有备弹量) 时才对护盾开火。"
+    },
+    "SHOW_IN_CODEX": {
+      "label": "显示于百科",
+      "description": "仅适用于武器。在百科中显示该条目。"
+    },
+    "HIDE_IN_CODEX": {
+      "label": "隐藏于百科",
+      "description": "仅适用于舰船。在百科中隐藏该条目。"
+    },
+    "ALWAYS_PANIC": {
+      "label": "总是恐慌",
+      "description": "仅适用于舰船。舰船 AI 总是按恐慌行为处理，并且特别频繁地使用导弹武器。"
+    },
+    "CARRIER": {
+      "label": "航母",
+      "description": "仅适用于舰船。舰船角色分类为航母。"
+    },
+    "CIVILIAN": {
+      "label": "民用舰船",
+      "description": "仅适用于舰船。舰船角色分类为民用。"
+    },
+    "COMBAT": {
+      "label": "战斗舰船",
+      "description": "仅适用于舰船。舰船角色分类为战斗舰。"
+    },
+    "FREIGHTER": {
+      "label": "货船",
+      "description": "仅适用于舰船。舰船角色分类为货船。"
+    },
+    "LINER": {
+      "label": "客船",
+      "description": "仅适用于舰船。舰船角色分类为客船。"
+    },
+    "MODULE": {
+      "label": "舰船模块",
+      "description": "仅适用于舰船。该舰船作为模块使用。"
+    },
+    "SHIP_WITH_MODULES": {
+      "label": "带模块舰船",
+      "description": "仅适用于舰船。该舰船拥有舰船模块。"
+    },
+    "STATION": {
+      "label": "空间站",
+      "description": "仅适用于舰船。舰船角色分类为空间站。"
+    },
+    "TANKER": {
+      "label": "油船",
+      "description": "仅适用于舰船。舰船角色分类为油船。"
+    },
+    "TRANSPORT": {
+      "label": "运输舰",
+      "description": "仅适用于舰船。舰船角色分类为运输舰。"
+    },
+    "UNBOARDABLE": {
+      "label": "不可登舰",
+      "description": "仅适用于舰船。战后不可打捞回收。"
+    },
+    "UNDER_PARENT": {
+      "label": "父级之下",
+      "description": "仅适用于舰船模块。模块的图层渲染在舰船的图层之下。"
+    },
+    "NEVER_DODGE_MISSILES": {
+      "label": "不躲导弹",
+      "description": "仅适用于舰船。AI 不执行躲避导弹行为。"
+    },
+    "NO_AUTO_ESCORT": {
+      "label": "不自动护航",
+      "description": "仅适用于舰船。与 CARRIER 同时使用时，不会被其它舰船自动护航。"
+    }
+  }
+}

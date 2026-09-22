@@ -25,22 +25,22 @@ export interface FieldSchema {
   key: string;
   type: FieldType;
   label: string;
-  description?: string | null;
-  required?: boolean | null;
-  editable?: boolean | null;
+  description?: string;
+  required?: boolean;
+  editable?: boolean;
   default?: unknown;
-  warning?: string | null;
-  danger?: string | null;
-  source?: string | null;
-  min?: number | null;
-  max?: number | null;
-  step?: number | null;
-  options?: string[] | null;
-  nested?: FieldSchema[] | null;
-  item?: FieldSchema | null;
-  valueSchema?: FieldSchema | null;
+  warning?: string;
+  danger?: string;
+  source?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  options?: string[];
+  nested?: FieldSchema[];
+  item?: FieldSchema;
+  valueSchema?: FieldSchema;
   /** Underlying key-value storage format: 'array-of-entries' means [{k:v}, ...] arrays */
-  format?: 'array-of-entries' | null;
+  format?: 'array-of-entries';
 }
 
 export interface SectionSchema {

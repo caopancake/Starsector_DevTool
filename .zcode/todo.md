@@ -128,9 +128,9 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 2.9: schema 资产与静态数据整理
 
-- [ ] CSV 列 schema 版本头统一（14 份补齐或全仓统一为一套契约）；null 冗余键清理为精简形态（与既有精简风格归一）；CSV schema 文件命名依据统一（`hullmods` 游戏原名与 `shipSystems` 自造名裁决）。
-- [ ] `source_options.rs` 约 850 行 `WELL_KNOWN_TAG_LABELS`/`WELL_KNOWN_HINT_LABELS` 静态标签数据外置 `schemas/` 资产，经唯一加载入口消费，`source_options.rs` 回归逻辑文件。
-- [ ] 跑前端全套检查、`node scripts/check-architecture.mjs`。
+- [x] 14 份 CSV 列 schema 补齐版本头：裸数组改为 `{ $schema: csv-columns/v1, table, columns }` 对象，与 spec 资产 `field-schema/v1` 统一为一套版本契约，`parseCsvColumnSchemas` 在唯一加载入口校验版本头与 `table` 一致；`FieldSchema` 可选属性删除冗余 `| null`。faction(660 行)/mod-info(95 行) null 冗余键清空为精简形态，与 HEAD 剥离 null 后逐字节语义等价。命名裁决：schema 文件命名依据 = 表注册表 key（14 份已逐一相等），游戏原文件名映射唯一归后端 `CsvTableSpec.rel_path`，成文 schema.md。
+- [x] `source_options.rs` 2029→1172 行：`WELL_KNOWN_TAG_LABELS`(168 条)/`WELL_KNOWN_HINT_LABELS`(48 条) 外置 `schemas/well-known-labels.json`，经新增 `domain/well_known_labels.rs` 唯一加载入口 `include_str!` 编译期内嵌 + `LazyLock` 解析（校验版本头）；JSON 与 Rust 原数据逐条语义对账 0 mismatch；`GENERATED_TAG_PATTERNS`(15 条) 为生成逻辑留 Rust；`parser-boundary` 角色分类器为内嵌资产补 `tool-json` 角色（app_settings/workspace_persistence 同语义）。
+- [x] 跑 cargo 全套（fmt/clippy/test 270 = 基线 268 + 新增 2）、前端全套（format/encoding/lint 三件套/typecheck/test 103/build）全绿。
 
 ### Phase 2.10: noUncheckedIndexedAccess 消化启用
 
