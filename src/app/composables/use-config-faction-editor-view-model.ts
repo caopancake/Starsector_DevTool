@@ -3,8 +3,8 @@ import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import { useConfigEditorDraftSession } from '@/app/composables/use-config-editor-draft-session';
 import { configFactionEditorModel } from '@/domain/config/config-entities';
 import type { FileSchema } from '@/domain/schema/schema.types';
-import { deepClone } from '@/shared/lib/starsector';
-import type { JsonValue, RowData } from '@/shared/types';
+import { cell, deepClone } from '@/shared/lib/starsector';
+import type { RowData } from '@/shared/types';
 
 export function useConfigFactionEditorViewModel(params: {
   dataRevision: Ref<number>;
@@ -60,13 +60,7 @@ export function useConfigFactionEditorViewModel(params: {
   );
 
   watch(
-    () =>
-      [
-        params.sessionId.value,
-        stringValue(factionFile.value.logo),
-        stringValue(factionFile.value.crest),
-        params.previewRevision.value,
-      ] as const,
+    () => [params.sessionId.value, cell(factionFile.value.logo), cell(factionFile.value.crest), params.previewRevision.value] as const,
     () => refreshImagePreviews(),
     { immediate: true },
   );
@@ -108,7 +102,7 @@ export function useConfigFactionEditorViewModel(params: {
     }
   }
 
-  const displayName = computed(() => stringValue(factionFile.value.displayName) || params.factionId.value);
+  const displayName = computed(() => cell(factionFile.value.displayName) || params.factionId.value);
 
   return {
     crestSrc,
@@ -121,10 +115,4 @@ export function useConfigFactionEditorViewModel(params: {
     save,
     saving: draftSession.saving,
   };
-}
-
-function stringValue(value: JsonValue | undefined): string {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value;
-  return JSON.stringify(value);
 }

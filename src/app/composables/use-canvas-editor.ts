@@ -1,9 +1,9 @@
 import { nextTick, onMounted, onUnmounted, ref, type Ref, type ShallowRef } from 'vue';
 import type { Point } from '@/domain/editors/editor-types';
 import type { RowData } from '@/shared/types';
+import { useCanvasHistory } from '@/app/composables/use-canvas-history';
 import { useCanvasDrawing } from '@/app/composables/use-canvas-drawing';
 import type { CanvasViewport } from '@/app/composables/use-canvas-viewport';
-import { useHistory } from '@/app/composables/use-history';
 import { useShortcutDispatch } from '@/app/composables/use-shortcut-dispatch';
 
 export interface CanvasTarget {
@@ -104,7 +104,7 @@ export function useCanvasEditor<TPreview>(options: {
   const { stageRef, windowRef, expandedSections, viewport, state, hooks } = options;
   const { scale } = viewport;
   const drawing = useCanvasDrawing();
-  const history = useHistory<RowData>();
+  const history = useCanvasHistory(250);
 
   const pointerInside = ref(false);
   const panning = ref(false);

@@ -236,7 +236,11 @@
               </div>
             </n-collapse-item>
             <n-collapse-item title="内置装备" name="builtins">
-              <textarea v-model="builtInWeaponsText" @change="applyBuiltInWeapons" />
+              <ObjectEditor
+                :model-value="localShip.builtInWeapons"
+                @update:model-value="builtInWeaponsUpdated"
+                @invalid-json="feedback.warning('builtInWeapons JSON 无效，已保留输入内容')"
+              />
               <label>builtInMods</label><n-dynamic-tags v-model:value="builtInMods" /> <label>builtInWings</label
               ><n-dynamic-tags v-model:value="builtInWings" />
             </n-collapse-item>
@@ -259,6 +263,7 @@ import { useAppFeedback } from '@/app/composables/use-app-feedback';
 import EditorFooter from '@/app/components/editors/common/EditorFooter.vue';
 import EditorHeader from '@/app/components/editors/common/EditorHeader.vue';
 import EditorInspector from '@/app/components/editors/common/EditorInspector.vue';
+import ObjectEditor from '@/app/components/editors/common/ObjectEditor.vue';
 import type { RowData } from '@/shared/types';
 import { arr, deepClone, num, str } from '@/shared/lib/starsector';
 import { entryKey } from '@/shared/lib/entry-keys';
@@ -452,7 +457,6 @@ const builtInWings = computed({
     commitDraft();
   },
 });
-const builtInWeaponsText = ref(JSON.stringify(localShip.value.builtInWeapons || {}, null, 2));
 
 function setMode(value: typeof mode.value) {
   mode.value = value;
@@ -1398,13 +1402,9 @@ function deleteSelected() {
   draw();
   return true;
 }
-function applyBuiltInWeapons() {
-  try {
-    localShip.value.builtInWeapons = JSON.parse(builtInWeaponsText.value);
-    commitDraft();
-  } catch {
-    feedback.error('builtInWeapons JSON 无效');
-  }
+function builtInWeaponsUpdated(value: unknown) {
+  localShip.value.builtInWeapons = value as RowData;
+  commitDraft();
 }
 async function pickShipSprite() {
   const relative = await pickModImageReference({ sessionId: props.sessionId, modRoot: props.modRoot, title: '选择舰船贴图' });
@@ -1420,7 +1420,6 @@ watch(
   () => props.draftRevision,
   () => {
     localShip.value = normalizeShipSpec(props.ship);
-    builtInWeaponsText.value = JSON.stringify(localShip.value.builtInWeapons || {}, null, 2);
     selected.value = null;
     activeTarget.value = null;
     inspectorLock.value = null;

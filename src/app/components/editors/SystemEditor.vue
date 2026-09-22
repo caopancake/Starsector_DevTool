@@ -208,10 +208,10 @@
               <label>最大无人机数</label><n-input-number :value="localSystem.maxDrones" @update:value="setField('maxDrones', $event)" />
             </div>
             <h4 class="system-editor-heading">无人机行为定义</h4>
-            <textarea
-              :value="droneBehaviorJson"
-              class="system-editor-textarea"
-              @change="applyDroneBehavior(($event.target as HTMLTextAreaElement).value)"
+            <ObjectEditor
+              :model-value="localSystem.droneBehavior ?? []"
+              @update:model-value="droneBehaviorUpdated"
+              @invalid-json="feedback.warning('无人机行为 JSON 无效，已保留输入内容')"
             />
           </n-collapse-item>
 
@@ -366,7 +366,6 @@ const shieldInnerColor = computed({
 });
 
 const aiHintsJson = bindObjectField('aiHints');
-const droneBehaviorJson = computed(() => JSON.stringify(localSystem.value.droneBehavior ?? [], null, 2));
 
 function commitDraft() {
   emit('draft-changed', localSystem.value);
@@ -376,13 +375,10 @@ function setField(key: string, value: RowData[string]) {
   commitDraft();
 }
 
-function applyDroneBehavior(value: string) {
-  try {
-    localSystem.value.droneBehavior = JSON.parse(value);
-    commitDraft();
-  } catch {
-    feedback.warning('无人机行为 JSON 无效，已保留输入内容');
-  }
+function droneBehaviorUpdated(value: unknown) {
+  if (!Array.isArray(value)) return;
+  localSystem.value.droneBehavior = value;
+  commitDraft();
 }
 
 const SYSTEM_STRUCTURED_FIELD_KEYS = new Set([

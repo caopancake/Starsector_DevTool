@@ -1,5 +1,5 @@
 import { EDITOR_WINDOW_KINDS, type EditorSpecKind, type EditorWindowKind, type RowData } from '@/shared/types';
-import { defaultShip, defaultWeapon } from '@/shared/lib/starsector';
+import { str } from '@/shared/lib/starsector';
 
 export interface EditorWindowSize {
   height: number;
@@ -12,6 +12,60 @@ export interface EditorWindowDefinition {
   label: string;
   size: EditorWindowSize;
   specKind: EditorSpecKind | null;
+}
+
+function defaultShip(id: string): RowData {
+  return {
+    hullId: id,
+    hullName: id,
+    hullSize: 'FRIGATE',
+    style: 'LOW_TECH',
+    width: 100,
+    height: 150,
+    center: [50, 75],
+    collisionRadius: 80,
+    shieldCenter: [0, 0],
+    shieldRadius: 60,
+    spriteName: '',
+    viewOffset: 0,
+    coversColor: '',
+    moduleAnchor: [0, 0],
+    weaponSlots: [],
+    engineSlots: [],
+    bounds: [-60, -30, -60, 30, 60, 30, 60, -30],
+    builtInMods: [],
+    builtInWeapons: {},
+    builtInWings: [],
+  };
+}
+
+function defaultWeapon(id: string, csvRow?: RowData): RowData {
+  const hasBeam = Boolean(str(csvRow?.['beam speed']));
+  const data: RowData = {
+    id,
+    specClass: hasBeam ? 'beam' : 'projectile',
+    type: 'BALLISTIC',
+    size: 'SMALL',
+    turretSprite: '',
+    turretGunSprite: '',
+    hardpointSprite: '',
+    hardpointGunSprite: '',
+    turretOffsets: [10, 0],
+    turretAngleOffsets: [0],
+    hardpointOffsets: [15, 0],
+    hardpointAngleOffsets: [0],
+    barrelMode: 'ALTERNATING',
+    animationType: 'MUZZLE_FLASH',
+    projectileSpecId: '',
+    fireSoundTwo: '',
+  };
+  if (hasBeam) {
+    data.fringeColor = [100, 200, 255, 200];
+    data.coreColor = [255, 255, 255, 255];
+    data.glowColor = [100, 200, 255, 100];
+    data.width = 10;
+  }
+  return data;
 }
 
 const EDITOR_DEFAULT_DATA_LOADERS: Record<EditorSpecKind, (id: string, row?: RowData) => RowData> = {

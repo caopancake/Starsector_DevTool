@@ -1,3 +1,4 @@
+import { cell } from '@/shared/lib/starsector';
 import type { IndexedConfigKind, JsonValue, RowData, VariantFile } from '@/shared/types';
 import type { FileSchema } from '@/domain/schema/schema.types';
 import { isSchemaInternalKey } from '@/domain/schema/schema-sections';
@@ -190,7 +191,7 @@ export function configFactionListItems(files: Record<string, RowData>): ConfigFa
     .sort()
     .map((id) => ({
       id,
-      displayName: configStringValue(files[id]?.displayName) || id,
+      displayName: cell(files[id]?.displayName) || id,
       colorCss: configColorCss(files[id]?.color),
     }));
 }
@@ -257,12 +258,6 @@ export function stripSchemaInternalFields(value: JsonValue): JsonValue {
     result[key] = stripSchemaInternalFields(item);
   }
   return result;
-}
-
-function configStringValue(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value;
-  return JSON.stringify(value);
 }
 
 function configColorCss(color: JsonValue): string {

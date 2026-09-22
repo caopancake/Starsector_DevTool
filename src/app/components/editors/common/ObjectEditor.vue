@@ -7,15 +7,23 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import type { RowData } from '@/shared/types';
 
-withDefaults(defineProps<{ title?: string }>(), {
-  title: '',
-});
+const props = withDefaults(
+  defineProps<{
+    title?: string;
+    /// Optional text → value hook for hosts that must shape parsed input
+    /// (e.g. spec normalization) before it lands in the model.
+    parse?: (text: string) => unknown;
+  }>(),
+  {
+    title: '',
+    parse: undefined,
+  },
+);
 
 const emit = defineEmits<{ 'invalid-json': [] }>();
 
-const model = defineModel<RowData>({ default: () => ({}) });
+const model = defineModel<unknown>({ default: () => ({}) });
 
 const text = ref(JSON.stringify(model.value || {}, null, 2));
 
@@ -25,7 +33,8 @@ watch(model, (value) => {
 
 function apply() {
   try {
-    model.value = JSON.parse(text.value || '{}');
+    const parse = props.parse ?? ((raw: string) => JSON.parse(raw || '{}'));
+    model.value = parse(text.value);
   } catch {
     // Keep the raw text in place for correction; the host component surfaces the warning.
     emit('invalid-json');

@@ -117,7 +117,12 @@
             </n-collapse-item>
           </template>
           <n-collapse-item v-else title="通用属性" name="generic">
-            <textarea v-model="genericJson" @change="applyGeneric" />
+            <ObjectEditor
+              :model-value="localProjectile"
+              :parse="(text: string) => normalizeProjectileSpec(JSON.parse(text || '{}'))"
+              @update:model-value="projectileUpdated"
+              @invalid-json="feedback.warning('JSON 无效，已保留输入内容')"
+            />
           </n-collapse-item>
         </n-collapse>
       </div>
@@ -174,7 +179,6 @@ const center = computed(() => arr(localProjectile.value.center, [0, 0]));
 const engineSlots = computed<RowData[]>(() =>
   Array.isArray(localProjectile.value.engineSlots) ? (localProjectile.value.engineSlots as RowData[]) : [],
 );
-const genericJson = ref(JSON.stringify(localProjectile.value, null, 2));
 const fringeColor = computed({
   get: () => arr(localProjectile.value.fringeColor, [255, 255, 255, 255]),
   set: (v) => setField('fringeColor', v),
@@ -220,13 +224,9 @@ function removeEngineSlot(i: number) {
   engineSlots.value.splice(i, 1);
   commitDraft();
 }
-function applyGeneric() {
-  try {
-    localProjectile.value = normalizeProjectileSpec(JSON.parse(genericJson.value));
-    commitDraft();
-  } catch {
-    feedback.error('JSON 无效');
-  }
+function projectileUpdated(value: unknown) {
+  localProjectile.value = normalizeProjectileSpec(value as RowData);
+  commitDraft();
 }
 async function pickProjectileSprite(field: 'bulletSprite' | 'sprite') {
   const relative = await pickModImageReference({ sessionId: props.sessionId, modRoot: props.modRoot, title: '选择弹体贴图' });
@@ -237,7 +237,6 @@ watch(
   () => props.draftRevision,
   () => {
     localProjectile.value = normalizeProjectileSpec(props.projectile || { id: props.projectileId, specClass: 'projectile' });
-    genericJson.value = JSON.stringify(localProjectile.value, null, 2);
   },
 );
 </script>

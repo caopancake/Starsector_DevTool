@@ -65,12 +65,12 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 2.1: 前端迁移残留清理
 
-- [ ] 窗口宿主四件套（`FileEditorApp`/`FileEditorContent`/`EditorWindowApp`/`EditorWindowContent`）从 `app/` 根归入 `windows/`，与窗口 TS 机制同址；`tauri.conf.json` 与窗口请求的入口引用同步。
-- [ ] `use-history.ts` 双栈删除，画布历史迁移 `domain/edit-session.ts` 撤销原语（与 `use-text-history.ts` 同模式），limit/清理语义随之统一。
-- [ ] 默认 spec 模板归位 domain：`defaultShip`/`defaultWeapon` 迁出 `shared/lib/starsector.ts`，`editor-definitions.ts` 成为四类编辑器默认数据的唯一来源。
-- [ ] 三个编辑器内联 JSON textarea（ShipEditor builtInWeapons、ProjectileEditor genericJson、SystemEditor droneBehavior）迁移 `ObjectEditor`/`JsonFieldEditor` 组件化路径；无效 JSON 反馈统一为提交边界单一模式，删除组件内直抛与事件上抛并存的两代写法。
-- [ ] JsonValue→string 三实现收敛 `cell()` 唯一（`configStringValue`、`stringValue` 私有副本删除）。
-- [ ] 跑前端全套检查。
+- [x] 窗口宿主四件套目录迁移经架构检查裁定为不迁移：宿主组件深度消费 app 组合层（composables/editors/stores），`windows/` 层规则正确禁止该方向依赖——`windows/` 只承载窗口机制，宿主留在 `app/` 是正确的层次归属。
+- [x] `use-history.ts` 双栈删除，画布历史经新增适配器 `use-canvas-history.ts`（draft-session-boundary 白名单已收录）迁移 `domain/edit-session.ts` 撤销原语，limit 250/清理语义与原实现一致。
+- [x] 默认 spec 模板归位 domain：`defaultShip`/`defaultWeapon` 迁出 `shared/lib/starsector.ts`，`editor-definitions.ts` 成为四类编辑器默认数据的唯一来源。
+- [x] 三个编辑器内联 JSON textarea（ShipEditor builtInWeapons、ProjectileEditor genericJson、SystemEditor droneBehavior）迁移 `ObjectEditor` 组件化路径（`parse` prop 保留 Projectile 的 normalize 语义；模型放宽为任意 JSON 值）；无效 JSON 反馈统一为 warning + 保留输入的提交边界单一模式。
+- [x] JsonValue→string 三实现收敛 `cell()` 唯一（`configStringValue`、`stringValue` 私有副本删除）。
+- [x] 跑前端全套检查。
 
 ### Phase 2.2: shared/lib/starsector.ts 按职责拆分
 

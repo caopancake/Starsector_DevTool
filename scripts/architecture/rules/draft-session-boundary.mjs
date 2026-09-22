@@ -30,7 +30,7 @@ export const draftSessionBoundaryRule = {
         }
         if (isEditSessionPrimitive(target) && !isEditSessionAdapter(current)) {
           failures.push(
-            `${file.rel}: edit session primitives must be consumed through their adapters (use-draft-session, use-text-history, file-history store, tables-edit-history store)`,
+            `${file.rel}: edit session primitives must be consumed through their adapters (use-draft-session, use-text-history, use-canvas-history, file-history store, tables-edit-history store)`,
           );
         }
         if (target.domain === 'config-editor-draft-session' && current.role === 'component' && current.domain === 'config') {
@@ -67,7 +67,7 @@ function isEditSessionAdapter(current) {
   return (
     (current.layer === 'app' &&
       current.role === 'composable' &&
-      (current.domain === 'draft-session' || current.domain === 'text-history')) ||
+      (current.domain === 'draft-session' || current.domain === 'text-history' || current.domain === 'canvas-history')) ||
     (current.layer === 'stores' && (current.domain === 'file-history' || current.domain === 'tables-edit-history'))
   );
 }

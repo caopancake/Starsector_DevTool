@@ -241,60 +241,6 @@ export function getColumns(tab: TableKey, headers: string[]): string[] {
   return result;
 }
 
-export function defaultShip(id: string): RowData {
-  return {
-    hullId: id,
-    hullName: id,
-    hullSize: 'FRIGATE',
-    style: 'LOW_TECH',
-    width: 100,
-    height: 150,
-    center: [50, 75],
-    collisionRadius: 80,
-    shieldCenter: [0, 0],
-    shieldRadius: 60,
-    spriteName: '',
-    viewOffset: 0,
-    coversColor: '',
-    moduleAnchor: [0, 0],
-    weaponSlots: [],
-    engineSlots: [],
-    bounds: [-60, -30, -60, 30, 60, 30, 60, -30],
-    builtInMods: [],
-    builtInWeapons: {},
-    builtInWings: [],
-  };
-}
-
-export function defaultWeapon(id: string, csvRow?: RowData): RowData {
-  const hasBeam = Boolean(str(csvRow?.['beam speed']));
-  const data: RowData = {
-    id,
-    specClass: hasBeam ? 'beam' : 'projectile',
-    type: 'BALLISTIC',
-    size: 'SMALL',
-    turretSprite: '',
-    turretGunSprite: '',
-    hardpointSprite: '',
-    hardpointGunSprite: '',
-    turretOffsets: [10, 0],
-    turretAngleOffsets: [0],
-    hardpointOffsets: [15, 0],
-    hardpointAngleOffsets: [0],
-    barrelMode: 'ALTERNATING',
-    animationType: 'MUZZLE_FLASH',
-    projectileSpecId: '',
-    fireSoundTwo: '',
-  };
-  if (hasBeam) {
-    data.fringeColor = [100, 200, 255, 200];
-    data.coreColor = [255, 255, 255, 255];
-    data.glowColor = [100, 200, 255, 100];
-    data.width = 10;
-  }
-  return data;
-}
-
 export function rgba(color: unknown, alpha = 1): string {
   const c = Array.isArray(color) ? color : [255, 255, 255, 255];
   const a = ((Number(c[3] ?? 255) / 255) * alpha).toFixed(3);
