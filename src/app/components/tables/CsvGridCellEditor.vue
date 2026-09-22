@@ -9,13 +9,10 @@
       @input="handleNativeInput"
       @keydown.enter.prevent="commitAndClose"
     />
-    <CsvCellTextEditor
-      v-else-if="isTextControl && pickerAnchor"
-      :anchor="pickerAnchor"
-      :value="rawValue"
-      @close="$emit('close')"
-      @commit="handleTextCommit"
-    />
+    <template v-else-if="isTextControl">
+      <span class="csv-cell-value">{{ displayValue }}</span>
+      <CsvCellTextEditor v-if="pickerAnchor" :anchor="pickerAnchor" :value="rawValue" @close="$emit('close')" @commit="handleTextCommit" />
+    </template>
     <template v-else>
       <template v-if="isListControl">
         <span v-for="value in listValue" :key="value" class="csv-cell-tag" :title="listValueDescription(value)">{{ value }}</span>
