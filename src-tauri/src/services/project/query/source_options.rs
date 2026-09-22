@@ -3,8 +3,9 @@ use super::super::{
         ensure_registered_table_rows, load_core_csv_table, load_core_source_data, loaded_csv_rows,
         loaded_registered_csv_rows, lock_session, session_handle,
     },
-    definitions::table_definitions::{
-        csv_table_source_display_name, csv_table_source_resource_ref,
+    definitions::{
+        entity_definitions::entity_definitions,
+        table_definitions::{csv_table_source_display_name, csv_table_source_resource_ref},
     },
     model::{CoreSourceData, ProjectSession, SessionCsvRow, is_comment_row, string_from_row},
 };
@@ -13,7 +14,7 @@ use crate::{
         WellKnownLabelEntry, well_known_hint_labels, well_known_tag_labels,
     },
     errors::{AppError, AppResult},
-    models::{CsvTableKey, ResourceSource, SourceOptionGroup},
+    models::{CsvTableKey, EntityData, ResourceSource, SourceOptionGroup},
 };
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -37,6 +38,9 @@ pub fn query_csv_source_options(
 ) -> AppResult<Vec<SourceOptionGroup>> {
     let handle = session_handle(session_id)?;
     let mut session = lock_session(&handle)?;
+    if let Some(groups) = entity_source_option_groups(&mut session, source)? {
+        return Ok(groups);
+    }
     let (table, column) = parse_csv_source(source)?;
     let table_key = table.as_str();
     ensure_registered_table_rows(&mut session, table)?;
@@ -118,6 +122,87 @@ pub fn query_csv_source_options(
         }
     }
     Ok(groups)
+}
+
+/// Sources declared by an entity (its `source_options`) resolve to the entity
+/// list as the value domain — e.g. `variants.variantId` enumerates variant
+/// entities, Mod first then core-only entries, mirroring the CSV column flow.
+/// Registered CSV tables keep the column path; the entity path only serves
+/// domains no CSV table provides.
+fn entity_source_option_groups(
+    session: &mut ProjectSession,
+    source: &str,
+) -> AppResult<Option<Vec<SourceOptionGroup>>> {
+    let key = source.strip_prefix("csv:").unwrap_or(source);
+    if key
+        .split_once('.')
+        .and_then(|(table, _)| CsvTableKey::from_key(table))
+        .is_some()
+    {
+        return Ok(None);
+    }
+    let Some(definition) = entity_definitions()
+        .iter()
+        .find(|definition| definition.source_options.contains(&key))
+    else {
+        return Ok(None);
+    };
+    (definition.prepare)(session)?;
+    let mut seen = BTreeSet::new();
+    let mut groups = Vec::new();
+    let options =
+        entity_source_options(ResourceSource::Mod, (definition.list)(session)?, &mut seen);
+    if !options.is_empty() {
+        groups.push(SourceOptionGroup {
+            origin: ResourceSource::Mod,
+            options,
+        });
+    }
+    if let Some(core_list) = definition.core_list {
+        let options = entity_source_options(ResourceSource::Core, core_list(session)?, &mut seen);
+        if !options.is_empty() {
+            groups.push(SourceOptionGroup {
+                origin: ResourceSource::Core,
+                options,
+            });
+        }
+    }
+    Ok(Some(groups))
+}
+
+fn entity_source_options(
+    origin: ResourceSource,
+    entities: Vec<EntityData>,
+    seen: &mut BTreeSet<String>,
+) -> Vec<crate::models::SourceOption> {
+    let mut options = Vec::new();
+    for entity in entities {
+        if !seen.insert(entity.id.clone()) {
+            continue;
+        }
+        options.push(crate::models::SourceOption {
+            label: entity_source_option_label(&entity),
+            value: entity.id.clone(),
+            description: None,
+            resource_ref: entity.resource_refs.values().next().cloned(),
+            origin,
+        });
+    }
+    options
+}
+
+fn entity_source_option_label(entity: &EntityData) -> String {
+    let display_name = entity
+        .data
+        .get("data")
+        .and_then(|data| data.get("displayName"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    if display_name.trim().is_empty() || display_name == entity.id {
+        entity.id.clone()
+    } else {
+        format!("{display_name} ({})", entity.id)
+    }
 }
 
 fn parse_csv_source(source: &str) -> AppResult<(CsvTableKey, &str)> {
@@ -897,6 +982,87 @@ mod tests {
             .unwrap();
         assert_eq!(option.origin, ResourceSource::Core);
         assert!(option.resource_ref.is_none());
+    }
+
+    #[test]
+    fn variant_id_source_options_combine_mod_and_core_entities() {
+        let root = temp_dir("variant_id_source_options");
+        let mod_root = root.join("mods/demo");
+        std::fs::create_dir_all(mod_root.join("data/variants")).unwrap();
+        std::fs::create_dir_all(root.join("starsector-core/data/hulls")).unwrap();
+        std::fs::create_dir_all(root.join("starsector-core/data/variants")).unwrap();
+        write_utf8_no_bom(
+            &mod_root.join("data/variants/mod_fighter.variant"),
+            r#"{"variantId":"mod_fighter","hullId":"core_hull","displayName":"Mod 僚机"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("starsector-core/data/variants/core_fighter.variant"),
+            r#"{"variantId":"core_fighter","hullId":"core_hull","displayName":"Core 僚机"}"#,
+        )
+        .unwrap();
+        write_utf8_no_bom(
+            &root.join("starsector-core/data/hulls/core_hull.ship"),
+            r#"{"hullId":"core_hull","spriteName":"graphics/ships/core_hull.png"}"#,
+        )
+        .unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&mod_root, Some(&root), &mut trace).unwrap();
+        let groups =
+            query_csv_source_options(&manifest.session_id, "csv:variants.variantId").unwrap();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0].origin, ResourceSource::Mod);
+        assert_eq!(
+            groups[0]
+                .options
+                .iter()
+                .map(|option| option.value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["mod_fighter"]
+        );
+        assert_eq!(groups[1].origin, ResourceSource::Core);
+        assert_eq!(
+            groups[1]
+                .options
+                .iter()
+                .map(|option| option.value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["core_fighter"]
+        );
+        assert_eq!(
+            source_option_label_from_groups(&groups, "mod_fighter").as_deref(),
+            Some("Mod 僚机 (mod_fighter)")
+        );
+        let core_option = groups[1].options.first().unwrap();
+        assert!(core_option.resource_ref.is_some());
+    }
+
+    #[test]
+    fn unknown_entity_source_still_fails_as_unknown_table() {
+        let root = temp_dir("unknown_entity_source");
+        std::fs::create_dir_all(root.join("data/hulls")).unwrap();
+
+        let mut trace =
+            crate::services::project::performance::PerformanceTrace::new("project.openSession");
+        let manifest = open_project_session_traced(&root, None, &mut trace).unwrap();
+        let error =
+            query_csv_source_options(&manifest.session_id, "csv:nonexistent.foo").unwrap_err();
+
+        let _ = close_project_session(manifest.session_id);
+        let _ = std::fs::remove_dir_all(root);
+        assert!(matches!(
+            error,
+            crate::errors::AppError::Message {
+                code: "source.table_unknown",
+                ..
+            }
+        ));
     }
 
     #[test]

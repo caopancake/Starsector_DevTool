@@ -1,7 +1,7 @@
 use super::super::{
     cache::{
-        ensure_registered_table_rows, ensure_session_table_rows, loaded_csv_rows,
-        loaded_registered_csv_rows,
+        ensure_registered_table_rows, ensure_session_table_rows, load_core_variant_files,
+        loaded_csv_rows, loaded_registered_csv_rows,
         spec_files::{load_skin_files, load_variant_files},
     },
     model::{
@@ -39,6 +39,9 @@ use crate::{
 use serde_json::{Map, Value};
 use std::{collections::BTreeMap, path::Path};
 
+type EntityListLoader = fn(&mut ProjectSession) -> AppResult<Vec<EntityData>>;
+type EntityCoreListLoader = fn(&ProjectSession) -> AppResult<Vec<EntityData>>;
+
 pub(in crate::services::project) struct ProjectEntityDefinition {
     pub kind: EntityKind,
     pub spec: Option<&'static EntitySpecDefinition>,
@@ -48,7 +51,8 @@ pub(in crate::services::project) struct ProjectEntityDefinition {
     pub query_impacts: &'static [InvalidatedQueryKind],
     pub prepare: fn(&mut ProjectSession) -> AppResult<()>,
     pub detail: fn(&mut ProjectSession, &str) -> AppResult<Option<Value>>,
-    pub list: fn(&mut ProjectSession) -> AppResult<Vec<EntityData>>,
+    pub list: EntityListLoader,
+    pub core_list: Option<EntityCoreListLoader>,
     pub resources: fn(&ProjectSession, &str, &Value) -> BTreeMap<String, ResourceRef>,
     pub refresh: fn(&mut ProjectSession) -> AppResult<()>,
 }
@@ -89,6 +93,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
         prepare: prepare_none,
         detail: ship_detail,
         list: ship_list,
+        core_list: None,
         resources: ship_resources,
         refresh: refresh_ship,
     },
@@ -102,6 +107,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
         prepare: prepare_weapon,
         detail: weapon_detail,
         list: weapon_list,
+        core_list: None,
         resources: weapon_entity_resources,
         refresh: refresh_weapon,
     },
@@ -115,6 +121,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
         prepare: prepare_none,
         detail: projectile_detail,
         list: projectile_list,
+        core_list: None,
         resources: projectile_resources,
         refresh: refresh_projectile,
     },
@@ -128,6 +135,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
         prepare: prepare_none,
         detail: system_detail,
         list: system_list,
+        core_list: None,
         resources: system_resources,
         refresh: refresh_system,
     },
@@ -141,6 +149,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
         prepare: prepare_skill,
         detail: skill_detail,
         list: skill_list,
+        core_list: None,
         resources: skill_resources,
         refresh: refresh_skill,
     },
@@ -154,6 +163,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
         prepare: prepare_none,
         detail: faction_detail,
         list: faction_list,
+        core_list: None,
         resources: faction_resources,
         refresh: refresh_faction,
     },
@@ -167,6 +177,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
         prepare: prepare_mission,
         detail: mission_detail,
         list: mission_list,
+        core_list: None,
         resources: mission_resources,
         refresh: refresh_mission,
     },
@@ -174,12 +185,13 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
         kind: EntityKind::Variant,
         spec: Some(&VARIANT_SPEC_DEFINITION),
         csv_table: None,
-        source_options: &["wings.id"],
+        source_options: &["wings.id", "variants.variantId"],
         path_matches: spec_path_matches,
         query_impacts: &[],
         prepare: prepare_none,
         detail: variant_detail,
         list: variant_list,
+        core_list: Some(variant_core_list),
         resources: variant_resources,
         refresh: refresh_variant,
     },
@@ -193,6 +205,7 @@ const PROJECT_ENTITY_DEFINITIONS: [ProjectEntityDefinition; 9] = [
         prepare: prepare_none,
         detail: skin_detail,
         list: skin_list,
+        core_list: None,
         resources: skin_resources,
         refresh: refresh_skin,
     },
@@ -326,11 +339,49 @@ fn mission_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
 }
 
 fn variant_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
-    session
-        .variant_files
-        .iter()
-        .map(|item| build_variant_entity(session, EntityKind::Variant, item))
-        .collect()
+    variant_entities(session, ResourceSource::Mod)
+}
+
+/// Core-only variant entities: the complement a variant reference domain
+/// offers on top of the Mod's own list when a Starsector root is configured.
+fn variant_core_list(session: &ProjectSession) -> AppResult<Vec<EntityData>> {
+    variant_entities(session, ResourceSource::Core)
+}
+
+fn variant_entities(
+    session: &ProjectSession,
+    origin: ResourceSource,
+) -> AppResult<Vec<EntityData>> {
+    match origin {
+        ResourceSource::Mod => session
+            .variant_files
+            .iter()
+            .map(|item| variant_entity(session, origin, item))
+            .collect(),
+        ResourceSource::Core => {
+            let Some(root) = session.manifest.starsector_root.as_ref() else {
+                return Ok(Vec::new());
+            };
+            load_core_variant_files(root)?
+                .iter()
+                .map(|item| variant_entity(session, origin, item))
+                .collect()
+        }
+    }
+}
+
+fn variant_entity(
+    session: &ProjectSession,
+    origin: ResourceSource,
+    item: &VariantFile,
+) -> AppResult<EntityData> {
+    let data = variant_file_data(item)?;
+    Ok(EntityData {
+        kind: EntityKind::Variant,
+        id: item.variant_id.clone(),
+        resource_refs: variant_resource_refs(session, origin, &data),
+        data,
+    })
 }
 
 fn skin_list(session: &mut ProjectSession) -> AppResult<Vec<EntityData>> {
@@ -423,7 +474,7 @@ fn variant_resources(
     _id: &str,
     data: &Value,
 ) -> BTreeMap<String, ResourceRef> {
-    variant_resource_refs(session, data)
+    variant_resource_refs(session, ResourceSource::Mod, data)
 }
 
 fn skin_resources(
@@ -432,20 +483,6 @@ fn skin_resources(
     data: &Value,
 ) -> BTreeMap<String, ResourceRef> {
     skin_entity_resource_refs(session, id, data)
-}
-
-fn build_variant_entity(
-    session: &ProjectSession,
-    kind: EntityKind,
-    item: &VariantFile,
-) -> AppResult<EntityData> {
-    let data = variant_file_data(item)?;
-    Ok(EntityData {
-        kind,
-        id: item.variant_id.clone(),
-        resource_refs: variant_resource_refs(session, &data),
-        data,
-    })
 }
 
 fn build_skin_entity(

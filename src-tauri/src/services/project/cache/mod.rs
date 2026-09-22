@@ -17,7 +17,7 @@ use super::model::{CoreCache, ProjectSession};
 
 pub(crate) use core::{
     flush_core_cache, load_core_csv_table, load_core_projectile_specs, load_core_ship_files,
-    load_core_skin_files, load_core_source_data,
+    load_core_skin_files, load_core_source_data, load_core_variant_files,
 };
 pub(crate) use csv::{
     ensure_registered_table_rows, ensure_session_table_rows, loaded_csv_rows,

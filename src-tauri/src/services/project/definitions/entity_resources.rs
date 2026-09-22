@@ -63,11 +63,12 @@ pub(in crate::services::project) fn system_resource_refs(
 
 pub(in crate::services::project) fn variant_resource_refs(
     session: &ProjectSession,
+    origin: ResourceSource,
     data: &Value,
 ) -> BTreeMap<String, ResourceRef> {
     let mut refs = BTreeMap::new();
     if let Some(hull_id) = string_field(data, "hullId") {
-        if let Ok(Some(resource)) = hull_resource_ref(session, ResourceSource::Mod, &hull_id) {
+        if let Ok(Some(resource)) = hull_resource_ref(session, origin, &hull_id) {
             refs.insert("sprite".to_string(), resource);
         }
     }
