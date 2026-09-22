@@ -1,4 +1,4 @@
-import { frontendFile } from '../shared/files.mjs';
+import { frontendFile, specFile } from '../shared/files.mjs';
 
 export const errorBoundaryRule = {
   name: 'error-boundary',
@@ -6,7 +6,9 @@ export const errorBoundaryRule = {
     const failures = [];
     for (const file of files) {
       if (!frontendFile(file.rel)) continue;
-      const isErrorSurface = file.rel.startsWith('src/services/') || file.rel.startsWith('src/orchestrators/');
+      // Specs construct plain Errors as fixtures; the convention governs
+      // production failure semantics only.
+      const isErrorSurface = (file.rel.startsWith('src/services/') || file.rel.startsWith('src/orchestrators/')) && !specFile(file.rel);
       if (!isErrorSurface) continue;
       // service/orchestrator 的失败语义必须携带 action（AppError/withCause）；
       // 裸 Error 仅允许在 domain 表达值语义。

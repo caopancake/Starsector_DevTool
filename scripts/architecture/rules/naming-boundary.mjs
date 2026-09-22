@@ -1,4 +1,4 @@
-import { frontendFile } from '../shared/files.mjs';
+import { frontendFile, specFile } from '../shared/files.mjs';
 import { exportedFunctionNames } from '../shared/imports.mjs';
 
 export const namingBoundaryRule = {
@@ -7,10 +7,13 @@ export const namingBoundaryRule = {
     const failures = [];
     for (const file of files) {
       if (!frontendFile(file.rel)) continue;
-      if (file.rel.startsWith('src/services/') && !file.rel.endsWith('.service.ts')) {
+      // Directory-suffix conventions govern production modules; colocated
+      // specs keep the .spec.ts suffix instead.
+      const isSpec = specFile(file.rel);
+      if (!isSpec && file.rel.startsWith('src/services/') && !file.rel.endsWith('.service.ts')) {
         failures.push(`${file.rel}: service files must use .service.ts`);
       }
-      if (file.rel.startsWith('src/stores/') && !file.rel.endsWith('.store.ts')) {
+      if (!isSpec && file.rel.startsWith('src/stores/') && !file.rel.endsWith('.store.ts')) {
         failures.push(`${file.rel}: store files must use .store.ts`);
       }
       for (const match of file.text.matchAll(/\bdefineStore\(\s*'([A-Za-z0-9-]+)'/g)) {
@@ -18,10 +21,10 @@ export const namingBoundaryRule = {
           failures.push(`${file.rel}: Pinia store id "${match[1]}" must use kebab-case`);
         }
       }
-      if (file.rel.startsWith('src/orchestrators/') && !file.rel.endsWith('.orchestrator.ts')) {
+      if (!isSpec && file.rel.startsWith('src/orchestrators/') && !file.rel.endsWith('.orchestrator.ts')) {
         failures.push(`${file.rel}: orchestrator files must use .orchestrator.ts`);
       }
-      if (file.rel.startsWith('src/windows/') && !file.rel.endsWith('.window.ts') && !file.rel.endsWith('.events.ts')) {
+      if (!isSpec && file.rel.startsWith('src/windows/') && !file.rel.endsWith('.window.ts') && !file.rel.endsWith('.events.ts')) {
         failures.push(`${file.rel}: window files must use .window.ts or .events.ts`);
       }
       if (file.rel.startsWith('src/app/composables/use-') && !file.rel.endsWith('.ts')) {

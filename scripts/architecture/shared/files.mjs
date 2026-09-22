@@ -21,6 +21,12 @@ export function frontendFile(path) {
   return path.endsWith('.ts') || path.endsWith('.vue');
 }
 
+/// Colocated test files: production naming and failure-semantics conventions
+/// do not govern them.
+export function specFile(path) {
+  return path.endsWith('.spec.ts');
+}
+
 export function rustFile(path) {
   return path.endsWith('.rs');
 }

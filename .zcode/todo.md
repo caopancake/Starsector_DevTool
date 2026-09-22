@@ -65,6 +65,7 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 2.1: 前端迁移残留清理
 
+- [ ] 窗口宿主四件套（`FileEditorApp`/`FileEditorContent`/`EditorWindowApp`/`EditorWindowContent`）从 `app/` 根归入 `windows/`，与窗口 TS 机制同址；`tauri.conf.json` 与窗口请求的入口引用同步。
 - [ ] `use-history.ts` 双栈删除，画布历史迁移 `domain/edit-session.ts` 撤销原语（与 `use-text-history.ts` 同模式），limit/清理语义随之统一。
 - [ ] 默认 spec 模板归位 domain：`defaultShip`/`defaultWeapon` 迁出 `shared/lib/starsector.ts`，`editor-definitions.ts` 成为四类编辑器默认数据的唯一来源。
 - [ ] 三个编辑器内联 JSON textarea（ShipEditor builtInWeapons、ProjectileEditor genericJson、SystemEditor droneBehavior）迁移 `ObjectEditor`/`JsonFieldEditor` 组件化路径；无效 JSON 反馈统一为提交边界单一模式，删除组件内直抛与事件上抛并存的两代写法。
@@ -73,7 +74,7 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 
 ### Phase 2.2: shared/lib/starsector.ts 按职责拆分
 
-- [ ] 表列资产、视觉常量、通用工具、领域规则、默认模板拆为按职责命名的独立模块，消费方 import 路径同步；`str`/`num`/`arr` 占位命名复核。
+- [ ] 拆分落点为 `shared/lib/starsector/` 子目录（表列资产、视觉常量、通用工具、领域规则、默认模板各为独立模块），消费方 import 路径同步；`str`/`num`/`arr` 占位命名复核。
 - [ ] `WEAPON_COLORS` 颜色字面量统一为 `rgb()` 现代语法。
 - [ ] 跑前端全套检查。
 
@@ -98,12 +99,14 @@ Owner 原则：声明的依赖矩阵必须对真实代码生效；每条跨层�
 - [ ] Mod 状态文案单一实现并 domain 化（页签栏与总览面板共用）；保存处理器注册时机统一为单模式；naive-ui 组件接线规则成文（全局异步注册与直接 import 的边界）并统一。
 - [ ] service 层 `.then()` 链统一 async/await；`JSON.stringify` watch 源与缓存键改为显式稳定语义；冗余 `deep` watch、事件闭包内 `ref`、无谓 `async`、死防御清理。
 - [ ] `file-history.store` 与 `file-history-write.orchestrator` 双重校验单一化；mission 选中归一化去重；CsvGrid 静态/编辑两态共享 cell reference composable；竞态守卫（requestId/身份比对）抽公共原语；确认弹窗 + checkbox 收敛为 feedback 扩展原语。
+- [ ] `app/composables/` 42 文件按域细分子目录（config 系、editor 系、window 系、canvas 系、tables 系各自归拢），消费方 import 路径同步。
 - [ ] domain 预期错误迁 `AppError`（值语义裸 Error 除外，对齐 error-boundary 规则）；`as unknown as` 类型逃逸以输入校验替代。
 - [ ] CSS 间距 token 体系裁决（扩充 `--space` 体系或归一既有取值）后全量对齐；画布颜色收口 domain 调色板常量；URL 草稿快照解析失败补可观察行为。
 - [ ] 跑前端全套检查。
 
 ### Phase 2.6: Rust 写法统一
 
+- [ ] 定义注册表族归拢 `services/project/definitions/` 子目录（`entity_definitions`、`table_definitions`、`entity_resources`、`factions`、`projectiles`），`rust-project-layer-boundary` 的 root 层路径分类同步；与 Phase 2.3 触碰定义注册表的改动同批执行。
 - [ ] 未使用参数统一 `_` 前缀惯例（`entity_definitions.rs` 函数体丢弃式改写）；`push_unique_all` 双实现上收 models 唯一实现；MISSION_LIST 默认表头函数化；`refresh_variant`/`refresh_skin` 镜像合并（warnings 合并态唯一 owner）；符号链接测试助手收敛 `testutil`（7 份→1）；`SessionModScope` 手写 impl 收敛；changeset 落盘三入口统一单一通道；`hull_references` 四段同构分组构建提取；`_source` 注入两实现合一。
 - [ ] 查询结果中的 UI 分组文案（"当前 Mod/原版/蓝图"标签与描述）迁出 Rust：wire 携带结构化来源语义，文案归前端呈现（与 Phase 1.3 错误码方向一致）。
 - [ ] variant/skin 删除载荷字段名统一为单一实体 id 字段（`variant_id`/`skin_hull_id` 合一，wire 前后端同步）。
