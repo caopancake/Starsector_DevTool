@@ -30,6 +30,38 @@ export function launchBayWithDefaults(source: RowData, id: string, locations: nu
   };
 }
 
+/// A launch bay's ports are the coordinate pairs inside `locations` (the game
+/// ships bays with one pair per launch position); an odd trailing number is
+/// dropped so pairs stay intact.
+export function bayPorts(locations: unknown): number[][] {
+  const source = Array.isArray(locations) ? locations : [];
+  const ports: number[][] = [];
+  for (let index = 0; index + 1 < source.length; index += 2) {
+    ports.push([Number(source[index]) || 0, Number(source[index + 1]) || 0]);
+  }
+  return ports;
+}
+
+export function appendBayPort(locations: unknown, coord: number[]): number[] {
+  const ports = bayPorts(locations);
+  ports.push([coord[0] || 0, coord[1] || 0]);
+  return ports.flat();
+}
+
+export function updateBayPort(locations: unknown, portIndex: number, coord: number[]): number[] {
+  const ports = bayPorts(locations);
+  if (!ports[portIndex]) return ports.flat();
+  ports[portIndex] = [coord[0] || 0, coord[1] || 0];
+  return ports.flat();
+}
+
+export function removeBayPort(locations: unknown, portIndex: number): number[] {
+  const ports = bayPorts(locations);
+  if (!ports[portIndex]) return ports.flat();
+  ports.splice(portIndex, 1);
+  return ports.flat();
+}
+
 export function engineWithDefaults(source: RowData, location: number[]): RowData {
   return {
     ...source,

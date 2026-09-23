@@ -12,6 +12,22 @@ export function mirrorOffsetPoint(point: number[]): number[] {
   return [point[0] || 0, mirrorLateral(point[1] || 0)];
 }
 
+/// Mirrors every coordinate pair in a locations array (multi-port launch
+/// bays, multi-barrel hardpoints).
+export function mirrorOffsetPoints(locations: unknown): number[] {
+  const source = Array.isArray(locations) ? locations : [];
+  const mirrored: number[] = [];
+  for (let index = 0; index + 1 < source.length; index += 2) {
+    mirrored.push(Number(source[index]) || 0, mirrorLateral(Number(source[index + 1]) || 0));
+  }
+  return mirrored;
+}
+
+/// Port mirror stays inside the same bay: (x, y) → (x, -y).
+export function mirrorBayPort(coord: number[]): number[] {
+  return [coord[0] || 0, mirrorLateral(coord[1] || 0)];
+}
+
 export function mirrorAngleDeg(angle: number): number {
   const normalized = ((Math.round(angle) % 360) + 360) % 360;
   return (360 - normalized) % 360;
@@ -82,7 +98,7 @@ export function findMirrorBarrelIndex(offsets: number[], barrelIndex: number, ep
 
 export function mirrorWeaponSlotForAdd(slot: RowData): RowData {
   const clone = deepClone(slot);
-  clone.locations = mirrorOffsetPoint(rowPoint(clone.locations));
+  clone.locations = mirrorOffsetPoints(clone.locations);
   clone.angle = mirrorAngleDeg(num(clone.angle, 0));
   return clone;
 }

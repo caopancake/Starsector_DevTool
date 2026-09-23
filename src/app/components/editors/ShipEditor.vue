@@ -159,15 +159,28 @@
                   :class="{ selected: mode === 'launchBay' && selected === item.index }"
                   @click="selectInspectorItem('launchBay', item.index, 'weapon')"
                 >
-                  {{ item.slot.id || `LB ${item.index + 1}` }} <span>甲板</span>
+                  {{ item.slot.id || `LB ${item.index + 1}` }} <span>甲板 · {{ bayPorts(item.slot.locations).length }}</span>
                 </button>
               </div>
               <div v-if="mode === 'launchBay' && selectedSlot" class="form-grid">
-                <label>id</label><n-input :value="selectedSlot.id" @update:value="setSlotField('id', $event)" /> <label>loc X</label
-                ><n-input-number :value="slotLoc[0]" @update:value="setSlotLoc(0, $event)" /> <label>loc Y</label
-                ><n-input-number :value="slotLoc[1]" @update:value="setSlotLoc(1, $event)" />
+                <label>id</label><n-input :value="selectedSlot.id" @update:value="setSlotField('id', $event)" />
+              </div>
+              <div v-if="mode === 'launchBay' && selectedSlot" class="port-rows">
+                <div
+                  v-for="(port, portIndex) in selectedBayPorts"
+                  :key="portIndex"
+                  class="port-row"
+                  :class="{ selected: portIndex === selectedPort }"
+                  @click="selectedPort = portIndex"
+                >
+                  <span>P{{ portIndex + 1 }}</span>
+                  <n-input-number size="small" :value="port[0]" @update:value="setBayPortCoord(portIndex, 0, $event)" @click.stop />
+                  <n-input-number size="small" :value="port[1]" @update:value="setBayPortCoord(portIndex, 1, $event)" @click.stop />
+                  <n-button size="tiny" quaternary type="error" @click.stop="removeBayPortAt(portIndex)">删</n-button>
+                </div>
               </div>
               <div class="action-row button-row">
+                <n-button :disabled="!selectedSlot" @click="addBayPortFromPanel">添加港口</n-button>
                 <n-button @click="addLaunchBay">添加</n-button><n-button type="error" ghost @click="deleteSelected">删除</n-button>
               </div>
             </n-collapse-item>
@@ -270,11 +283,15 @@ import { entryKey } from '@/shared/lib/entry-keys';
 import { normalizeShipSpec } from '@/domain/editors/lib/normalize';
 import { distance, distanceToSegment, pointAngle, pointArc } from '@/domain/editors/lib/geometry';
 import {
+  appendBayPort,
+  bayPorts,
   engineWithDefaults,
   formatLaunchBayId,
   formatWeaponSlotId,
   launchBayWithDefaults,
   nextFormattedId,
+  removeBayPort,
+  updateBayPort,
   weaponSlotWithDefaults,
 } from '@/domain/editors/lib/ship-slots';
 import {
@@ -288,12 +305,13 @@ import {
 import { useCanvasViewport } from '@/app/composables/canvas/use-canvas-viewport';
 import { useResourceReference } from '@/app/composables/editors/use-resource-reference';
 import { editorCollapseTheme, snapToStep, toOptions } from '@/domain/editors/lib/editor-constants';
-import { drawBoundsVisual, drawEngineVisual, drawRadiusField, drawWeaponSlotVisual } from '@/domain/editors/lib/canvas-visuals';
+import { drawBoundsVisual, drawEngineVisual, drawLaunchBayPortVisual, drawRadiusField, drawWeaponSlotVisual } from '@/domain/editors/lib/canvas-visuals';
 import {
   findMirrorBoundIndex,
   findMirrorEngineIndex,
   findMirrorWeaponSlotIndex,
   mirrorAngleDeg,
+  mirrorBayPort,
   mirrorEngineForAdd,
   mirrorLateral,
   mirrorOffsetPoint,
@@ -321,6 +339,7 @@ const stageRef = useTemplateRef<HTMLElement>('stageRef');
 const canvasRef = useTemplateRef<HTMLCanvasElement>('canvasRef');
 const localShip = ref<RowData>(normalizeShipSpec(props.ship));
 const mode = ref<'overview' | 'ranges' | 'bounds' | 'weapon' | 'launchBay' | 'engine'>('overview');
+const selectedPort = ref<number | null>(null);
 const expandedSections = ref(['basic']);
 const img = new Image();
 const spriteSize = ref({ width: 0, height: 0 });
@@ -333,6 +352,7 @@ type HoverPreview =
   | { kind: 'weaponMove'; coord: number[]; slot: RowData }
   | { kind: 'weaponArc'; arc: number }
   | { kind: 'launchBayAdd'; coord: number[]; slot: RowData }
+  | { kind: 'launchBayPortAdd'; coord: number[] }
   | { kind: 'engineCopy'; coord: number[]; engine: RowData }
   | { kind: 'engineMove'; coord: number[]; engine: RowData }
   | { kind: 'engineSize'; length: number; width: number }
@@ -422,7 +442,7 @@ const modeFooterNotes: Record<typeof mode.value, string> = {
   ranges: '左键 拖动中心或护盾 | Shift+左键 改碰撞半径 | Ctrl+左键 改护盾半径 | T 打开中心与护盾',
   bounds: '左键 拖动边界点 | Shift+左键 追加边界点 | Ctrl+左键 插入最近边段 | T 打开碰撞边界',
   weapon: '左键 旋转角度 | Shift+左键 复制武器槽 | Ctrl+左键 移动位置 | Alt+左键 调整射角 | T 打开武器槽',
-  launchBay: '左键 移动甲板位置 | Shift+左键 新建甲板 | T 打开甲板',
+  launchBay: '左键 选中港口 | 拖动 移动港口 | Ctrl+左键 新建甲板 | Shift+左键 为选中甲板新增港口 | T 打开甲板',
   engine: '左键 旋转角度 | Shift+左键 复制引擎 | Ctrl+左键 移动位置 | Alt+左键 调整宽高 | T 打开引擎',
 };
 const footerNote = computed(() => {
@@ -451,6 +471,7 @@ const moduleAnchor = computed(() => arr(localShip.value.moduleAnchor, [0, 0]));
 const selectedSlot = computed(() => (selected.value === null ? null : weaponSlots.value[selected.value]));
 const selectedEngine = computed(() => (selected.value === null ? null : engineSlots.value[selected.value]));
 const slotLoc = computed(() => arr(selectedSlot.value?.locations, [0, 0]));
+const selectedBayPorts = computed(() => bayPorts(selectedSlot.value?.locations));
 const engineLoc = computed(() => arr(selectedEngine.value?.location, [0, 0]));
 const builtInMods = computed({
   get: () => (Array.isArray(localShip.value.builtInMods) ? (localShip.value.builtInMods as string[]) : []),
@@ -579,14 +600,19 @@ function previewWeaponState(coord: number[], modifiers: CanvasModifiers, mx: num
   return null;
 }
 function previewLaunchBayState(coord: number[], modifiers: CanvasModifiers) {
-  if (!modifiers.shiftKey) return null;
-  const relativeCoord = absoluteToRelative(coord);
-  const source = selectedSlot.value ? deepClone(selectedSlot.value) : {};
-  return {
-    kind: 'launchBayAdd' as const,
-    coord: relativeCoord,
-    slot: launchBayWithDefaults(source, nextLaunchBayId(), relativeCoord),
-  };
+  if (modifiers.ctrlKey) {
+    const relativeCoord = absoluteToRelative(coord);
+    const source = selectedSlot.value ? deepClone(selectedSlot.value) : {};
+    return {
+      kind: 'launchBayAdd' as const,
+      coord: relativeCoord,
+      slot: launchBayWithDefaults(source, nextLaunchBayId(), relativeCoord),
+    };
+  }
+  if (modifiers.shiftKey && selected.value !== null) {
+    return { kind: 'launchBayPortAdd' as const, coord: absoluteToRelative(coord) };
+  }
+  return null;
 }
 function previewEngineState(coord: number[], modifiers: CanvasModifiers, mx: number, my: number) {
   const relativeCoord = absoluteToRelative(coord);
@@ -627,7 +653,7 @@ function shouldPauseAutoSnap(modifiers: CanvasModifiers) {
   if (mode.value === 'ranges') return modifiers.shiftKey || modifiers.ctrlKey;
   if (mode.value === 'bounds') return modifiers.shiftKey || modifiers.ctrlKey;
   if (mode.value === 'weapon') return modifiers.altKey || modifiers.ctrlKey || modifiers.shiftKey;
-  if (mode.value === 'launchBay') return modifiers.shiftKey;
+  if (mode.value === 'launchBay') return modifiers.shiftKey || modifiers.ctrlKey;
   if (mode.value === 'engine') return modifiers.altKey || modifiers.ctrlKey || modifiers.shiftKey;
   return false;
 }
@@ -681,6 +707,12 @@ function drawPreview(ctx: CanvasRenderingContext2D, preview: NonNullable<HoverPr
         size: str(preview.slot.size, 'MEDIUM'),
         type: str(preview.slot.type, 'SYSTEM'),
       });
+    }
+  }
+  if (preview.kind === 'launchBayPortAdd') {
+    drawLaunchBayPortVisual(ctx, { point: relativeToCanvas(preview.coord), selected: true });
+    if (mirrorMode.value && Math.abs(preview.coord[1] || 0) > MIRROR_EPSILON) {
+      drawLaunchBayPortVisual(ctx, { point: relativeToCanvas(mirrorBayPort(preview.coord)), selected: true });
     }
   }
   if (preview.kind === 'weaponArc' && selectedSlot.value) {
@@ -828,7 +860,18 @@ function draw() {
       if (mode.value === 'weapon' && isLaunchBay) return;
       if (mode.value === 'launchBay' && !isLaunchBay) return;
       if (hoverPreview.value?.kind === 'weaponMove' && mode.value === 'weapon' && i === selected.value) return;
-      if (hoverPreview.value?.kind === 'weaponMove' && mode.value === 'launchBay' && i === selected.value) return;
+      if (isLaunchBay) {
+        const baySelected = selected.value === i;
+        bayPorts(slot.locations).forEach((port, portIndex) => {
+          drawLaunchBayPortVisual(ctx, {
+            point: relativeToCanvas(port),
+            hovered: hovered.value?.kind === 'launchBayPort' && hovered.value.i === i && hovered.value.port === portIndex,
+            selected: baySelected,
+            accent: baySelected && selectedPort.value === portIndex,
+          });
+        });
+        return;
+      }
       drawWeaponSlotVisual(ctx, {
         angle: num(slot.angle, 0),
         arc: num(slot.arc, 0),
@@ -857,6 +900,7 @@ function draw() {
   drawCursorPosition(ctx);
 }
 function targetHitRadius(target: CanvasTarget) {
+  if (target.kind === 'launchBayPort') return 16;
   if (target.kind === 'engine') return 28;
   if (target.kind === 'center' || target.kind === 'shield') return 30;
   return 26;
@@ -870,7 +914,15 @@ function selectableTargets(mx: number, my: number): CanvasTarget[] {
       if (!slot) continue;
       const isLaunchBay = str(slot.type).toUpperCase() === 'LAUNCH_BAY';
       if (mode.value === 'weapon' && isLaunchBay) continue;
-      if (mode.value === 'launchBay' && !isLaunchBay) continue;
+      if (mode.value === 'launchBay') {
+        if (!isLaunchBay) continue;
+        const ports = bayPorts(slot.locations);
+        for (let port = ports.length - 1; port >= 0; port--) {
+          const p = relativeToCanvas(ports[port] ?? [0, 0]);
+          targets.push({ kind: 'launchBayPort', i, port, distance: Math.hypot(mx - p.x, my - p.y) });
+        }
+        continue;
+      }
       const p = relativeToCanvas(arr(slot.locations, [0, 0]));
       targets.push({ kind: 'weapon', i, distance: Math.hypot(mx - p.x, my - p.y) });
     }
@@ -901,7 +953,9 @@ function selectForDown(e: MouseEvent, mx: number, my: number, pick: CanvasPick):
   if ((mode.value === 'weapon' || mode.value === 'engine') && (e.altKey || e.ctrlKey))
     return pick.byIdentity(inspectorLock.value ?? activeTarget.value) ?? pick.byPointer(mx, my);
   if (mode.value === 'ranges' && (e.shiftKey || e.ctrlKey)) return pick.byIdentity(activeTarget.value) ?? pick.byPointer(mx, my);
-  return pick.byPointer(mx, my);
+  const target = pick.byPointer(mx, my);
+  if (mode.value === 'launchBay') selectedPort.value = target?.port ?? null;
+  return target;
 }
 function resolveDragKind(e: MouseEvent, mx: number, my: number, target: CanvasTarget) {
   if (mode.value === 'weapon' && e.altKey) return 'weaponArc';
@@ -933,10 +987,15 @@ function nearestBoundsSegmentIndex(point: number[]) {
   return bestIndex;
 }
 function shiftRelativePosition(value: RowData[string] | undefined, dxAbsolute: number, dyAbsolute: number) {
-  const loc = arr(value, [0, 0]);
-  loc[0] = snapToStep((loc[0] || 0) - dyAbsolute);
-  loc[1] = snapToStep((loc[1] || 0) + dxAbsolute);
-  return loc;
+  // Multi-port launch bays keep every coordinate pair in `locations`; only an
+  // odd trailing number is dropped.
+  const source = Array.isArray(value) ? value : [];
+  const shifted: number[] = [];
+  for (let index = 0; index + 1 < source.length; index += 2) {
+    shifted.push(snapToStep((Number(source[index]) || 0) - dyAbsolute), snapToStep((Number(source[index + 1]) || 0) + dxAbsolute));
+  }
+  if (!shifted.length) return [snapToStep(-dyAbsolute), snapToStep(dxAbsolute)];
+  return shifted;
 }
 function offsetRelativeFields(dxAbsolute: number, dyAbsolute: number) {
   localShip.value.shieldCenter = shiftRelativePosition(localShip.value.shieldCenter, dxAbsolute, dyAbsolute);
@@ -975,8 +1034,22 @@ function addLaunchBayAt(coord: number[]) {
     mirrorPair.value = null;
   }
   selected.value = sourceIndex;
-  hovered.value = { kind: 'weapon', i: selected.value };
-  activeTarget.value = { kind: 'weapon', i: selected.value };
+  selectedPort.value = 0;
+  hovered.value = { kind: 'launchBayPort', i: selected.value, port: 0 };
+  activeTarget.value = { kind: 'launchBayPort', i: selected.value, port: 0 };
+}
+function addBayPortAt(relativeCoord: number[]) {
+  const slot = selectedSlot.value;
+  if (!slot) return;
+  const portCount = bayPorts(slot.locations).length;
+  slot.locations = appendBayPort(slot.locations, relativeCoord);
+  if (mirrorMode.value && Math.abs(relativeCoord[1] || 0) > MIRROR_EPSILON) {
+    slot.locations = appendBayPort(slot.locations, mirrorBayPort(relativeCoord));
+  }
+  selectedPort.value = portCount;
+  const bayIndex = selected.value ?? weaponSlots.value.indexOf(slot);
+  hovered.value = { kind: 'launchBayPort', i: bayIndex, port: portCount };
+  activeTarget.value = { kind: 'launchBayPort', i: bayIndex, port: portCount };
 }
 function copyEngineAt(coord: number[]) {
   const source = selectedEngine.value ? deepClone(selectedEngine.value) : {};
@@ -999,6 +1072,9 @@ function updateInteraction(kind: string, mx: number, my: number) {
   const rawCoord = rawCanvasToShip(mx, my);
   const relativeCoord = canvasToRelative(mx, my);
   if (kind === 'weapon' && selectedSlot.value) selectedSlot.value.locations = relativeCoord;
+  if (kind === 'launchBayPort' && selectedSlot.value && selectedPort.value !== null) {
+    selectedSlot.value.locations = updateBayPort(selectedSlot.value.locations, selectedPort.value, relativeCoord);
+  }
   if (kind === 'engine' && selectedEngine.value) selectedEngine.value.location = relativeCoord;
   if (kind === 'bound' && selected.value !== null) {
     bounds.value[selected.value * 2] = relativeCoord[0];
@@ -1138,10 +1214,19 @@ function actionDown(e: MouseEvent, mx: number, my: number) {
     startBoundsInsert(relativeCoord, nearestBoundsSegmentIndex(relativeCoord));
     return 'bound';
   }
-  if (mode.value === 'launchBay' && e.shiftKey) {
+  if (mode.value === 'launchBay' && e.ctrlKey) {
     pushUndo();
     addLaunchBayAt(coord);
-    return 'weapon';
+    return 'launchBayPort';
+  }
+  if (mode.value === 'launchBay' && e.shiftKey) {
+    if (selected.value === null || !selectedSlot.value || str(selectedSlot.value.type).toUpperCase() !== 'LAUNCH_BAY') {
+      feedback.warning('先选中甲板，再为其新增港口');
+      return null;
+    }
+    pushUndo();
+    addBayPortAt(relativeCoord);
+    return 'launchBayPort';
   }
   if (mode.value === 'weapon' && e.shiftKey) {
     pushUndo();
@@ -1192,6 +1277,46 @@ function setSlotLoc(idx: number, value: number | null) {
   draw();
   commitDraft();
 }
+function setBayPortCoord(portIndex: number, axis: 0 | 1, value: number | null) {
+  if (!selectedSlot.value) return;
+  const ports = bayPorts(selectedSlot.value.locations);
+  const coord = ports[portIndex] ? [...ports[portIndex]] : [0, 0];
+  coord[axis] = value || 0;
+  selectedSlot.value.locations = updateBayPort(selectedSlot.value.locations, portIndex, coord);
+  draw();
+  commitDraft();
+}
+function removeBayPortAt(portIndex: number) {
+  const slot = selectedSlot.value;
+  if (!slot) return;
+  pushUndo();
+  const remaining = removeBayPort(slot.locations, portIndex);
+  if (!remaining.length) {
+    const bayIndex = selected.value;
+    if (bayIndex !== null) weaponSlots.value.splice(bayIndex, 1);
+    selected.value = null;
+    hovered.value = null;
+    activeTarget.value = null;
+    inspectorLock.value = null;
+    selectedPort.value = null;
+  } else {
+    slot.locations = remaining;
+    selectedPort.value = Math.min(selectedPort.value ?? 0, bayPorts(remaining).length - 1);
+  }
+  commitDraft();
+  draw();
+}
+function addBayPortFromPanel() {
+  const slot = selectedSlot.value;
+  if (!slot) return;
+  pushUndo();
+  const ports = bayPorts(slot.locations);
+  const anchor = ports[ports.length - 1] ?? [0, 0];
+  slot.locations = appendBayPort(slot.locations, [anchor[0] || 0, anchor[1] || 0]);
+  selectedPort.value = ports.length;
+  commitDraft();
+  draw();
+}
 function setEngineLoc(idx: number, value: number | null) {
   if (!selectedEngine.value) return;
   const loc = engineLoc.value;
@@ -1210,6 +1335,7 @@ function setBound(idx: number, value: number | null) {
 function selectInspectorItem(nextMode: typeof mode.value, index: number, kind: string) {
   mode.value = nextMode;
   selected.value = index;
+  if (nextMode === 'launchBay') selectedPort.value = null;
   hovered.value = { kind, i: index };
   activeTarget.value = { kind, i: index };
   inspectorLock.value = { kind, i: index };
@@ -1316,6 +1442,7 @@ function deleteSelected() {
   }
   if (!deleted) return false;
   selected.value = null;
+  selectedPort.value = null;
   hovered.value = null;
   activeTarget.value = null;
   inspectorLock.value = null;
@@ -1342,10 +1469,14 @@ watch(
   () => {
     localShip.value = normalizeShipSpec(props.ship);
     selected.value = null;
+    selectedPort.value = null;
     activeTarget.value = null;
     inspectorLock.value = null;
     clearPreview();
   },
 );
+watch(selected, (value) => {
+  if (value === null) selectedPort.value = null;
+});
 watch(() => props.spriteData, loadSprite);
 </script>

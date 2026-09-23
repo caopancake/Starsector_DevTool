@@ -16,9 +16,12 @@ export interface CanvasTarget {
   kind: string;
   i: number;
   distance: number;
+  /// Sub-index within the target (launch bay port); optional so existing
+  /// editors stay untouched.
+  port?: number;
 }
 
-export type CanvasTargetIdentity = Pick<CanvasTarget, 'kind' | 'i'>;
+export type CanvasTargetIdentity = { kind: string; i: number; port?: number };
 
 export type CanvasModifiers = Pick<MouseEvent | KeyboardEvent, 'altKey' | 'ctrlKey' | 'shiftKey'>;
 
@@ -213,7 +216,7 @@ export function useCanvasEditor<TPreview>(options: {
   }
 
   function targetMatches(target: CanvasTarget | null, identity: CanvasTargetIdentity | null) {
-    return Boolean(target && identity && target.kind === identity.kind && target.i === identity.i);
+    return Boolean(target && identity && target.kind === identity.kind && target.i === identity.i && target.port === identity.port);
   }
 
   function nearestTarget(mx: number, my: number) {
@@ -230,9 +233,9 @@ export function useCanvasEditor<TPreview>(options: {
   }
 
   function syncSelection(target: CanvasTarget) {
-    state.hovered.value = { kind: target.kind, i: target.i };
+    state.hovered.value = { kind: target.kind, i: target.i, port: target.port };
     state.selected.value = target.i;
-    state.activeTarget.value = { kind: target.kind, i: target.i };
+    state.activeTarget.value = { kind: target.kind, i: target.i, port: target.port };
   }
 
   function clearSelection() {

@@ -216,6 +216,41 @@ export function drawWeaponSlotVisual(ctx: CanvasRenderingContext2D, options: Wea
   ctx.restore();
 }
 
+interface LaunchBayPortVisualOptions {
+  point: Point;
+  hovered?: boolean;
+  selected?: boolean;
+  accent?: boolean;
+}
+
+/// Renders one launch bay port as a small thin ring — the bay itself is never
+/// drawn on the canvas, every port stands in for it.
+export function drawLaunchBayPortVisual(ctx: CanvasRenderingContext2D, options: LaunchBayPortVisualOptions) {
+  const color = colorFor('LAUNCH_BAY');
+  const radius = 10;
+
+  ctx.save();
+  ctx.translate(options.point.x, options.point.y);
+  ctx.globalAlpha = options.hovered || options.selected || options.accent ? 1 : 0.65;
+  if (options.accent) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = options.hovered || options.accent ? 1.8 : 1.1;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function drawBoundsVisual(
   ctx: CanvasRenderingContext2D,
   points: Point[],
