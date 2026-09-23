@@ -72,6 +72,7 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
   const canUndo = textHistory.canUndo;
   const canRedo = textHistory.canRedo;
   const isErrorContext = computed(() => contextSeverity.value === 'error');
+  const isWarningContext = computed(() => contextSeverity.value === 'warning');
   const hasPendingExternalText = draftSession.hasPendingExternalValue;
   const externalTextNotice = computed(() => (draftSession.hasPendingExternalValue.value ? '外部文本已更新，当前未保存草稿已保留。' : ''));
 
@@ -189,6 +190,7 @@ export function useFileEditorViewModel(params: FileEditorViewModelParams) {
     canUndo,
     canRedo,
     isErrorContext,
+    isWarningContext,
     initialize,
     dispose,
     saveFile,

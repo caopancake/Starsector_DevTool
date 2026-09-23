@@ -305,7 +305,13 @@ import {
 import { useCanvasViewport } from '@/app/composables/canvas/use-canvas-viewport';
 import { useResourceReference } from '@/app/composables/editors/use-resource-reference';
 import { editorCollapseTheme, snapToStep, toOptions } from '@/domain/editors/lib/editor-constants';
-import { drawBoundsVisual, drawEngineVisual, drawLaunchBayPortVisual, drawRadiusField, drawWeaponSlotVisual } from '@/domain/editors/lib/canvas-visuals';
+import {
+  drawBoundsVisual,
+  drawEngineVisual,
+  drawLaunchBayPortVisual,
+  drawRadiusField,
+  drawWeaponSlotVisual,
+} from '@/domain/editors/lib/canvas-visuals';
 import {
   findMirrorBoundIndex,
   findMirrorEngineIndex,

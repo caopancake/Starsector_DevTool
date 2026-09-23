@@ -66,7 +66,7 @@ export function useConfigFactionViewModel() {
 
   async function createFaction(createSessionId: string, createModRoot: string, id: string): Promise<boolean> {
     if (!isConfigEntityId(id)) {
-      feedback.error(configEntityIdInvalidMessage('势力 ID'));
+      feedback.warning(configEntityIdInvalidMessage('势力 ID', id), 'config.id_invalid');
       return false;
     }
     try {
@@ -101,7 +101,7 @@ export function useConfigFactionViewModel() {
     const draft = configFactionSaveDraft(local, schema);
     const nextId = draft.nextId;
     if (!isConfigEntityId(nextId)) {
-      feedback.error(configEntityIdInvalidMessage('势力 ID'));
+      feedback.warning(configEntityIdInvalidMessage('势力 ID', nextId), 'config.id_invalid');
       return previousId;
     }
     const idChanged = nextId !== previousId;

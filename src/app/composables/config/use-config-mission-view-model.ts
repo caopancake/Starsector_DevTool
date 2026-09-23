@@ -78,7 +78,7 @@ export function useConfigMissionViewModel() {
 
   async function createMission(createSessionId: string, createModRoot: string, id: string): Promise<boolean> {
     if (!isConfigEntityId(id)) {
-      feedback.error(configEntityIdInvalidMessage('战役 ID'));
+      feedback.warning(configEntityIdInvalidMessage('战役 ID', id), 'config.id_invalid');
       return false;
     }
     try {
@@ -118,7 +118,7 @@ export function useConfigMissionViewModel() {
       return previousId;
     }
     if (!isConfigEntityId(draft.nextId)) {
-      feedback.error(configEntityIdInvalidMessage('战役 ID'));
+      feedback.warning(configEntityIdInvalidMessage('战役 ID', draft.nextId), 'config.id_invalid');
       return previousId;
     }
     await saveMissionDraft(saveSessionId, saveModRoot, previousId, draft);

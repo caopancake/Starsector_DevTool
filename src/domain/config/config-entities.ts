@@ -221,8 +221,9 @@ export function isConfigEntityId(value: string): boolean {
   return CONFIG_ENTITY_ID_RE.test(value.trim());
 }
 
-export function configEntityIdInvalidMessage(label: string): string {
-  return `${label} ${CONFIG_ENTITY_ID_HINT}`;
+export function configEntityIdInvalidMessage(label: string, value?: string): string {
+  const subject = value ? `${label} "${value}"` : label;
+  return `${subject} ${CONFIG_ENTITY_ID_HINT}`;
 }
 
 export function hasConfigEntityIdConflict<T>(

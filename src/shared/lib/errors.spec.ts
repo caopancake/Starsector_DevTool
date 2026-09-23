@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { appendFileReferenceLocation, buildModOpeningFailure, extractFileReferenceFromError } from '@/shared/lib/errors';
+import {
+  appendFileReferenceLocation,
+  buildModOpeningFailure,
+  extractFileReferenceFromError,
+  fileReferenceLocationSuffix,
+} from '@/shared/lib/errors';
 
 describe('file references in errors', () => {
   it('extracts a Windows path with serde line and column', () => {
@@ -38,6 +43,18 @@ describe('file references in errors', () => {
     expect(reference?.line).toBeUndefined();
     expect(reference?.column).toBeUndefined();
     expect(appendFileReferenceLocation('读取失败', reference)).toBe('读取失败');
+  });
+
+  it('extracts a load-warning path wrapped in full-width parentheses', () => {
+    const reference = extractFileReferenceFromError('读取 mod_info.json 失败（D:\\mods\\demo\\mod_info.json）');
+
+    expect(reference).toMatchObject({ path: 'D:\\mods\\demo\\mod_info.json' });
+    expect(reference?.line).toBeUndefined();
+  });
+
+  it('formats a location suffix with and without a column', () => {
+    expect(fileReferenceLocationSuffix(5, 44)).toBe('第 5 行，第 44 列');
+    expect(fileReferenceLocationSuffix(9)).toBe('第 9 行');
   });
 
   it('authorizes an error file inside an equivalent extended Mod root', () => {

@@ -21,7 +21,7 @@ export interface EditorSpecSavedEvent {
   writeResult: WriteResult;
 }
 
-export type FileEditorContextSeverity = 'error' | 'info';
+export type FileEditorContextSeverity = 'error' | 'warning' | 'info';
 
 export interface FileEditorFocusLineEvent {
   column: number | null;

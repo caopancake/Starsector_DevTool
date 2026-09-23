@@ -118,7 +118,7 @@ async function doCreateMission() {
     return false;
   }
   if (!props.isValidMissionId(id)) {
-    feedback.error(configEntityIdInvalidMessage('战役 ID'));
+    feedback.warning(configEntityIdInvalidMessage('战役 ID', id), 'config.id_invalid');
     return false;
   }
   if (props.missionExists(id)) {

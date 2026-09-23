@@ -129,7 +129,7 @@ export function useConfigFamilyViewModel(family: ConfigEntityFamilyDefinition) {
       return false;
     }
     if (!isConfigEntityId(id)) {
-      feedback.error(configEntityIdInvalidMessage(family.idField));
+      feedback.warning(configEntityIdInvalidMessage(family.idField, id), 'config.id_invalid');
       return false;
     }
     if (hasConfigEntityIdConflict(files.value as VariantFile[], id, null, idOf)) {
@@ -189,7 +189,7 @@ export function useConfigFamilyViewModel(family: ConfigEntityFamilyDefinition) {
       return null;
     }
     if (!isConfigEntityId(nextId)) {
-      feedback.error(configEntityIdInvalidMessage(family.idField));
+      feedback.warning(configEntityIdInvalidMessage(family.idField, nextId), 'config.id_invalid');
       return null;
     }
     if (hasConfigEntityIdConflict(files.value as VariantFile[], nextId, currentId, idOf)) {

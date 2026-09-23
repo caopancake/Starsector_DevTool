@@ -25,7 +25,7 @@
       <p>{{ externalTextNotice }}</p>
     </section>
 
-    <section v-if="showContextMessage" :class="['file-editor-message', { danger: isErrorContext }]">
+    <section v-if="showContextMessage" :class="['file-editor-message', { danger: isErrorContext, warning: isWarningContext }]">
       <span>{{ contextLabel }}</span>
       <p>{{ contextMessage }}</p>
     </section>
@@ -94,6 +94,7 @@ const {
   externalTextNotice,
   lineCount,
   isErrorContext,
+  isWarningContext,
   initialize,
   dispose,
   saveFile,

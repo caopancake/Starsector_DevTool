@@ -1,6 +1,6 @@
 <template>
   <n-config-provider :theme="settings.naiveTheme" :theme-overrides="themeOverrides">
-    <n-message-provider>
+    <n-message-provider :duration="10000" closable keep-alive-on-hover>
       <n-dialog-provider>
         <AppContent v-if="mode === 'main'" />
         <slot v-else />

@@ -81,10 +81,13 @@ export function extractFileReferenceFromError(error: unknown): FileReference | n
   };
 }
 
+export function fileReferenceLocationSuffix(line: number, column?: number): string {
+  return column ? `第 ${line} 行，第 ${column} 列` : `第 ${line} 行`;
+}
+
 export function appendFileReferenceLocation(message: string, reference: FileReference | null): string {
   if (!reference?.line) return message;
-  const location = reference.column ? `第 ${reference.line} 行，第 ${reference.column} 列` : `第 ${reference.line} 行`;
-  return `${message}（${location}）`;
+  return `${message}（${fileReferenceLocationSuffix(reference.line, reference.column)}）`;
 }
 
 export function buildModOpeningFailure(modRoot: string, error: unknown): ModOpeningFailure {
