@@ -9,6 +9,7 @@ import { resolveTableRowKey, TABLE_ROW_KEY_FIELD } from '@/domain/tables/table-r
 import { isLoadedCsvTableRow } from '@/domain/tables/csv-table-rows';
 import type { AssociatedSpecCandidate } from '@/domain/tables/associated-spec-candidates';
 import { completeSavedWrite } from '@/orchestrators/file-history-write.orchestrator';
+import { recordLogBestEffort } from '@/services/app-feedback-log.service';
 
 export type TableSaveResult = 'saved' | 'noop';
 
@@ -49,6 +50,21 @@ export async function saveCapturedTableChanges(
     const csvEditHistory = useTablesEditHistoryStore();
     const patches = buildCurrentTablePatches(state, table);
     const result = await writeCsvPatch(manifest.sessionId, modRoot, table, patches, associatedSpecs);
+    recordLogBestEffort({
+      level: 'info',
+      code: 'tables.csv_saved',
+      message: 'csv saved',
+      path: null,
+      line: null,
+      fields: {
+        modRoot,
+        sessionId: manifest.sessionId,
+        table,
+        patches: String(patches.length),
+        changes: String(result.changes.length),
+        associatedSpecs: String(associatedSpecs.length),
+      },
+    });
     if (!isTableSaveTargetCurrent(target)) return 'saved';
     if (result.changes.length > 0) {
       await completeSavedWrite({ modRoot, result, label: `保存 ${table} CSV`, sessionId: manifest.sessionId }, useProjectStore());

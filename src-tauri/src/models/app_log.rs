@@ -1,5 +1,6 @@
 use crate::models::required_nullable;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "camelCase")]
@@ -33,6 +34,8 @@ pub struct AppLogEntry {
     pub path: Option<String>,
     #[serde(deserialize_with = "required_nullable")]
     pub line: Option<u32>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub fields: Option<BTreeMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

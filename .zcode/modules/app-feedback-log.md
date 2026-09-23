@@ -11,10 +11,11 @@
 `src/services/app-feedback-log.service.ts`：应用日志 service，拥有日志追加、状态查询、日志与配置文件动作，并注册性能日志 sink。
 `src/shared/api/app-feedback-log-api.ts`：应用日志 wire API，映射后端日志与配置命令。
 `src/shared/lib/feedback-session.ts`：文件引用会话解析纯函数，manifest 会话优先、子窗口自身身份回退。
+`src/shared/lib/log-fields.ts`：日志 `fields` 组装纯函数，丢弃空值并统一字符串化。
 `src/shared/runtime/performance.ts`：性能日志 sink 注入口，由应用日志 service 注册。
 `src/app/composables/use-performance-logger.ts`：业务性能打点 hook。
 `src/windows/window-identity.window.ts`：子窗口 URL 会话身份读取，主窗口返回空。
-`src-tauri/src/services/app_log.rs`：后端日志 owner，固定日志文件名与目录解析、级别阈值过滤、本地时间渲染与 5MB 单份轮转。
+`src-tauri/src/services/app_log.rs`：后端日志 owner，固定日志文件名与目录解析、级别阈值过滤、本地时间渲染、`fields` 键值渲染与 5MB 单份轮转。
 `src-tauri/src/diagnostics.rs`：后端诊断 sink owner，无法触达日志服务的内部层经 `record` 记录，应用启动时安装为 Warning 级应用日志。
 `src-tauri/src/services/app_config.rs`：工具私有配置维护 owner，拥有清空配置与清空日志。
 `src-tauri/src/commands/app_feedback_log.rs`：应用日志与配置维护 command。
@@ -23,8 +24,9 @@
 
 - 组件只允许经反馈 hook 获取 `AppFeedback`；非组件代码只允许接收注入的 `AppFeedback` 或使用日志 service。
 - 反馈工厂只允许被反馈 hook 消费，由架构规则锚定；工厂内错误文件的 store 读取与窗口打开维持现状。
-- warning 与 error 记录应用日志，success 与 info 反馈不记录；info/debug 级日志条目按设置的级别阈值落盘（默认 INFO 阈值丢弃 debug，详细档 DEBUG 全量保留）；日志失败不改变主业务语义。
-- 日志条目采用稳定码+参数制：warning/error 必须携带稳定码（如 `mod.scan_warning`、后端 AppError 稳定码），message 仅允许英文短语与数据参数，严禁落中文文案；弹窗文案与日志文本分离。
+- error 与 warning 反馈必记录应用日志；info 与 debug 条目由业务链路显式记录，全部按设置的级别阈值落盘（默认 INFO 阈值丢弃 debug，详细档 DEBUG 全量保留）；日志失败不改变主业务语义。
+- 日志条目采用稳定码+参数制：全级别必须携带稳定码（前端 `域.动作` 风格，后端 AppError 稳定码）；message 仅允许英文短语或原始诊断文本（wire 错误的完整 message 链），弹窗用户文案严禁落日志；结构化上下文写入 `fields`（键值均为字符串，渲染为 `key=value` 后缀，空值丢弃）。
+- Mod session 生命周期日志归属前端：`mod.session_opened` 在 `openModProjectManifest` 成功后记录（覆盖目录打开、总览打开、新建 Mod 打开与工作区恢复），`mod.session_closed` 在 `removeLoadedModRuntime` 记录，均携带 `modRoot + sessionId`；后端不记录 session 生命周期。
 - 级别阈值来自已保存 settings 的 `logLevel`（默认 INFO）；每次写入单点过滤，前端不做预过滤。
 - 降级类内部错误（持久化缓存不可写、锁中毒等）必须经诊断 sink 记录后才能按降级语义继续，严禁静默吞掉。
 - 错误文件入口只在路径命中已加载 `modRoot` 且有 `sessionId`（或路径属于当前子窗口自身的会话身份）时启用；否则只提示不显示按钮。
@@ -65,7 +67,9 @@
 - 输入校验拒绝（`configEntityIdInvalidMessage`）为 warning 级，携带稳定码 `config.id_invalid` 与出错的 ID 值，严禁以 error 级呈现。
 - 错误呈现必须保留原始错误链，格式化时父子消息不得重复拼接。
 - warning/error 日志条目必须携带稳定码与可选的文件位置；success/info 反馈严禁产生日志条目。
+- 动作与结果类 info 条目固定由以下稳定码承载：`app.started/exited`（带版本）、`directory.scanned/unrecognized`、`mod.session_opened/closed`、`mod.already_loaded/removed/created`、`tables.csv_saved/row_created/row_deleted/undo_applied/redo_applied`、`workspace.refreshed/closed`、`editor.file_opened/file_saved/window_opened/spec_saved`、`history.replayed`、`settings.saved`（debug）；降级丢弃类（如子窗口草稿快照解析失败）为 warning 级 `editor.draft_snapshot_invalid`。
 - 时间戳由后端写入时按本地时区渲染（`YYYY-MM-DD HH:MM:SS.mmm`）；文件达到 5MB 上限时轮转为 `.log.1`（单份历史）。
+- `fields` 在 path/line 之后按键名字序渲染为 `key=value` 后缀，值经 CR/LF/TAB 清洗；空值在组装期丢弃，全空时 `fields` 为 null。
 - 日志写入失败严禁抛出到业务链路，也不得产生递归日志。
 - 日志与配置目录解析必须来自已保存 settings，禁止现场推断。
 - 日志名固定，严禁按时间或会话改名。

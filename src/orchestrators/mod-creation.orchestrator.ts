@@ -2,6 +2,8 @@ import { openCreatedModTarget, type DirectoryOpeningOutcome } from '@/orchestrat
 import { createNewModProject } from '@/services/mod-creation.service';
 import { AppError } from '@/shared/lib/errors';
 import { measurePerformanceAsync } from '@/shared/runtime/performance';
+import { recordLogBestEffort } from '@/services/app-feedback-log.service';
+import { logFields } from '@/shared/lib/log-fields';
 import type { CreatedMod, CreateModRequest } from '@/shared/types';
 
 export interface CreatedModProject {
@@ -9,10 +11,21 @@ export interface CreatedModProject {
   warnings: string[];
 }
 
-export function createModProject(request: CreateModRequest): Promise<CreatedMod> {
-  return measurePerformanceAsync('frontend.createModProject', { destination: request.destination.kind, modId: request.template.id }, () =>
-    createNewModProject(request),
+export async function createModProject(request: CreateModRequest): Promise<CreatedMod> {
+  const created = await measurePerformanceAsync(
+    'frontend.createModProject',
+    { destination: request.destination.kind, modId: request.template.id },
+    () => createNewModProject(request),
   );
+  recordLogBestEffort({
+    level: 'info',
+    code: 'mod.created',
+    message: 'mod created',
+    path: null,
+    line: null,
+    fields: logFields({ modRoot: created.modRoot, template: request.template.id, destination: request.destination.kind }),
+  });
+  return created;
 }
 
 export async function openCreatedModProject(created: CreatedMod): Promise<CreatedModProject> {

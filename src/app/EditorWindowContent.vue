@@ -105,8 +105,10 @@ import { openProjectileEditorWindow, openWeaponPreviewWindow } from '@/windows/e
 import { useSettingsStore } from '@/stores/settings.store';
 import { closeCurrentWindow } from '@/windows/current.window';
 import { useEditorWindowViewModel } from '@/app/composables/editors/use-editor-window-view-model';
-import type { EditorSpecKind, EditorWindowKind, RowData } from '@/shared/types';
+import type { AppLogEntry, EditorSpecKind, EditorWindowKind, RowData } from '@/shared/types';
 import { isEditorWindowKind } from '@/domain/editors/editor-definitions';
+import { useAppLog } from '@/app/composables/use-app-log';
+import { errorMessageOf } from '@/shared/lib/errors';
 
 const params = new window.URLSearchParams(window.location.search);
 const kind = ref<EditorWindowKind>(parseKind(params.get('kind')));
@@ -114,7 +116,8 @@ const sessionId = params.get('sessionId');
 const modRoot = params.get('modRoot');
 const id = params.get('id');
 const starsectorRoot = params.get('starsectorRoot');
-const draftSnapshot = ref<RowData | null>(parseDraftSnapshot(params.get('draftSnapshot')));
+const appLog = useAppLog();
+const draftSnapshot = ref<RowData | null>(parseDraftSnapshot(params.get('draftSnapshot'), appLog.record));
 const settings = useSettingsStore();
 const feedback = useAppFeedback();
 const target = computed(() => (sessionId && modRoot && id ? { sessionId, modRoot, id } : null));
@@ -152,13 +155,20 @@ function parseKind(value: string | null): EditorWindowKind {
   return isEditorWindowKind(value) ? value : 'ship';
 }
 
-function parseDraftSnapshot(value: string | null): RowData | null {
+function parseDraftSnapshot(value: string | null, recordLog: (entry: AppLogEntry) => void): RowData | null {
   if (!value) return null;
   try {
     const parsed = JSON.parse(value) as unknown;
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as RowData) : null;
   } catch (error) {
-    console.warn('draft snapshot ignored: unparseable URL payload', error);
+    recordLog({
+      level: 'warning',
+      code: 'editor.draft_snapshot_invalid',
+      message: errorMessageOf(error) ?? 'draft snapshot ignored: unparseable URL payload',
+      path: null,
+      line: null,
+      fields: null,
+    });
     return null;
   }
 }

@@ -10,10 +10,11 @@ export interface PerformanceFields {
 
 export interface PerformanceLogEntry {
   level: 'debug';
-  code: null;
+  code: 'perf';
   message: string;
   path: null;
   line: null;
+  fields: Record<string, string>;
 }
 
 type PerformanceLogSink = (entry: PerformanceLogEntry) => void;
@@ -43,16 +44,18 @@ export async function measurePerformanceAsync<T>(name: string, fields: Performan
 }
 
 export function recordPerformance(name: string, ms: number, fields: PerformanceFields = {}): void {
-  const suffix = Object.entries(fields)
-    .filter(([, value]) => value !== undefined && value !== null)
-    .map(([key, value]) => `${key}=${sanitizePerformanceValue(String(value))}`)
-    .join(' ');
+  const entryFields: Record<string, string> = { ms: String(Math.round(ms)) };
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined || value === null) continue;
+    entryFields[key] = sanitizePerformanceValue(String(value));
+  }
   logSink({
     level: 'debug',
-    code: null,
-    message: `PERF ${name} ms=${Math.round(ms)}${suffix ? ` ${suffix}` : ''}`,
+    code: 'perf',
+    message: `PERF ${name}`,
     path: null,
     line: null,
+    fields: entryFields,
   });
 }
 

@@ -7,6 +7,7 @@ export interface AppLogEntry {
   message: string | null;
   path: string | null;
   line: number | null;
+  fields: Record<string, string> | null;
 }
 
 export interface AppLogStatus {

@@ -43,6 +43,7 @@
 ## 规范
 
 - 结构验收必须满足：实体切换新增 source 目录 IPC 数为 0，屏幕外图片 data URL IPC 数为 0，每个冷缓存 source 后端查询数为 1。
+- 打点条目统一为稳定码 `perf`、message `PERF <名称>`、`fields` 携带 `ms` 与阶段参数；后端 `project.openSession` trace 同格式，`stage=total` 条目携带 `modRoot`，其余条目 `stage=<阶段名>`。
 - 打点字段名与取值必须与本文档一致，严禁临时增删字段。
 - 打点不得引入布局抖动、额外渲染或阻塞保存与 query 语义。
 - 日志 sink 未注册时打点必须静默丢弃，严禁报错。

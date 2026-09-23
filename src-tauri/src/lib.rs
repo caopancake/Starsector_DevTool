@@ -33,6 +33,7 @@ pub fn run() {
                         message: Some(message.to_string()),
                         path: None,
                         line: None,
+                        fields: None,
                     },
                 );
             }));

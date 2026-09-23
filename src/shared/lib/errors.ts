@@ -26,6 +26,17 @@ export function errorCodeOf(error: unknown): string {
   return commandErrorCode(error) ?? 'unknown';
 }
 
+/// Raw diagnostic text for log records: wire errors keep the full backend
+/// message chain, other errors degrade to their own message; never the
+/// user-facing code copy.
+export function errorMessageOf(error: unknown): string | null {
+  const wire = wireCommandError(error);
+  if (wire) return wire.message;
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string' && error.length > 0) return error;
+  return null;
+}
+
 export class AppError extends Error {
   readonly action?: string;
   readonly cause?: unknown;

@@ -5,8 +5,9 @@ export function recordWindowEventHandlerError(error: unknown, event: string): vo
   recordLogBestEffort({
     level: 'error',
     code: errorCodeOf(error),
-    message: `window event handler failed: ${event}`,
+    message: 'window event handler failed',
     path: null,
     line: null,
+    fields: { event },
   });
 }

@@ -62,24 +62,24 @@ export const useTablesEditHistoryStore = defineStore('tables-edit-history', () =
     return stack ? canRedoEntry(stack) : false;
   }
 
-  function undoCsvEdit(modRoot: string, table: TableKey, tableState: ModTableState | undefined): boolean {
+  function undoCsvEdit(modRoot: string, table: TableKey, tableState: ModTableState | undefined): string | null {
     const stack = getStack(modRoot, table);
     const entry = stack ? peekUndoEntry(stack) : undefined;
-    if (!stack || !entry) return false;
-    if (!applyCsvEditUndo(entry, tableState)) return false;
+    if (!stack || !entry) return null;
+    if (!applyCsvEditUndo(entry, tableState)) return null;
     popUndoEntry(stack);
     pushRedoEntry(stack, entry);
-    return true;
+    return entry.label;
   }
 
-  function redoCsvEdit(modRoot: string, table: TableKey, tableState: ModTableState | undefined): boolean {
+  function redoCsvEdit(modRoot: string, table: TableKey, tableState: ModTableState | undefined): string | null {
     const stack = getStack(modRoot, table);
     const entry = stack ? peekRedoEntry(stack) : undefined;
-    if (!stack || !entry) return false;
-    if (!applyCsvEditRedo(entry, tableState)) return false;
+    if (!stack || !entry) return null;
+    if (!applyCsvEditRedo(entry, tableState)) return null;
     popRedoEntry(stack);
     pushUndoEntry(stack, entry, { clearRedo: false });
-    return true;
+    return entry.label;
   }
 
   function clearCsvEditHistory(modRoot: string, table: TableKey) {

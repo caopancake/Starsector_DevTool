@@ -65,6 +65,7 @@ vi.mock('@/services/session.service', () => ({
   scanDirectoryGameOverview: vi.fn(),
 }));
 vi.mock('@/domain/project/load-warnings', () => ({ formatLoadWarnings: () => [] }));
+vi.mock('@/services/app-feedback-log.service', () => ({ recordLogBestEffort: vi.fn() }));
 vi.mock('@/shared/runtime/performance', () => ({
   measurePerformance: (_name: string, _detail: unknown, action: () => unknown) => action(),
 }));
@@ -87,7 +88,7 @@ describe('workspace Mod opening navigation', () => {
 
     const outcome = await openModFromOverview(modRoot);
 
-    expect(outcome).toEqual({ type: 'mod-loaded', modName: 'Demo', warnings: [] });
+    expect(outcome).toEqual({ type: 'mod-loaded', modRoot, modName: 'Demo', warnings: [] });
     expect(mocks.workspaceStore.activeModRoot).toBe(modRoot);
     expect(mocks.workspaceStore.currentView).toBe('config');
     expect(mocks.workspaceStore.clearModOpeningFailure).toHaveBeenCalledWith(modRoot);

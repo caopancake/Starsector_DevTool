@@ -14,24 +14,8 @@ use crate::{
 };
 
 #[tauri::command(async)]
-pub fn close_project_session(
-    app_handle: tauri::AppHandle,
-    payload: CloseProjectSessionPayload,
-) -> Result<(), AppError> {
-    let result = services::project::close_project_session(payload.session_id.clone());
-    if result.is_ok() {
-        let _ = services::app_log::append_app_log(
-            app_handle,
-            crate::models::AppLogEntry {
-                level: crate::models::AppLogLevel::Info,
-                code: None,
-                message: Some(format!("session closed: {}", payload.session_id)),
-                path: None,
-                line: None,
-            },
-        );
-    }
-    result
+pub fn close_project_session(payload: CloseProjectSessionPayload) -> Result<(), AppError> {
+    services::project::close_project_session(payload.session_id)
 }
 
 #[tauri::command(async)]

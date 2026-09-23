@@ -148,8 +148,20 @@ fn render_log_entry(entry: &AppLogEntry) -> String {
         line.push_str(" | line=");
         line.push_str(&line_number.to_string());
     }
+    if let Some(fields) = &entry.fields {
+        for (key, value) in fields {
+            line.push(' ');
+            line.push_str(key);
+            line.push('=');
+            line.push_str(&sanitize_log_value(value));
+        }
+    }
     line.push_str("\r\n");
     line
+}
+
+fn sanitize_log_value(value: &str) -> String {
+    value.replace(['\r', '\n', '\t'], " ").trim().to_string()
 }
 
 fn local_timestamp() -> String {
@@ -180,6 +192,7 @@ mod tests {
     use super::*;
     use crate::io::read_utf8_no_bom;
     use crate::testutil::temp_dir;
+    use std::collections::BTreeMap;
 
     #[test]
     fn append_log_and_status_roundtrip() {
@@ -192,6 +205,7 @@ mod tests {
                 message: Some("测试 warning".to_string()),
                 path: Some("D:/test/file.csv".to_string()),
                 line: Some(3),
+                fields: None,
             },
         )
         .unwrap();
@@ -202,6 +216,31 @@ mod tests {
         assert!(text.contains("[warning] [test.code] 测试 warning"));
         assert!(text.contains("path=D:/test/file.csv"));
         assert!(text.contains("line=3"));
+    }
+
+    #[test]
+    fn append_log_renders_fields_in_key_order_and_sanitizes_values() {
+        let dir = temp_dir("log_fields");
+        let fields = BTreeMap::from([
+            ("zeta".to_string(), " last ".to_string()),
+            ("alpha".to_string(), "a\r\nb".to_string()),
+        ]);
+        append_log(
+            &dir,
+            &AppLogEntry {
+                level: crate::models::AppLogLevel::Info,
+                code: Some("test.fields".to_string()),
+                message: Some("with fields".to_string()),
+                path: None,
+                line: None,
+                fields: Some(fields),
+            },
+        )
+        .unwrap();
+        let text = read_utf8_no_bom(&dir.join(LOG_FILE)).unwrap();
+        let _ = fs::remove_dir_all(dir);
+        assert!(text.contains("alpha=a  b zeta=last"));
+        assert!(text.find("alpha=").unwrap() < text.find("zeta=").unwrap());
     }
 
     #[test]
@@ -217,6 +256,7 @@ mod tests {
                 message: Some("after rotation".to_string()),
                 path: None,
                 line: None,
+                fields: None,
             },
         )
         .unwrap();
@@ -240,6 +280,7 @@ mod tests {
                 message: Some("hello".to_string()),
                 path: None,
                 line: None,
+                fields: None,
             },
         )
         .unwrap();

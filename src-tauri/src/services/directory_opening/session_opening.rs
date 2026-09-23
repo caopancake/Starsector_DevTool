@@ -9,6 +9,7 @@ use crate::{
         },
     },
 };
+use std::collections::BTreeMap;
 use std::path::Path;
 
 pub fn open_project_session_with_root(
@@ -44,15 +45,22 @@ fn write_performance_trace(
     trace: &PerformanceTrace,
     root_fields: &[(&str, String)],
 ) {
-    for message in trace.log_messages(root_fields) {
+    for entry in trace.log_entries(root_fields) {
+        let mut fields = BTreeMap::new();
+        fields.insert("stage".to_string(), entry.stage);
+        fields.insert("ms".to_string(), entry.ms.to_string());
+        for (key, value) in entry.fields {
+            fields.insert(key, value);
+        }
         let _ = app_log::append_app_log(
             app_handle.clone(),
             AppLogEntry {
                 level: AppLogLevel::Debug,
                 code: Some("perf".to_string()),
-                message: Some(message),
+                message: Some(format!("PERF {}", trace.name())),
                 path: None,
                 line: None,
+                fields: Some(fields),
             },
         );
     }

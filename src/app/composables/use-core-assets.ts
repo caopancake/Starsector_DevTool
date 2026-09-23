@@ -6,7 +6,7 @@ import { useProjectStore } from '@/stores/project.store';
 import { mergeSchemaWithCoreFields } from '@/domain/schema/schema-core-fields';
 import { getSchema } from '@/domain/schema/schema-registry';
 import { recordLogBestEffort } from '@/services/app-feedback-log.service';
-import { errorCodeOf } from '@/shared/lib/errors';
+import { errorCodeOf, errorMessageOf } from '@/shared/lib/errors';
 import type { FileSchema } from '@/domain/schema/schema.types';
 
 type CoreFields = Awaited<ReturnType<typeof queryCoreFields>>;
@@ -63,7 +63,14 @@ export const useCoreAssetsStore = defineStore('core-assets', () => {
         coreFields.value = {};
         coreFieldsLoadedRoot.value = null;
         coreFieldsLoaded.value = false;
-        recordLogBestEffort({ level: 'error', code: errorCodeOf(error), message: 'core fields load failed', path: root, line: null });
+        recordLogBestEffort({
+          level: 'error',
+          code: errorCodeOf(error),
+          message: errorMessageOf(error) ?? 'core fields load failed',
+          path: root,
+          line: null,
+          fields: null,
+        });
       }
     } finally {
       coreFieldsLoading.value = false;
@@ -94,9 +101,10 @@ export const useCoreAssetsStore = defineStore('core-assets', () => {
         recordLogBestEffort({
           level: 'error',
           code: errorCodeOf(error),
-          message: 'core graphics index load failed',
+          message: errorMessageOf(error) ?? 'core graphics index load failed',
           path: root,
           line: null,
+          fields: null,
         });
       }
     } finally {

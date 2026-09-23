@@ -86,6 +86,7 @@ mod tests {
                 message: Some("keep".to_string()),
                 path: None,
                 line: None,
+                fields: None,
             },
         )
         .unwrap();

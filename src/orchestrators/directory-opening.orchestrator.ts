@@ -8,14 +8,16 @@ import { useWorkspaceStore } from '@/stores/workspace.store';
 import { detectDirectoryTarget, openProject, scanDirectoryGameOverview } from '@/services/session.service';
 import { formatLoadWarnings } from '@/domain/project/load-warnings';
 import { measurePerformance } from '@/shared/runtime/performance';
+import { recordLogBestEffort } from '@/services/app-feedback-log.service';
+import { logFields } from '@/shared/lib/log-fields';
 import { navigateToModOverview } from '@/orchestrators/workspace-navigation.orchestrator';
 import { removeModRuntimeState } from '@/orchestrators/workspace-lifecycle.orchestrator';
 import { buildModOpeningFailure } from '@/shared/lib/errors';
 
 export type DirectoryOpeningOutcome =
-  | { type: 'game-overview'; availableModCount: number }
-  | { type: 'mod-loaded'; modName: string; warnings: string[] }
-  | { type: 'already-loaded'; modName: string }
+  | { type: 'game-overview'; root: string; availableModCount: number }
+  | { type: 'mod-loaded'; modRoot: string; modName: string; warnings: string[] }
+  | { type: 'already-loaded'; modRoot: string; modName: string }
   | { type: 'unknown'; message: string };
 
 type OpenModResult = { alreadyLoaded: true; displayName: string } | { alreadyLoaded: false; displayName: string; warnings: string[] };
@@ -28,7 +30,7 @@ export async function openDirectoryTarget(path: string, knownStarsectorRoot: str
   if (detected.kind === 'game-root' && detected.overview) {
     workspace.clearModOpeningFailures();
     workspace.setGameOverview(detected.overview);
-    return { type: 'game-overview', availableModCount: detected.overview.mods.length };
+    return { type: 'game-overview', root: detected.overview.starsectorRoot, availableModCount: detected.overview.mods.length };
   }
 
   if (detected.kind === 'mod-in-game' && detected.modRoot) {
@@ -37,15 +39,25 @@ export async function openDirectoryTarget(path: string, knownStarsectorRoot: str
     }
     const loaded = await openModProject(detected.modRoot, detected.starsectorRoot ?? null, 'overview');
     return loaded.alreadyLoaded
-      ? { type: 'already-loaded', modName: loaded.displayName }
-      : { type: 'mod-loaded', modName: loaded.displayName, warnings: mergeOpeningWarnings(detected.warnings, loaded.warnings) };
+      ? { type: 'already-loaded', modRoot: detected.modRoot, modName: loaded.displayName }
+      : {
+          type: 'mod-loaded',
+          modRoot: detected.modRoot,
+          modName: loaded.displayName,
+          warnings: mergeOpeningWarnings(detected.warnings, loaded.warnings),
+        };
   }
 
   if (detected.kind === 'external-mod' && detected.modRoot) {
     const loaded = await openModProject(detected.modRoot, detected.starsectorRoot ?? null, 'mod');
     return loaded.alreadyLoaded
-      ? { type: 'already-loaded', modName: loaded.displayName }
-      : { type: 'mod-loaded', modName: loaded.displayName, warnings: mergeOpeningWarnings(detected.warnings, loaded.warnings) };
+      ? { type: 'already-loaded', modRoot: detected.modRoot, modName: loaded.displayName }
+      : {
+          type: 'mod-loaded',
+          modRoot: detected.modRoot,
+          modName: loaded.displayName,
+          warnings: mergeOpeningWarnings(detected.warnings, loaded.warnings),
+        };
   }
 
   return { type: 'unknown', message: detected.warnings[0]?.message ?? '未识别该目录' };
@@ -56,8 +68,8 @@ export async function openModFromOverview(modRoot: string): Promise<DirectoryOpe
   const starsectorRoot = workspace.gameOverview?.starsectorRoot ?? null;
   const loaded = await openModProject(modRoot, starsectorRoot, 'mod');
   return loaded.alreadyLoaded
-    ? { type: 'already-loaded', modName: loaded.displayName }
-    : { type: 'mod-loaded', modName: loaded.displayName, warnings: loaded.warnings };
+    ? { type: 'already-loaded', modRoot, modName: loaded.displayName }
+    : { type: 'mod-loaded', modRoot, modName: loaded.displayName, warnings: loaded.warnings };
 }
 
 export async function openCreatedModTarget(created: CreatedMod): Promise<DirectoryOpeningOutcome> {
@@ -71,8 +83,8 @@ export async function openCreatedModTarget(created: CreatedMod): Promise<Directo
 
   const loaded = await openModProject(created.modRoot, created.starsectorRoot, afterOpenView);
   return loaded.alreadyLoaded
-    ? { type: 'already-loaded', modName: loaded.displayName }
-    : { type: 'mod-loaded', modName: loaded.displayName, warnings: loaded.warnings };
+    ? { type: 'already-loaded', modRoot: created.modRoot, modName: loaded.displayName }
+    : { type: 'mod-loaded', modRoot: created.modRoot, modName: loaded.displayName, warnings: loaded.warnings };
 }
 
 async function openModProject(modRoot: string, starsectorRoot: string | null, afterOpenView: AfterOpenView): Promise<OpenModResult> {
@@ -110,6 +122,21 @@ export async function openModProjectManifest(modRoot: string, starsectorRoot: st
   const project = useProjectStore();
   const loaded = await openProject(modRoot, starsectorRoot);
   measurePerformance('frontend.project.registerProjectManifest', { modRoot }, () => project.registerProjectManifest(loaded));
+  recordLogBestEffort({
+    level: 'info',
+    code: 'mod.session_opened',
+    message: 'mod session opened',
+    path: null,
+    line: null,
+    fields: logFields({
+      modRoot,
+      sessionId: loaded.sessionId,
+      starsectorRoot: loaded.starsectorRoot,
+      name: cell(loaded.modInfo?.name),
+      version: formatModVersion(loaded.modInfo?.version),
+      warnings: formatLoadWarnings(loaded).length,
+    }),
+  });
   return loaded;
 }
 

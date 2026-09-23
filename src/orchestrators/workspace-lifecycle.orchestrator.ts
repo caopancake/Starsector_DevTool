@@ -6,6 +6,8 @@ import { useWorkspaceStore } from '@/stores/workspace.store';
 import { closeProject, invalidateCoreCacheForRoot } from '@/services/session.service';
 import { invalidateQueryCacheForSession } from '@/services/query-cache.service';
 import { invalidateResourceCacheForSession } from '@/services/resource-cache.service';
+import { recordLogBestEffort } from '@/services/app-feedback-log.service';
+import { logFields } from '@/shared/lib/log-fields';
 
 export interface WorkspaceCloseTarget {
   gameOverviewRoot: string | null;
@@ -53,6 +55,15 @@ export async function removeLoadedModRuntime(modRoot: string) {
   }
 
   removeModRuntimeState(modRoot);
+
+  recordLogBestEffort({
+    level: 'info',
+    code: 'mod.session_closed',
+    message: 'mod session closed',
+    path: null,
+    line: null,
+    fields: logFields({ modRoot, sessionId }),
+  });
 
   if (sessionId) await closeProject(sessionId);
 }

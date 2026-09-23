@@ -676,20 +676,20 @@ mod tests {
                 .iter()
                 .any(|file| file.variant_id == "after")
         );
-        assert!(
-            cached_trace
-                .log_messages(&[])
-                .iter()
-                .any(|message| message.contains("name=persistent_index")
-                    && message.contains("result=hit"))
-        );
-        assert!(
-            changed_trace
-                .log_messages(&[])
-                .iter()
-                .any(|message| message.contains("name=persistent_index")
-                    && message.contains("result=miss"))
-        );
+        assert!(cached_trace.log_entries(&[]).iter().any(|entry| {
+            entry.stage == "persistent_index"
+                && entry
+                    .fields
+                    .iter()
+                    .any(|(key, value)| key == "result" && value == "hit")
+        }));
+        assert!(changed_trace.log_entries(&[]).iter().any(|entry| {
+            entry.stage == "persistent_index"
+                && entry
+                    .fields
+                    .iter()
+                    .any(|(key, value)| key == "result" && value == "miss")
+        }));
     }
 
     #[test]

@@ -23,11 +23,31 @@ export function useWorkspaceShellLifecycle(feedback: AppFeedback) {
   let workspacePersistence: WorkspacePersistenceWatcher | null = null;
 
   onMounted(async () => {
-    recordLogBestEffort({ level: 'info', code: null, message: 'app started', path: null, line: null });
+    recordLogBestEffort({
+      level: 'info',
+      code: 'app.started',
+      message: 'app started',
+      path: null,
+      line: null,
+      fields: { version: __APP_VERSION__ },
+    });
     workspacePersistence = watchWorkspacePersistence();
     stopWindowSaveEvents = await listenWindowSaveEvents({
       onEditorSpecSaved: (event) => {
-        recordLogBestEffort({ level: 'info', code: null, message: `editor spec saved: ${event.id}`, path: null, line: null });
+        recordLogBestEffort({
+          level: 'info',
+          code: 'editor.spec_saved',
+          message: 'editor spec saved',
+          path: null,
+          line: null,
+          fields: {
+            kind: event.kind,
+            id: event.id,
+            modRoot: event.modRoot,
+            sessionId: event.sessionId,
+            changes: String(event.writeResult.changes.length),
+          },
+        });
         feedback.success(`${event.id} 已保存`);
       },
     });
@@ -62,7 +82,14 @@ export function useWorkspaceShellLifecycle(feedback: AppFeedback) {
   });
 
   onUnmounted(() => {
-    recordLogBestEffort({ level: 'info', code: null, message: 'app exited', path: null, line: null });
+    recordLogBestEffort({
+      level: 'info',
+      code: 'app.exited',
+      message: 'app exited',
+      path: null,
+      line: null,
+      fields: { version: __APP_VERSION__ },
+    });
     stopWindowSaveEvents?.();
     stopWindowSaveEvents = null;
     workspacePersistence?.stop();

@@ -1,6 +1,6 @@
 import { h, ref, type Ref } from 'vue';
 import { NCheckbox } from 'naive-ui/es/checkbox';
-import type { AppFeedback, GameScanWarning, ModOpeningFailure, TableKey } from '@/shared/types';
+import type { AppFeedback, GameScanWarning, ModOpeningFailure } from '@/shared/types';
 import { useSettingsStore } from '@/stores/settings.store';
 import { openEditorWindow } from '@/windows/editor.window';
 import { useProjectStore } from '@/stores/project.store';
@@ -25,6 +25,7 @@ import {
 } from '@/orchestrators/workspace-lifecycle.orchestrator';
 import { useWorkspaceStore } from '@/stores/workspace.store';
 import { recordLogBestEffort } from '@/services/app-feedback-log.service';
+import { logFields } from '@/shared/lib/log-fields';
 
 export function useWorkspaceShellActions(feedback: AppFeedback) {
   const project = useProjectStore();
@@ -37,9 +38,8 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     try {
       const selected = await pickDirectory();
       if (!selected) return;
-      recordLogBestEffort({ level: 'info', code: null, message: `directory opened: ${selected}`, path: null, line: null });
       const outcome = await openDirectoryTarget(selected, settings.starsectorRoot);
-      handleDirectoryOpeningOutcome(outcome);
+      handleDirectoryOpeningOutcome(outcome, selected);
     } catch (err) {
       feedback.error(err);
     }
@@ -48,7 +48,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   async function loadOverviewMod(modRoot: string) {
     try {
       const outcome = await openModFromOverview(modRoot);
-      handleDirectoryOpeningOutcome(outcome);
+      handleDirectoryOpeningOutcome(outcome, modRoot);
     } catch (err) {
       feedback.error(err);
     }
@@ -64,10 +64,11 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
       settings.setStarsectorRoot(overview.starsectorRoot);
       recordLogBestEffort({
         level: 'info',
-        code: null,
-        message: `workspace refreshed: ${overview.starsectorRoot}`,
+        code: 'workspace.refreshed',
+        message: 'workspace refreshed',
         path: null,
         line: null,
+        fields: { root: overview.starsectorRoot, mods: String(overview.mods.length) },
       });
       feedback.success(`工作区已刷新：${overview.mods.length} 个 Mod`);
     } catch (err) {
@@ -121,7 +122,7 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
                   row,
                 }));
               const result = await saveCapturedTableChanges(target, selected);
-              showSaveResult(result, target.table);
+              showSaveResult(result);
             } catch (err) {
               feedback.error(err, '保存 CSV 失败');
             }
@@ -130,33 +131,61 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
         return;
       }
       const result = await saveCapturedTableChanges(target, []);
-      showSaveResult(result, target.table);
+      showSaveResult(result);
     } catch (err) {
       feedback.error(err, '保存 CSV 失败');
     }
   }
 
   function undoCurrentTableEdit() {
-    if (!tables.undoCurrentTableEdit()) {
+    const label = tables.undoCurrentTableEdit();
+    if (label === null) {
       feedback.error('撤销 CSV 编辑失败');
       return;
     }
-    recordLogBestEffort({ level: 'info', code: null, message: `csv undo applied: ${tables.currentTab}`, path: null, line: null });
+    recordLogBestEffort({
+      level: 'info',
+      code: 'tables.undo_applied',
+      message: 'csv undo applied',
+      path: null,
+      line: null,
+      fields: logFields({ modRoot: tables.activeModRoot, table: tables.currentTab, label }),
+    });
   }
 
   function redoCurrentTableEdit() {
-    if (!tables.redoCurrentTableEdit()) {
+    const label = tables.redoCurrentTableEdit();
+    if (label === null) {
       feedback.error('重做 CSV 编辑失败');
       return;
     }
-    recordLogBestEffort({ level: 'info', code: null, message: `csv redo applied: ${tables.currentTab}`, path: null, line: null });
+    recordLogBestEffort({
+      level: 'info',
+      code: 'tables.redo_applied',
+      message: 'csv redo applied',
+      path: null,
+      line: null,
+      fields: logFields({ modRoot: tables.activeModRoot, table: tables.currentTab, label }),
+    });
   }
 
   async function addNewRow() {
     if (!project.activeManifest) return;
     try {
-      await tables.addNewRow();
-      recordLogBestEffort({ level: 'info', code: null, message: `row created: ${tables.currentTab}`, path: null, line: null });
+      const created = await tables.addNewRow();
+      recordLogBestEffort({
+        level: 'info',
+        code: 'tables.row_created',
+        message: 'row created',
+        path: null,
+        line: null,
+        fields: logFields({
+          modRoot: tables.activeModRoot,
+          table: tables.currentTab,
+          rowKey: created?.rowKey,
+          rowIndex: created?.rowIndex,
+        }),
+      });
     } catch (err) {
       feedback.error(err, '新建 CSV 行失败');
     }
@@ -165,8 +194,20 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   async function deleteSelectedRow() {
     if (!project.activeManifest || !tables.selectedRowKey) return;
     try {
-      await tables.deleteSelected();
-      recordLogBestEffort({ level: 'info', code: null, message: `row deleted: ${tables.currentTab}`, path: null, line: null });
+      const deleted = await tables.deleteSelected();
+      recordLogBestEffort({
+        level: 'info',
+        code: 'tables.row_deleted',
+        message: 'row deleted',
+        path: null,
+        line: null,
+        fields: logFields({
+          modRoot: tables.activeModRoot,
+          table: tables.currentTab,
+          rowKey: deleted?.rowKey,
+          rowIndex: deleted?.rowIndex,
+        }),
+      });
     } catch (err) {
       feedback.error(err, '删除 CSV 行失败');
     }
@@ -183,10 +224,11 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   function openRequestedFileEditor(request: FileEditorRequest) {
     recordLogBestEffort({
       level: 'info',
-      code: null,
-      message: `file editor opened: ${request.path}`,
+      code: 'editor.file_opened',
+      message: 'file editor opened',
       path: request.path,
       line: request.line ?? null,
+      fields: logFields({ modRoot: request.modRoot, sessionId: request.sessionId }),
     });
     openFileEditorWindow({ ...request, settings: settings.settingsSnapshot() }).catch((error) =>
       feedback.error(error, '打开文件编辑器失败'),
@@ -201,45 +243,75 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
     openModOpeningFailureFileEditor(failure, settings.settingsSnapshot())?.catch((error) => feedback.error(error, '打开错误文件失败'));
   }
 
-  function handleDirectoryOpeningOutcome(outcome: DirectoryOpeningOutcome) {
+  function handleDirectoryOpeningOutcome(outcome: DirectoryOpeningOutcome, path: string | null = null) {
     if (outcome.type === 'game-overview') {
       if (workspace.gameOverview?.starsectorRoot) settings.setStarsectorRoot(workspace.gameOverview.starsectorRoot);
       feedback.success(`游戏目录已扫描：${outcome.availableModCount} 个 Mod`);
       recordLogBestEffort({
         level: 'info',
-        code: null,
-        message: `game directory scanned: ${outcome.availableModCount} mods`,
+        code: 'directory.scanned',
+        message: 'game directory scanned',
         path: null,
         line: null,
+        fields: { root: outcome.root, mods: String(outcome.availableModCount) },
       });
     } else if (outcome.type === 'mod-loaded') {
       if (workspace.gameOverview?.starsectorRoot) settings.setStarsectorRoot(workspace.gameOverview.starsectorRoot);
       feedback.success(`Mod 已导入：${outcome.modName}`);
-      recordLogBestEffort({ level: 'info', code: null, message: `mod imported: ${outcome.modName}`, path: null, line: null });
       for (const warning of outcome.warnings) {
         feedback.warning(warning);
       }
     } else if (outcome.type === 'already-loaded') {
       feedback.info('该 Mod 已在工作区中');
+      recordLogBestEffort({
+        level: 'info',
+        code: 'mod.already_loaded',
+        message: 'mod already loaded',
+        path: null,
+        line: null,
+        fields: logFields({ modRoot: outcome.modRoot, name: outcome.modName }),
+      });
     } else {
       feedback.error(outcome.message ?? '未识别该目录');
+      recordLogBestEffort({
+        level: 'info',
+        code: 'directory.unrecognized',
+        message: outcome.message ?? 'unrecognized directory',
+        path,
+        line: null,
+        fields: null,
+      });
     }
   }
 
   async function removeMod(modRoot: string, showMessage = true) {
     await removeLoadedModRuntime(modRoot);
+    recordLogBestEffort({
+      level: 'info',
+      code: 'mod.removed',
+      message: 'mod removed',
+      path: null,
+      line: null,
+      fields: { modRoot },
+    });
     if (showMessage) feedback.success('Mod 已从工作区移除');
   }
 
   async function closeWorkspace(target: WorkspaceCloseTarget) {
     await closeWorkspaceRuntime(target);
-    recordLogBestEffort({ level: 'info', code: null, message: 'workspace closed', path: null, line: null });
+    recordLogBestEffort({
+      level: 'info',
+      code: 'workspace.closed',
+      message: 'workspace closed',
+      path: null,
+      line: null,
+      fields: { mods: String(target.modRoots.length) },
+    });
     feedback.success('工作区已关闭');
   }
 
-  function showSaveResult(result: 'saved' | 'noop', table: TableKey) {
+  function showSaveResult(result: 'saved' | 'noop') {
     if (result === 'saved') {
-      recordLogBestEffort({ level: 'info', code: null, message: `csv saved: ${table}`, path: null, line: null });
       feedback.success('当前 CSV 表已保存');
     } else {
       feedback.info('没有需要保存的修改');
@@ -274,10 +346,11 @@ export function useWorkspaceShellActions(feedback: AppFeedback) {
   function openRequestedEditorWindow(action: Extract<TableDetailAction, { type: 'editor-window' }>) {
     recordLogBestEffort({
       level: 'info',
-      code: null,
-      message: `editor window opened: ${action.kind} ${action.id}`,
+      code: 'editor.window_opened',
+      message: 'editor window opened',
       path: null,
       line: null,
+      fields: logFields({ kind: action.kind, id: action.id, modRoot: action.modRoot, sessionId: action.sessionId }),
     });
     openEditorWindow({
       kind: action.kind,

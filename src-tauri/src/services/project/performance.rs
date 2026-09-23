@@ -1,10 +1,18 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 #[derive(Debug, Clone)]
 pub(crate) struct PerformanceTrace {
     name: &'static str,
     started_at: Instant,
     stages: Vec<PerformanceStage>,
+}
+
+/// One structured performance record: the trace total or a single stage.
+#[derive(Debug, Clone)]
+pub(crate) struct PerformanceLogEntry {
+    pub(crate) stage: String,
+    pub(crate) ms: u128,
+    pub(crate) fields: Vec<(String, String)>,
 }
 
 #[derive(Debug, Clone)]
@@ -48,27 +56,27 @@ impl PerformanceTrace {
         });
     }
 
-    pub(crate) fn log_messages(&self, root_fields: &[(&str, String)]) -> Vec<String> {
-        let mut messages = vec![render_message(
-            self.name,
-            self.started_at.elapsed(),
-            "total",
-            root_fields,
-        )];
-        for stage in &self.stages {
-            let fields = stage
-                .fields
+    pub(crate) fn name(&self) -> &'static str {
+        self.name
+    }
+
+    pub(crate) fn log_entries(&self, root_fields: &[(&str, String)]) -> Vec<PerformanceLogEntry> {
+        let mut entries = vec![PerformanceLogEntry {
+            stage: "total".to_string(),
+            ms: self.started_at.elapsed().as_millis(),
+            fields: root_fields
                 .iter()
-                .map(|(key, value)| (key.as_str(), value.clone()))
-                .collect::<Vec<_>>();
-            messages.push(render_stage_message(
-                self.name,
-                &stage.name,
-                stage.ms,
-                &fields,
-            ));
+                .map(|(key, value)| (key.to_string(), sanitize_value(value)))
+                .collect(),
+        }];
+        for stage in &self.stages {
+            entries.push(PerformanceLogEntry {
+                stage: stage.name.clone(),
+                ms: stage.ms,
+                fields: stage.fields.clone(),
+            });
         }
-        messages
+        entries
     }
 }
 
@@ -81,40 +89,6 @@ impl PerformanceTimer {
 
     pub(crate) fn elapsed_ms(&self) -> u128 {
         self.started_at.elapsed().as_millis()
-    }
-}
-
-fn render_message(
-    trace_name: &str,
-    elapsed: Duration,
-    stage_name: &str,
-    fields: &[(&str, String)],
-) -> String {
-    let mut message = format!(
-        "PERF {trace_name} stage={stage_name} ms={}",
-        elapsed.as_millis()
-    );
-    append_fields(&mut message, fields);
-    message
-}
-
-fn render_stage_message(
-    trace_name: &str,
-    stage_name: &str,
-    ms: u128,
-    fields: &[(&str, String)],
-) -> String {
-    let mut message = format!("PERF {trace_name}.stage name={stage_name} ms={ms}");
-    append_fields(&mut message, fields);
-    message
-}
-
-fn append_fields(message: &mut String, fields: &[(&str, String)]) {
-    for (key, value) in fields {
-        message.push(' ');
-        message.push_str(key);
-        message.push('=');
-        message.push_str(&sanitize_value(value));
     }
 }
 
@@ -143,12 +117,16 @@ mod tests {
             ],
         );
 
-        let messages = trace.log_messages(&[("modRoot", "D:/Mod".to_string())]);
+        let entries = trace.log_entries(&[("modRoot", "D:/Mod".to_string())]);
 
-        assert_eq!(messages.len(), 2);
-        assert!(messages[0].starts_with("PERF project.load stage=total ms="));
-        assert!(messages[0].contains("modRoot=D:/Mod"));
-        assert!(messages[1].starts_with("PERF project.load.stage name=csv_tables ms="));
-        assert!(messages[1].contains("rows=12"));
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].stage, "total");
+        assert_eq!(
+            entries[0].fields,
+            vec![("modRoot".to_string(), "D:/Mod".to_string())]
+        );
+        assert_eq!(entries[1].stage, "csv_tables");
+        assert_eq!(entries[1].fields.len(), 2);
+        assert_eq!(trace.name(), "project.load");
     }
 }

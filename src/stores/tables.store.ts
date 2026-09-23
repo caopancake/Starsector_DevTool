@@ -34,7 +34,9 @@ import {
   setCsvCellValueDraft,
   setCsvEditingValueDraft,
   startCsvCellEditDraft,
+  csvRowTargetOf,
   type CsvDraftResult,
+  type CsvRowTarget,
 } from '@/domain/tables/csv-table-draft';
 import { isLoadedCsvTableRow } from '@/domain/tables/csv-table-rows';
 
@@ -299,24 +301,28 @@ export const useTablesStore = defineStore('tables', () => {
     if (state) cancelCsvCellEditDraft(state);
   }
 
-  function undoCurrentTableEdit(): boolean {
-    return activeModRoot.value ? csvEditHistory.undoCsvEdit(activeModRoot.value, currentTab.value, getActiveState()) : false;
+  function undoCurrentTableEdit(): string | null {
+    return activeModRoot.value ? csvEditHistory.undoCsvEdit(activeModRoot.value, currentTab.value, getActiveState()) : null;
   }
 
-  function redoCurrentTableEdit(): boolean {
-    return activeModRoot.value ? csvEditHistory.redoCsvEdit(activeModRoot.value, currentTab.value, getActiveState()) : false;
+  function redoCurrentTableEdit(): string | null {
+    return activeModRoot.value ? csvEditHistory.redoCsvEdit(activeModRoot.value, currentTab.value, getActiveState()) : null;
   }
 
-  function addNewRow() {
+  function addNewRow(): CsvRowTarget | null {
     const state = getActiveState();
-    if (!state) return;
-    pushCsvDraftResult(state.currentTab, createCsvRowDraft(state, Date.now()));
+    if (!state) return null;
+    const result = createCsvRowDraft(state, Date.now());
+    pushCsvDraftResult(state.currentTab, result);
+    return csvRowTargetOf(result);
   }
 
-  function deleteSelected() {
+  function deleteSelected(): CsvRowTarget | null {
     const state = getActiveState();
-    if (!state) return;
-    pushCsvDraftResult(state.currentTab, deleteSelectedCsvRowDraft(state));
+    if (!state) return null;
+    const result = deleteSelectedCsvRowDraft(state);
+    pushCsvDraftResult(state.currentTab, result);
+    return csvRowTargetOf(result);
   }
 
   function getActiveModTableState(): ModTableState | undefined {

@@ -7,6 +7,7 @@ import { formatLoadWarnings } from '@/domain/project/load-warnings';
 import { hydrateOpenedModRuntime, openModProjectManifest } from '@/orchestrators/directory-opening.orchestrator';
 import { measurePerformance } from '@/shared/runtime/performance';
 import { recordLogBestEffort } from '@/services/app-feedback-log.service';
+import { errorMessageOf } from '@/shared/lib/errors';
 import { scanDirectoryGameOverview } from '@/services/session.service';
 import { loadPersistedWorkspace, savePersistedWorkspace } from '@/services/workspace-state.service';
 
@@ -29,7 +30,14 @@ export function watchWorkspacePersistence() {
       if (saveTimer !== null) window.clearTimeout(saveTimer);
       saveTimer = window.setTimeout(() => {
         savePersistedWorkspace(state).catch((error) => {
-          recordLogBestEffort({ level: 'error', code: errorCodeOf(error), message: 'workspace state save failed', path: null, line: null });
+          recordLogBestEffort({
+            level: 'error',
+            code: errorCodeOf(error),
+            message: errorMessageOf(error) ?? 'workspace state save failed',
+            path: null,
+            line: null,
+            fields: null,
+          });
         });
       }, 500);
     },

@@ -9,6 +9,8 @@ import { WINDOW_EVENTS } from '@/windows/window.events';
 import { emitWindowEvent } from '@/windows/tauri.events';
 import type { FileChangeRecord, FileChangeReplayDirection, FileSaveHistoryEntry } from '@/shared/types';
 import { AppError } from '@/shared/lib/errors';
+import { recordLogBestEffort } from '@/services/app-feedback-log.service';
+import { logFields } from '@/shared/lib/log-fields';
 
 type ProjectStore = ReturnType<typeof useProjectStore>;
 type TablesStore = ReturnType<typeof useTablesStore>;
@@ -56,6 +58,21 @@ export async function executeFileReplayPlan(plan: FileHistoryReplayPlan, project
   await notifyOpenFileEditors(plan.sessionId, plan.modRoot, plan.entry.changes, plan.direction);
   commitReplayPlan(plan);
   refreshActiveTableIfAffected(project, tables, plan.modRoot, invalidatedSessions);
+  recordLogBestEffort({
+    level: 'info',
+    code: 'history.replayed',
+    message: 'file history replayed',
+    path: null,
+    line: null,
+    fields: logFields({
+      modRoot: plan.modRoot,
+      sessionId: plan.sessionId,
+      direction: plan.direction,
+      entryId: plan.entry.id,
+      label: plan.entry.label,
+      files: plan.entry.changes.length,
+    }),
+  });
 }
 
 function replayNextFileHistoryEntry(

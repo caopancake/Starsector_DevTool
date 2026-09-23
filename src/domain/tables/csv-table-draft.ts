@@ -14,6 +14,18 @@ export interface CsvDraftResult {
   historyOperation?: CsvDraftOperation;
 }
 
+export interface CsvRowTarget {
+  rowKey: string;
+  rowIndex: number;
+}
+
+/// Row identity of a row-created/row-deleted draft result, for log records.
+export function csvRowTargetOf(result: CsvDraftResult): CsvRowTarget | null {
+  const operation = result.historyOperation;
+  if (!operation || (operation.type !== 'row-created' && operation.type !== 'row-deleted')) return null;
+  return { rowKey: operation.rowKey, rowIndex: operation.rowIndex };
+}
+
 export function applyCsvTableWindowDraft(state: ModTableState, window: CsvTableWindow): CsvDraftResult {
   const table = window.table;
   if (hasCsvTableDraftChanges(state, table)) {

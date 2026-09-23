@@ -19,6 +19,7 @@ import type { FileEditorContextSeverity } from '@/windows/window.events';
 import { currentWindowSessionIdentity } from '@/windows/window-identity.window';
 import { transcodeFileToUtf8 } from '@/services/files.service';
 import { recordLogBestEffort } from '@/services/app-feedback-log.service';
+import { errorMessageOf } from '@/shared/lib/errors';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useProjectStore } from '@/stores/project.store';
 import { closestRootForPath } from '@/shared/lib/paths';
@@ -61,9 +62,10 @@ export function createAppFeedback(message: MessageApiInjection, dialog: DialogAp
       recordLogBestEffort({
         level: 'warning',
         code: code ?? 'ui.warning',
-        message: null,
+        message: text,
         path: reference?.path ?? null,
         line: reference?.line ?? null,
+        fields: null,
       });
     },
     error: (error, contextMessage) => showErrorToast(message, dialog, error, contextMessage),
@@ -79,9 +81,10 @@ function showErrorToast(message: MessageApiInjection, dialog: DialogApiInjection
   recordLogBestEffort({
     level: 'error',
     code: commandErrorCode(error) ?? 'unknown',
-    message: null,
+    message: errorMessageOf(error),
     path: reference?.path ?? null,
     line: reference?.line ?? null,
+    fields: null,
   });
 }
 
@@ -209,9 +212,10 @@ function openReferenceInEditor(reference: FileReference, session: FeedbackFileSe
     recordLogBestEffort({
       level: 'error',
       code: commandErrorCode(error) ?? 'unknown',
-      message: 'error file open failed',
-      path: null,
-      line: null,
+      message: errorMessageOf(error) ?? 'error file open failed',
+      path: reference.path,
+      line: reference.line ?? null,
+      fields: null,
     });
   });
 }
