@@ -47,13 +47,15 @@ pub fn read_text_bytes_no_bom(path: &Path) -> AppResult<Vec<u8>> {
             error.into(),
         )
     })?;
+    Ok(strip_utf8_bom(bytes))
+}
+
+fn strip_utf8_bom(bytes: Vec<u8>) -> Vec<u8> {
     if bytes.starts_with(UTF8_BOM) {
-        return Err(AppError::message(
-            "text.bom",
-            format!("{} has UTF-8 BOM", path.display()),
-        ));
+        bytes[UTF8_BOM.len()..].to_vec()
+    } else {
+        bytes
     }
-    Ok(bytes)
 }
 
 pub fn write_utf8_no_bom(path: &Path, text: &str) -> AppResult<()> {
@@ -84,12 +86,12 @@ mod tests {
     use crate::testutil::temp_path;
 
     #[test]
-    fn rejects_utf8_bom() {
-        let path = temp_path("rejects_utf8_bom.txt");
+    fn strips_utf8_bom() {
+        let path = temp_path("strips_utf8_bom.txt");
         fs::write(&path, [UTF8_BOM, "ok".as_bytes()].concat()).unwrap();
-        let result = read_utf8_no_bom(&path);
+        let text = read_utf8_no_bom(&path).unwrap();
         let _ = fs::remove_file(path);
-        assert!(result.is_err());
+        assert_eq!(text, "ok");
     }
 
     #[test]

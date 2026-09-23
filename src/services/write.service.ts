@@ -13,6 +13,7 @@ import {
   saveSkinEntity,
   saveTextFile,
   saveVariantEntity,
+  transcodeFileToUtf8,
 } from '@/shared/api/write-api';
 import { AppError } from '@/shared/lib/errors';
 import type {
@@ -59,6 +60,10 @@ export async function writeCsvPatch(
 
 export async function writeTextFile(sessionId: string | null, modRoot: string, path: string, text: string): Promise<WriteResult> {
   return runExclusiveWrite(`text:${modRoot}:${path}`, () => saveTextFile(sessionId, modRoot, path, text));
+}
+
+export async function writeTranscodedFile(sessionId: string | null, modRoot: string, path: string, encoding: string): Promise<WriteResult> {
+  return runExclusiveWrite(`text:${modRoot}:${path}`, () => transcodeFileToUtf8(sessionId, modRoot, path, encoding));
 }
 
 export async function writeEditorSpec(

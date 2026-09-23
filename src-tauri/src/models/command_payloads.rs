@@ -255,7 +255,11 @@ impl_session_mod_scope_required!(
     ResolveModRelativePathPayload,
 );
 
-impl_session_mod_scope_optional!(SaveTextFilePayload, LoadEditableFilePayload);
+impl_session_mod_scope_optional!(
+    SaveTextFilePayload,
+    LoadEditableFilePayload,
+    TranscodeFilePayload
+);
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -265,6 +269,16 @@ pub struct SaveTextFilePayload {
     pub mod_root: String,
     pub path: String,
     pub text: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscodeFilePayload {
+    #[serde(deserialize_with = "required_nullable")]
+    pub session_id: Option<ProjectSessionId>,
+    pub mod_root: String,
+    pub path: String,
+    pub encoding: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

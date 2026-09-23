@@ -1,6 +1,6 @@
 import * as filesApi from '@/shared/api/files-api';
 import type { EditableFileData, EditorSpecKind, WriteResult } from '@/shared/types';
-import { writeTextFile } from '@/services/write.service';
+import { writeTextFile, writeTranscodedFile } from '@/services/write.service';
 import type { RowData } from '@/shared/types';
 
 export function loadEditableFileData(sessionId: string | null, modRoot: string, path: string): Promise<EditableFileData> {
@@ -9,6 +9,10 @@ export function loadEditableFileData(sessionId: string | null, modRoot: string, 
 
 export function writeEditableFileText(sessionId: string | null, modRoot: string, path: string, text: string): Promise<WriteResult> {
   return writeTextFile(sessionId, modRoot, path, text);
+}
+
+export function transcodeFileToUtf8(sessionId: string | null, modRoot: string, path: string, encoding: string): Promise<WriteResult> {
+  return writeTranscodedFile(sessionId, modRoot, path, encoding);
 }
 
 export function loadImportedEditorSpecFile(kind: EditorSpecKind, path: string): Promise<RowData> {

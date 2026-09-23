@@ -32,6 +32,15 @@ export function saveTextFile(sessionId: ProjectSessionId | null, modRoot: string
   return invoke('save_text_file', { payload: { sessionId, modRoot, path, text } });
 }
 
+export function transcodeFileToUtf8(
+  sessionId: ProjectSessionId | null,
+  modRoot: string,
+  path: string,
+  encoding: string,
+): Promise<WriteResult> {
+  return invoke('transcode_file_to_utf8', { payload: { sessionId, modRoot, path, encoding } });
+}
+
 export function saveEditorSpec(
   sessionId: ProjectSessionId,
   modRoot: string,

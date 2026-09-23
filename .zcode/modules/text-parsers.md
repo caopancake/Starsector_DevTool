@@ -10,7 +10,7 @@
 `src-tauri/src/parsers/alex_json.rs`：JSON-like 字符级 tokener owner，逐项对齐游戏内置魔改 org.json（json.jar 2010 + LoadingUtils，经反编译核验）。
 `src-tauri/src/parsers/tool_json.rs`：JSON-like pretty 渲染 owner，负责写盘前的序列化规则。
 `src-tauri/src/models/`：解析器输入输出模型与 CP1252 归一化映射 owner。
-`src-tauri/src/io/text.rs`：文本读取 owner，拥有 UTF-8 BOM 拒绝与已知 CP1252 字节归一化入口。
+`src-tauri/src/io/text.rs`：文本读取 owner，拥有 UTF-8 BOM 剥离与已知 CP1252 字节归一化入口。
 `src-tauri/src/io/csv_files.rs`：CSV 文件读写与路径上下文 owner。
 `src-tauri/src/io/json_files.rs`：JSON 文件读取与目录遍历 owner。
 `.zcode/backend-guidelines.md`：parser 层通用约束。
@@ -28,7 +28,7 @@
 
 ### CSV-like 解析
 
-1. IO 读取字节并拒绝 UTF-8 BOM，附带路径上下文交给解析器。
+1. IO 读取字节并剥离 UTF-8 BOM，附带路径上下文交给解析器。
 2. 解析器先做 CP1252/UTF-8 字符解码，再把 `\r\n` 归一为 `\n`（孤立 `\r` 按普通字符保留）。
 3. 表头取首个 `\n` 之前的首行，朴素逗号分割（引号不感知，尾部空段按 Java split 语义丢弃），逐格 trim + 剥首尾引号 + `""` → `"`。
 4. 行状态机对齐游戏 CSVParser body 循环：引号逐个翻转、`""` 成对消费产出字面 `"`、引号内逗号/换行原样进单元格、行终止于非引号 `\n`。
@@ -59,7 +59,8 @@
 - CSV 渲染必须保持原表头顺序与原文件的行序语义。
 - JSON-like 解析逐项对齐游戏魔改 org.json 与 LoadingUtils 的字面行为（含其缺陷，如 `#` 剥离不感知转义）；行为分歧必须逐项经用户裁决并注明，严禁扩展为通用 JSON 修复器。
 - JSON 根必须是对象，重复键必须报 json.duplicate_key，严禁静默 last-wins。
-- CP1252 归一化在读取时执行并随保存写回磁盘，且该归一化不可逆。
+- CP1252 归一化在读取时执行并随保存写回磁盘，且该归一化不可逆；UTF-8 BOM 在读取时剥离并随保存消失。
+- 除 UTF-8 BOM 剥离与已知 CP1252 智能引号修复外，读取口径保持严格 UTF-8 校验；严禁引入编码自动探测或全量 CP1252/GBK 读取解码，非 UTF-8 文件经用户显式选择源编码的转码动作修复。
 - 所有格式错误必须结构化携带路径与位置，严禁只返回字符串消息。
 - 解析器必须可独立测试，严禁依赖 Tauri state 或全局配置。
 

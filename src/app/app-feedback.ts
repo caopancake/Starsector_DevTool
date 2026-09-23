@@ -13,9 +13,11 @@ import {
 } from '@/shared/lib/errors';
 import { resolveFeedbackFileSession, type FeedbackFileSession } from '@/shared/lib/feedback-session';
 import type { AppFeedback, ChooseOptions, ConfirmOptions } from '@/shared/types';
+import { emitFileEditorSaved } from '@/orchestrators/file-editor-window.orchestrator';
 import { openFileEditorWindow } from '@/windows/file-editor.window';
 import type { FileEditorContextSeverity } from '@/windows/window.events';
 import { currentWindowSessionIdentity } from '@/windows/window-identity.window';
+import { transcodeFileToUtf8 } from '@/services/files.service';
 import { recordLogBestEffort } from '@/services/app-feedback-log.service';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useProjectStore } from '@/stores/project.store';
@@ -38,16 +40,24 @@ const TOAST_CONTEXT: Record<ToastLevel, ToastContext> = {
 
 const TOAST_TEXT_STYLE: CSSProperties = { maxWidth: '680px', overflowWrap: 'anywhere' };
 
+// Only this error declares a file whose bytes the reader refused outright; it
+// is the one case where transcoding with a user-chosen source encoding applies.
+const TRANSCODABLE_ERROR_CODE = 'text.invalid_utf8';
+
+interface ToastOptions {
+  transcodable?: boolean;
+}
+
 export function createAppFeedback(message: MessageApiInjection, dialog: DialogApiInjection): AppFeedback {
   return {
     success: (text) => {
-      showToast(message, 'success', text);
+      showToast(message, dialog, 'success', text);
     },
     info: (text) => {
-      showToast(message, 'info', text);
+      showToast(message, dialog, 'info', text);
     },
     warning: (text, code) => {
-      const reference = showToast(message, 'warning', text);
+      const reference = showToast(message, dialog, 'warning', text);
       recordLogBestEffort({
         level: 'warning',
         code: code ?? 'ui.warning',
@@ -56,21 +66,23 @@ export function createAppFeedback(message: MessageApiInjection, dialog: DialogAp
         line: reference?.line ?? null,
       });
     },
-    error: (error, contextMessage) => {
-      const text = contextMessage ? `${contextMessage}：${formatError(error)}` : formatError(error);
-      const reference = showToast(message, 'error', text);
-      recordLogBestEffort({
-        level: 'error',
-        code: commandErrorCode(error) ?? 'unknown',
-        message: null,
-        path: reference?.path ?? null,
-        line: reference?.line ?? null,
-      });
-    },
+    error: (error, contextMessage) => showErrorToast(message, dialog, error, contextMessage),
     confirmDanger: (options) => showConfirm(dialog, 'error', options),
     confirmWarning: (options) => showConfirm(dialog, 'warning', options),
     choose: (options) => showChoose(dialog, options),
   };
+}
+
+function showErrorToast(message: MessageApiInjection, dialog: DialogApiInjection, error: unknown, contextMessage?: string): void {
+  const text = contextMessage ? `${contextMessage}：${formatError(error)}` : formatError(error);
+  const reference = showToast(message, dialog, 'error', text, { transcodable: commandErrorCode(error) === TRANSCODABLE_ERROR_CODE });
+  recordLogBestEffort({
+    level: 'error',
+    code: commandErrorCode(error) ?? 'unknown',
+    message: null,
+    path: reference?.path ?? null,
+    line: reference?.line ?? null,
+  });
 }
 
 function showConfirm(dialog: DialogApiInjection, type: 'error' | 'warning', options: ConfirmOptions) {
@@ -83,10 +95,16 @@ function showConfirm(dialog: DialogApiInjection, type: 'error' | 'warning', opti
   });
 }
 
-function showToast(message: MessageApiInjection, level: ToastLevel, text: string): FileReference | null {
+function showToast(
+  message: MessageApiInjection,
+  dialog: DialogApiInjection,
+  level: ToastLevel,
+  text: string,
+  options?: ToastOptions,
+): FileReference | null {
   const reference = extractFileReferenceFromError(text);
   const session = reference === null ? null : resolveSessionForPath(reference.path);
-  const content = () => renderToastContent(level, text, reference, session);
+  const content = () => renderToastContent(message, dialog, level, text, reference, session, options);
   // Error toasts stay open until closed manually: naive-ui skips the
   // auto-close timer entirely when duration is 0. Other levels inherit the
   // provider baseline (10s, closable, keep-alive-on-hover).
@@ -104,28 +122,70 @@ function resolveSessionForPath(path: string): FeedbackFileSession | null {
   return resolveFeedbackFileSession(modRoot, sessionId, currentWindowSessionIdentity(), path);
 }
 
-function renderToastContent(level: ToastLevel, text: string, reference: FileReference | null, session: FeedbackFileSession | null): VNode {
+function renderToastContent(
+  message: MessageApiInjection,
+  dialog: DialogApiInjection,
+  level: ToastLevel,
+  text: string,
+  reference: FileReference | null,
+  session: FeedbackFileSession | null,
+  options: ToastOptions | undefined,
+): VNode {
   const rows: VNode[] = [h('span', { style: TOAST_TEXT_STYLE }, text)];
   if (reference !== null) {
     const locationText = fileReferenceText(reference);
     rows.push(h(NText, { depth: 3, style: TOAST_TEXT_STYLE }, { default: () => locationText }));
   }
   if (reference !== null && session !== null) {
-    const openRequest = { reference, session, level };
-    rows.push(
-      h(
-        NButton,
-        {
-          size: 'tiny',
-          type: TOAST_CONTEXT[level].buttonType,
-          secondary: true,
-          onClick: () => openReferenceInEditor(openRequest.reference, openRequest.session, openRequest.level),
-        },
-        { default: () => '打开文件' },
+    const actionRequest = { message, dialog, reference, session, level };
+    const actions: VNode[] = [
+      toastAction('打开文件', TOAST_CONTEXT[level].buttonType, () =>
+        openReferenceInEditor(actionRequest.reference, actionRequest.session, actionRequest.level),
       ),
-    );
+    ];
+    if (options?.transcodable === true) {
+      actions.push(
+        toastAction('转码为 UTF-8', 'warning', () =>
+          transcodeReferenceToUtf8(actionRequest.message, actionRequest.dialog, actionRequest.reference, actionRequest.session),
+        ),
+      );
+    }
+    rows.push(h(NSpace, { size: 'small', wrap: false, align: 'center' }, { default: () => actions }));
   }
   return h(NSpace, { vertical: true, size: 'small', wrap: false, align: 'start' }, { default: () => rows });
+}
+
+function toastAction(label: string, type: ToastContext['buttonType'], onClick: () => void): VNode {
+  return h(NButton, { size: 'tiny', type, secondary: true, onClick }, { default: () => label });
+}
+
+async function transcodeReferenceToUtf8(
+  message: MessageApiInjection,
+  dialog: DialogApiInjection,
+  reference: FileReference,
+  session: FeedbackFileSession,
+): Promise<void> {
+  const encoding = await showChoose(dialog, {
+    title: '转码为 UTF-8',
+    content: '该文件不是有效的 UTF-8。选择其当前编码，解码结果将以 UTF-8 写回且不可逆。',
+    choices: [
+      { label: 'GBK / GB18030（简体中文）', value: 'gb18030', type: 'primary' },
+      { label: 'Windows-1252（西文）', value: 'windows-1252' },
+    ],
+  });
+  if (encoding === null) return;
+  try {
+    const result = await transcodeFileToUtf8(session.sessionId, session.modRoot, reference.path, encoding);
+    await emitFileEditorSaved({
+      modRoot: session.modRoot,
+      path: reference.path,
+      sessionId: session.sessionId,
+      writeResult: result,
+    });
+    showToast(message, dialog, 'success', `已转码为 UTF-8：${reference.path}`);
+  } catch (error) {
+    showErrorToast(message, dialog, error, '转码为 UTF-8 失败');
+  }
 }
 
 function fileReferenceText(reference: FileReference): string {

@@ -20,6 +20,7 @@
 - 常规模式窗口身份为 `sessionId + modRoot + path`；错误恢复模式身份为调用链提供的 `modRoot + path`，无 ProjectSession。
 - 恢复模式保存仅写当前文件，严禁进入文件历史、严禁触发 ProjectSession refresh；该特例以保存处 `sessionId` 判定显式表达。
 - 前端严禁从错误文本推导授权根目录或直接写盘；Rust 必须校验 `modRoot` 归属、绝对路径、父目录与链接边界。
+- 转码动作以用户显式选择的源编码解码，严禁自动探测编码；已是 UTF-8 的文件严禁再次转码。
 - 错误恢复入口只允许消费 Rust 游戏概览 warning 或目录打开链路携带的结构化编辑目标；无编辑目标的错误严禁显示文件按钮。
 - 保存只允许写当前文件；恢复模式保存只走无 session 文件写入能力，严禁发送依赖 ProjectSession 的保存同步事件。
 - dirty 窗口接收回放文本只能暂存，不能覆盖文本域；外部版本必须经显式载入。
@@ -55,6 +56,13 @@
 2. 以 recovery 模式打开无 session 窗口，身份为 `modRoot + path`。
 3. 保存走无 session 文件写入能力并仅写当前文件。
 4. 恢复模式保存不入文件历史、不触发 ProjectSession refresh，写盘即终点。
+
+### 转码为 UTF-8
+
+1. 反馈层在 `text.invalid_utf8` 错误且路径命中已授权会话时提供转码动作，其它错误不出现。
+2. 用户在模态选择框显式选择源编码（GBK/GB18030 或 Windows-1252），后端按所选编码解码，严禁自动探测。
+3. 后端拒绝已有效的 UTF-8 文件，所选编码无法完整解码时报错且不写盘。
+4. 解码成功经 `save_text_file` 的 changeset 链路写回，并经文件编辑器保存事件进入 history 与 refresh。
 
 ## 规范
 

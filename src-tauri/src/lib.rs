@@ -79,6 +79,7 @@ pub fn run() {
             commands::load_editable_file,
             commands::load_imported_editor_spec_file,
             commands::save_text_file,
+            commands::transcode_file_to_utf8,
             commands::save_editor_spec,
             commands::save_mod_files,
             commands::apply_file_change_set,

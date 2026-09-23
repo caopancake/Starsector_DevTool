@@ -74,8 +74,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   'table.row_key_unknown': '行不存在或已被删除',
   'table.rows_not_loaded': '表格数据尚未加载',
   'table.unknown': '表格不存在',
-  'text.bom': '文本文件带有 UTF-8 BOM',
   'text.invalid_utf8': '文件不是有效的 UTF-8 文本',
+  'text.transcode_encoding_unknown': '未知的源编码',
+  'text.transcode_not_needed': '文件已经是有效的 UTF-8，无需转码',
+  'text.transcode_undecodable': '所选编码无法完整解码该文件，请尝试其它编码',
   'workspace.dir_inside_mod': '目录不能位于某个 Mod 内部',
   'workspace.dir_inside_tracked_root': '目录不能位于工作区已跟踪的根目录内',
 };
