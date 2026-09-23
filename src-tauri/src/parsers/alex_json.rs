@@ -1,344 +1,344 @@
-use crate::errors::AppResult;
-use regex::Regex;
-use serde_json::Value;
-use std::sync::LazyLock;
+//! Starsector JSON parser: char-level tokener aligned item-by-item with the
+//! game's modded org.json (json.jar 2010 + LoadingUtils, verified against
+//! javap bytecode and deobf sources).
+//!
+//! Aligned tolerances: root must be an object and trailing text is ignored;
+//! trailing commas/semicolons and `;` separators; unquoted words (inner
+//! spaces kept, empty word errors); single-quoted strings; `=>`/`=` key
+//! separators; `(` arrays; null slots after `,`; `#` comments stripped with
+//! LoadingUtils defects preserved (escapes invisible, quote state flipped
+//! inside comments, `\r` dropped); non-finite numbers and duplicate keys are
+//! errors.
+//!
+//! Known divergence: Java hex float literals (`0x1.5p3`) do not parse in
+//! Rust; that shape does not occur in mod files.
 
-static TRAILING_COMMA_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r",\s*([}\]])").expect("valid trailing comma regex"));
-static UNQUOTED_KEY_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?m)(^|[\{,\s])([A-Za-z_][A-Za-z0-9_]*)\s*:"#).expect("valid key regex")
-});
-static UNQUOTED_VALUE_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?m)([:,\[]\s*)([A-Za-z_][A-Za-z0-9_]*)\b"#).expect("valid unquoted value regex")
-});
-static BOOL_LITERAL_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?m)([:,\[]\s*)(True|TRUE|False|FALSE)\b"#).expect("valid bool literal regex")
-});
-static LEADING_PLUS_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"([:,\[]\s*)\+(\d)").expect("valid leading-plus regex"));
-static LEADING_DOT_NUMBER_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(^|[:,\[]\s*)(-?)\.(\d+)").expect("valid leading-dot number regex")
-});
-static FLOAT_SUFFIX_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(\d+\.?\d*)f\b").expect("valid float suffix regex"));
-static LEADING_ZERO_INT_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(^|[:,\[]\s*)(-?)0+(\d+)").expect("valid leading-zero int regex")
-});
+use crate::errors::{AppError, AppResult};
+use serde_json::{Map, Value};
 
+/// Parses Starsector JSON text; the root must be an object, errors carry
+/// line/column, and text after the root `}` is ignored like the game.
 pub fn parse_starsector_json(text: &str) -> AppResult<Value> {
-    let trailing_re = &TRAILING_COMMA_RE;
-    let key_re = &UNQUOTED_KEY_RE;
-
-    // Matches unquoted identifier values (after : or , or [ that are NOT true/false/null/numbers)
-    let value_re = &UNQUOTED_VALUE_RE;
-    let bool_literal_re = &BOOL_LITERAL_RE;
-
-    // Matches leading-plus numbers (+100, +0.5) that Java/Starsector parsers accept but JSON rejects.
-    let leading_plus_re = &LEADING_PLUS_RE;
-
-    // Matches Starsector-style leading-dot decimals after JSON separators: .5, -.5, .0f.
-    let leading_dot_number_re = &LEADING_DOT_NUMBER_RE;
-
-    // Matches Java-style float suffix: 1f, 0.5f, 1.0f → strip the trailing 'f'
-    let float_suffix_re = &FLOAT_SUFFIX_RE;
-
-    // Matches leading-zero integers (000, 007, 01) that Java/Starsector parsers accept.
-    let leading_zero_int_re = &LEADING_ZERO_INT_RE;
-
-    // Starsector data files commonly use shell-style `#` comments; strip from `#` to line end, but only outside quoted strings.
-    let mut cleaned = strip_hash_comments(text);
-
-    // Some files use `;` where JSON would require `,`; normalize those entry separators.
-    cleaned = normalize_entry_semicolons(&cleaned);
-
-    // Some mod_info files use JavaScript-style single quoted strings, for example `"major": '1'`.
-    cleaned = normalize_single_quoted_strings(&cleaned);
-
-    // Vanilla and mods often leave a final comma before `}` or `]`; strict JSON rejects that.
-    cleaned = remove_trailing_commas(&cleaned, trailing_re);
-
-    // Faction and spec files may omit quotes around object keys, for example `id:"hegemony"`.
-    cleaned = quote_object_keys(&cleaned, key_re);
-
-    // Some weapon specs use Python/Java-like boolean spelling; strict JSON only accepts lowercase.
-    cleaned = normalize_bool_literals(&cleaned, bool_literal_re);
-
-    // Quote unquoted identifier values (enum-like and lowercase IDs in Starsector)
-    cleaned = quote_identifier_values(&cleaned, value_re);
-
-    // Strip leading plus signs (+100 → 100, +0.5 → 0.5) that Java parsers accept.
-    cleaned = normalize_leading_plus_numbers(&cleaned, leading_plus_re);
-
-    // Normalize leading-dot decimals (.5 → 0.5, -.5 → -0.5) before strict JSON parsing.
-    cleaned = normalize_leading_dot_numbers(&cleaned, leading_dot_number_re);
-
-    // Strip Java float suffixes (1f → 1, 0.5f → 0.5)
-    cleaned = normalize_float_suffix_numbers(&cleaned, float_suffix_re);
-
-    // Normalize leading-zero integers (000 → 0, 007 → 7) that Java parsers accept.
-    cleaned = normalize_leading_zero_integers(&cleaned, leading_zero_int_re);
-
-    let end = first_json_object_end(&cleaned).unwrap_or(cleaned.len());
-    Ok(serde_json::from_str(&cleaned[..end])?)
+    let stripped = strip_hash_comments(text);
+    let mut tokener = Tokener::new(&stripped);
+    tokener.next_object()
 }
 
-fn remove_trailing_commas(text: &str, rule: &Regex) -> String {
-    replace_outside_strings(text, |segment| rule.replace_all(segment, "$1").to_string())
-}
-
-fn quote_object_keys(text: &str, rule: &Regex) -> String {
-    replace_outside_strings(text, |segment| {
-        rule.replace_all(segment, "$1\"$2\":").to_string()
-    })
-}
-
-fn normalize_bool_literals(text: &str, rule: &Regex) -> String {
-    replace_outside_strings(text, |segment| {
-        rule.replace_all(segment, |captures: &regex::Captures| {
-            format!("{}{}", &captures[1], captures[2].to_ascii_lowercase())
-        })
-        .to_string()
-    })
-}
-
-fn quote_identifier_values(text: &str, rule: &Regex) -> String {
-    replace_outside_strings(text, |segment| {
-        rule.replace_all(segment, |captures: &regex::Captures| {
-            let ident = &captures[2];
-            if ident == "true" || ident == "false" || ident == "null" {
-                captures[0].to_string()
-            } else {
-                format!("{}\"{}\"", &captures[1], ident)
-            }
-        })
-        .to_string()
-    })
-}
-
-fn normalize_leading_plus_numbers(text: &str, rule: &Regex) -> String {
-    replace_outside_strings(text, |segment| {
-        rule.replace_all(segment, "$1$2").to_string()
-    })
-}
-
-fn normalize_leading_dot_numbers(text: &str, rule: &Regex) -> String {
-    replace_outside_strings(text, |segment| {
-        rule.replace_all(segment, "$1${2}0.$3").to_string()
-    })
-}
-
-fn normalize_float_suffix_numbers(text: &str, rule: &Regex) -> String {
-    replace_outside_strings(text, |segment| rule.replace_all(segment, "$1").to_string())
-}
-
-fn normalize_leading_zero_integers(text: &str, rule: &Regex) -> String {
-    replace_outside_strings(text, |segment| {
-        rule.replace_all(segment, "$1${2}$3").to_string()
-    })
-}
-
+// LoadingUtils.parseJSONStrippingComments semantics, defects included: `"`
+// flips state unconditionally and `\` escapes are invisible; newline resets
+// all state; `\r` is dropped so only `\n` reaches the tokener.
 fn strip_hash_comments(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
-    let mut in_str = false;
-    let mut escape = false;
     let mut in_comment = false;
-
+    let mut in_string = false;
     for ch in text.chars() {
-        if in_comment {
-            if ch == '\n' || ch == '\r' {
-                in_comment = false;
-                result.push(ch);
-            }
-            continue;
-        }
-
-        if in_str {
-            result.push(ch);
-            if escape {
-                escape = false;
-            } else if ch == '\\' {
-                escape = true;
-            } else if ch == '"' {
-                in_str = false;
-            }
-            continue;
-        }
-
-        match ch {
-            '"' => {
-                in_str = true;
-                result.push(ch);
-            }
-            '#' => in_comment = true,
-            _ => result.push(ch),
-        }
-    }
-
-    result
-}
-
-fn normalize_single_quoted_strings(text: &str) -> String {
-    let mut result = String::with_capacity(text.len());
-    let mut in_double = false;
-    let mut double_escape = false;
-    let mut in_single = false;
-    let mut single_escape = false;
-    let mut single_content = String::new();
-
-    for ch in text.chars() {
-        if in_single {
-            if single_escape {
-                single_content.push(ch);
-                single_escape = false;
-            } else if ch == '\\' {
-                single_escape = true;
-            } else if ch == '\'' {
-                result.push_str(
-                    &serde_json::to_string(&single_content)
-                        .expect("serializing string content should not fail"),
-                );
-                single_content.clear();
-                in_single = false;
-            } else {
-                single_content.push(ch);
-            }
-            continue;
-        }
-
-        if in_double {
-            result.push(ch);
-            if double_escape {
-                double_escape = false;
-            } else if ch == '\\' {
-                double_escape = true;
-            } else if ch == '"' {
-                in_double = false;
-            }
-            continue;
-        }
-
-        match ch {
-            '"' => {
-                in_double = true;
-                result.push(ch);
-            }
-            '\'' => in_single = true,
-            _ => result.push(ch),
-        }
-    }
-
-    if in_single {
-        result.push('\'');
-        result.push_str(&single_content);
-    }
-
-    result
-}
-
-fn replace_outside_strings<F>(text: &str, mut replace: F) -> String
-where
-    F: FnMut(&str) -> String,
-{
-    let mut result = String::with_capacity(text.len());
-    let mut outside_start = 0usize;
-    let mut string_start = 0usize;
-    let mut in_str = false;
-    let mut escape = false;
-
-    for (idx, ch) in text.char_indices() {
-        if in_str {
-            if escape {
-                escape = false;
-            } else if ch == '\\' {
-                escape = true;
-            } else if ch == '"' {
-                let end = idx + ch.len_utf8();
-                result.push_str(&text[string_start..end]);
-                outside_start = end;
-                in_str = false;
-            }
-            continue;
-        }
-
         if ch == '"' {
-            result.push_str(&replace(&text[outside_start..idx]));
-            string_start = idx;
-            in_str = true;
+            in_string = !in_string;
         }
-    }
 
-    if in_str {
-        result.push_str(&text[string_start..]);
-    } else {
-        result.push_str(&replace(&text[outside_start..]));
-    }
-
-    result
-}
-
-fn normalize_entry_semicolons(text: &str) -> String {
-    let mut result = String::with_capacity(text.len());
-    let mut in_str = false;
-    let mut escape = false;
-
-    for ch in text.chars() {
-        if in_str {
+        if ch == '\n' || ch == '\r' {
+            in_comment = false;
+            in_string = false;
+            if ch == '\n' {
+                result.push('\n');
+            }
+        } else if ch == '#' && !in_string {
+            in_comment = true;
+        } else if !in_comment {
             result.push(ch);
-            if escape {
-                escape = false;
-            } else if ch == '\\' {
-                escape = true;
-            } else if ch == '"' {
-                in_str = false;
-            }
-            continue;
-        }
-
-        match ch {
-            '"' => {
-                in_str = true;
-                result.push(ch);
-            }
-            ';' => result.push(','),
-            _ => result.push(ch),
         }
     }
 
     result
 }
 
-fn first_json_object_end(text: &str) -> Option<usize> {
-    let mut depth = 0i32;
-    let mut in_str = false;
-    let mut escape = false;
-    let mut started = false;
-    for (idx, ch) in text.char_indices() {
-        if in_str {
-            if escape {
-                escape = false;
-            } else if ch == '\\' {
-                escape = true;
-            } else if ch == '"' {
-                in_str = false;
-            }
-            continue;
+struct Tokener {
+    chars: Vec<char>,
+    pos: usize,
+}
+
+impl Tokener {
+    fn new(text: &str) -> Self {
+        Self {
+            chars: text.chars().collect(),
+            pos: 0,
         }
-        match ch {
-            '"' => in_str = true,
-            '{' => {
-                depth += 1;
-                started = true;
+    }
+
+    // The game's next() returns '\0' at EOF; None plays that role here.
+    fn next(&mut self) -> Option<char> {
+        let c = self.chars.get(self.pos).copied();
+        if c.is_some() {
+            self.pos += 1;
+        }
+        c
+    }
+
+    fn back(&mut self) {
+        self.pos = self.pos.saturating_sub(1);
+    }
+
+    // The game's nextClean().
+    fn next_clean(&mut self) -> Option<char> {
+        loop {
+            match self.next() {
+                Some(c) if c > ' ' => return Some(c),
+                Some(_) => continue,
+                None => return None,
             }
-            '}' if started => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some(idx + ch.len_utf8());
+        }
+    }
+
+    // The stripped text has no `\r`, so counting `\n` yields the exact line.
+    fn line_column(&self) -> (usize, usize) {
+        let end = self.pos.min(self.chars.len());
+        let before = &self.chars[..end];
+        let line = 1 + before.iter().filter(|&&c| c == '\n').count();
+        let column = match before.iter().rposition(|&c| c == '\n') {
+            Some(last) => end - last,
+            None => end + 1,
+        };
+        (line, column)
+    }
+
+    fn error(&self, code: &'static str, message: &str) -> AppError {
+        let (line, column) = self.line_column();
+        AppError::message(code, format!("{message} at line {line} column {column}"))
+    }
+
+    fn syntax(&self, message: &str) -> AppError {
+        self.error("parse.json_syntax", message)
+    }
+
+    // The game's nextValue dispatch (bytecode 482-549).
+    fn next_value(&mut self) -> AppResult<Value> {
+        match self.next_clean() {
+            None => Err(self.syntax("Missing value")),
+            Some(quote @ ('"' | '\'')) => {
+                let string = self.next_string(quote)?;
+                Ok(Value::String(string))
+            }
+            Some('{') => {
+                self.back();
+                self.next_object()
+            }
+            Some('[' | '(') => {
+                self.back();
+                self.next_array()
+            }
+            Some(first) => {
+                let word = self.next_word(first);
+                if word.is_empty() {
+                    return Err(self.syntax("Missing value"));
+                }
+                match string_to_value(&word) {
+                    Some(value) => Ok(value),
+                    None => Err(self.syntax("JSON does not allow non-finite numbers.")),
                 }
             }
-            _ => {}
         }
     }
-    None
+
+    // The game's word loop (bytecode 88-138): accumulates while `c >= ' '`
+    // outside the delimiter set `,:]}/\"[{;=#`; `first` is the initial value
+    // and must not be re-read.
+    fn next_word(&mut self, first: char) -> String {
+        let mut word = String::new();
+        let mut c = first;
+        loop {
+            if c >= ' ' && !Self::is_word_delimiter(c) {
+                word.push(c);
+                match self.next() {
+                    Some(next) => c = next,
+                    None => break,
+                }
+            } else {
+                self.back();
+                break;
+            }
+        }
+        word.trim_matches(|c: char| c <= ' ').to_string()
+    }
+
+    fn is_word_delimiter(c: char) -> bool {
+        matches!(
+            c,
+            ',' | ':' | '}' | ']' | '/' | '"' | '[' | '{' | ';' | '=' | '#'
+        )
+    }
+
+    // The game's JSONObject(tokener) constructor (bytecode 48-126): `=` not
+    // followed by `>` backs up and continues instead of erroring.
+    fn next_object(&mut self) -> AppResult<Value> {
+        match self.next_clean() {
+            Some('{') => {}
+            _ => return Err(self.syntax("A JSONObject text must begin with '{'")),
+        }
+        let mut map = Map::new();
+        loop {
+            match self.next_clean() {
+                None => return Err(self.syntax("A JSONObject text must end with '}'")),
+                Some('}') => return Ok(Value::Object(map)),
+                Some(_) => {
+                    self.back();
+                    let key = match self.next_value()? {
+                        Value::String(string) => string,
+                        other => other.to_string(),
+                    };
+                    match self.next_clean() {
+                        Some('=') => match self.next() {
+                            Some('>') => {}
+                            Some(_) => self.back(),
+                            None => {}
+                        },
+                        Some(':') => {}
+                        _ => return Err(self.syntax("Expected a ':' after a key")),
+                    }
+                    let value = self.next_value()?;
+                    if map.contains_key(&key) {
+                        return Err(
+                            self.error("json.duplicate_key", &format!("Duplicate key \"{key}\""))
+                        );
+                    }
+                    map.insert(key, value);
+                    match self.next_clean() {
+                        Some(',') | Some(';') => match self.next_clean() {
+                            Some('}') => return Ok(Value::Object(map)),
+                            Some(_) => self.back(),
+                            None => {}
+                        },
+                        Some('}') => return Ok(Value::Object(map)),
+                        _ => return Err(self.syntax("Expected a ',' or '}'")),
+                    }
+                }
+            }
+        }
+    }
+
+    // The game's JSONArray(tokener) constructor (bytecode 16-108): the opener
+    // fixes the closer; the empty check only accepts `]` even for `(` (kept
+    // defect); `,` in element position yields a null slot.
+    fn next_array(&mut self) -> AppResult<Value> {
+        let end = match self.next_clean() {
+            Some('[') => ']',
+            Some('(') => ')',
+            _ => return Err(self.syntax("A JSONArray text must start with '['")),
+        };
+        let mut items = Vec::new();
+        match self.next_clean() {
+            Some(']') => return Ok(Value::Array(items)),
+            Some(_) => self.back(),
+            None => {}
+        }
+        loop {
+            match self.next_clean() {
+                Some(',') => {
+                    self.back();
+                    items.push(Value::Null);
+                }
+                Some(_) => {
+                    self.back();
+                    items.push(self.next_value()?);
+                }
+                None => return Err(self.syntax("Missing value")),
+            }
+            match self.next_clean() {
+                Some(',') | Some(';') => match self.next_clean() {
+                    Some(']') => return Ok(Value::Array(items)),
+                    Some(_) => self.back(),
+                    None => {}
+                },
+                Some(c) if c == end => return Ok(Value::Array(items)),
+                Some(']') | Some(')') => {
+                    return Err(self.syntax(&format!("Expected a '{end}'")));
+                }
+                _ => return Err(self.syntax("Expected a ',' or ']'")),
+            }
+        }
+    }
+
+    // The game's nextString (bytecode 319-411): escapes outside the accepted
+    // set error instead of passing through.
+    fn next_string(&mut self, quote: char) -> AppResult<String> {
+        let mut out = String::new();
+        loop {
+            match self.next() {
+                None => return Err(self.syntax("Unterminated string")),
+                Some('\n') | Some('\r') => return Err(self.syntax("Unterminated string")),
+                Some(c) if c == quote => return Ok(out),
+                Some('\\') => match self.next() {
+                    Some(escaped @ ('"' | '\'' | '/' | '\\')) => out.push(escaped),
+                    Some('b') => out.push('\u{0008}'),
+                    Some('t') => out.push('\t'),
+                    Some('n') => out.push('\n'),
+                    Some('f') => out.push('\u{000C}'),
+                    Some('r') => out.push('\r'),
+                    Some('u') => {
+                        let mut hex = String::new();
+                        for _ in 0..4 {
+                            match self.next() {
+                                Some(h) => hex.push(h),
+                                None => return Err(self.syntax("Illegal escape.")),
+                            }
+                        }
+                        match u32::from_str_radix(&hex, 16) {
+                            Ok(code) => match char::from_u32(code) {
+                                Some(decoded) => out.push(decoded),
+                                None => return Err(self.syntax("Illegal escape.")),
+                            },
+                            Err(_) => return Err(self.syntax("Illegal escape.")),
+                        }
+                    }
+                    Some(_) => return Err(self.syntax("Illegal escape.")),
+                    None => return Err(self.syntax("Unterminated string")),
+                },
+                Some(c) => out.push(c),
+            }
+        }
+    }
+}
+
+// The game's modded stringToValue (bytecode 1460-1578): case-insensitive
+// true/false/null; hex failure falls through to the decimal path (138 → 139);
+// parse failures become strings; None means non-finite, which the game
+// rejects via testValidity.
+fn string_to_value(word: &str) -> Option<Value> {
+    if word.is_empty() {
+        return Some(Value::String(String::new()));
+    }
+    if word.eq_ignore_ascii_case("true") {
+        return Some(Value::Bool(true));
+    }
+    if word.eq_ignore_ascii_case("false") {
+        return Some(Value::Bool(false));
+    }
+    if word.eq_ignore_ascii_case("null") {
+        return Some(Value::Null);
+    }
+    let Some(first) = word.chars().next() else {
+        return Some(Value::String(word.to_string()));
+    };
+    if !matches!(first, '0'..='9' | '.' | '-' | '+') {
+        return Some(Value::String(word.to_string()));
+    }
+    if first == '0' && word.len() > 2 && matches!(word.as_bytes()[1], b'x' | b'X') {
+        if let Ok(value) = i32::from_str_radix(&word[2..], 16) {
+            return Some(Value::Number(value.into()));
+        }
+    }
+    if word.contains(['.', 'e', 'E']) {
+        return match word.parse::<f64>() {
+            Ok(value) if value.is_finite() => {
+                Some(Value::Number(serde_json::Number::from_f64(value)?))
+            }
+            Ok(_) => None,
+            Err(_) => Some(Value::String(word.to_string())),
+        };
+    }
+    if let Ok(value) = word.parse::<i64>() {
+        return Some(Value::Number(value.into()));
+    }
+    Some(Value::String(word.to_string()))
 }
 
 #[cfg(test)]
@@ -346,342 +346,245 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_loose_json() {
-        let text = r#"
-        # comment
-        {
-          id: "abc",
-          color: [1,2,3,],
-        }
-        trailing
-        "#;
-        let parsed = parse_starsector_json(text).unwrap();
-        assert_eq!(parsed["id"], "abc");
-        assert_eq!(parsed["color"][2], 3);
-    }
-
-    #[test]
-    fn strips_hash_comments_that_contain_quotes() {
-        let text = r#"{
-            "weaponGroups": [
-                #{
-                #   "autofire": true,
-                #   "mode": "LINKED",
-                #},
-                {"mode": "LINKED"}
-            ],
-            "description": "literal # stays"
-        }"#;
-        let parsed = parse_starsector_json(text).unwrap();
-        assert_eq!(parsed["weaponGroups"][0]["mode"], "LINKED");
-        assert_eq!(parsed["description"], "literal # stays");
-    }
-
-    #[test]
-    fn parses_unquoted_enum_values_in_arrays() {
-        let text = r#"{
-            "id": "test_wpn",
-            "renderHints": [RENDER_BARREL_BELOW],
-            "turretSprite": "graphics/weapons/test.png"
-        }"#;
-        let result = parse_starsector_json(text);
-        if let Ok(parsed) = result {
-            assert_eq!(parsed["id"], "test_wpn");
-            assert_eq!(parsed["turretSprite"], "graphics/weapons/test.png");
-            assert_eq!(parsed["renderHints"][0], "RENDER_BARREL_BELOW");
-        } else {
-            panic!(
-                "Parser cannot handle unquoted enum values in arrays: {:?}",
-                result.err()
-            );
-        }
-    }
-
-    #[test]
-    fn does_not_corrupt_quoted_values_or_booleans() {
-        let text = r#"{
-            "id": "TEST_WEAPON",
-            "enabled": true,
-            "decorative": TRUE,
-            "visible": True,
-            "disabled": FALSE,
-            "hidden": False,
-            "count": 42,
-            "type": "BALLISTIC",
-            "name": "重生[UNGP]",
-            "description": "literal # and .5f are text",
-            "hints": [RENDER_BARREL_BELOW, RENDER_LOADED_MISSILES]
-        }"#;
-        let parsed = parse_starsector_json(text).unwrap();
-        assert_eq!(parsed["id"], "TEST_WEAPON");
-        assert_eq!(parsed["enabled"], true);
-        assert_eq!(parsed["decorative"], true);
-        assert_eq!(parsed["visible"], true);
-        assert_eq!(parsed["disabled"], false);
-        assert_eq!(parsed["hidden"], false);
-        assert_eq!(parsed["count"], 42);
-        assert_eq!(parsed["type"], "BALLISTIC");
-        assert_eq!(parsed["name"], "重生[UNGP]");
-        assert_eq!(parsed["description"], "literal # and .5f are text");
-        assert_eq!(parsed["hints"][0], "RENDER_BARREL_BELOW");
-        assert_eq!(parsed["hints"][1], "RENDER_LOADED_MISSILES");
-    }
-
-    #[test]
-    fn parses_mod_info_with_uppercase_text_inside_brackets() {
-        let text = r#"{
-          "id": "ungp",
-          "name": "重生[UNGP]",
-          "version": {"major": 2, "minor": 5, "patch": 0},
-          "jars": ["jars/ungp.jar"],
-          "modPlugin": "ungp.scripts.UNGP_modPlugin",
-        }"#;
-        let parsed = parse_starsector_json(text).unwrap();
-        assert_eq!(parsed["id"], "ungp");
-        assert_eq!(parsed["name"], "重生[UNGP]");
-        assert_eq!(parsed["version"]["minor"], 5);
-        assert_eq!(parsed["jars"][0], "jars/ungp.jar");
-    }
-
-    #[test]
-    fn handles_unquoted_value_after_colon() {
-        let text = r#"{
-            "id": "gun",
-            "barrelMode": ALTERNATING,
-            "textureType": ROUGH,
-            "size": "LARGE"
-        }"#;
-        let parsed = parse_starsector_json(text).unwrap();
-        assert_eq!(parsed["id"], "gun");
-        assert_eq!(parsed["barrelMode"], "ALTERNATING");
-        assert_eq!(parsed["textureType"], "ROUGH");
-        assert_eq!(parsed["size"], "LARGE");
-    }
-
-    #[test]
-    fn strips_java_float_suffix() {
-        let text = r#"{
-            "id": "test",
-            "probability": 1f,
-            "ratio": 0.5f,
-            "normal": 2.0,
-            "integer": 3
-        }"#;
-        let parsed = parse_starsector_json(text).unwrap();
-        assert_eq!(parsed["id"], "test");
-        assert_eq!(parsed["probability"], 1);
-        assert_eq!(parsed["ratio"], 0.5);
-        assert_eq!(parsed["normal"], 2.0);
-        assert_eq!(parsed["integer"], 3);
-    }
-
-    #[test]
-    fn normalizes_leading_dot_decimals() {
-        let text = r#"{
-            "id": "test",
-            "contrailMaxSpeedMult": .0f,
-            "contrailSpawnDistMult": .5,
-            "negative": -.25f,
-            "values": [.125, -.75f, 1f]
-        }"#;
-        let parsed = parse_starsector_json(text).unwrap();
-        assert_eq!(parsed["contrailMaxSpeedMult"], 0.0);
-        assert_eq!(parsed["contrailSpawnDistMult"], 0.5);
-        assert_eq!(parsed["negative"], -0.25);
-        assert_eq!(parsed["values"][0], 0.125);
-        assert_eq!(parsed["values"][1], -0.75);
-        assert_eq!(parsed["values"][2], 1);
-    }
-
-    #[test]
-    fn accepts_semicolon_entry_separators() {
-        let text = r#"{
-            "id": "test";
-            "description": "semicolon; inside string";
-            "fadeOutEngineWhenFiring": false;
-            "values": [1; 2; 3;];
-        }"#;
-        let parsed = parse_starsector_json(text).unwrap();
-        assert_eq!(parsed["id"], "test");
-        assert_eq!(parsed["description"], "semicolon; inside string");
-        assert_eq!(parsed["fadeOutEngineWhenFiring"], false);
-        assert_eq!(parsed["values"][0], 1);
-        assert_eq!(parsed["values"][1], 2);
-        assert_eq!(parsed["values"][2], 3);
-    }
-
-    #[test]
-    fn accepts_single_quoted_strings() {
-        let text = r#"{
-            "id": 'MagicLib',
-            "version": { "major": '1', "minor": '5', "patch": '1' },
-            "description": 'It\'s useful',
-            "doubleQuoted": "single ' quote stays"
-        }"#;
-        let parsed = parse_starsector_json(text).unwrap();
-        assert_eq!(parsed["id"], "MagicLib");
-        assert_eq!(parsed["version"]["major"], "1");
-        assert_eq!(parsed["description"], "It's useful");
-        assert_eq!(parsed["doubleQuoted"], "single ' quote stays");
-    }
-
-    #[test]
-    fn normalizes_leading_zero_integers() {
-        let text = r#"{
-            "id": "test",
-            "fringeColor": [255, 0, 000, 100],
-            "coreColor": [007, 01, 0, 255],
-            "value": 00042,
-            "zero": 0,
-            "decimal": 0.5
-        }"#;
-        let parsed = parse_starsector_json(text).unwrap();
-        assert_eq!(parsed["fringeColor"][2], 0);
-        assert_eq!(parsed["coreColor"][0], 7);
-        assert_eq!(parsed["coreColor"][1], 1);
-        assert_eq!(parsed["coreColor"][2], 0);
-        assert_eq!(parsed["value"], 42);
-        assert_eq!(parsed["zero"], 0);
-        assert_eq!(parsed["decimal"], 0.5);
-    }
-
-    #[test]
-    fn rejects_overly_loose_json_forms() {
-        let invalid_cases = [
-            (
-                "missing comma between fields",
-                r#"{"id": "test" "name": "No comma"}"#,
-            ),
-            ("unterminated single quoted string", r#"{"id": 'test}"#),
-            ("number-prefixed bare key", r#"{1id: "test"}"#),
-            ("double decimal point", r#"{"ratio": 0..5}"#),
-            ("field without value", r#"{"enabled": ;}"#),
-            ("unterminated string", r#"{"id": "test}"#),
-        ];
-
-        for (label, text) in invalid_cases {
-            assert!(
-                parse_starsector_json(text).is_err(),
-                "{label} should not be accepted"
-            );
-        }
-    }
-
-    #[test]
-    fn quotes_unquoted_lowercase_and_mixed_case_values() {
-        let text = r#"{
-            "builtInWings": [brdy_kutos_wing],
-            "size": Large,
-            "id": test_id,
-            "valid": true,
-            "nothing": null
-        }"#;
-        let parsed = parse_starsector_json(text).unwrap();
-        assert_eq!(parsed["builtInWings"][0], "brdy_kutos_wing");
-        assert_eq!(parsed["size"], "Large");
-        assert_eq!(parsed["id"], "test_id");
-        assert_eq!(parsed["valid"], true);
-        assert!(parsed["nothing"].is_null());
-    }
-
-    #[test]
-    fn parses_faction_file_format() {
-        let text = r#"{
-            id:"hegemony",
-            "color":[245,150,30,255],
-            "displayName":"Hegemony",
-            "knownShips":{
-                "tags":["heg_aux_bp", "XIV_bp", "hegemony"],
-                "hulls":["cerberus", "crig"],
-            },
-            "voices":{
-                "LOW":{
-                    "soldier":10,
-                    "faithful":5,
-                },
-            },
-            "custom":{
-                "offersCommissions":true,
-                "AICoreValueMult":1,
-                "officerSkillsShuffleProbability":1f,
-            },
-        }"#;
-        let parsed = parse_starsector_json(text).unwrap();
-        assert_eq!(parsed["id"], "hegemony");
-        assert_eq!(parsed["displayName"], "Hegemony");
-        assert_eq!(parsed["color"][0], 245);
-        assert_eq!(parsed["knownShips"]["tags"][0], "heg_aux_bp");
-        assert_eq!(parsed["knownShips"]["tags"][1], "XIV_bp");
-        assert_eq!(parsed["custom"]["offersCommissions"], true);
-        assert_eq!(parsed["custom"]["AICoreValueMult"], 1);
-        assert_eq!(parsed["custom"]["officerSkillsShuffleProbability"], 1);
-    }
-
-    #[test]
-    fn parses_fixed_projectile_spec_shape() {
-        let text = r#"{
-            id: armaa_flamer_shot2,
-            specClass: projectile,
-            spawnType: PROJECTILE,
-            collisionClass: PROJECTILE_FF,
-            collisionClassByFighter: PROJECTILE_NO_FF,
-            length: 10f,
-            width: .5,
-            fadeTime: +0.25,
-            fringeColor: [255, 100, 000, 255],
-            renderHints: [RENDER_BARREL_BELOW, RENDER_LOADED_MISSILES],
-            textureType: ROUGH,
-        }"#;
-        let parsed = parse_starsector_json(text).unwrap();
-        assert_eq!(parsed["id"], "armaa_flamer_shot2");
-        assert_eq!(parsed["spawnType"], "PROJECTILE");
-        assert_eq!(parsed["collisionClass"], "PROJECTILE_FF");
-        assert_eq!(parsed["length"], 10);
-        assert_eq!(parsed["width"], 0.5);
-        assert_eq!(parsed["fadeTime"], 0.25);
-        assert_eq!(parsed["fringeColor"][2], 0);
-        assert_eq!(parsed["renderHints"][1], "RENDER_LOADED_MISSILES");
-        assert_eq!(parsed["textureType"], "ROUGH");
-    }
-
-    #[test]
-    fn parses_fixed_mod_info_shape() {
-        let text = r#"{
-            id: 'demo_mod',
-            name: "Demo # Mod",
-            version: { major: '1'; minor: 0002; patch: +3; },
-            gameVersion: "0.97a-RC11",
-            jars: ["jars/demo.jar",],
-            modPlugin: "demo.scripts.DemoPlugin",
-            description: "hash # and semicolon; stay in string",
-        }"#;
+    fn parses_crlf_pretty_json() {
+        let text = "{\r\n  \"id\": \"demo_mod\",\r\n  \"name\": \"Demo Mod\"\r\n}";
         let parsed = parse_starsector_json(text).unwrap();
         assert_eq!(parsed["id"], "demo_mod");
-        assert_eq!(parsed["name"], "Demo # Mod");
-        assert_eq!(parsed["version"]["major"], "1");
-        assert_eq!(parsed["version"]["minor"], 2);
-        assert_eq!(parsed["version"]["patch"], 3);
-        assert_eq!(parsed["jars"][0], "jars/demo.jar");
-        assert_eq!(parsed["modPlugin"], "demo.scripts.DemoPlugin");
-        assert_eq!(
-            parsed["description"],
-            "hash # and semicolon; stay in string"
+        assert_eq!(parsed["name"], "Demo Mod");
+    }
+
+    #[test]
+    fn parses_crlf_four_field_mod_info() {
+        let text = concat!(
+            "{\r\n",
+            "  \"id\": \"demo_mod\",\r\n",
+            "  \"name\": \"Demo Mod\",\r\n",
+            "  \"version\": \"0.97a-RC11\",\r\n",
+            "  \"gameVersion\": \"0.97a-RC11\"\r\n",
+            "}"
+        );
+        let parsed = parse_starsector_json(text).unwrap();
+        assert_eq!(parsed["id"], "demo_mod");
+        assert_eq!(parsed["gameVersion"], "0.97a-RC11");
+    }
+
+    #[test]
+    fn trailing_comma_and_semicolon_tolerated() {
+        for text in [
+            "{\"a\": 1,}",
+            "{\"a\": 1;}",
+            "{\"list\": [1, 2,]}",
+            "{\"list\": [1; 2;]}",
+            "{\"a\": [1,], \"b\": {\"c\": 2}}",
+        ] {
+            assert!(parse_starsector_json(text).is_ok(), "failed: {text}");
+        }
+    }
+
+    #[test]
+    fn semicolon_is_an_item_separator() {
+        let parsed = parse_starsector_json("{\"a\": 1; \"b\": 2}").unwrap();
+        assert_eq!(parsed["a"], 1);
+        assert_eq!(parsed["b"], 2);
+    }
+
+    #[test]
+    fn unquoted_keys_and_values() {
+        let parsed = parse_starsector_json("{id: demo_mod, tag: foo-bar, odd: 1f}").unwrap();
+        assert_eq!(parsed["id"], "demo_mod");
+        assert_eq!(parsed["tag"], "foo-bar");
+        assert_eq!(parsed["odd"], "1f");
+    }
+
+    #[test]
+    fn unquoted_word_keeps_inner_spaces() {
+        let parsed = parse_starsector_json("{name: Demo Mod}").unwrap();
+        assert_eq!(parsed["name"], "Demo Mod");
+    }
+
+    #[test]
+    fn boolean_words_are_case_insensitive() {
+        // The game's modded stringToValue itself uses equalsIgnoreCase.
+        for (word, expected) in [
+            ("true", Value::Bool(true)),
+            ("TRUE", Value::Bool(true)),
+            ("True", Value::Bool(true)),
+            ("false", Value::Bool(false)),
+            ("FALSE", Value::Bool(false)),
+        ] {
+            let parsed = parse_starsector_json(&format!("{{flag: {word}}}")).unwrap();
+            assert_eq!(parsed["flag"], expected, "word: {word}");
+        }
+    }
+
+    #[test]
+    fn duplicate_key_is_an_error() {
+        let error = parse_starsector_json("{\"a\": 1, \"a\": 2}").unwrap_err();
+        assert_eq!(error.code(), "json.duplicate_key");
+    }
+
+    #[test]
+    fn trailing_garbage_after_root_is_ignored() {
+        let parsed = parse_starsector_json("{\"a\": 1} trailing garbage }).unwrap();").unwrap();
+        assert_eq!(parsed["a"], 1);
+    }
+
+    #[test]
+    fn root_must_be_an_object() {
+        for text in ["[1, 2]", "\"text\"", "123", ""] {
+            let error = parse_starsector_json(text).unwrap_err();
+            assert!(
+                error.to_string().contains("must begin with '{'"),
+                "text: {text}, error: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn hash_comments_are_stripped_and_in_string_hash_survives() {
+        let parsed =
+            parse_starsector_json("{\n  # full line comment\n  \"a\": 1 # tail\n}").unwrap();
+        assert_eq!(parsed["a"], 1);
+        let parsed = parse_starsector_json("{\"url\": \"http://x#y\"}").unwrap();
+        assert_eq!(parsed["url"], "http://x#y");
+    }
+
+    #[test]
+    fn hash_strip_ignores_backslash_escapes() {
+        // Game defect: `\"` still flips state, so the rest of a valid line is
+        // stripped as a comment.
+        let stripped = strip_hash_comments("{\"a\": \"x\\\" # tail\", \"b\": 2}");
+        assert_eq!(stripped, "{\"a\": \"x\\\" ");
+    }
+
+    #[test]
+    fn hash_strip_flips_quote_state_inside_comment() {
+        // Game defect: quotes inside comments affect the next line's `#`.
+        let stripped = strip_hash_comments("# \"in comment\n{a: 1} # \" tail\n");
+        assert_eq!(stripped, "\n{a: 1} \n");
+    }
+
+    #[test]
+    fn carriage_returns_are_dropped_before_tokener() {
+        let parsed = parse_starsector_json("{\r\n\"a\": \"x\rz\"\r\n}").unwrap();
+        assert_eq!(parsed["a"], "xz");
+    }
+
+    #[test]
+    fn paren_array_delimiters() {
+        let bracketed = parse_starsector_json("[1, 2]").unwrap_err();
+        assert!(bracketed.to_string().contains("must begin with '{'"));
+        // The unquoted word set has no `)`, so an unquoted last element
+        // swallows it; `(...)` only closes after quoted elements.
+        let parsed = parse_starsector_json("{\"list\": (\"a\", \"b\")}").unwrap();
+        assert_eq!(parsed["list"], serde_json::json!(["a", "b"]));
+        let error = parse_starsector_json("{\"list\": (1, 2)}").unwrap_err();
+        assert!(
+            error.to_string().contains("Expected a ',' or ']'"),
+            "{error}"
+        );
+        let error = parse_starsector_json("{\"list\": [1, \"a\")}").unwrap_err();
+        assert!(error.to_string().contains("Expected a ']'"), "{error}");
+    }
+
+    #[test]
+    fn array_null_slots() {
+        let parsed = parse_starsector_json("{\"a\": [,], \"b\": [1,,2]}").unwrap();
+        assert_eq!(parsed["a"], serde_json::json!([null]));
+        assert_eq!(parsed["b"], serde_json::json!([1, null, 2]));
+    }
+
+    #[test]
+    fn delimiter_at_word_start_is_missing_value() {
+        for text in ["{,}", "{a: ,}", "{\"list\": [,}"] {
+            let error = parse_starsector_json(text).unwrap_err();
+            assert!(
+                error.to_string().contains("Missing value"),
+                "text: {text}, error: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn illegal_escape_is_an_error() {
+        let error = parse_starsector_json("{\"a\": \"x\\qy\"}").unwrap_err();
+        assert!(error.to_string().contains("Illegal escape."), "{error}");
+    }
+
+    #[test]
+    fn literal_newline_inside_string_is_unterminated() {
+        let error = parse_starsector_json("{\n\"a\": \"x\ny\"\n}").unwrap_err();
+        assert!(error.to_string().contains("Unterminated string"), "{error}");
+    }
+
+    #[test]
+    fn unquoted_number_forms_match_game() {
+        let parsed =
+            parse_starsector_json("{a: 007, b: -0, c: .5, d: +5, e: 1E2, f: 0x1F, g: 0X10}")
+                .unwrap();
+        assert_eq!(parsed["a"], 7);
+        assert_eq!(parsed["b"], 0);
+        assert_eq!(parsed["c"], serde_json::json!(0.5));
+        assert_eq!(parsed["d"], 5);
+        assert_eq!(parsed["e"], serde_json::json!(100.0));
+        assert_eq!(parsed["f"], 31);
+        assert_eq!(parsed["g"], 16);
+    }
+
+    #[test]
+    fn hex_fall_through_to_decimal_path() {
+        // Hex failure falls through to the decimal path, but `x` also fails
+        // Long/Double, so the word still ends up a string.
+        let parsed = parse_starsector_json("{a: 0x1234567890, b: 0xzz}").unwrap();
+        assert_eq!(parsed["a"], "0x1234567890");
+        assert_eq!(parsed["b"], "0xzz");
+    }
+
+    #[test]
+    fn non_finite_number_is_an_error() {
+        let error = parse_starsector_json("{a: 1e309}").unwrap_err();
+        assert!(error.to_string().contains("non-finite"), "{error}");
+    }
+
+    #[test]
+    fn arrow_and_bare_equals_key_separators() {
+        let parsed = parse_starsector_json("{a=>1, b=2}").unwrap();
+        assert_eq!(parsed["a"], 1);
+        assert_eq!(parsed["b"], 2);
+    }
+
+    #[test]
+    fn single_quoted_strings() {
+        let parsed = parse_starsector_json("{'a': 'b c', 'd': 'e\\'f'}").unwrap();
+        assert_eq!(parsed["a"], "b c");
+        assert_eq!(parsed["d"], "e'f");
+    }
+
+    #[test]
+    fn unicode_escapes() {
+        let parsed = parse_starsector_json("{\"a\": \"\\u0041\\u00e9\"}").unwrap();
+        assert_eq!(parsed["a"], "Aé");
+    }
+
+    #[test]
+    fn eof_error_messages_match_game() {
+        let error = parse_starsector_json("{\"a\": 1").unwrap_err();
+        assert!(
+            error.to_string().contains("Expected a ',' or '}'"),
+            "{error}"
+        );
+        let error = parse_starsector_json("{").unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("A JSONObject text must end with '}'"),
+            "{error}"
         );
     }
 
     #[test]
-    fn strips_leading_plus_from_numbers() {
-        let text = r#"{
-            "renderOrderMod":+100,
-            "offset": [+0.5, +3],
-            "negative": -5,
-            "plusInString": "value is +10"
-        }"#;
-        let parsed = parse_starsector_json(text).unwrap();
-        assert_eq!(parsed["renderOrderMod"], 100);
-        assert_eq!(parsed["offset"][0], 0.5);
-        assert_eq!(parsed["offset"][1], 3);
-        assert_eq!(parsed["negative"], -5);
-        assert_eq!(parsed["plusInString"], "value is +10");
+    fn leading_whitespace_before_root() {
+        let parsed = parse_starsector_json("  \r\n{\"a\": 1}\n").unwrap();
+        assert_eq!(parsed["a"], 1);
     }
 }

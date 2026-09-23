@@ -325,7 +325,8 @@ mod tests {
         let root = temp_dir("faction_bad_csv");
         let dir = root.join("data/world/factions");
         fs::create_dir_all(&dir).unwrap();
-        write_utf8_no_bom(&dir.join("factions.csv"), "id,file\r\nbad\r\n").unwrap();
+        // Short rows are tolerated now; a real defect must still surface the CSV path.
+        write_utf8_no_bom(&dir.join("factions.csv"), "id,file\r\n\"bad\r\n").unwrap();
 
         let error = load_faction_files(&root).unwrap_err().to_string();
 
@@ -394,7 +395,11 @@ mod tests {
         let discover_error = discover_factions(&root).unwrap_err().to_string();
 
         let _ = fs::remove_dir_all(root);
-        assert!(load_error.contains("faction file must be a JSON object"));
-        assert!(discover_error.contains("faction file must be a JSON object"));
+        // A non-object root is rejected by the parser per the game's
+        // new JSONObject; read_json_file adds the file path.
+        assert!(load_error.contains("demo.faction"));
+        assert!(load_error.contains("must begin with '{'"));
+        assert!(discover_error.contains("demo.faction"));
+        assert!(discover_error.contains("must begin with '{'"));
     }
 }

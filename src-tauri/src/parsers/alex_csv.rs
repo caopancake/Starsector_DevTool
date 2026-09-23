@@ -4,77 +4,55 @@ use crate::{
 };
 use serde_json::{Map, Value};
 
-struct LooseRecord {
-    fields: Vec<String>,
-    start_line: usize,
-}
-
+/// Parses Starsector CSV-like bytes with the game's CSVParser semantics:
+/// tolerant of short/long rows, preserving empty and `#` lines; errors carry
+/// the path context.
 pub fn parse_csv_bytes(path_label: &str, bytes: &[u8]) -> AppResult<CsvTable> {
-    let records = parse_loose_records(path_label, bytes)?;
-    if records.is_empty() {
-        return Ok(CsvTable {
-            header: vec![],
-            rows: vec![],
-            path: path_label.to_string(),
-        });
-    }
-    let Some(header_index) = records
-        .iter()
-        .position(|record| !is_blank_visible_empty_record(&record.fields))
-    else {
-        return Ok(CsvTable {
-            header: vec![],
-            rows: vec![],
-            path: path_label.to_string(),
-        });
-    };
-    let header = records[header_index].fields.clone();
-    let header_width = header.len();
-    let mut normalized_records = Vec::new();
-    for (index, record) in records.iter().skip(header_index + 1).enumerate() {
-        normalized_records.push(normalize_record_width(
-            path_label,
-            &record.fields,
-            header_width,
-            index + header_index + 2,
-            record.start_line,
-        )?);
-    }
-    let mut rows = Vec::new();
-    for record in normalized_records {
-        let mut row = Map::new();
-        for (idx, h) in header.iter().enumerate() {
-            row.insert(
-                h.clone(),
-                Value::String(record.get(idx).cloned().unwrap_or_default()),
-            );
-        }
-        rows.push(row);
-    }
-    Ok(CsvTable {
-        header,
-        rows,
-        path: path_label.to_string(),
-    })
+    let chars = decode_csv_chars(path_label, bytes)?;
+    parse_csv_chars(path_label, &chars)
 }
 
-/// Rows are passed as references to the parsed cell maps so write paths never
-/// clone a full table just to render it.
+/// Renders rows back to CSV text. Rows are passed as references so write
+/// paths never clone a full table just to render them.
 pub fn render_csv_text(header: &[String], rows: &[&Map<String, Value>]) -> AppResult<String> {
-    let mut bytes = Vec::new();
-    let mut wtr = csv::Writer::from_writer(&mut bytes);
-    wtr.write_record(header)?;
+    let mut out = String::new();
+    write_record_line(&mut out, header.iter().map(String::as_str));
     for row in rows {
-        let values: Vec<String> = header
+        if row.is_empty() {
+            // An empty Map is a bare empty line, distinct from an all-empty
+            // cells row (rendered as `,`-run).
+            out.push('\n');
+            continue;
+        }
+        let cells = header
             .iter()
             .map(|h| value_to_cell(row.get(h).unwrap_or(&Value::Null)))
             .collect::<AppResult<Vec<_>>>()?;
-        wtr.write_record(values)?;
+        write_record_line(&mut out, cells.iter().map(String::as_str));
     }
-    wtr.flush()?;
-    drop(wtr);
-    String::from_utf8(bytes)
-        .map_err(|error| AppError::message("parse.csv_encode", format!("CSV 编码失败: {error}")))
+    Ok(out)
+}
+
+/// Minimal quoting: a cell is quoted only when it contains `,` `"` `\n` `\r`,
+/// matching the csv crate output this renderer replaced.
+fn write_record_line<'a>(out: &mut String, cells: impl Iterator<Item = &'a str>) {
+    for (index, cell) in cells.enumerate() {
+        if index > 0 {
+            out.push(',');
+        }
+        write_cell(out, cell);
+    }
+    out.push('\n');
+}
+
+fn write_cell(out: &mut String, cell: &str) {
+    if cell.contains([',', '"', '\n', '\r']) {
+        out.push('"');
+        out.push_str(&cell.replace('"', "\"\""));
+        out.push('"');
+    } else {
+        out.push_str(cell);
+    }
 }
 
 pub fn value_to_cell(value: &Value) -> AppResult<String> {
@@ -89,173 +67,21 @@ pub fn value_to_cell(value: &Value) -> AppResult<String> {
     }
 }
 
-fn normalize_record_width(
-    path_label: &str,
-    record: &[String],
-    header_width: usize,
-    record_number: usize,
-    start_line: usize,
-) -> AppResult<Vec<String>> {
-    if is_blank_visible_empty_record(record) {
-        return Ok(vec![String::new(); header_width]);
-    }
-    if record.len() == header_width {
-        return Ok(record.to_vec());
-    }
-    if record.len() < header_width && record.first().is_some_and(|cell| cell.starts_with('#')) {
-        let mut padded = record.to_vec();
-        padded.resize(header_width, String::new());
-        return Ok(padded);
-    }
-    Err(AppError::context(
-        format!("解析 CSV 失败 ({path_label})"),
-        AppError::message(
-            "parse.csv_width",
-            format!(
-                "record {} has {} fields, but header has {} fields; record starts at line {}",
-                record_number,
-                record.len(),
-                header_width,
-                start_line
-            ),
-        ),
-    ))
-}
-
-fn parse_loose_records(path_label: &str, bytes: &[u8]) -> AppResult<Vec<LooseRecord>> {
-    let mut records = Vec::new();
-    let mut record = Vec::new();
-    let mut field = String::new();
-    let mut index = 0;
-    let mut in_quotes = false;
-    let mut line_number = 1usize;
-    let mut record_start_line = 1usize;
-    let mut quoted_field_start_line = None;
-    let mut at_field_start = true;
-    let mut record_has_content = false;
+// Decodes bytes to chars; the CP1252 smart-quote mapping owner lives in
+// models and is shared with text reading.
+fn decode_csv_chars(path_label: &str, bytes: &[u8]) -> AppResult<Vec<char>> {
+    let mut chars = Vec::with_capacity(bytes.len());
+    let mut index = 0usize;
     while index < bytes.len() {
         let byte = bytes[index];
-        if in_quotes {
-            if byte == b'"' {
-                if bytes.get(index + 1) == Some(&b'"') {
-                    index += 2;
-                    field.push('"');
-                    continue;
-                } else if quote_closes_field(bytes.get(index + 1).copied()) {
-                    index += 1;
-                    in_quotes = false;
-                    quoted_field_start_line = None;
-                    continue;
-                } else {
-                    field.push('"');
-                    index += 1;
-                    continue;
-                }
-            } else if byte == b'\r' {
-                if bytes.get(index + 1) == Some(&b'\n') {
-                    index += 2;
-                    field.push_str("\r\n");
-                    line_number += 1;
-                } else {
-                    index += 1;
-                    field.push('\r');
-                    line_number += 1;
-                }
-            } else if byte == b'\n' {
-                index += 1;
-                field.push('\n');
-                line_number += 1;
-            } else {
-                let ch = read_csv_text_char(path_label, bytes, &mut index)?;
-                field.push(ch);
-            }
-            continue;
-        }
-
-        if byte == b'"' && at_field_start {
+        if let Some(ch) = crate::models::known_cp1252_char(byte) {
             index += 1;
-            in_quotes = true;
-            quoted_field_start_line = Some(line_number);
-            at_field_start = false;
-            record_has_content = true;
-        } else if byte == b',' {
+            chars.push(ch);
+        } else if byte <= 0x7f {
             index += 1;
-            record.push(std::mem::take(&mut field));
-            at_field_start = true;
-            record_has_content = true;
-        } else if byte == b'\r' {
-            index += 1;
-            if bytes.get(index) == Some(&b'\n') {
-                index += 1;
-            }
-            finish_record(
-                &mut records,
-                &mut record,
-                &mut field,
-                &mut at_field_start,
-                &mut record_has_content,
-                record_start_line,
-            );
-            line_number += 1;
-            record_start_line = line_number;
-        } else if byte == b'\n' {
-            index += 1;
-            finish_record(
-                &mut records,
-                &mut record,
-                &mut field,
-                &mut at_field_start,
-                &mut record_has_content,
-                record_start_line,
-            );
-            line_number += 1;
-            record_start_line = line_number;
+            chars.push(byte as char);
         } else {
-            let ch = read_csv_text_char(path_label, bytes, &mut index)?;
-            field.push(ch);
-            at_field_start = false;
-            record_has_content = true;
-        }
-    }
-    if in_quotes {
-        return Err(AppError::context(
-            format!("解析 CSV 失败 ({path_label})"),
-            AppError::message(
-                "parse.csv_unterminated_quote",
-                format!(
-                    "unterminated quoted field starting at line {}",
-                    quoted_field_start_line.unwrap_or(line_number)
-                ),
-            ),
-        ));
-    }
-    if record_has_content || !field.is_empty() || !record.is_empty() {
-        record.push(field);
-        records.push(LooseRecord {
-            fields: record,
-            start_line: record_start_line,
-        });
-    }
-    Ok(records)
-}
-
-fn quote_closes_field(byte: Option<u8>) -> bool {
-    matches!(byte, None | Some(b',') | Some(b'\r') | Some(b'\n'))
-}
-
-fn read_csv_text_char(path_label: &str, bytes: &[u8], index: &mut usize) -> AppResult<char> {
-    let byte = bytes[*index];
-    if let Some(ch) = crate::models::known_cp1252_char(byte) {
-        *index += 1;
-        return Ok(ch);
-    }
-    match byte {
-        0x00..=0x7f => {
-            *index += 1;
-            Ok(byte as char)
-        }
-        _ => {
-            let text = std::str::from_utf8(&bytes[*index..]).map_err(|error| {
+            let text = std::str::from_utf8(&bytes[index..]).map_err(|error| {
                 AppError::message(
                     "text.invalid_utf8",
                     format!("{path_label} is not valid UTF-8: {error}"),
@@ -267,31 +93,174 @@ fn read_csv_text_char(path_label: &str, bytes: &[u8], index: &mut usize) -> AppR
                     format!("{path_label} is not valid UTF-8: empty sequence"),
                 )
             })?;
-            *index += ch.len_utf8();
-            Ok(ch)
+            index += ch.len_utf8();
+            chars.push(ch);
         }
     }
+    Ok(chars)
 }
 
-fn finish_record(
-    records: &mut Vec<LooseRecord>,
-    record: &mut Vec<String>,
-    field: &mut String,
-    at_field_start: &mut bool,
-    record_has_content: &mut bool,
-    start_line: usize,
-) {
-    record.push(std::mem::take(field));
-    records.push(LooseRecord {
-        fields: std::mem::take(record),
-        start_line,
-    });
-    *at_field_start = true;
-    *record_has_content = false;
+// Plain comma split (quotes invisible, like the game's header handling); with
+// a comma present, trailing empty cells are dropped per Java split(",").
+fn parse_header_line(line: &[char]) -> Vec<String> {
+    let raw: String = line.iter().collect();
+    if !raw.contains(',') {
+        return vec![parse_header_cell(&raw)];
+    }
+    let mut cells: Vec<String> = raw.split(',').map(str::to_string).collect();
+    while cells.last().is_some_and(|cell| cell.is_empty()) {
+        cells.pop();
+    }
+    cells
+        .into_iter()
+        .map(|cell| parse_header_cell(&cell))
+        .collect()
 }
 
-fn is_blank_visible_empty_record(record: &[String]) -> bool {
-    record.iter().all(|field| field.trim().is_empty())
+fn parse_header_cell(cell: &str) -> String {
+    let mut cell = cell.trim_matches(|c: char| c <= ' ').to_string();
+    if cell.starts_with('"') {
+        cell.remove(0);
+    }
+    if cell.ends_with('"') {
+        cell.pop();
+    }
+    cell.replace("\"\"", "\"")
+}
+
+// The game CSVParser body loop: `\r\n` normalized to `\n` (lone `\r` kept);
+// ROW_START→COL_START→IN_COLUMN fall through on one char; quotes toggle
+// anywhere and `""` yields a literal quote; rows end at unquoted `\n`. Column
+// tolerance per the game: extra cells dropped, missing keys left unwritten.
+// Tool adjudication: bare empty lines are kept as empty Maps and `#` lines
+// kept as rows (the game skips both); EOF flushes explicitly instead of the
+// game's appended `\n` so no synthetic empty line appears.
+fn parse_csv_chars(path_label: &str, text: &[char]) -> AppResult<CsvTable> {
+    let mut normalized: Vec<char> = Vec::with_capacity(text.len());
+    let mut cursor = 0usize;
+    while cursor < text.len() {
+        if text[cursor] == '\r' && text.get(cursor + 1) == Some(&'\n') {
+            cursor += 1;
+        } else {
+            normalized.push(text[cursor]);
+            cursor += 1;
+        }
+    }
+
+    let Some(header_end) = normalized.iter().position(|&c| c == '\n') else {
+        // The game yields nothing without a newline; the whole line is kept
+        // as header so the grid still shows column names.
+        let header = parse_header_line(&normalized);
+        return Ok(CsvTable {
+            header,
+            rows: Vec::new(),
+            path: path_label.to_string(),
+        });
+    };
+    let header = parse_header_line(&normalized[..header_end]);
+    let body = &normalized[header_end + 1..];
+
+    #[derive(PartialEq)]
+    enum State {
+        RowStart,
+        ColStart,
+        InColumn,
+    }
+    let mut rows: Vec<Map<String, Value>> = Vec::new();
+    let mut state = State::RowStart;
+    let mut row = Map::new();
+    let mut cell = String::new();
+    let mut col_index = 0usize;
+    let mut in_quote = false;
+    let mut quote_buf = String::new();
+    let mut last_quote_line = 2usize;
+    let mut line = 2usize;
+
+    let mut index = 0usize;
+    while index < body.len() {
+        let c = body[index];
+        let next = body.get(index + 1).copied().unwrap_or(' ');
+        let entered_at_row_start = state == State::RowStart;
+
+        if entered_at_row_start {
+            row = Map::new();
+            col_index = 0;
+            state = State::ColStart;
+        }
+        if state == State::ColStart {
+            cell = String::new();
+            state = State::InColumn;
+        }
+        if state == State::InColumn {
+            if c == '"' {
+                if next == '"' {
+                    cell.push('"');
+                    quote_buf.push('"');
+                    index += 1;
+                } else {
+                    in_quote = !in_quote;
+                    if in_quote {
+                        quote_buf.clear();
+                        last_quote_line = line;
+                    }
+                }
+            } else if (c == ',' || c == '\n') && !in_quote {
+                if col_index < header.len() {
+                    row.insert(
+                        header[col_index].clone(),
+                        Value::String(std::mem::take(&mut cell)),
+                    );
+                }
+                if c == ',' {
+                    col_index += 1;
+                    state = State::ColStart;
+                } else {
+                    if entered_at_row_start {
+                        rows.push(Map::new());
+                    } else {
+                        rows.push(std::mem::take(&mut row));
+                    }
+                    state = State::RowStart;
+                }
+            } else {
+                cell.push(c);
+                quote_buf.push(c);
+            }
+        }
+
+        if c == '\n' {
+            line += 1;
+        }
+        index += 1;
+    }
+
+    if state != State::RowStart {
+        if col_index < header.len() {
+            row.insert(
+                header[col_index].clone(),
+                Value::String(std::mem::take(&mut cell)),
+            );
+        }
+        rows.push(row);
+    }
+
+    if in_quote {
+        return Err(AppError::context(
+            format!("解析 CSV 失败 ({path_label})"),
+            AppError::message(
+                "parse.csv_unterminated_quote",
+                format!(
+                    "mismatched quotes in the string; unterminated quote starting at line {last_quote_line}, context: [{quote_buf}]"
+                ),
+            ),
+        ));
+    }
+
+    Ok(CsvTable {
+        header,
+        rows,
+        path: path_label.to_string(),
+    })
 }
 
 #[cfg(test)]
@@ -317,35 +286,34 @@ mod tests {
     }
 
     #[test]
-    fn read_reports_path_for_mismatched_record_width() {
-        let error = parse_csv_text("csv_bad_width.csv", "id,name\r\na,A\r\nbroken\r\n")
-            .unwrap_err()
-            .to_string();
-
-        assert!(error.contains("解析 CSV 失败"));
-        assert!(error.contains("csv_bad_width.csv"));
-        assert!(error.contains("record 3 has 1 fields"));
-        assert!(error.contains("header has 2 fields"));
-        assert!(error.contains("record starts at line 3"));
+    fn save_renders_empty_map_rows_as_bare_empty_lines() {
+        let header = vec!["id".to_string(), "name".to_string()];
+        let mut row = Map::new();
+        row.insert("id".to_string(), Value::String("b".to_string()));
+        row.insert("name".to_string(), Value::String("B".to_string()));
+        let out = render_csv_text(&header, &[&Map::new(), &row]).unwrap();
+        assert_eq!(out, "id,name\n\nb,B\n");
     }
 
     #[test]
-    fn read_reports_physical_start_line_after_multiline_record() {
-        for newline in ["\r\n", "\n"] {
-            let text = format!(
-                "id,name,desc{newline}a,A,\"first{newline}second{newline}third\"{newline}broken{newline}"
-            );
-            let error = parse_csv_text("csv_multiline_before_bad_width.csv", &text)
-                .unwrap_err()
-                .to_string();
+    fn read_tolerates_short_and_long_rows() {
+        // Game tolerance: short rows leave keys unwritten, extra cells drop.
+        let table = parse_csv_text(
+            "csv_tolerates_width.csv",
+            "id,name,notes\r\nsolo\r\na,A,alpha,extra,more\r\n",
+        )
+        .unwrap();
 
-            assert!(error.contains("record 3 has 1 fields"));
-            assert!(error.contains("record starts at line 5"));
-        }
+        assert_eq!(table.rows.len(), 2);
+        assert_eq!(table.rows[0]["id"], "solo");
+        assert_eq!(table.rows[0].get("name"), None);
+        assert_eq!(table.rows[1]["id"], "a");
+        assert_eq!(table.rows[1]["notes"], "alpha");
+        assert_eq!(table.rows[1].len(), 3);
     }
 
     #[test]
-    fn read_keeps_visible_empty_rows() {
+    fn read_keeps_visible_empty_rows_and_distinguishes_empty_line_from_empty_cells() {
         let table = parse_csv_text(
             "csv_keeps_visible_empty_rows.csv",
             "id,name,notes\r\na,A,alpha\r\n#section\r\n\r\n,,\r\nb,B,beta\r\n",
@@ -355,8 +323,11 @@ mod tests {
         assert_eq!(table.rows.len(), 5);
         assert_eq!(table.rows[0]["id"], "a");
         assert_eq!(table.rows[1]["id"], "#section");
-        assert_eq!(table.rows[2]["id"], "");
+        // A bare empty line is an empty Map; `,,` is an all-keys empty row.
+        assert_eq!(table.rows[2], Map::new());
         assert_eq!(table.rows[3]["id"], "");
+        assert_eq!(table.rows[3]["name"], "");
+        assert_eq!(table.rows[3]["notes"], "");
         assert_eq!(table.rows[4]["id"], "b");
     }
 
@@ -370,13 +341,16 @@ mod tests {
 
         assert_eq!(table.rows.len(), 3);
         assert_eq!(table.rows[0]["id"], "a");
-        assert_eq!(table.rows[0]["desc"], "first line\r\n\r\nthird line");
+        // The game normalizes \r\n to \n up front, quoted newlines included.
+        assert_eq!(table.rows[0]["desc"], "first line\n\nthird line");
         assert_eq!(table.rows[1]["id"], "#section");
         assert_eq!(table.rows[2]["id"], "b");
     }
 
     #[test]
-    fn read_treats_inner_quotes_in_multiline_fields_as_text() {
+    fn read_toggles_quote_state_on_cp1252_smart_quotes() {
+        // Decoded smart quotes toggle the quote state like any other quote;
+        // the comma on row 2 survives because the state is back inside quotes.
         let table = parse_csv_bytes(
             "csv_multiline_inner_quotes.csv",
             b"id,type,text1,text2,text3,text4,text5,notes\r\nmonitor,SHIP,\"An oddity that \x93sometimes\x94 works.\r\n\r\nA unique \x93flux shunt\x94 modification.\",,,,,\r\nheron,SHIP,\"A so-called \x93Cruiser School\x94, the forward-thinking design won.\",,,,,\r\n",
@@ -387,11 +361,11 @@ mod tests {
         assert_eq!(table.rows[0]["id"], "monitor");
         assert_eq!(
             table.rows[0]["text1"],
-            "An oddity that \"sometimes\" works.\r\n\r\nA unique \"flux shunt\" modification."
+            "An oddity that sometimes works.\n\nA unique flux shunt modification."
         );
         assert_eq!(
             table.rows[1]["text1"],
-            "A so-called \"Cruiser School\", the forward-thinking design won."
+            "A so-called Cruiser School, the forward-thinking design won."
         );
     }
 
@@ -406,14 +380,15 @@ mod tests {
         assert_eq!(table.rows.len(), 4);
         assert_eq!(table.rows[1]["name"], "#Disabled Name");
         assert_eq!(table.rows[1]["id"], "disabled");
-        assert_eq!(table.rows[1]["desc"], "first line\r\n\r\nthird line");
+        assert_eq!(table.rows[1]["desc"], "first line\n\nthird line");
+        // Short `#section` row: only the first key exists (tolerance).
         assert_eq!(table.rows[2]["name"], "#section");
-        assert_eq!(table.rows[2]["id"], "");
+        assert_eq!(table.rows[2].get("id"), None);
         assert_eq!(table.rows[3]["id"], "b");
     }
 
     #[test]
-    fn read_pads_hash_prefixed_short_rows() {
+    fn read_keeps_hash_prefixed_short_rows_with_missing_keys() {
         let table = parse_csv_text(
             "csv_hash_prefixed_short_row.csv",
             "id,text,text2,text3\r\nid1,hi,hello,wow\r\n#id2,\r\n#id3,\"\"\r\nid4,a,b,c\r\n",
@@ -423,25 +398,13 @@ mod tests {
         assert_eq!(table.rows.len(), 4);
         assert_eq!(table.rows[1]["id"], "#id2");
         assert_eq!(table.rows[1]["text"], "");
-        assert_eq!(table.rows[1]["text2"], "");
-        assert_eq!(table.rows[1]["text3"], "");
+        assert_eq!(table.rows[1].get("text2"), None);
+        assert_eq!(table.rows[1].get("text3"), None);
         assert_eq!(table.rows[2]["id"], "#id3");
-        assert_eq!(table.rows[2]["text"], "");
-        assert_eq!(table.rows[2]["text2"], "");
-        assert_eq!(table.rows[2]["text3"], "");
-    }
-
-    #[test]
-    fn read_still_rejects_short_non_hash_rows() {
-        let error = parse_csv_text(
-            "csv_short_row.csv",
-            "id,text,text2,text3\r\nid1,hi,hello,wow\r\nid2,\r\n",
-        )
-        .unwrap_err()
-        .to_string();
-
-        assert!(error.contains("解析 CSV 失败"));
-        assert!(error.contains("csv_short_row.csv"));
+        // `""` is a doubled-quote pair producing one literal quote, not an
+        // empty field.
+        assert_eq!(table.rows[2]["text"], "\"");
+        assert_eq!(table.rows[3]["id"], "id4");
     }
 
     #[test]
@@ -455,22 +418,74 @@ mod tests {
 
         assert!(error.contains("解析 CSV 失败"));
         assert!(error.contains("csv_unterminated_quote.csv"));
-        assert!(error.contains("unterminated quoted field starting at line 2"));
+        assert!(error.contains("mismatched quotes in the string"));
+        assert!(error.contains("starting at line 2"));
     }
 
     #[test]
-    fn read_keeps_hash_prefixed_multiline_data_rows() {
+    fn read_parses_header_cells_with_trim_and_quote_stripping() {
         let table = parse_csv_text(
-            "csv_hash_prefixed_multiline_data_row.csv",
-            "name,id,desc,short,sprite\r\nA,a,alpha,A,graphics/a.png\r\n#Disabled Name,disabled,\"first line\r\n\r\nthird line\",Disabled,graphics/disabled.png\r\nB,b,beta,B,graphics/b.png\r\n",
+            "csv_header_cells.csv",
+            " id , \"name\" ,\"a\"\"b\"\r\n1,2,3\r\n",
         )
         .unwrap();
 
-        assert_eq!(table.rows.len(), 3);
-        assert_eq!(table.rows[1]["name"], "#Disabled Name");
-        assert_eq!(table.rows[1]["id"], "disabled");
-        assert_eq!(table.rows[1]["desc"], "first line\r\n\r\nthird line");
-        assert_eq!(table.rows[1]["short"], "Disabled");
+        assert_eq!(table.header, vec!["id", "name", "a\"b"]);
+        assert_eq!(table.rows[0]["a\"b"], "3");
+    }
+
+    #[test]
+    fn read_drops_trailing_empty_header_cells_like_java_split() {
+        let table = parse_csv_text("csv_header_trailing.csv", "id,name,,\r\na,A\r\n").unwrap();
+        assert_eq!(table.header, vec!["id", "name"]);
+        // A comma-less line is a single cell, blank lines included.
+        let table = parse_csv_text("csv_header_blank_line.csv", "\r\na,A\r\n").unwrap();
+        assert_eq!(table.header, vec![""]);
+    }
+
+    #[test]
+    fn read_treats_header_only_file_as_header_with_no_rows() {
+        let table = parse_csv_text("csv_header_only.csv", "id,name\r\n").unwrap();
+        assert_eq!(table.header, vec!["id", "name"]);
+        assert!(table.rows.is_empty());
+    }
+
+    #[test]
+    fn read_treats_newline_less_file_as_header_row() {
+        let table = parse_csv_text("csv_no_newline.csv", "id,name").unwrap();
+        assert_eq!(table.header, vec!["id", "name"]);
+        assert!(table.rows.is_empty());
+    }
+
+    #[test]
+    fn read_flushes_last_row_without_trailing_newline() {
+        let table = parse_csv_text("csv_no_trailing_newline.csv", "id,name\r\na,A").unwrap();
+        assert_eq!(table.rows.len(), 1);
+        assert_eq!(table.rows[0]["id"], "a");
+        assert_eq!(table.rows[0]["name"], "A");
+
+        let table =
+            parse_csv_text("csv_no_trailing_newline_comment.csv", "id,name\r\n#c,X").unwrap();
+        assert_eq!(table.rows.len(), 1);
+        assert_eq!(table.rows[0]["id"], "#c");
+    }
+
+    #[test]
+    fn read_preserves_lone_carriage_return_inside_cells() {
+        // Only \r\n is normalized; a lone \r is an ordinary character.
+        let table = parse_csv_text("csv_lone_cr.csv", "id,name\r\na\rb,B\r\n").unwrap();
+        assert_eq!(table.rows[0]["id"], "a\rb");
+        assert_eq!(table.rows[0]["name"], "B");
+    }
+
+    #[test]
+    fn read_toggles_quotes_across_delimiters_like_game() {
+        // Quotes toggle anywhere and are consumed structurally, so an odd
+        // count pulls the following comma into the cell.
+        let table = parse_csv_text("csv_toggle_quotes.csv", "id,name\r\na\"x,y\"b,B\r\n").unwrap();
+        assert_eq!(table.rows.len(), 1);
+        assert_eq!(table.rows[0]["id"], "ax,yb");
+        assert_eq!(table.rows[0]["name"], "B");
     }
 
     #[test]
@@ -509,7 +524,7 @@ mod tests {
             row_of([
                 ("id", "#Disabled Name"),
                 ("name", "disabled"),
-                ("desc", "first\r\n\r\nthird"),
+                ("desc", "first\n\nthird"),
                 ("notes", "graphics/a.png"),
             ]),
             row_of([
@@ -519,9 +534,10 @@ mod tests {
                 ("notes", ""),
             ]),
             row_of([("id", ""), ("name", ""), ("desc", ""), ("notes", "")]),
+            Map::new(),
             row_of([
                 ("id", "b"),
-                ("name", "舰船, 引号\"与换行\r\n混合"),
+                ("name", "舰船, 引号\"与换行\n混合"),
                 ("desc", ""),
                 ("notes", "x"),
             ]),

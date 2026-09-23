@@ -448,9 +448,10 @@ mod tests {
     fn open_project_session_rejects_corrupted_mission_list() {
         let root = temp_dir("mission_list_corrupted");
         std::fs::create_dir_all(root.join("data/missions")).unwrap();
+        // Long rows are tolerated now; a real defect must still fail session open.
         write_utf8_no_bom(
             &root.join("data/missions/mission_list.csv"),
-            "mission\r\nbad,extra\r\n",
+            "mission\r\n\"bad\r\n",
         )
         .unwrap();
 

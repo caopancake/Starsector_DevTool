@@ -163,8 +163,10 @@ mod tests {
             .to_string();
 
         let _ = fs::remove_dir_all(root);
-        assert!(error.contains("core field source must be a JSON object"));
+        // A non-object root is rejected by the parser per the game's
+        // new JSONObject; read_json_file adds the file path.
         assert!(error.contains("list.wpn"));
+        assert!(error.contains("must begin with '{'"));
     }
 
     #[test]
