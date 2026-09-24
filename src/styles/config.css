@@ -3,8 +3,7 @@
 /* --- Config Workspaces --- */
 .config-factions-layout,
 .mission-view,
-.skin-view,
-.variant-view {
+.config-family-view {
   display: flex;
   flex: 1;
   min-height: 0;
@@ -136,8 +135,7 @@
 }
 
 .mission-editor,
-.skin-editor,
-.variant-editor,
+.config-family-editor,
 .faction-editor-page {
   display: flex;
   flex: 1;
@@ -153,8 +151,7 @@
 }
 
 .mission-editor-header,
-.skin-editor-header,
-.variant-editor-header,
+.config-family-editor-header,
 .faction-editor-header {
   display: flex;
   align-items: center;
@@ -164,15 +161,13 @@
 }
 
 .mission-editor-header,
-.skin-editor-header,
-.variant-editor-header {
+.config-family-editor-header {
   padding: var(--space-3) var(--space-4);
   background: var(--color-panel);
 }
 
 .mission-editor-body,
-.skin-editor-body,
-.variant-editor-body {
+.config-family-editor-body {
   display: grid;
   align-content: start;
   gap: var(--space-3);
@@ -198,14 +193,12 @@
   image-rendering: pixelated;
 }
 
-.skin-list-text,
-.variant-list-text {
+.config-entity-text {
   display: grid;
   min-width: 0;
 }
 
-.skin-list-text small,
-.variant-list-text small {
+.config-entity-text small {
   min-width: 0;
   overflow: hidden;
   color: var(--color-muted);
@@ -214,8 +207,7 @@
   white-space: nowrap;
 }
 
-.skin-list-icon,
-.variant-list-icon {
+.config-entity-icon {
   width: 15px;
   height: 15px;
   color: var(--color-muted);
@@ -225,23 +217,20 @@
   stroke-linejoin: round;
 }
 
-.skin-editor-header h3,
-.variant-editor-header h3 {
+.config-family-editor-header h3 {
   margin: 0 0 var(--space-1);
   font-size: 14px;
   font-weight: 650;
 }
 
-.skin-editor-header p,
-.variant-editor-header p {
+.config-family-editor-header p {
   margin: 0;
   color: var(--color-muted);
   font-size: 11px;
 }
 
 .config-editor-actions,
-.skin-editor-actions,
-.variant-editor-actions {
+.config-family-editor-actions {
   display: flex;
   gap: var(--space-2);
   align-items: center;
