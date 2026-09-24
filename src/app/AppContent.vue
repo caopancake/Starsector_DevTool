@@ -18,11 +18,11 @@
       <AboutPage v-else-if="workspace.currentView === 'about'" />
       <TableWorkspace v-else-if="workspace.currentView === 'table' && project.activeManifest" />
       <ConfigWorkspace v-else-if="workspace.currentView === 'config' && project.activeManifest" />
-      <main v-else class="workspace">
-        <section class="empty-state">
-          <h1>选择一个 Starsector 目录</h1>
-          <p>可以打开游戏目录查看 Mod 概览，也可以直接打开一个 Mod 目录。</p>
-          <n-button type="primary" size="large" @click="actions.openDirectory">打开目录</n-button>
+      <main v-else class="workspace workspace-loading">
+        <section class="workspace-loading-state">
+          <n-spin size="large" />
+          <h1>正在加载 Mod</h1>
+          <p>{{ loadingModLabel }}</p>
         </section>
       </main>
     </div>
@@ -68,6 +68,11 @@ const closeGuard = useDirtyWindowCloseGuard({
 });
 
 const isTableView = computed(() => workspace.currentView === 'table' && Boolean(project.activeManifest));
+const loadingModLabel = computed(() => {
+  const activeModRoot = workspace.activeModRoot;
+  if (!activeModRoot) return '';
+  return workspace.loadedModList.find((mod) => mod.modRoot === activeModRoot)?.displayName || activeModRoot;
+});
 
 // Registration follows the same onMounted/onUnmounted pattern as the config
 // editors; the table-view condition is watched so the handler is swapped the

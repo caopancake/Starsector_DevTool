@@ -52,6 +52,30 @@
   overflow: hidden;
 }
 
+/* Loading page: no topbar child, so the 62px header row must not apply. */
+.workspace-loading {
+  grid-template-rows: 1fr;
+}
+
+.workspace-loading-state {
+  display: grid;
+  place-content: center;
+  gap: var(--space-3);
+  color: var(--color-text);
+  text-align: center;
+}
+
+.workspace-loading-state h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.workspace-loading-state p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
 .config-workspace {
   position: relative;
   display: flex;

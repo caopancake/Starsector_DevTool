@@ -24,6 +24,7 @@ export function installNaiveUi(app: App): void {
   registerAsyncNaiveComponent(app, 'NRadioGroup', async () => (await import('naive-ui/es/radio')).NRadioGroup);
   registerAsyncNaiveComponent(app, 'NSelect', async () => (await import('naive-ui/es/select')).NSelect);
   registerAsyncNaiveComponent(app, 'NSlider', async () => (await import('naive-ui/es/slider')).NSlider);
+  registerAsyncNaiveComponent(app, 'NSpin', async () => (await import('naive-ui/es/spin')).NSpin);
   registerAsyncNaiveComponent(app, 'NSwitch', async () => (await import('naive-ui/es/switch')).NSwitch);
 }
 
